@@ -7,6 +7,8 @@ mods/*
 !mods/example/
 !mods/previewtest/
 !mods/z/
+!mods/mimicrune-ch1
+!mods/mimicrune_chapter_select
 
 build/
 output/

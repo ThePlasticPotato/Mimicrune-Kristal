@@ -1,0 +1,74 @@
+{
+    "id": "mimicrune_chapter_select",
+    "name": "Mimicrune: Chapter Select",
+    "subtitle": "An alternate story in a scarier world.",
+    "author": "Mimicrune Team",
+
+    "version": "v1.0.0",
+    "engineVer": "v0.10.0-dev",
+
+    "chapter": 2,
+
+    "map": "chapter_select",
+    "useSaves": false,
+    "party": ["kris"],
+    "config": {
+        "kristal": {},
+        "obscurachapters": {
+            "infoAuthor": "Mimicrune Team", // If not set, defaults to "By: [Mod.info.author]"
+            "infoProject": "Mimicrune", // If not set, defaults to "[Mod.info.name] v[Mod.info.version]"
+            "include_example": false, // Remove the default ch1 and ch2 (from the lib.json)
+            "chapters":[
+                {
+                    "image": "chapters/ch1",
+                    "name": "Connection Terminated",
+                    "sound": "ui_spooky_action",
+                    "mod": "mimicrune"
+                },
+                {
+                    "image": "chapters/ch2",
+                    "name": "???",
+                    "unlocked": false,
+                    "sound": "deathnoise",
+                    "mod": "mimicrune_ch2"
+                },
+                {
+                    "image": "chapters/ch3",
+                    "name": "???",
+                    "unlocked": false,
+                    "sound": "cardrive",
+                    "mod": "mimicrune_ch3"
+                },
+                {
+                    "image": "chapters/ch4",
+                    "unlocked": false,
+                    "name": "???",
+                    "sound": "bluh",
+                    "mod": "mimicrune_ch4"
+                },
+                {
+                    "image": "chapters/ch5",
+                    "name": "???",
+                    "unlocked": false,
+                    "sound": "bluh",
+                    "mod": "mimicrune_ch5"
+                },
+                {
+                    "image": "chapters/ch6",
+                    "name": "???",
+                    "unlocked": false,
+                    "sound": "bluh",
+                    "mod": "mimicrune_ch6"
+                },
+                {
+                    "image": "chapters/ch7",
+                    "name": "Access Denied",
+                    "unlocked": false,
+                    "sound": "bluh",
+                    "mod": "mimicrune_ch7",
+                    "instant": true
+                }
+            ]
+        }
+    }
+}

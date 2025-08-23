@@ -1,0 +1,19 @@
+{
+    "id":"obscurachapters",
+    "config": {
+        "include_example": true,
+        "interactable_while_fading": true,
+        "chapters": [
+            {
+                "image": "chapters/ch1",
+                "name": "The Beginning",
+                "sound": "bluh"
+            },
+            {
+                "image": "chapters/ch2",
+                "name": "A Cyber's World",
+                "sound": "queen_bitcrushed_hoot"
+            }
+        ]
+    }
+}

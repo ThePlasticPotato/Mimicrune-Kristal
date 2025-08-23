@@ -22,6 +22,12 @@ function GameOver:init(x, y)
     self.soul.x = x
     self.soul.y = y
 
+    if Game:isLight() then
+        --self:addFX(ShaderFX("vhs", {["iTime"] = function () return Kristal.getTime() end, ["texsize"] = {SCREEN_WIDTH, SCREEN_HEIGHT}}))
+    else
+        self:addFX(ShaderFX("vhs", {["iTime"] = function () return Kristal.getTime() end, ["texsize"] = {SCREEN_WIDTH, SCREEN_HEIGHT}}))
+    end
+
     self:addChild(self.soul)
 
     self.current_stage = 0
