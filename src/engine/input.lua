@@ -209,6 +209,7 @@ function Input.resetBinds(gamepad, mod_id)
             ["confirm"] = {"z", "return"},
             ["cancel"] = {"x", "shift"},
             ["menu"] = {"c", "ctrl"},
+            ["attack"] = {"v", "alt"},
             ["console"] = {"`"},
             ["debug_menu"] = {{"shift", "`"}},
             ["object_selector"] = {{"ctrl", "o"}},
@@ -223,11 +224,12 @@ function Input.resetBinds(gamepad, mod_id)
             ["confirm"] = {"gamepad:a"},
             ["cancel"] = {"gamepad:b"},
             ["menu"] = {"gamepad:y"},
+            ["attack"] = {"gamepad:x"},
             ["console"] = {},
             ["debug_menu"] = {},
             ["object_selector"] = {},
             ["fast_forward"] = {},
-            ["mod_rebind"] = {"gamepad:x"},
+            ["mod_rebind"] = {},
         }
         if gamepad ~= true then Utils.merge(Input.key_bindings, key_bindings) end
         if gamepad ~= false then Utils.merge(Input.gamepad_bindings, gamepad_bindings) end
@@ -274,6 +276,7 @@ function Input.resetBinds(gamepad, mod_id)
             ["confirm"] = {"z", "return"},
             ["cancel"] = {"x", "shift"},
             ["menu"] = {"c", "ctrl"},
+            ["attack"] = {"v", "alt"},
             ["console"] = {"`"},
             ["debug_menu"] = {{"shift", "`"}},
             ["object_selector"] = {{"ctrl", "o"}},
@@ -320,11 +323,12 @@ function Input.resetBinds(gamepad, mod_id)
             ["confirm"] = {"gamepad:a"},
             ["cancel"] = {"gamepad:b"},
             ["menu"] = {"gamepad:y"},
+            ["attack"] = {"gamepad:x"},
             ["console"] = {},
             ["debug_menu"] = {},
             ["object_selector"] = {},
             ["fast_forward"] = {},
-            ["mod_rebind"] = {"gamepad:x"},
+            ["mod_rebind"] = {},
         }
         for _,mod in ipairs(Kristal.Mods.getMods()) do
             if mod.keybinds then
@@ -1320,6 +1324,10 @@ end
 ---@return boolean
 function Input.isConfirm(key)
     return Input.is("confirm", key)
+end
+
+function Input.isAttack(key)
+    return Input.is("attack", key)
 end
 
 ---@param key string

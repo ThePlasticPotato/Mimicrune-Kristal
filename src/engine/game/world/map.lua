@@ -721,6 +721,8 @@ function Map:loadObject(name, data)
         return Savepoint(data.center_x, data.center_y, data.properties)
     elseif name:lower() == "interactable" then
         return Interactable(data.x, data.y, shape_data, data.properties)
+    elseif name:lower() == "attackable" then
+        return Attackable(data.x, data.y, shape_data, data.properties)
     elseif name:lower() == "script" then
         return Script(data.x, data.y, shape_data, data.properties)
     elseif name:lower() == "transition" then

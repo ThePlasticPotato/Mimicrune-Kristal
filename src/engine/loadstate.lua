@@ -80,6 +80,9 @@ function Loading:update()
         if Kristal.Args["test"] then
             Gamestate.switch(Kristal.States["Testing"])
         elseif AUTO_MOD_START and TARGET_MOD then
+            if not Kristal.hasAnySaves("mimicrune") then
+                TARGET_MOD = "mimicrune"
+            end
             if not Kristal.loadMod(TARGET_MOD) then
                 error("Failed to load mod: " .. TARGET_MOD)
             end

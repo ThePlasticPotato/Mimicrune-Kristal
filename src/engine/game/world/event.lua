@@ -81,6 +81,17 @@ end
 
 Event.onInteract = nil
 
+--- *(Override)* Called when the player attacks this event
+---@param player    Player  The interacting `Player`
+---@param dir       string  The direction the player is facing
+---@return boolean blocking Whether this interaction succeeded
+function Event:onHit(player, dir)
+    -- Do stuff when the player attacks this object (ATTACK key)
+    return false
+end
+
+Event.onHit = nil
+
 --- *(Override)* Called every frame the player and event are colliding with each other
 ---@param player    Player
 ---@param DT        number

@@ -32,7 +32,7 @@ function Player:init(chara, x, y)
 
     self.moving_x = 0
     self.moving_y = 0
-    self.walk_speed = Game:isLight() and 6 or 4
+    self.walk_speed = (Game:isLight() and 6 or 4) + Game.party[1].walk_speed_bonus
 
     self.last_move_x = self.x
     self.last_move_y = self.y
@@ -41,6 +41,11 @@ function Player:init(chara, x, y)
     self.history = {}
 
     self.interact_buffer = 0
+    self.attack_buffer = 0
+
+    self.time_since_attack = 0
+    self.attacking = false
+    self.attack_stage = 0
 
     self.battle_alpha = 0
 
@@ -105,6 +110,13 @@ function Player:setActor(actor)
         ["up"] = Hitbox(self, hx, hy - 19, hw, hh / 2 + 19),
         ["down"] = Hitbox(self, hx, hy + hh / 2, hw, hh / 2 + 14)
     }
+
+    self.attack_collider = {
+        ["left"] = Hitbox(self, hx - 26, hy, hw / 2 + 26, hh),
+        ["right"] = Hitbox(self, hx + hw / 2, hy, hw / 2 + 26, hh),
+        ["up"] = Hitbox(self, hx, hy - 38, hw, hh / 2 + 38),
+        ["down"] = Hitbox(self, hx, hy + hh / 2, hw, hh / 2 + 28)
+    }
 end
 
 function Player:interact()
@@ -130,6 +142,46 @@ function Player:interact()
     end
 
     return false
+end
+
+function Player:attack()
+    if ((not Game:getFlag("can_attack", false)) or self.state_manager.state == "SLIDE") then
+        return true
+    end
+    if (self.attack_buffer > 0) then
+        return true
+    end
+    self.time_since_attack = 0
+    self.attack_stage = self.attack_stage + 1
+    if (self.attack_stage > 3) then self.attack_stage = 1 end
+    self.attack_buffer = Game.party[1].overworld_attack_cd
+    self.attacking = true
+
+    local attack_dist = Game.party[1].attack_distance
+    local dx, dy = Utils.getFacingVector(self.facing)
+    if (attack_dist > 0) then self:updateSlideDust() end
+    self.slide_dust_timer = 0
+    self:move(self.x + (dx * attack_dist), self.y + (dy * attack_dist), 0.15)
+    
+
+    self:setAnimation("attack"..self.attack_stage, function () self.attacking = false end)
+    Assets.playSound(Game.party[1].attack_sound or (Game:isLight() and "swipe") or "laz_c", 1.0, Game.party[1].attack_pitch or 1)
+
+    local hit_anything = false
+    local col = self.attack_collider[self.facing]
+    local attackables = {}
+    for _, obj in ipairs(self.world.children) do
+        if obj.onHit and obj:collidesWith(col) then
+            local rx, ry = obj:getRelativePos(obj.width / 2, obj.height / 2, self.parent)
+            table.insert(attackables, { obj = obj, dist = Utils.dist(self.x, self.y, rx, ry) })
+        end
+    end
+    table.sort(attackables, function (a, b) return a.dist < b.dist end)
+    for _, v in ipairs(attackables) do
+        hit_anything = v.obj:onHit(self, self.facing) or hit_anything
+    end
+
+    return hit_anything
 end
 
 function Player:setState(state, ...)
@@ -195,6 +247,7 @@ function Player:isMovementEnabled()
         and self.world.state == "GAMEPLAY"
         and self.hurt_timer == 0
         and Game.world.door_delay == 0
+        and not self.attacking
 end
 
 function Player:handleMovement()
@@ -365,6 +418,11 @@ function Player:update()
 
     if not Game.world.cutscene and not Game.world.menu then
         self.interact_buffer = Utils.approach(self.interact_buffer, 0, DT)
+        self.attack_buffer = Utils.approach(self.attack_buffer, 0, DT)
+        self.time_since_attack = Utils.approach(self.time_since_attack, 3, DT)
+        if (self.time_since_attack >= 2.99 and self.attack_stage > 0) then
+            self.attack_stage = 0
+        end
     end
 
     self.world.in_battle_area = false

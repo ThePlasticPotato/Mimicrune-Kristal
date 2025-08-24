@@ -34,11 +34,14 @@ function character:init()
 
     -- Spells
     self:addKnownSpell("meditate", true)
-    self:addKnownSpell("psybeam", false)
+    self:addKnownSpell("psybeam", true)
     self:addKnownSpell("psywave", false)
 
     -- Current health (saved to the save file)
     self.health = 40
+
+    self.walk_speed_bonus = 2
+    self.attack_distance = 0
 
     -- Base stats (saved to the save file)
     self.stats = {

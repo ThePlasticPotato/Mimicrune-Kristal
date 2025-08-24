@@ -396,6 +396,10 @@ function World:onKeyPressed(key)
             if self.player:interact() then
                 Input.clear("confirm")
             end
+        elseif Input.isAttack(key) and self.player and not self:hasCutscene() and not self.menu then
+            if (self.player:attack()) then
+                Input.clear("attack")
+            end
         elseif Input.isMenu(key) and not self:hasCutscene() then
             self:openMenu(nil, WORLD_LAYERS["ui"] + 1)
             Input.clear("menu")
