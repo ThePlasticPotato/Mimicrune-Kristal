@@ -22,18 +22,17 @@ function GameOver:init(x, y)
     self.soul.x = x
     self.soul.y = y
 
-    if Game:isLight() then
-        --self:addFX(ShaderFX("vhs", {["iTime"] = function () return Kristal.getTime() end, ["texsize"] = {SCREEN_WIDTH, SCREEN_HEIGHT}}))
-    else
-        self:addFX(ShaderFX("vhs", {["iTime"] = function () return Kristal.getTime() end, ["texsize"] = {SCREEN_WIDTH, SCREEN_HEIGHT}}))
-    end
-
     self:addChild(self.soul)
 
     self.current_stage = 0
     self.fader_alpha = 0
     self.skipping = 0
     self.fade_white = false
+
+    self.particles = HealingParticles(0, 0)
+    self.particles.fade_in = false
+    self:addChild(self.particles)
+    self.particles:setLayer(WORLD_LAYERS["top"])
 
     self.timer = 0
 
@@ -104,6 +103,11 @@ function GameOver:update()
         end
     end
     if (self.timer >= 150) and (self.current_stage == 4) then
+        if not Game:isLight() then
+            self:addFX(ShaderFX("vhs", {["iTime"] = function () return Kristal.getTime() end, ["texsize"] = {SCREEN_WIDTH, SCREEN_HEIGHT}, ["noiseTex"] = Assets.getTexture("static")}))
+        else
+            self:addFX(ShaderFX("crt", {["iTime"] = function () return Kristal.getTime() end, ["texsize"] = {SCREEN_WIDTH, SCREEN_HEIGHT}}))
+        end
         self.music:play(Game:isLight() and "determination" or Game:getConfig("oldGameOver") and "AUDIO_DRONE" or "AUDIO_DEFEAT")
         if not Game:getConfig("oldGameOver") or Game:isLight() then
             if Game:isLight() then
@@ -302,6 +306,15 @@ function GameOver:update()
         end
         if (self.skipping >= 4) then
             Game:loadQuick()
+        end
+    end
+
+    if (self.music and self.music:isPlaying() and not Game:isLight()) then
+        local muspos = self.music:tell()
+        if ((muspos > 49) and (muspos < 120)) then
+            self.particles.fade_in = true
+        else
+            self.particles.fade_in = false
         end
     end
 

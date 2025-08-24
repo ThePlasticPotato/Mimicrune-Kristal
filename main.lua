@@ -61,6 +61,7 @@ Callback = require("src.engine.objects.callback")
 Video = require("src.engine.objects.video")
 GonerChoice = require("src.engine.objects.gonerchoice")
 GonerKeyboard = require("src.engine.objects.gonerkeyboard")
+HealingParticles = require("src.engine.objects.healingparticles")
 
 MainMenuTitle = require("src.engine.menu.mainmenutitle")
 MainMenuOptions = require("src.engine.menu.mainmenuoptions")

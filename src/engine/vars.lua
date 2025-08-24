@@ -117,11 +117,11 @@ local palette_data = {
     ["action_health"] = { 0, 1, 0, 1 },
 
     ["tension_back"] = { 128 / 255, 0, 0, 1 },
-    ["tension_decrease"] = { 1, 0, 0, 1 },
-    ["tension_fill"] = { 255 / 255, 160 / 255, 64 / 255, 1 },
-    ["tension_max"] = { 255 / 255, 208 / 255, 32 / 255, 1 },
+    ["tension_decrease"] = { 1, 1, 0.25, 1 },
+    ["tension_fill"] = { 2 / 255, 1, 2 / 255, 1 },
+    ["tension_max"] = { 2 / 255, 1, 111 / 255, 1 },
     ["tension_maxtext"] = { 1, 1, 0, 1 },
-    ["tension_desc"] = { 255 / 255, 160 / 255, 64 / 255, 1 },
+    ["tension_desc"] = { 2 / 255, 182 / 255, 64 / 255, 1 },
 
     ["tension_back_reduced"] = { 0, 0, 128 / 255, 1 },
     ["tension_decrease_reduced"] = { 0, 0, 1, 1 },
