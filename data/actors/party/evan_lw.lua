@@ -40,12 +40,11 @@ function actor:init()
     }
 
     self.offsets = {
+        ["lift"] = {-10, 13},
         ["run"] = {-5, -2},
-        ["splat"] = {-10, 8},
-        ["lift"] = {-10, 8},
-        ["sat"] = {-10, 8},
+        ["sat"] = {-11, 8},
+        ["splat"] = {-11, 13},
     }
-
     -- Whether this actor as a follower will blush when close to the player
     self.can_blush = true
 end

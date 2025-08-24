@@ -6,11 +6,11 @@ function actor:init()
     self.name = "William Afton"
 
     -- Width and height for this actor, used to determine its center
-    self.width = 19
-    self.height = 38
+    self.width = 25
+    self.height = 53
 
     -- Hitbox for this actor in the overworld (optional, uses width and height by default)
-    self.hitbox = {3, 31, 19, 14}
+    self.hitbox = {0, 31, 25, 14}
 
     -- A table that defines where the Soul should be placed on this actor if they are a player.
     -- First value is x, second value is y.
@@ -43,7 +43,7 @@ function actor:init()
     }
 
     self.offsets = {
-        ["turnaround"] = {-7, 0}, 
+        ["dark_turn/turn"] = {0, -6},
     }
 
     -- Whether this actor as a follower will blush when close to the player

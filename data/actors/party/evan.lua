@@ -52,26 +52,22 @@ function actor:init()
     }
 
     self.offsets = {
-                -- Battle offsets
-        ["battle/idle"] = {-3, -1},
-
-        ["battle/attack"] = {-10, -6},
-        ["battle/attackready"] = {-10, -6},
-        ["battle/act"] = {-10, -6},
-        ["battle/actend"] = {-10, -6},
-        ["battle/actready"] = {-10, -6},
-        ["battle/item"] = {-10, -6},
-        ["battle/itemend"] = {-10, -6},
-        ["battle/itemready"] = {-10, -6},
-        ["battle/spell"] = {-10, -6},
-        ["battle/spellready"] = {-10, -6},
-        ["battle/defend"] = {0, -3},
-
-        ["battle/defeat"] = {-3, -5},
-        ["battle/hurt"] = {-10, -6},
-
-        ["battle/intro"] = {-10, -9},
-        ["battle/victory"] = {-3, 0},
+        ["battle/act"] = {-13, -6};
+        ["battle/actend"] = {-10, -6};
+        ["battle/actready"] = {-13, -6};
+        ["battle/attack"] = {-13, -6};
+        ["battle/attackready"] = {-12, -6};
+        ["battle/defeat"] = {-7, 1};
+        ["battle/defend"] = {-3, -3};
+        ["battle/hurt"] = {-13, -6};
+        ["battle/idle"] = {-6, -1};
+        ["battle/item"] = {-13, -6};
+        ["battle/itemend"] = {-13, -6};
+        ["battle/itemready"] = {-13, -6};
+        ["battle/spell"] = {-13, -6};
+        ["battle/spellready"] = {-13, -6};
+        ["battle/victory"] = {-1, 0};
+        ["run/down"] = {-5, -2};
     }
 
     -- Sound to play when this actor speaks (optional)

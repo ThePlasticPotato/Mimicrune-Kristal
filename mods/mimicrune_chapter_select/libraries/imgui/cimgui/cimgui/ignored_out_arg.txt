@@ -1,0 +1,4 @@
+ImFontAtlas_AddCustomRect: ImFontAtlasRect* out_r
+ImFontAtlas_GetCustomRect: ImFontAtlasRect* out_r
+ImGuiTextRange_split: ImVector_ImGuiTextRange* out
+ImTextureData_GetTexRef: ImTextureRef* pOut

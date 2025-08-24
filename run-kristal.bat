@@ -1,1 +1,1 @@
-"C:\\Program Files\\Love\\love.exe" "C:\\Users\\thepl\\Projects\\Mimicrune-Kristal" --mod mimicrune --auto-mod-start
+"C:\\Program Files\\Love\\lovec.exe" "C:\\Users\\thepl\\Projects\\Mimicrune-Kristal"

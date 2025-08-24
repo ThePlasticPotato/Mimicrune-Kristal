@@ -10,7 +10,7 @@ function actor:init()
     self.height = 43
 
     -- Hitbox for this actor in the overworld (optional, uses width and height by default)
-    self.hitbox = {3, 31, 19, 14}
+    self.hitbox = {0, 31, 25, 14}
     
     -- A table that defines where the Soul should be placed on this actor if they are a player.
     -- First value is x, second value is y.
@@ -39,7 +39,7 @@ function actor:init()
         ["battle/act_ready"]    = {"battle/actready", 0.2, true},
         ["battle/spell_ready"]  = {"battle/spellready", 0.2, true},
         ["battle/item_ready"]   = {"battle/itemready", 0.2, true},
-        ["battle/defend_ready"] = {"battle/defend", 1/15, false},
+        ["battle/defend"] = {"battle/defend", 1/15, false},
 
         ["battle/act_end"]      = {"battle/actend", 1/15, false, next="battle/idle"},
 
@@ -52,26 +52,22 @@ function actor:init()
     }
 
     self.offsets = {
-                -- Battle offsets
-        ["battle/idle"] = {-3, -1},
-
-        ["battle/attack"] = {-12, -8},
-        ["battle/attackready"] = {-12, -8},
-        ["battle/act"] = {-12, -8},
-        ["battle/actend"] = {-12, -8},
-        ["battle/actready"] = {-12, -8},
-        ["battle/item"] = {-12, -8},
-        ["battle/itemend"] = {-12, -8},
-        ["battle/itemready"] = {-12, -8},
-        ["battle/spell"] = {-12, -8},
-        ["battle/spellready"] = {-12, -8},
-        ["battle/defend"] = {0, -3},
-
-        ["battle/defeat"] = {-3, -5},
-        ["battle/hurt"] = {-12, -8},
-
-        ["battle/intro"] = {-10, -9},
-        ["battle/victory"] = {-3, 0},
+        ["battle/act"] = {-15, -6};
+        ["battle/actend"] = {-15, -6};
+        ["battle/actready"] = {-15, -6};
+        ["battle/attack"] = {-15, -6};
+        ["battle/attackready"] = {-15, -6};
+        ["battle/battle_transition"] = {-15, -6};
+        ["battle/defeat"] = {-17, -4};
+        ["battle/defend"] = {0, 0};
+        ["battle/hurt"] = {-15, -6};
+        ["battle/idle"] = {-6, 1};
+        ["battle/item"] = {-15, -6};
+        ["battle/itemend"] = {-15, -6};
+        ["battle/itemready"] = {-15, -6};
+        ["battle/spell"] = {-15, -6};
+        ["battle/spellready"] = {-15, -5};
+        ["battle/victory"] = {-15, -6};
     }
 
     -- Sound to play when this actor speaks (optional)

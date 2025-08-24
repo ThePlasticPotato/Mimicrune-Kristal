@@ -11,6 +11,7 @@ extern number wobble_amp   = 0.015; // horizontal wiggle strength (was ~1/50 * b
 extern number stripes_speed = 0.30; // motion of the stripe mask (lower = calmer)
 extern number sweep_speed   = 0.25; // speed of the bright sweep band
 extern number sweep_amp     = 0.35; // amplitude of the sweep band (brightness variation)
+extern number seam_feather = 0.004;
 
 // float noise(vec2 p)
 // {
@@ -62,6 +63,36 @@ vec3 stripesRGB(vec2 uv)
 	return clamp(stripe, 0.0, 1.0);
 }
 
+// Wrap inside [0,1], but zero out any contribution from coords outside [0,1]
+vec4 sampleWrapNoTile(in Image tex, in vec2 uv)
+{
+    vec2 uvWrapped = fract(uv);
+    // inRange = 1 when 0 <= uv <= 1 for both components
+    vec2 inRange  = step(0.0, uv) * step(uv, vec2(1.0));
+    float mask    = inRange.x * inRange.y; // 1 if both in-range, else 0
+    return Texel(tex, uvWrapped) * mask;
+}
+
+vec4 sampleWrapNoTileFeather(in Image tex, in vec2 uv)
+{
+    vec2 uvWrapped = fract(uv);
+
+    // inside flags (1 when within [0,1], else 0)
+    vec2 inRange = step(0.0, uv) * step(uv, vec2(1.0));
+    float inside = inRange.x * inRange.y;
+
+    // distance to the nearest horizontal edge (top/bottom) measured in UV
+    // (when outside, d will be <= 0; smoothstep will push alpha toward 0)
+    float dY = min(uv.y, 1.0 - uv.y);
+    float fadeY = smoothstep(0.0, seam_feather, dY);
+
+    // combine: fully inside -> 1, outside -> fade toward 0 near the seam
+    float mask = mix(fadeY, 1.0, inside);
+
+    return Texel(tex, uvWrapped) * mask;
+}
+
+
 vec3 getVideo(vec2 uv, Image texture)
 {
     vec2 look = uv;
@@ -82,7 +113,7 @@ vec3 getVideo(vec2 uv, Image texture)
     float vShift = scroll_amp * vShiftCore * onOff(2.0, 3.0, 0.9);
     look.y = mod(look.y + vShift * scroll_speed, 1.0);
 
-    return Texel(texture, fract(look)).rgb;
+    return sampleWrapNoTileFeather(texture, look).rgb;
 }
 
 vec2 screenDistort(vec2 uv)
@@ -93,17 +124,23 @@ vec2 screenDistort(vec2 uv)
     return uv;
 }
 
+float vignetteFn(vec2 uv)
+{
+    float vigAmt = 3.0 + 0.3 * sin(iTime + 5.0 * cos(iTime * 5.0));
+    return (1.0 - vigAmt * (uv.y - 0.5) * (uv.y - 0.5))
+         * (1.0 - vigAmt * (uv.x - 0.5) * (uv.x - 0.5));
+}
+
 vec4 effect(vec4 color, Image texture, vec2 texcoord, vec2 screen_coords)
 {
-    vec2 uv = screen_coords / texsize;
-    uv = screenDistort(uv);
+    vec2 uvraw = screen_coords / texsize;
+    vec2 uv = screenDistort(uvraw);
 
     vec3 video = getVideo(uv, texture);
 
-    float vigAmt   = 3.0 + 0.3 * sin(iTime + 5.0 * cos(iTime * 5.0));
-    float vignette = (1.0 - vigAmt * (uv.y - 0.5) * (uv.y - 0.5)) *
-                     (1.0 - vigAmt * (uv.x - 0.5) * (uv.x - 0.5));
-
+    float vignetteA = vignetteFn(uv);          // post-distort
+    float vignetteB = vignetteFn(uvraw);      // pre-distort
+    float vignette  = min(vignetteA, vignetteB);
     video += stripesRGB(uv);
     video += noiseRGB(uv * 2.0) * noise_strength;
     video *= vignette;
