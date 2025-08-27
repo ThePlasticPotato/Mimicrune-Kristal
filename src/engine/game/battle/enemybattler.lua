@@ -789,10 +789,12 @@ end
 ---@param points    number          The points of the hit, based on closeness to the target box when attacking, maximum value is `150`
 ---@return number
 function EnemyBattler:getAttackDamage(damage, battler, points)
+    local bonus = battler.next_attack_bonus
+    battler.next_attack_bonus = 0
     if damage > 0 then
-        return damage
+        return damage + bonus
     end
-    return ((battler.chara:getStat("attack") * points) / 20) - (self.defense * 3)
+    return ((battler.chara:getStat("attack") * points) / 20) + bonus - (self.defense * 3)
 end
 
 --- Gets the name of the damage sound used when this enemy is hit (defaults to `"damage"`)

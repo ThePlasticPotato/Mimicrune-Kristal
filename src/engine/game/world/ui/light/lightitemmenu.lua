@@ -14,9 +14,13 @@ function LightItemMenu:init()
 
     self.heart_sprite = Assets.getTexture("player/heart_menu")
 
-    self.bg = UIBox(0, 0, self.width, self.height)
-    self.bg.layer = -1
-    self:addChild(self.bg)
+    self.panel_bg = PanelMenuBackground("ui/menu/panels/side/menu", -14, -14, "panel_open", "panel_close", "ui_move_panel", "ui_select_panel", "ui_error_panel", "ui_cancel_small_camera", nil, 212-28, 76-28)
+    self.fx = ShaderFX("crt", {["iTime"] = function () return Kristal.getTime() end, ["texsize"] = {self.panel_bg.sprite:getWidth(), self.panel_bg.sprite:getHeight()}})
+    self:addChild(self.panel_bg)
+    self.ui_select = self.panel_bg.ui_select
+    self.ui_move = self.panel_bg.ui_move
+    self.ui_cancel = self.panel_bg.ui_cancel
+    self.ui_error = self.panel_bg.ui_error
 
     -- States: ITEMSELECT, ITEMOPTION
     self.state = "ITEMSELECT"
@@ -28,6 +32,7 @@ function LightItemMenu:init()
 end
 
 function LightItemMenu:update()
+    if self.panel_bg.operable == false then super.update(self) ; return end
     if self.state == "ITEMSELECT" then
         if Input.pressed("cancel") then
             Game.world.menu:closeBox()
@@ -94,34 +99,37 @@ function LightItemMenu:update()
 end
 
 function LightItemMenu:draw()
-    love.graphics.setFont(self.font)
+    if (self.panel_bg.operable) then
+        love.graphics.setFont(self.font)
+        local randAlpha = Utils.random(0.8, 1.0)
 
-    local inventory = Game.inventory:getStorage(self.storage)
+        local inventory = Game.inventory:getStorage(self.storage)
 
-    for index, item in ipairs(inventory) do
-        if item.usable_in == "world" or item.usable_in == "all" then
-            Draw.setColor(PALETTE["world_text"])
-        else
-            Draw.setColor(PALETTE["world_text_unusable"])
+        for index, item in ipairs(inventory) do
+            if item.usable_in == "world" or item.usable_in == "all" then
+                Draw.setColor(PALETTE["world_text"], randAlpha)
+            else
+                Draw.setColor(PALETTE["world_text_unusable"], randAlpha)
+            end
+            love.graphics.print(item:getName(), 20, -28 + (index * 32))
         end
-        love.graphics.print(item:getName(), 20, -28 + (index * 32))
-    end
 
-    Draw.setColor(PALETTE["world_text"])
-    love.graphics.print("USE" , 20 , 284)
-    love.graphics.print("INFO", 116, 284)
-    love.graphics.print("DROP", 230, 284)
+        Draw.setColor(PALETTE["world_text"], randAlpha)
+        love.graphics.print("USE" , 20 , 284)
+        love.graphics.print("INFO", 116, 284)
+        love.graphics.print("DROP", 230, 284)
 
-    Draw.setColor(Game:getSoulColor())
-    if self.state == "ITEMSELECT" then
-        Draw.draw(self.heart_sprite, -4, -20 + (32 * self.item_selecting), 0, 2, 2)
-    else
-        if self.option_selecting == 1 then
-            Draw.draw(self.heart_sprite, -4, 292, 0, 2, 2)
-        elseif self.option_selecting == 2 then
-            Draw.draw(self.heart_sprite, 92, 292, 0, 2, 2)
-        elseif self.option_selecting == 3 then
-            Draw.draw(self.heart_sprite, 206, 292, 0, 2, 2)
+        Draw.setColor(Game:getSoulColor())
+        if self.state == "ITEMSELECT" then
+            Draw.draw(self.heart_sprite, -4, -20 + (32 * self.item_selecting), 0, 2, 2)
+        else
+            if self.option_selecting == 1 then
+                Draw.draw(self.heart_sprite, -4, 292, 0, 2, 2)
+            elseif self.option_selecting == 2 then
+                Draw.draw(self.heart_sprite, 92, 292, 0, 2, 2)
+            elseif self.option_selecting == 3 then
+                Draw.draw(self.heart_sprite, 206, 292, 0, 2, 2)
+            end
         end
     end
 

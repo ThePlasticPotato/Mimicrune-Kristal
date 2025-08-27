@@ -104,6 +104,9 @@ function ActionButton:select()
             Game.battle:addMenuItem({
                 ["name"] = spell:getName(),
                 ["tp"] = spell:getTPCost(self.battler.chara),
+                ["np"] = spell:getNPCost(self.battler.chara),
+                ["heat"] = spell:getNHeat(self.battler.chara),
+                ["notes"] = spell:getNoteMinimum(self.battler.chara),
                 ["unusable"] = not spell:isUsable(self.battler.chara),
                 ["description"] = spell:getBattleDescription(),
                 ["party"] = spell.party,

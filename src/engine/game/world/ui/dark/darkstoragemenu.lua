@@ -11,8 +11,8 @@ function DarkStorageMenu:init(top_storage, bottom_storage)
 
     self.font = Assets.getFont("plain")
 
-    self.ui_select = Assets.newSound("ui_select")
-    self.ui_cant_select = Assets.newSound("ui_cant_select")
+    self.ui_select = Assets.newSound("ui_select_panel")
+    self.ui_cant_select = Assets.newSound("ui_error_panel")
 
     self.arrow_left = Assets.getTexture("ui/flat_arrow_left")
     self.arrow_right = Assets.getTexture("ui/flat_arrow_right")

@@ -8,11 +8,12 @@ function DarkPowerMenu:init()
     self.draw_children_below = 0
 
     self.font = Assets.getFont("main")
+    self.small_font = Assets.getFont("smallnumbers")
 
-    self.ui_move = Assets.newSound("ui_move")
-    self.ui_select = Assets.newSound("ui_select")
-    self.ui_cant_select = Assets.newSound("ui_cant_select")
-    self.ui_cancel_small = Assets.newSound("ui_cancel_small")
+    self.ui_move = Assets.newSound("ui_move_panel")
+    self.ui_select = Assets.newSound("ui_select_panel")
+    self.ui_cant_select = Assets.newSound("ui_error_panel")
+    self.ui_cancel_small = Assets.newSound("ui_cancel_small_camera")
 
     self.heart_sprite = Assets.getTexture("player/heart")
     self.arrow_sprite = Assets.getTexture("ui/page_arrow_down")
@@ -183,7 +184,10 @@ end
 function DarkPowerMenu:canCast(spell)
     if not Game:getConfig("overworldSpells") then return false end
     if Game:getTension() < spell:getTPCost(self.party:getSelected()) then return false end
-
+    if (spell.psychic) then
+        local canCast = self.party:getSelected().is_psychic and (spell:getNPCost(self.party:getSelected()) <= self.party:getSelected().neural_power) and ((spell:getNHeat(self.party:getSelected()) + self.party:getSelected().heat) <= 100)
+        if (not canCast) then return false end
+    end
     return (spell:hasWorldUsage(self.party:getSelected()))
 end
 
@@ -266,12 +270,36 @@ function DarkPowerMenu:drawSpells()
         local spell = spells[i]
         local offset = i - self.scroll_y
 
-        if not self:canCast(spell) then
+        local canCast = self:canCast(spell)
+
+        if not canCast then
             Draw.setColor(0.5, 0.5, 0.5)
         else
             Draw.setColor(1, 1, 1)
         end
-        love.graphics.print(tostring(spell:getTPCost(self.party:getSelected())).."%", tp_x, tp_y + (offset * 25))
+        if (spell.psychic) then
+            local npCost = tostring(spell:getNPCost(self.party:getSelected()))
+            local heat = tostring(spell:getNHeat(self.party:getSelected()))
+
+            local pColor = COLORS.aqua
+            local hColor = COLORS.red
+            if (not canCast) then
+                pColor = {0, 0.5, 0.5, 1}
+                hColor = {0.5, 0, 0, 1}
+            end
+
+            love.graphics.setFont(self.small_font)
+            Draw.setColor(0.5, 0.5, 0.5)
+            love.graphics.print("-", tp_x+ (12 * npCost:len()), tp_y+12 + (offset * 25))
+            Draw.setColor(pColor)
+            love.graphics.print(npCost.."%P", tp_x, tp_y+12 + (offset * 25))
+            Draw.setColor(hColor)
+            love.graphics.print(heat.."H", tp_x+(12 * (npCost:len())+8), tp_y+12 + (offset * 25))
+            if (canCast) then Draw.setColor(1, 1, 1) else Draw.setColor(0.5, 0.5, 0.5) end
+            love.graphics.setFont(self.font)
+        else
+            love.graphics.print(tostring(spell:getTPCost(self.party:getSelected())).."%", tp_x, tp_y + (offset * 25))
+        end
         love.graphics.print(spell:getName(), name_x, name_y + (offset * 25))
     end
 

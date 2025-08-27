@@ -33,25 +33,27 @@ function DarkMenu:init()
     self.state_reason = nil
     self.heart_sprite = Assets.getTexture("player/heart_menu_small")
 
-    self.ui_move = Assets.newSound("ui_move")
-    self.ui_select = Assets.newSound("ui_select")
-    self.ui_cant_select = Assets.newSound("ui_cant_select")
-    self.ui_cancel_small = Assets.newSound("ui_cancel_small")
+    self.ui_select = Assets.newSound("ui_select_camera")
+    self.ui_move = Assets.newSound("ui_move_panel")
+    self.ui_cancel_small = Assets.newSound("ui_cancel_small_camera")
+    self.ui_cant_select = Assets.newSound("ui_error_camera")
 
     self.font = Assets.getFont("main")
+    self.ui_interrupt = Assets.newSound("ui_interrupt_hand")
+    self.ui_interrupt:setVolume(0.25)
 
-    self.description_box = Rectangle(0, 0, SCREEN_WIDTH, 80)
-    self.description_box:setColor(0, 0, 0)
-    self.description_box.visible = false
-    self.description_box.layer = 10
-    self:addChild(self.description_box)
-
-    self.description = Text("", 20, 10, SCREEN_WIDTH - 20, 80 - 16)
-    self.description_box:addChild(self.description)
+    self.description_panel = PanelMenuBackground("ui/menu/panels/dark/hand/menu", 0, 0, "hand_open", "hand_open", "ui_move_panel", "ui_select_panel", "ui_error_panel", "ui_cancel_small_camera", nil, 0, 0, false)
+    self.description_panel.layer = 10
+    self:addChild(self.description_panel)
+    self.description = Text("", 20, 10, 540, 80 - 16)
+    self.description.visible = false
+    self.description_panel:addChild(self.description)
 
     self.buttons = {}
     self:addButtons()
     self.buttons = Kristal.callEvent(KRISTAL_EVENT.getDarkMenuButtons, self.buttons, self) or self.buttons
+
+    self.sprite = Assets.getTexture("ui/menu/panels/dark/main/top")
 
     self.box = nil
     self.box_offset_x = 0
@@ -121,6 +123,22 @@ function DarkMenu:addButtons()
         end
     })
 
+    -- SPELLS
+    self:addButton({
+        ["state"]          = "SPELLMENU",
+        ["sprite"]         = Assets.getTexture("ui/menu/btn/spells"),
+        ["hovered_sprite"] = Assets.getTexture("ui/menu/btn/spells_h"),
+        ["desc_sprite"]    = Assets.getTexture("ui/menu/desc/spells"),
+        ["callback"]       = function()
+            self.box = DarkSpellMenu()
+            self.box.layer = 1
+            self:addChild(self.box)
+
+            self.ui_select:stop()
+            self.ui_select:play()
+        end
+    })
+
     -- CONFIG
     self:addButton({
         ["state"]          = "CONFIGMENU",
@@ -175,9 +193,19 @@ function DarkMenu:closeBox()
 end
 
 function DarkMenu:setDescription(text, visible)
+    local wasVisible = self.description_panel.operable
+    local oldText = self.description.text
     self.description:setText(text)
+    if (wasVisible and visible ~= false and oldText ~= text) then self.ui_interrupt:stop() ; self.ui_interrupt:play() end
     if visible ~= nil then
-        self.description_box.visible = visible
+        if (visible ~= wasVisible) then
+            if (visible) then
+                self.description_panel:open(false, function () end)
+            else
+                self.description.visible = false
+                self.description_panel:close(false, nil, false)
+            end
+        end
     end
 end
 
@@ -300,6 +328,8 @@ function DarkMenu:update()
 
     local max_time = self.animate_out and 3 or 8
 
+    self.description.visible = self.description_panel.operable
+
     if self.animation_timer > max_time + 1 then
         self.animation_done = true
         self.animation_timer = max_time + 1
@@ -335,8 +365,7 @@ function DarkMenu:update()
 end
 
 function DarkMenu:draw()
-    Draw.setColor(PALETTE["world_fill"])
-    love.graphics.rectangle("fill", 0, 0, 640, 80)
+    Draw.draw(self.sprite, 0, 0)
 
     Draw.setColor(1, 1, 1, 1)
     if self.buttons[self.selected_submenu].desc_sprite then

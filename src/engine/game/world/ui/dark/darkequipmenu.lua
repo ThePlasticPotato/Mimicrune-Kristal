@@ -9,10 +9,10 @@ function DarkEquipMenu:init()
 
     self.font = Assets.getFont("main")
 
-    self.ui_move = Assets.newSound("ui_move")
-    self.ui_select = Assets.newSound("ui_select")
-    self.ui_cant_select = Assets.newSound("ui_cant_select")
-    self.ui_cancel_small = Assets.newSound("ui_cancel_small")
+    self.ui_move = Assets.newSound("ui_move_panel")
+    self.ui_select = Assets.newSound("ui_select_panel")
+    self.ui_cant_select = Assets.newSound("ui_error_panel")
+    self.ui_cancel_small = Assets.newSound("ui_cancel_small_camera")
 
     self.heart_sprite = Assets.getTexture("player/heart")
     self.arrow_sprite = Assets.getTexture("ui/page_arrow_down")

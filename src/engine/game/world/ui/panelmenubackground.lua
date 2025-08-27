@@ -1,4 +1,4 @@
----@class PanelMenuBackground
+---@class PanelMenuBackground : Object
 local PanelMenuBackground, super = Class(Object)
 
 function PanelMenuBackground:init(sprite_location, x, y, open_sound, close_sound, move_sound, select_sound, error_sound, cancel_sound, ambience_sound, anim_x, anim_y, openimmediate)
@@ -64,6 +64,9 @@ end
 
 function PanelMenuBackground:open(immediate, after)
     self.closed = false
+    self.closing = false
+    self.close_sprite.visible = false
+    self.close_sprite:stop()
     self.opening = true
     self.panel_open:stop()
     self.panel_open:play()
@@ -81,6 +84,9 @@ end
 
 function PanelMenuBackground:close(immediate, after, remove)
     self.operable = false
+    self.opening = false
+    self.open_sprite.visible = false
+    self.open_sprite:stop()
     self:stopAllSounds()
     if (immediate ~= true) then
         self.panel_close:play()

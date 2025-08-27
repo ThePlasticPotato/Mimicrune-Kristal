@@ -157,6 +157,7 @@ OverworldActionBox = require("src.engine.game.world.ui.overworldactionbox")
 Shopbox = require("src.engine.game.world.ui.shopbox")
 RecruitMenu = require("src.engine.game.world.ui.recruitmenu")
 PanelMenuBackground = require("src.engine.game.world.ui.panelmenubackground")
+ObjectivePopup = require("src.engine.objects.objectivepopup")
 
 DarkMenu = require("src.engine.game.world.ui.dark.darkmenu")
 DarkItemMenu = require("src.engine.game.world.ui.dark.darkitemmenu")

@@ -118,6 +118,14 @@ function character:getGameOverMessage(main)
     }
 end
 
+function character:getNameSprite()
+    if (Game.battle) then
+        return self.name_sprite .. "_full"
+    else
+        return self.name_sprite
+    end
+end
+
 function character:onAttackHit(enemy, damage)
     if damage > 0 then
         Assets.playSound("impact", 0.8)

@@ -14,7 +14,9 @@ Text.COLORS = {
     ["purple"] = COLORS.purple,
     ["maroon"] = COLORS.maroon,
     ["pink"] = { 1, 0.5, 1 },
-    ["lime"] = { 0.5, 1, 0.5 }
+    ["lime"] = { 0.5, 1, 0.5 },
+    ["time"] = { 184 / 255, 241 / 255, 238 / 255 },
+    ["sanctuary"] = { 57 / 255, 185 / 255, 185 / 255 }
 }
 
 function Text:init(text, x, y, w, h, options)

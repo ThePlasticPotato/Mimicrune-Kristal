@@ -44,6 +44,8 @@
 ---
 ---@field healthbar         HealthBar
 ---
+---@field limited_interaction boolean
+---
 ---@overload fun(map?: string) : World
 local World, super = Class(Object)
 
@@ -110,6 +112,8 @@ function World:init(map)
     self.calls = {}
 
     self.door_delay = 0
+
+    self.limited_interaction = false
 
     if map then
         self:loadMap(map)
@@ -392,7 +396,7 @@ function World:onKeyPressed(key)
     if Game.lock_movement then return end
 
     if self.state == "GAMEPLAY" then
-        if Input.isConfirm(key) and self.player and not self:hasCutscene() then
+        if Input.isConfirm(key) and self.player and ((not self:hasCutscene()) or self:hasCutscene() and self.limited_interaction) then
             if self.player:interact() then
                 Input.clear("confirm")
             end

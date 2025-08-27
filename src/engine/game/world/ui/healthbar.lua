@@ -17,6 +17,8 @@ function HealthBar:init()
 
     self.action_boxes = {}
 
+    self.sprite = Assets.getTexture("ui/menu/panels/dark/main/bottom")
+
     for index, chara in ipairs(Game.party) do
         local x_pos = (index - 1) * 213
 
@@ -116,8 +118,7 @@ end
 
 function HealthBar:draw()
     -- Draw the black background
-    Draw.setColor(PALETTE["world_fill"])
-    love.graphics.rectangle("fill", 0, 2, 640, 62)
+    Draw.draw(self.sprite, 0, -16)
 
     super.draw(self)
 end

@@ -40,41 +40,59 @@ function LightMenu:init()
 
     self.top = true
 
-    self.info_box = UIBox(56, 76, 94, 62)
-    self:addChild(self.info_box)
     self:realign()
 
-    self.choice_box = UIBox(56, 192, 94, 100)
-    self:addChild(self.choice_box)
-
     self.storage = "items"
+
+    self.panel_bg = PanelMenuBackground("ui/menu/panels/main/menu", 0, 20, "camera_open", "camera_close", "ui_move_panel", "ui_select_camera", "ui_error_camera", "ui_cancel_small_camera", "ui_static", 0, 40)
+    self.fx = ShaderFX("crt", {["iTime"] = function () return Kristal.getTime() end, ["texsize"] = {self.panel_bg.sprite:getWidth(), self.panel_bg.sprite:getHeight()}})
+    self:addChild(self.panel_bg)
+    self.ui_select = self.panel_bg.ui_select
+    self.ui_move = self.panel_bg.ui_move
+    self.ui_cancel = self.panel_bg.ui_cancel
+    self.ui_error = self.panel_bg.ui_error
+    self.objective = ObjectivePopup(0, 20, nil, nil, Game:getFlag("current_objective"), nil, "none", false, false, true)
+    self.objective.layer = self.layer - 0.1
+    Game.stage:addChild(self.objective)
 end
 
 function LightMenu:getMaxSelecting()
     return Game:getFlag("has_cell_phone", false) and 3 or 2
 end
 
-function LightMenu:onAddToStage(stage)
-    self.ui_move:stop()
-    self.ui_move:play()
-end
-
 function LightMenu:close()
-    Game.world.current_selecting = self.current_selecting
-    Game.world.menu = nil
+    if (Game.world and Game.world.menu == self) then
+        Game.world.menu = nil
+    end
     self:remove()
 end
 
-function LightMenu:closeBox()
+function LightMenu:closeBox(immediate)
     self.state = "MAIN"
-    if self.box then
-        self.box:remove()
-        self.box = nil
+    if (self.box) then
+        if (self.box.panel_bg ~= nil) then 
+            self.box.panel_bg:close(immediate, function () self.box:remove() ; self.box = nil end)
+        else
+            self.box:remove()
+            self.box = nil
+        end
+        
     end
 end
 
+function LightMenu:transitionOut()
+    local could_open = Game.world.can_open_menu
+    Game.world.can_open_menu = false
+    self.panel_bg:close(false, function ()
+        Game.world.can_open_menu = could_open
+        self:close()  
+        end)
+end
+
 function LightMenu:onKeyPressed(key)
+    if not self.panel_bg.operable then return end
     if (Input.isMenu(key) or Input.isCancel(key)) and self.state == "MAIN" then
+        self.objective:close()
         Game.world:closeMenu()
         return
     end
@@ -142,50 +160,55 @@ function LightMenu:realign()
     if self.top then
         offset = 270
     end
-    self.info_box.y = 76 + offset
 end
 
 function LightMenu:draw()
     super.draw(self)
+    if (self.panel_bg.operable) then
+        local offset = 0
+        -- local current_canvas = love.graphics.getCanvas()
+        -- local new_canvas = Draw.pushCanvas(SCREEN_WIDTH, SCREEN_HEIGHT)
+        -- love.graphics.setCanvas(new_canvas)
+        -- Draw.setColor(1, 1, 1)
 
-    local offset = 0
-    if self.top then
-        offset = 270
-    end
+        local chara = Game.party[1]
 
-    local chara = Game.party[1]
+        local randAlpha = Utils.random(0.8, 1.0)
 
-    love.graphics.setFont(self.font)
-    Draw.setColor(PALETTE["world_text"])
-    love.graphics.print(chara:getName(), 46, 60 + offset)
+        love.graphics.setFont(self.font)
+        Draw.setColor(PALETTE["world_text"], randAlpha)
+        love.graphics.print(chara:getName(), 46, 60 + offset)
 
-    love.graphics.setFont(self.font_small)
-    love.graphics.print("LV  "..chara:getLightLV(), 46, 100 + offset)
-    love.graphics.print("HP  "..chara:getHealth().."/"..chara:getStat("health"), 46, 118 + offset)
-    love.graphics.print(Utils.padString(Game:getConfig("lightCurrencyShort"), 4)..Game.lw_money, 46, 136 + offset)
+        love.graphics.setFont(self.font_small)
+        love.graphics.print("LV  "..chara:getLightLV(), 46, 100 + offset)
+        love.graphics.print("HP  "..chara:getHealth().."/"..chara:getStat("health"), 46, 118 + offset)
+        love.graphics.print(Utils.padString(Game:getConfig("lightCurrencyShort"), 4)..Game.lw_money, 46, 136 + offset)
 
-    love.graphics.setFont(self.font)
-    if Game.inventory:getItemCount(self.storage, false) <= 0 then
-        Draw.setColor(PALETTE["world_gray"])
-    else
-        Draw.setColor(PALETTE["world_text"])
-    end
-    love.graphics.print("ITEM", 84, 188 + (36 * 0))
-    Draw.setColor(PALETTE["world_text"])
-    love.graphics.print("STAT", 84, 188 + (36 * 1))
-    if Game:getFlag("has_cell_phone", false) then
-        if #Game.world.calls > 0 then
-            Draw.setColor(PALETTE["world_text"])
+        love.graphics.setFont(self.font)
+        if Game.inventory:getItemCount(self.storage, false) <= 0 then
+            Draw.setColor(PALETTE["world_gray"], randAlpha)
         else
-            Draw.setColor(PALETTE["world_gray"])
+            Draw.setColor(PALETTE["world_text"], randAlpha)
         end
-        love.graphics.print("CELL", 84, 188 + (36 * 2))
-    end
+        love.graphics.print("ITEM", 84, 188 + (36 * 0))
+        Draw.setColor(PALETTE["world_text"], randAlpha)
+        love.graphics.print("STAT", 84, 188 + (36 * 1))
+        if Game:getFlag("has_cell_phone", false) then
+            if #Game.world.calls > 0 then
+                Draw.setColor(PALETTE["world_text"], randAlpha)
+            else
+                Draw.setColor(PALETTE["world_gray"], randAlpha)
+            end
+            love.graphics.print("CELL", 84, 188 + (36 * 2))
+        end
 
-    if self.state == "MAIN" then
-        Draw.setColor(Game:getSoulColor())
-        Draw.draw(self.heart_sprite, 56, 160 + (36 * self.current_selecting), 0, 2, 2)
+        if self.state == "MAIN" then
+            Draw.setColor(Game:getSoulColor())
+            Draw.draw(self.heart_sprite, 56, 160 + (36 * self.current_selecting), 0, 2, 2)
+        end
+        
     end
+    
 end
 
 return LightMenu

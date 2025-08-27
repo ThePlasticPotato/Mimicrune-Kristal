@@ -7,6 +7,12 @@ function BattleUI:init()
 
     self.layer = BATTLE_LAYERS["ui"]
 
+    self.control_panel = Sprite("ui/battle/panels/controlpanel")
+    self.control_panel_screen = Sprite("ui/battle/panels/controlpanel_screen")
+
+    self.party_panel = Sprite("ui/battle/panels/partypanel")
+    self.party_panel_screen = Sprite("ui/battle/panels/partypanel_screen")
+
     self.current_encounter_text = Game.battle.encounter.text
 
     self.encounter_text = Textbox(30, 53, SCREEN_WIDTH - 30, SCREEN_HEIGHT - 53, "main_mono", nil, true)
@@ -226,8 +232,8 @@ function BattleUI:getTransitionBounds()
 end
 
 function BattleUI:draw()
-    self:drawActionArena()
-    self:drawActionStrip()
+    --self:drawActionArena()
+    --self:drawActionStrip()
     super.draw(self)
 end
 
