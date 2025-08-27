@@ -78,7 +78,7 @@ function Loading:update()
         Kristal.Stage:addChild(Kristal.DebugSystem)
         REGISTRY_LOADED = true
         if Kristal.Args["test"] then
-            Gamestate.switch(Kristal.States["Testing"])
+            Kristal.setState("Testing")
         elseif AUTO_MOD_START and TARGET_MOD then
             if not Kristal.hasAnySaves("mimicrune") then
                 TARGET_MOD = "mimicrune"
@@ -87,7 +87,7 @@ function Loading:update()
                 error("Failed to load mod: " .. TARGET_MOD)
             end
         else
-            Gamestate.switch(Kristal.States["MainMenu"])
+            Kristal.setState("MainMenu")
         end
     end
 end
