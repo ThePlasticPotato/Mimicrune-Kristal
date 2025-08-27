@@ -34,8 +34,9 @@ function character:init()
 
     -- Spells
     self:addKnownSpell("meditate", true)
-    self:addKnownSpell("psybeam", true)
+    self:addKnownSpell("psybeam", false)
     self:addKnownSpell("psywave", false)
+    self:addKnownSpell("psyball", true)
 
     -- Current health (saved to the save file)
     self.health = 40
@@ -125,17 +126,11 @@ function character:onAttackHit(enemy, damage)
 end
 
 function character:onTurnStart(battler)
-    if (self.heat >= self:getStat("heat", 50) and not battler.overheat) then
-        battler:setOverheat(true)
-        Assets.playSound("overheat")
-        battler:flash()
-    end
-    if (self.heat < self:getStat("heat", 50) and battler.overheat) then
-        battler:setOverheat(false)
-        Assets.playSound("power")
-    end
+
     if battler.overheat then
-        battler:setAnimation("overheat")
+        if not battler.was_hit_last then
+            self.heat = self.heat - 5
+        end
     else
         if (self.neural_power < 100 and not battler.was_hit_last) then
             self.neural_power = Utils.clamp(self.neural_power + (self:getStat("magic", 1)), 0, 100)

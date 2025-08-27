@@ -29,9 +29,9 @@ function actor:init()
                 -- Battle animations
         ["battle/idle"]         = {"battle/idle", 0.15, true},
 
-        ["battle/attack"]       = {"battle/attack", 1/14, false},
+        ["battle/attack"]       = {"battle/attack", 1/20, false},
         ["battle/act"]          = {"battle/act", 1/15, false},
-        ["battle/spell"]        = {"battle/spell", 1/15, false, next="battle/idle"},
+        ["battle/spell"]        = {"battle/spell", 1/15, false},
         ["battle/item"]         = {"battle/item", 1/12, false, next="battle/idle"},
         ["battle/spare"]        = {"battle/act", 1/15, false, next="battle/idle"},
 
@@ -39,15 +39,20 @@ function actor:init()
         ["battle/act_ready"]    = {"battle/actready", 0.2, true},
         ["battle/spell_ready"]  = {"battle/spellready", 0.2, true},
         ["battle/item_ready"]   = {"battle/itemready", 0.2, true},
-        ["battle/defend"] = {"battle/defend", 1/15, false},
+        ["battle/defend"]       = {"battle/defendready", 1/10, false, next="battle/defend_loop"},
+        ["battle/defend_loop"]  = {"battle/defend", 1/10, true},
 
         ["battle/act_end"]      = {"battle/actend", 1/15, false, next="battle/idle"},
+        ["battle/spell_end"]    = {"battle/spellend", 1/15, false, next="battle/idle"},
+
+        ["battle/meditate"]     = {"battle/meditate", 1/20, false, next="battle/spell_end"},
 
         ["battle/hurt"]         = {"battle/hurt", 1/15, false, temp=true, duration=0.5},
         ["battle/defeat"]       = {"battle/defeat", 1/15, true},
+        ["battle/overheat"]     = {"battle/overheat", 0.1, true},
 
         ["battle/transition"]   = {"battle/battle_transition", 0.2, true},
-        ["battle/intro"]        = {"battle/attack", 1/15, true},
+        ["battle/intro"]        = {"battle/attack", 1/20, true},
         ["battle/victory"]      = {"battle/victory", 1/10, false},
     }
 
@@ -59,15 +64,19 @@ function actor:init()
         ["battle/attackready"] = {-15, -6};
         ["battle/battle_transition"] = {-15, -6};
         ["battle/defeat"] = {-17, -4};
-        ["battle/defend"] = {0, 0};
+        ["battle/defend"] = {-4, -1};
+        ["battle/defendready"] = {-4, -1};
         ["battle/hurt"] = {-15, -6};
         ["battle/idle"] = {-6, 1};
         ["battle/item"] = {-15, -6};
         ["battle/itemend"] = {-15, -6};
         ["battle/itemready"] = {-15, -6};
+        ["battle/meditate"] = {-15, -6};
         ["battle/spell"] = {-15, -6};
+        ["battle/spellend"] = {-15, -6};
         ["battle/spellready"] = {-15, -5};
-        ["battle/victory"] = {-15, -6};
+        ["battle/victory"] = {-4, 1};
+        ["battle/overheat"] = {-7, 0};
     }
 
     -- Sound to play when this actor speaks (optional)

@@ -21,6 +21,8 @@ function spell:init()
 
     self.required = true
 
+    self.cast_anim = "battle/meditate"
+
     -- Tags that apply to this spell
     self.tags = {"psy", "heal"}
 end

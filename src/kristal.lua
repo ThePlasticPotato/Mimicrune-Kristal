@@ -1037,16 +1037,23 @@ end
 
 --- Exits the current mod and returns to the Kristal menu.
 function Kristal.returnToMenu()
+    local current_id = Mod and Mod.info.id or "crash"
+
+    if AUTO_MOD_START and TARGET_MOD then
+        if (current_id == "mimicrune_chapter_select" or current_id == "crash") then
+            love.event.quit(0)
+        else
+            Kristal.loadMod("mimicrune_chapter_select")
+        end
+        return
+    end
     -- Go to empty state
     Gamestate.switch({})
     -- Clear the mod
     Kristal.clearModState()
 
     -- Quit the game if the menu is disabled
-    if AUTO_MOD_START and TARGET_MOD then
-        love.event.quit(0)
-        return
-    end
+    
 
     -- Reload mods and return to memu
     Kristal.loadAssets("", "mods", "", function ()
