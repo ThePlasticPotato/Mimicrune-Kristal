@@ -17,7 +17,7 @@ function ChapterTransitionEffect:update()
         self:remove()
         Game.state = "EXIT"
         Game.fader:fadeOut(function()
-            Gamestate.switch({})
+            Kristal.setState("Empty")
             -- Clear the mod
             Kristal.clearModState()
 

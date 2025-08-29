@@ -728,7 +728,7 @@ function Kristal.errorHandler(msg)
     local w = 0
     local h = 18
     if Mod then
-        local chapter = Mod.info.id == "mimicrune" and 1 or Utils.sub(Mod.info.chapter)
+        local chapter = (Mod.info.id == "mimicrune") and 1 or (Mod.info.id == "mimicrune_chapter_select") and "Select" or Utils.sub(Mod.info.chapter)
         mod_string = "Mimicrune: Chapter " .. chapter .. " " .. (Mod.info.version or "v?.?.?")
         if Utils.tableLength(Mod.libs) > 0 then
             lib_string = "Libraries:"
@@ -1133,10 +1133,23 @@ function Kristal.returnToMenu()
     local current_id = Mod and Mod.info.id or "crash"
 
     if AUTO_MOD_START and TARGET_MOD then
+        -- Go to empty state
+        Kristal.setState("Empty")
+
+        -- Clear the mod
+        Kristal.clearModState()
+
         if (current_id == "mimicrune_chapter_select" or current_id == "crash") then
             love.event.quit(0)
         else
-            Kristal.loadMod("mimicrune_chapter_select")
+            Kristal.loadAssets("", "mods", "", function ()
+                Kristal.loadMod("mimicrune_chapter_select")
+            end)
+        end
+        Kristal.DebugSystem:refresh()
+        -- End input if it's open
+        if not Kristal.Console.is_open then
+            TextInput.endInput()
         end
         return
     end
