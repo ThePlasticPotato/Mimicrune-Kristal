@@ -4,7 +4,7 @@ function item:init()
     super.init(self)
 
     -- Display name
-    self.name = "Promise Ring"
+    self.name = "PromiseRing"
     -- Name displayed when used in battle (optional)
     self.use_name = nil
 
@@ -20,7 +20,7 @@ function item:init()
     -- Shop description
     self.shop = "Represents a great promise."
     -- Menu description
-    self.description = "A ring, holding deep meaning.\nYou feel power coursing within..."
+    self.description = "A ring, holding deep meaning.\nYou feel POWER coursing within..."
     -- Light world check text
     self.check = "It's a ring."
 
@@ -48,8 +48,6 @@ function item:init()
         cassidy = "...What? ...Don't look at me like that...",
         fredbear = "It's beautiful. But it's not mine."
     }
-
-    
 
     -- Consumable target mode (ally, party, enemy, enemies, or none)
     self.target = "none"
