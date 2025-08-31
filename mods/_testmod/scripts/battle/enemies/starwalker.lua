@@ -1,3 +1,4 @@
+---@class Starwalker : EnemyBattler
 local Starwalker, super = Class(EnemyBattler)
 
 function Starwalker:init()
@@ -65,6 +66,10 @@ function Starwalker:init()
     self.was_hit = false
 end
 
+function Starwalker:getTarget()
+    return "ALL"
+end
+
 function Starwalker:makeBullet(x, y)
     if (Utils.random() < 0.25) then
         return Registry.createBullet("FallenStarBullet", x, y)
@@ -123,6 +128,10 @@ function Starwalker:onTurnEnd()
 end
 
 function Starwalker:getEncounterText()
+    if (self.progress == 1) and (Game:getTension() < 8) then
+        return "* Kris...!\n[wait:5]* Try to get the [color:yellow]Fallen Stars[color:reset]!", "pleased", "ralsei"
+    end
+
     if (self.progress == 2) then
         return "* Star walker is preparing\n[color:blue]something [offset:0,-8][color:red][font:main_mono,48]!!"
     end
