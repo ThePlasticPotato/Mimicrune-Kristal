@@ -9,7 +9,7 @@ function spell:init()
     self.cast_name = nil
 
     -- Battle description
-    self.effect = "Purify\nAGONY"
+    self.effect = "Purify AGONY"
     
     -- Menu description
     self.description = "You... haven't found a use for this yet."

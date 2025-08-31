@@ -9,7 +9,7 @@ function spell:init()
     self.cast_name = nil
 
     -- Battle description
-    self.effect = "Empower\nally"
+    self.effect = "Empower ally"
 
     -- Menu description
     self.description = "Your SOUL's light shines on an ally, empowering their next strike."

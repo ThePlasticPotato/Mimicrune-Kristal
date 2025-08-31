@@ -9,7 +9,7 @@ function spell:init()
     self.cast_name = nil
 
     -- Battle description
-    self.effect = "Recover\nMind"
+    self.effect = "Recover Mind"
     -- Menu description
     self.description = "Focuses mental energy to recover power and reduce heat. Depends on Magic."
 

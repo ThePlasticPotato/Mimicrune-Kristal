@@ -9,7 +9,7 @@ function spell:init()
     self.cast_name = nil
 
     -- Battle description
-    self.effect = "Save\nallies"
+    self.effect = "Save allies"
     
     -- Menu description
     self.description = "Your light embraces an ally, preventing their next fall."

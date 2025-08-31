@@ -9,7 +9,7 @@ function spell:init()
     self.cast_name = nil
 
     -- Battle description
-    self.effect = "Bind\nhealth"
+    self.effect = "Bind vitality"
 
     -- Menu description
     self.description = "Binds to an ally, splitting damage taken by one between two."

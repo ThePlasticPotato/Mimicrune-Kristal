@@ -9,7 +9,7 @@ function spell:init()
     self.cast_name = "Hype Song"
 
     -- Battle description
-    self.effect = "Empower\nmusically"
+    self.effect = "Empower musically"
     
     self.musical = true
 

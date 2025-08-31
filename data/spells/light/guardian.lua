@@ -8,7 +8,7 @@ function spell:init()
     -- Name displayed when cast (optional)
     self.cast_name = nil
 
-    self.effect = "Defend\nally"
+    self.effect = "Defend ally"
 
     -- Menu description
     self.description = "Shield a party member with the light of your SOUL."

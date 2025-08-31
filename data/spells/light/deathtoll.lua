@@ -9,7 +9,7 @@ function spell:init()
     self.cast_name = nil
 
     -- Battle description
-    self.effect = "Finish off\nfoes"
+    self.effect = "Finish off foes"
     
     -- Menu description
     self.description = "You toll the bell of death, causing enemies to feel the echoes."

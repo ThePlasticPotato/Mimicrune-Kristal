@@ -9,7 +9,7 @@ function spell:init()
     self.cast_name = "Body Bash"
 
     -- Battle description
-    self.effect = "Self\nprojectile."
+    self.effect = "Self projectile"
     
     -- Menu description
     self.description = "Sometimes, your body IS the ammunition."

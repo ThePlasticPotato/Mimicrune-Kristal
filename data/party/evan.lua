@@ -29,7 +29,8 @@ function character:init()
     self.xact_name = "E-Action"
 
     -- Spells
-    self:addKnownSpell("heal_prayer", true)
+    self:addKnownSpell("cure", true)
+    self:addKnownSpell("soulshine", true)
     self:addKnownSpell("pacify", false)
 
     -- Current health (saved to the save file)

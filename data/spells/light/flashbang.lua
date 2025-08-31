@@ -9,7 +9,7 @@ function spell:init()
     self.cast_name = nil
 
     -- Battle description
-    self.effect = "Disorient\nfoes"
+    self.effect = "Disorient foes"
     
     -- Menu description
     self.description = "Your light disorients your enemies momentarily, weakening them."

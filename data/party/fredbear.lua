@@ -30,6 +30,7 @@ function character:init()
     -- Spells
     self:addKnownSpell("bodybash", true)
     self:addKnownSpell("hypesong", true)
+    self:addKnownSpell("lullaby", false)
 
     -- Current health (saved to the save file)
     self.health = 225
@@ -95,6 +96,14 @@ function character:onAttackHit(enemy, damage)
     if damage > 0 then
         Assets.playSound("impact", 0.8)
         Game.battle:shakeCamera(2)
+    end
+end
+
+function character:getNameSprite()
+    if (Game.battle) then
+        return self.name_sprite .. "_full"
+    else
+        return self.name_sprite
     end
 end
 

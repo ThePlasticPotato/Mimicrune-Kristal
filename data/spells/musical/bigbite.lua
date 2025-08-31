@@ -9,7 +9,7 @@ function spell:init()
     self.cast_name = nil
 
     -- Battle description
-    self.effect = "One and\ndone"
+    self.effect = "One and done"
     
     -- Menu description
     self.description = "Out of the picture."

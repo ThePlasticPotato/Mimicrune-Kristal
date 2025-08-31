@@ -9,7 +9,7 @@ function spell:init()
     self.cast_name = nil
 
     -- Battle description
-    self.effect = "Spare\ntired"
+    self.effect = "Spare tired"
     
     -- Menu description
     self.description = "Your light shields your friends from harm."

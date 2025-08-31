@@ -9,7 +9,7 @@ function spell:init()
     self.cast_name = nil
 
     -- Battle description
-    self.effect = "Heal\nally"
+    self.effect = "Heal ally"
     
     -- Menu description
     self.description = "Your light restores some HP to one party member."

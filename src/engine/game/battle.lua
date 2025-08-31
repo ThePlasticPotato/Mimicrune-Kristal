@@ -72,8 +72,8 @@ function Battle:init()
 
     self.used_violence = false
 
-    self.ui_move = Assets.newSound("ui_move")
-    self.ui_select = Assets.newSound("ui_select")
+    self.ui_move = Assets.newSound("ui_move_panel")
+    self.ui_select = Assets.newSound("ui_select_panel")
     self.spare_sound = Assets.newSound("spare")
 
     self.party_beginning_positions = {} -- Only used in TRANSITION, but whatever
@@ -196,6 +196,47 @@ function Battle:init()
     self.defending_begin_timer = 0
 
     self.darkify = false
+
+    self.ui_interrupt = Assets.newSound("ui_interrupt_hand")
+    self.ui_interrupt:setVolume(0.25)
+    self.description_panel = PanelMenuBackground("ui/menu/panels/dark/hand/menu", 0, 0, "hand_open", "hand_open", "ui_move_panel", "ui_select_panel", "ui_error_panel", "ui_cancel_small_camera", nil, 0, 0, false)
+    self.description_panel.layer = BATTLE_LAYERS["above_ui"]
+    self:addChild(self.description_panel)
+    self.description = Text("", 20, 5, 540, 80 - 16, {align = "center"})
+    self.cost_description = Text("", 20, 30, 540, 80-36, {align = "center"})
+    self.note_display = Text("", 20, 48, 540, 80 - 54, {align = "center"})
+    self.description.visible = false
+    self.cost_description.visible = false
+    self.note_display.visible = false
+    self.description_panel:addChild(self.description)
+    self.description_panel:addChild(self.cost_description)
+    self.description_panel:addChild(self.note_display)
+end
+
+function Battle:setDescription(text, cost_text, visible, notes)
+    local wasVisible = self.description_panel.operable
+    local oldText = self.description.text
+    local oldCostText = self.cost_description.text
+    local oldNotes = self.note_display.text
+    self.description:setText(text or oldText)
+    self.cost_description:setText(cost_text or oldCostText)
+    if (Utils.contains(self.cost_description.text, "%[font%:smallnumbers%]")) then
+        self.cost_description.y = 48
+    else
+        self.cost_description.y = 30
+    end
+    self.note_display:setText(notes or oldNotes)
+    if (wasVisible and visible ~= false and oldText ~= self.description.text) then self.ui_interrupt:stop() ; self.ui_interrupt:play() end
+    if visible ~= nil then
+        if (visible ~= wasVisible) then
+            if (visible) then
+                if (not self.description_panel.opening) then self.description_panel:open(false, function () end) end
+            else
+                self.description.visible = false
+                if (not self.description_panel.closing) then self.description_panel:close(false, nil, false) end
+            end
+        end
+    end
 end
 
 function Battle:createPartyBattlers()
@@ -401,6 +442,7 @@ function Battle:onStateChange(old,new)
 
         self.encounter:onBattleStart()
     elseif new == "ACTIONSELECT" then
+        self.battle_ui:showMainPanel()
         if self.current_selecting < 1 or self.current_selecting > #self.party then
             self:nextTurn()
             if self.state ~= "ACTIONSELECT" then
@@ -532,6 +574,7 @@ function Battle:onStateChange(old,new)
     elseif new == "DEFENDING" then
         self.wave_length = 0
         self.wave_timer = 0
+        self.battle_ui:hideMainPanel()
 
         for _,wave in ipairs(self.waves) do
             wave.encounter = self.encounter
@@ -558,8 +601,9 @@ function Battle:onStateChange(old,new)
 
             if battler.chara:getHealth() <= 0 then
                 battler:revive()
-                battler.chara:setHealth(battler.chara:autoHealAmount())
+                battler.health_rolling_to = battler.chara:autoHealAmount()
             end
+            battler.chara:setHealth(battler.health_rolling_to)
 
             battler:setAnimation("battle/victory")
 
@@ -633,6 +677,7 @@ function Battle:onStateChange(old,new)
         end
     elseif new == "TRANSITIONOUT" then
         self.current_selecting = 0
+        self.battle_ui:hideMainPanel()
 
         if self.tension_bar and self.tension_bar.shown then
             self.tension_bar:hide()
@@ -652,6 +697,7 @@ function Battle:onStateChange(old,new)
             end
         end
     elseif new == "DEFENDINGBEGIN" then
+        self.battle_ui:hideMainPanel()
         if self.state_reason == "CUTSCENE" then
             self:setState("DEFENDING")
             return
@@ -2460,6 +2506,9 @@ function Battle:sortChildren()
 end
 
 function Battle:update()
+    self.description.visible = self.description_panel.operable
+    self.cost_description.visible = self.description_panel.operable
+    self.note_display.visible = self.description_panel.operable
     for _,enemy in ipairs(self.enemies_to_remove) do
         Utils.removeFromTable(self.enemies, enemy)
         local enemy_y = Utils.getKey(self.enemies_index, enemy)
@@ -3339,9 +3388,9 @@ function Battle:handleActionSelectInput(key)
             self.battle_ui.action_boxes[self.current_selecting]:unselect()
         end
         return
-    elseif Input.is("left", key) then
+    elseif Input.is("up", key) then
         actbox.selected_button = actbox.selected_button - 1
-    elseif Input.is("right", key) then
+    elseif Input.is("down", key) then
         actbox.selected_button = actbox.selected_button + 1
     end
 

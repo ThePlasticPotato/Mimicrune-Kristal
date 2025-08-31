@@ -2,9 +2,17 @@
 ---@overload fun(...) : ActionBox
 local ActionBox, super = Class(Object)
 
-function ActionBox:init(x, y, index, battler)
+---comment
+---@param x number
+---@param y number
+---@param index number
+---@param battler PartyBattler
+---@param partypanel_offset number
+function ActionBox:init(x, y, index, battler, partypanel_offset)
     super.init(self, x, y)
     
+    self.partypanel_offset = partypanel_offset
+
     self.selection_siner = 0
 
     self.index = index
@@ -22,21 +30,26 @@ function ActionBox:init(x, y, index, battler)
 
     self.head_offset_x, self.head_offset_y = battler.chara:getHeadIconOffset()
 
-    self.head_sprite = Sprite(battler.chara:getHeadIcons().."/"..battler:getHeadIcon(), 13 + self.head_offset_x, 11 + self.head_offset_y)
+    self.head_sprite = Sprite(battler.chara:getHeadIcons().."/"..battler:getHeadIcon(), 34 + self.head_offset_x, 11 + self.head_offset_y)
     if not self.head_sprite:getTexture() then
         self.head_sprite:setSprite(battler.chara:getHeadIcons().."/head")
     end
     self.force_head_sprite = false
+    self.head_sprite:setOrigin(0.5, 0)
 
-    if battler.chara:getNameSprite() then
-        self.name_sprite = Sprite(battler.chara:getNameSprite(), 51, 14)
-        self.box:addChild(self.name_sprite)
-    end
+    self.menu_head_sprite = battler.chara:getMenuIcon()
+    self.menu_head_offset_x, self.menu_head_offset_y = battler.chara:getMenuIconOffset()
 
-    self.hp_sprite = Sprite("ui/hp", 109, 22)
+    -- if battler.chara:getNameSprite() then
+    --     self.name_sprite = Sprite(battler.chara:getNameSprite(), 51, 14)
+    --     self.box:addChild(self.name_sprite)
+    --     self.name_sprite.visible = false
+    -- end
+
+    --self.hp_sprite = Sprite("ui/hp", 109, 22)
 
     self.box:addChild(self.head_sprite)
-    self.box:addChild(self.hp_sprite)
+    --self.box:addChild(self.hp_sprite)
 
     self:createButtons()
 end
@@ -61,7 +74,7 @@ function ActionBox:createButtons()
     end
     btn_types = Kristal.modCall("getActionButtons", self.battler, btn_types) or btn_types
 
-    local start_y = (213 / 2) - ((#btn_types-1) * 35 / 2) - 1
+    local start_y = (217 / 2) - ((#btn_types-1) * 35 / 2) - 1
 
     -- if (#btn_types <= 5) and Game:getConfig("oldUIPositions") then
     --     start_y = start_y - 5.5
@@ -69,12 +82,12 @@ function ActionBox:createButtons()
 
     for i,btn in ipairs(btn_types) do
         if type(btn) == "string" then
-            local button = ActionButton(btn, self.battler, 568, math.floor(start_y + ((i - 1) * 35)) + 0.5)
+            local button = ActionButton(btn, self.battler, 595.5, math.floor(start_y + ((i - 1) * 26)) + 0.5)
             button.actbox = self
             table.insert(self.buttons, button)
             self:addChild(button)
         elseif type(btn) ~= "boolean" then -- nothing if a boolean value, used to create an empty space
-            btn:setPosition(math.floor(start_y + ((i - 1) * 35)) + 0.5, 21)
+            btn:setPosition(595.5, math.floor(start_y + ((i - 1) * 28)) + 0.5)
             btn.battler = self.battler
             btn.actbox = self
             table.insert(self.buttons, btn)
@@ -123,11 +136,11 @@ function ActionBox:update()
     --     self.box.y = 0
     -- end
 
-    self.head_sprite.y = 11 - self.data_offset + self.head_offset_y
+    self.head_sprite.y = 11 - self.data_offset + self.head_offset_y + self.partypanel_offset
     if self.name_sprite then
         self.name_sprite.y = 14 - self.data_offset
     end
-    self.hp_sprite.y = 22 - self.data_offset
+    --self.hp_sprite.y = 22 - self.data_offset
 
     if not self.force_head_sprite then
         local current_head = self.battler.chara:getHeadIcons().."/"..self.battler:getHeadIcon()
@@ -169,21 +182,21 @@ function ActionBox:draw()
 
     super.draw(self)
 
-    if not self.name_sprite then
-        local font = Assets.getFont("name")
-        love.graphics.setFont(font)
-        Draw.setColor(1, 1, 1, 1)
+    -- if not self.name_sprite then
+    --     local font = Assets.getFont("name")
+    --     love.graphics.setFont(font)
+    --     Draw.setColor(1, 1, 1, 1)
 
-        local name = self.battler.chara:getName():upper()
-        local spacing = 5 - Utils.len(name)
+    --     local name = self.battler.chara:getName():upper()
+    --     local spacing = 5 - Utils.len(name)
 
-        local off = 0
-        for i = 1, Utils.len(name) do
-            local letter = Utils.sub(name, i, i)
-            love.graphics.print(letter, self.box.x + 51 + off, self.box.y + 14 - self.data_offset - 1)
-            off = off + font:getWidth(letter) + spacing
-        end
-    end
+    --     local off = 0
+    --     for i = 1, Utils.len(name) do
+    --         local letter = Utils.sub(name, i, i)
+    --         love.graphics.print(letter, self.box.x + 51 + off, self.box.y + 14 - self.data_offset - 1)
+    --         off = off + font:getWidth(letter) + spacing
+    --     end
+    -- end
 end
 
 function ActionBox:drawActionBox()

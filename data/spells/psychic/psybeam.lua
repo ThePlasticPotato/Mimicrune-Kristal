@@ -9,7 +9,7 @@ function spell:init()
     self.cast_name = nil
 
     -- Battle description
-    self.effect = "Psychic\nBeam"
+    self.effect = "Psychic Beam"
 
     -- Menu description
     self.description = "Sends a beam of psychic power ripping through one foe."
