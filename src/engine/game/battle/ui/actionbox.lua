@@ -61,20 +61,20 @@ function ActionBox:createButtons()
     end
     btn_types = Kristal.modCall("getActionButtons", self.battler, btn_types) or btn_types
 
-    local start_x = (213 / 2) - ((#btn_types-1) * 35 / 2) - 1
+    local start_y = (213 / 2) - ((#btn_types-1) * 35 / 2) - 1
 
-    if (#btn_types <= 5) and Game:getConfig("oldUIPositions") then
-        start_x = start_x - 5.5
-    end
+    -- if (#btn_types <= 5) and Game:getConfig("oldUIPositions") then
+    --     start_y = start_y - 5.5
+    -- end
 
     for i,btn in ipairs(btn_types) do
         if type(btn) == "string" then
-            local button = ActionButton(btn, self.battler, math.floor(start_x + ((i - 1) * 35)) + 0.5, 21)
+            local button = ActionButton(btn, self.battler, 568, math.floor(start_y + ((i - 1) * 35)) + 0.5)
             button.actbox = self
             table.insert(self.buttons, button)
             self:addChild(button)
         elseif type(btn) ~= "boolean" then -- nothing if a boolean value, used to create an empty space
-            btn:setPosition(math.floor(start_x + ((i - 1) * 35)) + 0.5, 21)
+            btn:setPosition(math.floor(start_y + ((i - 1) * 35)) + 0.5, 21)
             btn.battler = self.battler
             btn.actbox = self
             table.insert(self.buttons, btn)
@@ -110,18 +110,18 @@ end
 function ActionBox:update()
     self.selection_siner = self.selection_siner + 2 * DTMULT
 
-    if Game.battle.current_selecting == self.index then
-        if self.box.y > -32 then self.box.y = self.box.y - 2 * DTMULT end
-        if self.box.y > -24 then self.box.y = self.box.y - 4 * DTMULT end
-        if self.box.y > -16 then self.box.y = self.box.y - 6 * DTMULT end
-        if self.box.y > -8  then self.box.y = self.box.y - 8 * DTMULT end
-        -- originally '= -64' but that was an oversight by toby
-        if self.box.y < -32 then self.box.y = -32 end
-    elseif self.box.y < -14 then
-        self.box.y = self.box.y + 15 * DTMULT
-    else
-        self.box.y = 0
-    end
+    -- if Game.battle.current_selecting == self.index then
+    --     if self.box.y > -32 then self.box.y = self.box.y - 2 * DTMULT end
+    --     if self.box.y > -24 then self.box.y = self.box.y - 4 * DTMULT end
+    --     if self.box.y > -16 then self.box.y = self.box.y - 6 * DTMULT end
+    --     if self.box.y > -8  then self.box.y = self.box.y - 8 * DTMULT end
+    --     -- originally '= -64' but that was an oversight by toby
+    --     if self.box.y < -32 then self.box.y = -32 end
+    -- elseif self.box.y < -14 then
+    --     self.box.y = self.box.y + 15 * DTMULT
+    -- else
+    --     self.box.y = 0
+    -- end
 
     self.head_sprite.y = 11 - self.data_offset + self.head_offset_y
     if self.name_sprite then
@@ -142,9 +142,11 @@ function ActionBox:update()
 
     for i,button in ipairs(self.buttons) do
         if (Game.battle.current_selecting == self.index) then
+            button.visible = true
             button.selectable = true
             button.hovered = (self.selected_button == i)
         else
+            button.visible = false
             button.selectable = false
             button.hovered = false
         end
@@ -162,8 +164,8 @@ function ActionBox:unselect()
 end
 
 function ActionBox:draw()
-    self:drawSelectionMatrix()
-    self:drawActionBox()
+    -- self:drawSelectionMatrix()
+    -- self:drawActionBox()
 
     super.draw(self)
 
