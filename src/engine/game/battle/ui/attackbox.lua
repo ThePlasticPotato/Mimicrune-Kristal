@@ -71,6 +71,7 @@ function AttackBox:hit()
     --self.bolt:setPosition(self.bolt:getRelativePos(0, 0, self.parent))
     self.bolt:setParent(self.parent)
 
+    self.circle:fadeOutAndRemove(1)
     if p <= 0.10 + self.battler.chara.sweet_spot_tolerance then
         self.hit_sounds["perfect"]:play()
         self.bolt:setColor(1, 1, 0)
@@ -91,6 +92,8 @@ function AttackBox:hit()
         self.bolt:setColor(self.battler.chara:getDamageColor())
         return 100 - (p * 2)
     end
+
+    
 end
 
 function AttackBox:miss()

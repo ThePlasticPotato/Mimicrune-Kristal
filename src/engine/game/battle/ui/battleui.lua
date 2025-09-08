@@ -958,20 +958,20 @@ function BattleUI:drawState()
     end
     if Game.battle.state == "ATTACKING" or self.attacking then
         Game.battle:setDescription("", "", false, "")
-        Draw.setColor(PALETTE["battle_attack_lines"])
-        if not Game:getConfig("oldUIPositions") then
-            -- Chapter 2 attack lines
-            love.graphics.rectangle("fill", 79, 78, 224, 2)
-            love.graphics.rectangle("fill", 79, 116, 224, 2)
-        else
-            -- Chapter 1 attack lines
-            local has_index = {}
-            for _,box in ipairs(self.attack_boxes) do
-                has_index[box.index] = true
-            end
-            love.graphics.rectangle("fill", has_index[2] and 77 or 2, 78, has_index[2] and 226 or 301, 3)
-            love.graphics.rectangle("fill", has_index[3] and 77 or 2, 116, has_index[3] and 226 or 301, 3)
-        end
+        -- Draw.setColor(PALETTE["battle_attack_lines"])
+        -- if not Game:getConfig("oldUIPositions") then
+        --     -- Chapter 2 attack lines
+        --     love.graphics.rectangle("fill", 79, 78, 224, 2)
+        --     love.graphics.rectangle("fill", 79, 116, 224, 2)
+        -- else
+        --     -- Chapter 1 attack lines
+        --     local has_index = {}
+        --     for _,box in ipairs(self.attack_boxes) do
+        --         has_index[box.index] = true
+        --     end
+        --     love.graphics.rectangle("fill", has_index[2] and 77 or 2, 78, has_index[2] and 226 or 301, 3)
+        --     love.graphics.rectangle("fill", has_index[3] and 77 or 2, 116, has_index[3] and 226 or 301, 3)
+        -- end
     end
 end
 

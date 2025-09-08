@@ -92,7 +92,8 @@ function character:init()
     self.name_sprite = "party/evan/name"
     
     -- Pitch of the attack sound
-    self.attack_pitch = 0.8
+    self.attack_sound = "greatslash"
+    self.attack_pitch = 1
 
     -- Battle position offset (optional)
     self.battle_offset = nil
