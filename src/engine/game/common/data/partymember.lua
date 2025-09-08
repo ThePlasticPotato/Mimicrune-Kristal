@@ -158,6 +158,10 @@ function PartyMember:init()
 
     self.overworld_attack_cd = 1
 
+    self.sweet_spot_tolerance = 0.15
+    self.attack_circle = "party/kris/attack_wheel"
+    self.attack_bar = "party/kris/attack_bar"
+
     -- Weapon icon in equip menu
     self.weapon_icon = "ui/menu/equip/sword"
 
@@ -393,6 +397,9 @@ function PartyMember:getNameSprite() return self.name_sprite end
 function PartyMember:getAttackSprite() return self.attack_sprite end
 function PartyMember:getAttackSound() return self.attack_sound end
 function PartyMember:getAttackPitch() return self.attack_pitch end
+
+function PartyMember:getAttackCircle() return self.attack_circle end
+function PartyMember:getAttackBar() return self.attack_bar end
 
 ---@return number x
 ---@return number y

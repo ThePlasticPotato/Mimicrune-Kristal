@@ -149,7 +149,7 @@ function BattleUI:beginAttack()
         local battler = attack_order[i]
         local index = Game.battle:getPartyIndex(battler.chara.id)
         local attack_box = AttackBox(battler, 30 + offset, index, 0, 40 + (38 * (index - 1)))
-        attack_box.layer = -10 + (index * 0.01)
+        attack_box.layer = BATTLE_LAYERS["above_ui"] + (index * 0.01)
         self:addChild(attack_box)
         table.insert(self.attack_boxes, attack_box)
 

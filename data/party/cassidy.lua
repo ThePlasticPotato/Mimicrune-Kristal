@@ -32,6 +32,8 @@ function character:init()
     self.heat = 0
     self.is_psychic = true
 
+    self.sweet_spot_tolerance = 0.25
+
     -- Spells
     self:addKnownSpell("meditate", true)
     self:addKnownSpell("psybeam", false)

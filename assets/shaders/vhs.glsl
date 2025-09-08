@@ -5,20 +5,13 @@ extern Image noiseTex;
 extern number noise_strength   = 1.0;  // overall noise add strength
 extern number stripes_strength = 1.0;  // how strongly stripes use noise
 extern number noise_color_mix  = 1.0;  // 0=mono, 1=full color, between = partial
-extern number scroll_amp   = 0.12; // overall strength of vertical roll (was ~0.4 internally)
+extern number scroll_amp   = 0.12; // overall strength of vertical roll (~0.4 bydefault)
 extern number scroll_speed = 0.35; // how fast the roll progresses
 extern number wobble_amp   = 0.015; // horizontal wiggle strength (was ~1/50 * big multiplier)
 extern number stripes_speed = 0.30; // motion of the stripe mask (lower = calmer)
 extern number sweep_speed   = 0.25; // speed of the bright sweep band
 extern number sweep_amp     = 0.35; // amplitude of the sweep band (brightness variation)
-extern number seam_feather = 0.004;
-
-// float noise(vec2 p)
-// {
-//     vec2 uv = fract(vec2(1.0, 2.0 * cos(iTime)) * iTime * 8.0 + p);
-//     float s = Texel(noiseTex, uv).x;
-//     return s * s;
-// }
+extern number seam_feather = 0.004; // feather amt, prevents edges from wrapping weirdly (not really important if you dont have scroll or wobble)
 
 vec3 noiseRGB(vec2 p)
 {
@@ -41,23 +34,13 @@ float ramp(float y, float start, float end)
     return (1.0 - fact) * inside;
 }
 
-// float stripes(vec2 uv)
-// {
-//     float noi = dot(noiseRGB(uv * vec2(0.5,1.0) + vec2(1.0,3.0)), vec3(0.299, 0.587, 0.114));
-//     float t = mod(uv.y*4.0 + iTime*stripes_speed + 0.5*sin(iTime*0.6), 1.0);
-//     return ramp(t, 0.5, 0.6) * noi * stripes_strength;
-// }
-
 vec3 stripesRGB(vec2 uv)
 {
-    // keep the same temporal pattern, but make the mask scalar 0..1
     float t = mod(uv.y*4.0 + iTime*stripes_speed + 0.5*sin(iTime*0.6), 1.0);
     float mask = ramp(t, 0.5, 0.6); // narrow band
 
-    // sample COLORED noise and use it as the stripe color content
     vec3 n = noiseRGB(uv * vec2(0.5, 1.0) + vec2(1.0, 3.0));
 
-    // apply strength and mask; clamp to avoid overshoot when added later
     vec3 stripe = n * mask * stripes_strength;
 	stripe = stripe * 2.0 + 0.2 * stripe; // extra additive push
 	return clamp(stripe, 0.0, 1.0);
@@ -77,16 +60,12 @@ vec4 sampleWrapNoTileFeather(in Image tex, in vec2 uv)
 {
     vec2 uvWrapped = fract(uv);
 
-    // inside flags (1 when within [0,1], else 0)
     vec2 inRange = step(0.0, uv) * step(uv, vec2(1.0));
     float inside = inRange.x * inRange.y;
 
-    // distance to the nearest horizontal edge (top/bottom) measured in UV
-    // (when outside, d will be <= 0; smoothstep will push alpha toward 0)
     float dY = min(uv.y, 1.0 - uv.y);
     float fadeY = smoothstep(0.0, seam_feather, dY);
 
-    // combine: fully inside -> 1, outside -> fade toward 0 near the seam
     float mask = mix(fadeY, 1.0, inside);
 
     return Texel(tex, uvWrapped) * mask;
@@ -97,15 +76,12 @@ vec3 getVideo(vec2 uv, Image texture)
 {
     vec2 look = uv;
 
-    // vertical “window” stays similar but slightly softer
     float dy = look.y - mod(iTime*0.25, 1.0);
     float window = 1.0 / (1.0 + 14.0 * dy * dy); // was 20.0
 
-    // gentler horizontal wobble
     float wobble = sin(look.y*8.0 + iTime*0.8) * wobble_amp * onOff(4.0, 4.0, 0.3) * (0.5 + 0.5*cos(iTime*40.0));
     look.x += wobble * window;
 
-    // calmer vertical roll: lower freq + lower amp, then mod into [0,1]
     float vShiftCore =
         0.6*sin(iTime*0.7) * 0.6*sin(iTime*4.0)  // product gives intermittent motion
       + 0.3*sin(iTime*0.35);                     // slow drift

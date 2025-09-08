@@ -1,0 +1,11 @@
+{
+    "defaultSize": 8,
+    "lineSpacing": 28,
+
+    "fallbacks": [
+        {
+            "font": "main_mono",
+            "size": 28
+        }
+    ]
+}

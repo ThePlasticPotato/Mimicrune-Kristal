@@ -2760,10 +2760,14 @@ function Battle:updateAttacking()
         end
 
         local all_done = true
+        local perfects = 0
         for _,attack in ipairs(self.battle_ui.attack_boxes) do
+            if (attack.perfect) then
+                perfects = perfects + 1
+            end
             if not attack.attacked and attack.fade_rect.alpha < 1 then
                 local close = attack:getClose()
-                if close <= -2 then
+                if (close <= -2) or (attack.bolt.scale_x == 0) then
                     attack:miss()
 
                     local action = self:getActionBy(attack.battler, true)
@@ -2783,6 +2787,10 @@ function Battle:updateAttacking()
         end
 
         if all_done then
+            if (perfects >= #Game.party) then
+                Assets.playSound("violence/unbeatable")
+                Game:giveTension(10)
+            end
             self.attack_done = true
         end
     else
