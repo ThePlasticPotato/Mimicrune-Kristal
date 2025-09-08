@@ -75,7 +75,7 @@ function DebugSystem:init()
     self.context = nil
     self.last_context = nil
 
-    self.search_text = { "" }
+    self.search = { "" }
 
     self.menu_y = 0
     self.menu_target_y = 0
@@ -424,7 +424,8 @@ function DebugSystem:enterMenu(menu, soul, skip_history)
         })
     end
     self.current_menu = menu
-    self.current_selecting = soul or 1
+    self.current_selecting = soul or self.current_selecting or 1
+    self:updateBounds(self:getValidOptions())
 
     if (self.menu_entry_callbacks[self.current_menu]) then
         self.menu_entry_callbacks[self.current_menu]()
