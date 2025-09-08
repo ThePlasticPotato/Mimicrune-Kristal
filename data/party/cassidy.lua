@@ -33,6 +33,8 @@ function character:init()
     self.is_psychic = true
 
     self.sweet_spot_tolerance = 0.25
+    self.attack_circle = "party/cassidy/attack_wheel"
+    self.attack_bar = "party/cassidy/attack_bar"
 
     -- Spells
     self:addKnownSpell("meditate", true)

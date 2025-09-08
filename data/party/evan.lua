@@ -61,6 +61,9 @@ function character:init()
     -- Weapon icon in equip menu
     self.weapon_icon = "ui/menu/equip/greatsword"
 
+    self.attack_circle = "party/evan/attack_wheel"
+    self.attack_bar = "party/evan/attack_bar"
+
     -- Equipment (saved to the save file)
     self:setWeapon("notsogreatsword")
     self:setArmor(1, "faz_bowtie")

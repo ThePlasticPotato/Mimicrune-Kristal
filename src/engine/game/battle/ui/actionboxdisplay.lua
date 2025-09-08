@@ -14,6 +14,14 @@ function ActionBoxDisplay:init(actbox, x, y)
 end
 
 function ActionBoxDisplay:draw()
+    local map = function(tbl, func)
+        local result = {}
+        for index, value in ipairs(tbl) do
+            result[index] = func(value, index)
+        end
+        return result
+    end
+
     if Game.battle.current_selecting == self.actbox.index then
         Draw.setColor(self.actbox.battler.chara:getColor())
     else
@@ -28,6 +36,24 @@ function ActionBoxDisplay:draw()
     if health > 0 then
         Draw.setColor(self.actbox.battler.chara:getColor())
         love.graphics.rectangle("fill", 21, 39 - self.actbox.data_offset + self.actbox.partypanel_offset, math.ceil(health), 9)
+    end
+
+    local health_rolling_diff = ((self.actbox.battler.health_rolling_to - self.actbox.battler.chara:getHealth()) / self.actbox.battler.chara:getStat("health")) * 27
+    if health_rolling_diff ~= 0 and health > 0 then
+        Draw.setColor(map({self.actbox.battler.chara:getColor()}, function(value, index)
+            if index == 4 then return value
+            else
+                return value * 0.75
+            end
+        end))
+        local x_start = health
+        local width = health_rolling_diff
+        if health_rolling_diff < 0 then
+            x_start = math.ceil(health + width)
+            width = math.ceil(width) - 1
+        end
+        -- Kristal.Console:log(x_start + math.abs(math.floor(width)))
+        love.graphics.rectangle("fill", x_start + 21, 39 - self.actbox.data_offset + self.actbox.partypanel_offset, math.abs(width), 9)
     end
 
 

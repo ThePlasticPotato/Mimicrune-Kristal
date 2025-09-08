@@ -41,7 +41,7 @@ function AttackBox:init(battler, offset, index, x, y)
 
     self.fade_rect = Rectangle(0, 0, SCREEN_WIDTH, 300)
     self.fade_rect:setColor(0, 0, 0, 0)
-    self.fade_rect.layer = 2
+    self.fade_rect.layer = -10
     self.fade_rect.visible = false
     self:addChild(self.fade_rect)
 
@@ -68,7 +68,7 @@ function AttackBox:hit()
 
     self.bolt:burst()
     self.bolt.layer = 1
-    self.bolt:setPosition(self.bolt:getRelativePos(0, 0, self.parent))
+    --self.bolt:setPosition(self.bolt:getRelativePos(0, 0, self.parent))
     self.bolt:setParent(self.parent)
 
     if p <= 0.10 + self.battler.chara.sweet_spot_tolerance then
@@ -125,7 +125,8 @@ function AttackBox:update()
         self.afterimage_timer = self.afterimage_timer + DTMULT/2
         while math.floor(self.afterimage_timer) > self.afterimage_count do
             self.afterimage_count = self.afterimage_count + 1
-            local afterimg = AttackBar(0, 0, 6, 38)
+            local afterimg = AttackBar(0, 0, 6, 38, self.battler.chara:getAttackBar())
+            afterimg.afterimage = true
             afterimg:setScale(self.bolt.scale_x)
             afterimg.layer = 3
             afterimg.alpha = 0.4

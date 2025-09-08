@@ -50,6 +50,9 @@ function character:init()
 
     self.is_musical = true
 
+    self.attack_circle = "party/fredbear/attack_wheel"
+    self.attack_bar = "party/fredbear/attack_bar"
+
     -- Weapon icon in equip menu
     self.weapon_icon = "ui/menu/equip/mic"
 

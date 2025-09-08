@@ -133,6 +133,58 @@ function BattleUI:clearEncounterText()
     self.encounter_text:setText("")
 end
 
+function BattleUI:drawCurrentHealth(battler, color, x, y)
+    local map = function (tbl, func)
+        local result = {}
+        for index, value in ipairs(tbl) do
+            result[index] = func(value, index)
+        end
+        return result
+    end
+
+    local getConfig = function (name)
+        return Kristal.getLibConfig("rolling-health", name)
+    end
+    local string_from = tostring(battler.health_rolling_last)
+    local string_to = tostring(battler.chara:getHealth())
+    local max_string_length = math.max(#string_from, #string_to)
+    for i = 1, max_string_length - #string_from do
+        string_from = ' ' .. string_from
+    end
+    for i = 1, max_string_length - #string_to do
+        string_to = ' ' .. string_to
+    end
+    local health_offset = (max_string_length - 1) * 8
+    x = x - health_offset
+    local roll_progress = Utils.clamp((battler.health_rolling_timer / battler:getRollSpeed()) * getConfig("display_roll_speed"), 0, 1)
+    local rolling_down = battler.chara:getHealth() < battler.health_rolling_last
+    if rolling_down then roll_progress = 1 - roll_progress end
+    for i = 1, max_string_length do
+        local number_from, number_to = string_from[i] or '', string_to[i] or ''
+        if number_from == number_to then
+            Draw.setColor(color)
+            love.graphics.print(number_from, x + (i - 1) * 8, y)
+        else
+            -- Looks horrible (but it works)
+            local function drawNumber(number, first, dark)
+                Draw.setColor(map(color, function(value, index)
+                    if index == 4 then return getConfig("change_alpha") and (first and roll_progress or (1 - roll_progress)) or value
+                    else return (dark and getConfig("darken_previous")) and value * 0.25 or value
+                    end
+                end))
+                love.graphics.print(number, x + (i - 1) * 8, y + (roll_progress - (first and 1 or 0)) * 12)
+            end
+            if rolling_down then
+                drawNumber(number_to, false, false)
+                drawNumber(number_from, true, true)
+            else
+                drawNumber(number_from, false, true)
+                drawNumber(number_to, true, false)
+            end
+        end
+    end
+end
+
 function BattleUI:beginAttack()
     local attack_order = Utils.pickMultiple(Game.battle.normal_attackers, #Game.battle.normal_attackers)
 
@@ -148,7 +200,7 @@ function BattleUI:beginAttack()
 
         local battler = attack_order[i]
         local index = Game.battle:getPartyIndex(battler.chara.id)
-        local attack_box = AttackBox(battler, 30 + offset, index, 0, 40 + (38 * (index - 1)))
+        local attack_box = AttackBox(battler, 30 + offset, index, 168+ (153 * (index - 1)), 66)
         attack_box.layer = BATTLE_LAYERS["above_ui"] + (index * 0.01)
         self:addChild(attack_box)
         table.insert(self.attack_boxes, attack_box)
@@ -321,6 +373,13 @@ function BattleUI:drawActionArena()
 end
 
 function BattleUI:drawState()
+    local map = function (tbl, func)
+        local result = {}
+        for index, value in ipairs(tbl) do
+            result[index] = func(value, index)
+        end
+        return result
+    end
     if (Game.battle.state == "ACTIONSELECT") then
         Game.battle:setDescription("", "", false, "")
     end
@@ -349,6 +408,24 @@ function BattleUI:drawState()
                 love.graphics.rectangle("fill", 273, 37, math.ceil(health), 9)
             end
 
+            local health_rolling_diff = ((battler.health_rolling_to - battler.chara:getHealth()) / battler.chara:getStat("health")) * 97
+            if health_rolling_diff ~= 0 and health > 0 then
+                Draw.setColor(map({battler.chara:getColor()}, function(value, index)
+                    if index == 4 then return value
+                    else
+                        return value * 0.75
+                    end
+                end))
+                local x_start = health
+                local width = health_rolling_diff
+                if health_rolling_diff < 0 then
+                    x_start = math.ceil(health + width)
+                    width = math.ceil(width) - 1
+                end
+                -- Kristal.Console:log(x_start + math.abs(math.floor(width)))
+                love.graphics.rectangle("fill", x_start + 273, 37, math.abs(width), 9)
+            end
+
             local color = PALETTE["action_health_text"]
             if health <= 0 then
                 color = PALETTE["action_health_text_down"]
@@ -364,7 +441,9 @@ function BattleUI:drawState()
 
             Draw.setColor(color)
             love.graphics.setFont(Assets.getFont("smallnumbers"))
-            love.graphics.print(character:getHealth(), 290 - health_offset, 22)
+            --love.graphics.print(character:getHealth(), 290 - health_offset, 22)
+            self:drawCurrentHealth(battler, color, 290, 22)
+            love.graphics.setFont(Assets.getFont("smallnumbers"))
             Draw.setColor(PALETTE["action_health_text"])
             love.graphics.print("/", SCREEN_WIDTH/2-4, 22)
             local string_width = Assets.getFont("smallnumbers"):getWidth(tostring(character:getStat("health")))

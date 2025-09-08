@@ -51,7 +51,7 @@ function actor:init()
         ["battle/defeat"]       = {"battle/defeat", 1/15, true},
         ["battle/overheat"]     = {"battle/overheat", 0.1, true},
 
-        ["battle/transition"]   = {"battle/battle_transition", 0.2, true},
+        ["battle/transition"]   = {"battle/battle_transition", 1/15, false},
         ["battle/intro"]        = {"battle/attack", 1/20, true},
         ["battle/victory"]      = {"battle/victory", 1/10, false},
     }
