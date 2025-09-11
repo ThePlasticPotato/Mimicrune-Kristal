@@ -52,9 +52,9 @@ function actor:init()
     }
 
     self.offsets = {
-        ["battle/act"] = {-13, -6};
-        ["battle/actend"] = {-10, -6};
-        ["battle/actready"] = {-13, -6};
+        ["battle/act"] = {-19, -11};
+        ["battle/actend"] = {-19, -11};
+        ["battle/actready"] = {-19, -11};
         ["battle/attack"] = {-19, -6};
         ["battle/attackready"] = {-19, -6};
         ["battle/battle_transition"] = {-19, -12};
