@@ -60,6 +60,8 @@ function Player:init(chara, x, y)
     outlinefx:setAlpha(self.battle_alpha)
 
     self.outlinefx = self:addFX(outlinefx)
+
+    self.should_sit = true
 end
 
 function Player:getDebugInfo()
