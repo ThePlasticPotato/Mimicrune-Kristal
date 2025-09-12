@@ -64,6 +64,7 @@ function LightMenu:close()
     if (Game.world and Game.world.menu == self) then
         Game.world.menu = nil
     end
+    if (self.objective) then self.objective:close() end
     self:remove()
 end
 
