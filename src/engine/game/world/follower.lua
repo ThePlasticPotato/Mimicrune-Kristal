@@ -13,6 +13,7 @@ function Follower:init(chara, x, y, target)
 
     self.state_manager = StateManager("WALK", self, true)
     self.state_manager:addState("WALK")
+    self.state_manager:addState("RUN", {enter = self.beginRun, leave = self.endRun})
     self.state_manager:addState("SLIDE", {enter = self.beginSlide, leave = self.endSlide})
 
     self.history_time = 0
@@ -81,6 +82,14 @@ end
 
 function Follower:getTarget()
     return self.target or self.world.player
+end
+
+function Follower:beginRun()
+    self:setWalkSprite("run")
+end
+
+function Follower:endRun(new_state)
+    if (new_state) == "WALK" then self:resetSprite() end
 end
 
 function Follower:getTargetPosition()

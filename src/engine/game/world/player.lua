@@ -13,6 +13,7 @@ function Player:init(chara, x, y)
 
     self.state_manager = StateManager("WALK", self, true)
     self.state_manager:addState("WALK", { update = self.updateWalk })
+    self.state_manager:addState("RUN", { update = self.updateRun, enter = self.beginRun, leave = self.endRun } )
     self.state_manager:addState("SLIDE", { update = self.updateSlide, enter = self.beginSlide, leave = self.endSlide })
 
     self.force_run = false
@@ -33,6 +34,9 @@ function Player:init(chara, x, y)
     self.moving_x = 0
     self.moving_y = 0
     self.walk_speed = (Game:isLight() and 6 or 4) + Game.party[1].walk_speed_bonus
+    self.run_momentum = { 0, 0 }
+    self.temp_boost_x = 0
+    self.temp_boost_y = 0
 
     self.last_move_x = self.x
     self.last_move_y = self.y
@@ -142,6 +146,110 @@ function Player:interact()
     end
 
     return false
+end
+
+function Player:beginRun()
+    self:setWalkSprite("run")
+end
+
+function Player:endRun(new_state)
+    if (new_state) == "WALK" then self:resetSprite() end
+end
+
+function Player:updateRun()
+    if (Game:getFlag("simple_run", false)) then
+        self:updateWalk()
+    else
+        if self:isMovementEnabled() then
+            self:handleMomentumMovement()
+        end
+    end
+end
+
+function Player:handleMomentumMovement()
+
+    local sign = function (number)
+        return number > 0 and 1 or (number == 0 and 0 or -1)
+    end
+
+    local walk_x = 0
+    local walk_y = 0
+
+    if     Input.down("left")  then walk_x = walk_x - 1
+    elseif Input.down("right") then walk_x = walk_x + 1 end
+    if     Input.down("up")    then walk_y = walk_y - 1
+    elseif Input.down("down")  then walk_y = walk_y + 1 end
+
+    self.moving_x = walk_x
+    self.moving_y = walk_y
+
+    self.temp_boost_x = Utils.approach(self.temp_boost_x, 0, DT)
+    self.temp_boost_y = Utils.approach(self.temp_boost_y, 0, DT)
+
+    local running = (Input.down("cancel") or self.force_run) and not self.force_walk
+    if Kristal.Config["autoRun"] and not self.force_run and not self.force_walk then
+        running = not running
+    end
+
+    if self.force_run and not self.force_walk then
+        self.run_timer = 200
+    end
+    if self.run_timer == 0 then
+        self.run_momentum[1] = Utils.approach(self.run_momentum[1], 0, DT * 2)
+        self.run_momentum[2] = Utils.approach(self.run_momentum[2], 0, DT * 2)
+
+        if (math.abs(self.run_momentum[1]) < 0.05 and math.abs(self.run_momentum[2]) < 0.05) then
+            self:setState("WALK")
+            for index, value in ipairs(Game.world.followers) do
+                if (value.following) then
+                    value.state_manager:setState("WALK")
+                end
+            end
+        end
+    else
+        local mult_x, mult_y = 1, 1
+        if math.abs(walk_x) > 0 and (sign(walk_x) ~= sign(self.run_momentum[1])) and math.abs(self.run_momentum[1]) > 0.5 then mult_x = 3 end
+        if math.abs(walk_y) > 0 and (sign(walk_y) ~= sign(self.run_momentum[2])) and math.abs(self.run_momentum[2]) > 0.5 then mult_y = 3 end
+        if ((mult_x > 1) or (mult_y > 1)) and (math.abs(walk_x) > 0 or math.abs(walk_y) > 0) and not self.sprite:isSprite("skid") then
+            self:setAnimation("skid", function () self:setWalkSprite("run") end)
+            Assets.playSound("run_skid", 0.75, 1)
+            self:runSkidDust(walk_y > 0 and mult_y > 1)
+            for index, value in ipairs(Game.world.followers) do
+                value:setAnimation("skid", function () value:setWalkSprite("run") end)
+            end
+            if ((mult_x > 1) and (walk_y ~= 0) and (mult_y == 1)) and self.temp_boost_x == 0 then
+                self.temp_boost_y = math.min(self.temp_boost_y + 0.5, 2)
+                Assets.playSound("bell_bounce_short")
+                self:flash()
+            end
+            if ((mult_y > 1) and (walk_x ~= 0) and (mult_x == 1)) and self.temp_boost_y == 0 then
+                self.temp_boost_x = math.min(self.temp_boost_x + 0.5, 2)
+                Assets.playSound("bell_bounce_short")
+                self:flash()
+            end
+        end
+        self.run_momentum[1] = Utils.approach(self.run_momentum[1], walk_x + (walk_x * self.temp_boost_x), DT * mult_x)
+        self.run_momentum[2] = Utils.approach(self.run_momentum[2], walk_y + (walk_y * self.temp_boost_y), DT * mult_y)
+    end
+
+    local speed = self.walk_speed + (Game:isLight() and 4 or 4)
+    
+    self:move(walk_x + self.run_momentum[1], walk_y + self.run_momentum[2], speed * DTMULT)
+
+    if not running or self.last_collided_x or self.last_collided_y then
+        self.run_timer = 0
+    elseif running then
+        if walk_x ~= 0 or walk_y ~= 0 then
+            self.run_timer = self.run_timer + DTMULT
+            self.run_timer_grace = 0
+        else
+            -- Dont reset running until 2 frames after you release the movement keys
+            if self.run_timer_grace >= 2 then
+                self.run_timer = 0
+            end
+            self.run_timer_grace = self.run_timer_grace + DTMULT
+        end
+    end
 end
 
 function Player:attack()
@@ -273,7 +381,13 @@ function Player:handleMovement()
 
     local speed = self.walk_speed
     if running then
-        if self.run_timer > 60 then
+        if self.run_timer > 30 then
+            self:setState("RUN")
+            for index, value in ipairs(Game.world.followers) do
+                if (value.following) then
+                    value.state_manager:setState("RUN")
+                end
+            end
             speed = speed + (Game:isLight() and 6 or 5)
         elseif self.run_timer > 10 then
             speed = speed + 4
@@ -335,6 +449,18 @@ function Player:updateSlideDust()
         dust.physics.speed_x = Utils.random(-1, 1)
         self.world:addChild(dust)
     end
+end
+
+function Player:runSkidDust(above)
+    local dust = Sprite("effects/slide_dust")
+    dust:play(1 / 15, false, function () dust:remove() end)
+    dust:setOrigin(0.5, 0.5)
+    dust:setScale(2, 2)
+    dust:setPosition(self.x, self.y)
+    dust.layer = self.layer - (above and 0.01 or -0.01)
+    dust.physics.speed_y = -6
+    dust.physics.speed_x = Utils.random(-1, 1)
+    self.world:addChild(dust)
 end
 
 function Player:updateSlide()
@@ -399,6 +525,9 @@ function Player:updateHistory()
 end
 
 function Player:update()
+    if (self.sprite:isSprite("run") and self.state_manager.state ~= "RUN" and not self.force_run) then
+        self:resetSprite()
+    end
     if self.hurt_timer > 0 then
         self.hurt_timer = Utils.approach(self.hurt_timer, 0, DTMULT)
     end

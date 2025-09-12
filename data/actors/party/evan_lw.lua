@@ -36,12 +36,14 @@ function actor:init()
         ["splat"]         = {"splat", 0.2, true},
         ["lift"]    = {"lift", 0.2, true},
         ["sat"]     = {"sat", 0.2, true},
-        ["sit"] = {"sit", 0.15, true}
+        ["sit"] = {"sit", 0.15, true},
+        ["skid"] = {"skid", 0.15, false},
     }
 
     self.offsets = {
         ["lift"] = {-10, 13},
         ["run"] = {-5, -2},
+        ["skid"] = {-5, -2},
         ["sat"] = {-11, 8},
         ["splat"] = {-11, 13},
     }

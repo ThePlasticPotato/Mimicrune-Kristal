@@ -69,7 +69,7 @@ function actor:init()
         ["battle/spell"] = {-13, -6};
         ["battle/spellready"] = {-13, -6};
         ["battle/victory"] = {-1, 0};
-        ["run/down"] = {-5, -2};
+        ["run"] = {-5, -2};
     }
 
     -- Sound to play when this actor speaks (optional)
