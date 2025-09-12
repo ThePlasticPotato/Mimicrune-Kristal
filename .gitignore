@@ -15,3 +15,4 @@ build/
 output/
 
 *.tiled-session
+*.aseprite
