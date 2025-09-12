@@ -404,6 +404,11 @@ function World:onKeyPressed(key)
             if (self.player:attack()) then
                 Input.clear("attack")
             end
+        elseif Input.isDash(key) and self.player and not self:hasCutscene() and not self.menu then
+            if (self.player:canDash()) then
+                self.player:setState("DASH")
+                Input.clear("dash")
+            end
         elseif Input.isMenu(key) and not self:hasCutscene() then
             self:openMenu(nil, WORLD_LAYERS["ui"] + 1)
             Input.clear("menu")

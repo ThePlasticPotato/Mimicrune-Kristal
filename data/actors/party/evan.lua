@@ -49,6 +49,9 @@ function actor:init()
         ["battle/transition"]   = {"battle/battle_transition", 1/15, false},
         ["battle/intro"]        = {"battle/intro", 1/15, true},
         ["battle/victory"]      = {"battle/victory", 1/10, false},
+
+        ["dash"]   = {"dash", 1/15, true},
+        ["skid"] = {"skid", 0.15, false},
     }
 
     self.offsets = {
@@ -69,7 +72,9 @@ function actor:init()
         ["battle/spell"] = {-13, -6};
         ["battle/spellready"] = {-13, -6};
         ["battle/victory"] = {-1, 0};
+        ["dash"] = {-17, -12};
         ["run"] = {-5, -2};
+        ["skid"] = { -5, -2};
     }
 
     -- Sound to play when this actor speaks (optional)

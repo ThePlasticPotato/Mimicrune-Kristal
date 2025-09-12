@@ -210,6 +210,7 @@ function Input.resetBinds(gamepad, mod_id)
             ["cancel"] = {"x", "shift"},
             ["menu"] = {"c", "ctrl"},
             ["attack"] = {"v", "alt"},
+            ["dash"] = {"e", "space"},
             ["console"] = {"`"},
             ["debug_menu"] = {{"shift", "`"}},
             ["object_selector"] = {{"ctrl", "o"}},
@@ -225,6 +226,7 @@ function Input.resetBinds(gamepad, mod_id)
             ["cancel"] = {"gamepad:b"},
             ["menu"] = {"gamepad:y"},
             ["attack"] = {"gamepad:x"},
+            ["dash"] = {"gamepad:leftshoulder"},
             ["console"] = {},
             ["debug_menu"] = {},
             ["object_selector"] = {},
@@ -277,6 +279,7 @@ function Input.resetBinds(gamepad, mod_id)
             ["cancel"] = {"x", "shift"},
             ["menu"] = {"c", "ctrl"},
             ["attack"] = {"v", "alt"},
+            ["dash"] = {"e", "space"},
             ["console"] = {"`"},
             ["debug_menu"] = {{"shift", "`"}},
             ["object_selector"] = {{"ctrl", "o"}},
@@ -1326,8 +1329,16 @@ function Input.isConfirm(key)
     return Input.is("confirm", key)
 end
 
+---@param key string
+---@return boolean
 function Input.isAttack(key)
     return Input.is("attack", key)
+end
+
+---@param key string
+---@return boolean
+function Input.isDash(key)
+    return Input.is("dash", key)
 end
 
 ---@param key string

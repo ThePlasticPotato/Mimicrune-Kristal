@@ -14,6 +14,7 @@ function Follower:init(chara, x, y, target)
     self.state_manager = StateManager("WALK", self, true)
     self.state_manager:addState("WALK")
     self.state_manager:addState("RUN", {enter = self.beginRun, leave = self.endRun})
+    self.state_manager:addState("DASH", { update = self.updateDash, enter = self.beginDash, leave = self.endDash })
     self.state_manager:addState("SLIDE", {enter = self.beginSlide, leave = self.endSlide})
 
     self.history_time = 0
@@ -23,6 +24,9 @@ function Follower:init(chara, x, y, target)
     self.follow_delay = FOLLOW_DELAY
     self.returning = false
     self.return_speed = 6
+
+    self.dash_timer = 0
+    self.dash_afterimages = 0
 
     self.blush_timer = 0
 
@@ -77,6 +81,27 @@ function Follower:returnToFollowing(speed)
     else
         self.returning = true
         self.return_speed = speed or 6
+    end
+end
+
+function Follower:beginDash(prev_state)
+    self:setAnimation("dash")
+end
+
+function Follower:endDash(new_state)
+    self:resetSprite()
+    self.dash_afterimages = 0
+    self.dash_timer = 0
+end
+
+function Follower:updateDash()
+    self.dash_timer = self.dash_timer + (1 * DTMULT)
+
+    while self.dash_afterimages < math.floor(self.dash_timer) + 4 do
+        local afterimage = AfterImage(self, 0.5)
+        Game.world:addChild(afterimage)
+
+        self.dash_afterimages = self.dash_afterimages + 1
     end
 end
 
