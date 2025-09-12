@@ -454,15 +454,18 @@ function Player:updateSlideDust()
 end
 
 function Player:runSkidDust(above)
-    local dust = Sprite("effects/slide_dust")
-    dust:play(1 / 15, false, function () dust:remove() end)
-    dust:setOrigin(0.5, 0.5)
-    dust:setScale(2, 2)
-    dust:setPosition(self.x, self.y)
-    dust.layer = self.layer - (above and 0.01 or -0.01)
-    dust.physics.speed_y = -6
-    dust.physics.speed_x = Utils.random(-1, 1)
-    self.world:addChild(dust)
+    for i = 1, 3, 1 do
+        local dust = Sprite("effects/slide_dust")
+        dust:play(1 / 15, false, function () dust:remove() end)
+        dust:setOrigin(0.5, 0.5)
+        local scale_offset = Utils.random(-0.35, 0.35)
+        dust:setScale(1 + scale_offset, 1 + scale_offset)
+        dust:setPosition(self.x + Utils.random(-0.5, 0.5), self.y + 8)
+        dust.layer = self.layer - (above and 0.01 or -0.01)
+        dust.physics.speed_y = -4 + Utils.random(-1, 1)
+        dust.physics.speed_x = Utils.random(-1, 1) + self.run_momentum[1]
+        self.world:addChild(dust)
+    end
 end
 
 function Player:updateSlide()
