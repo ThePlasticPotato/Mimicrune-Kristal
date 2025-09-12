@@ -56,6 +56,8 @@ function Player:init(chara, x, y)
     self.persistent = true
     self.noclip = false
 
+    self.splatted = false
+
     local outlinefx = BattleOutlineFX()
     outlinefx:setAlpha(self.battle_alpha)
 
@@ -152,10 +154,20 @@ end
 
 function Player:beginRun()
     self:setWalkSprite("run")
+    self.temp_boost_x = 0
+    self.temp_boost_y = 0
+    self.run_momentum[1] = 0
+    self.run_momentum[2] = 0
 end
 
 function Player:endRun(new_state)
-    if (new_state) == "WALK" then self:resetSprite() end
+    if (new_state) == "WALK" then
+        self:resetSprite()
+        self.temp_boost_x = 0
+        self.temp_boost_y = 0
+        self.run_momentum[1] = 0
+        self.run_momentum[2] = 0
+    end
 end
 
 function Player:updateRun()
@@ -240,6 +252,18 @@ function Player:handleMomentumMovement()
 
     if not running or self.last_collided_x or self.last_collided_y then
         self.run_timer = 0
+        if ((self.last_collided_x and math.abs(self.run_momentum[1]) > 0.85) or (self.last_collided_y and math.abs(self.run_momentum[2]) > 0.85)) then
+            local slide_position = {self.last_collided_x and -self.run_momentum[1] * 8 or 0, self.last_collided_y and -self.run_momentum[2] * 8 or 0}
+            self:setState("WALK")
+            self.splatted = true
+            Game.world.timer:after(2, function ()
+                self.splatted = false
+                self:resetSprite()
+            end)
+            Assets.playSound("splat")
+            self:setAnimation("splat")
+            self:slideTo(self.x + slide_position[1], self.y + slide_position[2], 0.5, "out-cubic")
+        end
     elseif running then
         if walk_x ~= 0 or walk_y ~= 0 then
             self.run_timer = self.run_timer + DTMULT
@@ -358,6 +382,7 @@ function Player:isMovementEnabled()
         and self.hurt_timer == 0
         and Game.world.door_delay == 0
         and not self.attacking
+        and not self.splatted
 end
 
 function Player:handleMovement()
