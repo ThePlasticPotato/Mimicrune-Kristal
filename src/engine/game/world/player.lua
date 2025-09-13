@@ -245,8 +245,8 @@ function Player:updateDash()
         walk_y = joy_y
     end
 
-    local target_x = (math.abs(walk_x) > 0) and (sign(walk_x) * math.min(1, math.abs(self.dash_magnitude[1]))) or self.dash_momentum[1]
-    local target_y = (math.abs(walk_y) > 0) and (sign(walk_y) * math.min(math.abs(self.dash_magnitude[2]))) or self.dash_momentum[2]
+    local target_x = (math.abs(walk_x) > 0) and (sign(walk_x) * math.abs(self.dash_magnitude[1])) or self.dash_momentum[1]
+    local target_y = (math.abs(walk_y) > 0) and (sign(walk_y) * math.abs(self.dash_magnitude[2])) or self.dash_momentum[2]
     self.dash_momentum[1] = Utils.approach(self.dash_momentum[1], target_x, DTMULT / 2)
     self.dash_momentum[2] = Utils.approach(self.dash_momentum[2], target_y, DTMULT / 2)
 
