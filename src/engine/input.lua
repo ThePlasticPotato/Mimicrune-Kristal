@@ -87,7 +87,12 @@ Input.mouse_pressed = {}
 Input.mouse_released = {}
 
 Input.order = {
-    "down", "right", "up", "left", "confirm", "cancel", "menu", "console", "debug_menu", "object_selector", "fast_forward", "mod_rebind"
+    -- Deltarune binds
+    "down", "right", "up", "left", "confirm", "cancel", "menu",
+    -- Mimicrune binds
+    "attack", "dash",
+    -- Kristal binds
+    "console", "debug_menu", "object_selector", "fast_forward", "mod_rebind"
 }
 
 Input.required_binds = {
