@@ -404,7 +404,6 @@ function love.run()
             local result = error_result()
             if result then
                 if result == "reload" then
-                    Mod = nil
                     error_result = nil
                     Kristal.returnToMenu()
                 else
