@@ -110,7 +110,7 @@ function Follower:getTarget()
 end
 
 function Follower:beginRun()
-    self:setWalkSprite("run")
+    self:setWalkSprite(self.actor:getRunSprite())
 end
 
 function Follower:endRun(new_state)

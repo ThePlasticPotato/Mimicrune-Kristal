@@ -261,7 +261,7 @@ function Player:updateDash()
 end
 
 function Player:beginRun(old_state)
-    self:setWalkSprite("run")
+    self:setWalkSprite(self.actor:getRunSprite())
     self.temp_boost_x = 0
     self.temp_boost_y = 0
     if (old_state ~= "DASH") then
@@ -348,11 +348,11 @@ function Player:handleMomentumMovement()
         if math.abs(walk_x) > 0 and (sign(walk_x) ~= sign(self.run_momentum[1])) and math.abs(self.run_momentum[1]) > 0.5 then mult_x = 3 end
         if math.abs(walk_y) > 0 and (sign(walk_y) ~= sign(self.run_momentum[2])) and math.abs(self.run_momentum[2]) > 0.5 then mult_y = 3 end
         if ((mult_x > 1) or (mult_y > 1)) and (math.abs(walk_x) > 0 or math.abs(walk_y) > 0) and not self.sprite:isSprite("skid") then
-            self:setAnimation("skid", function () self:setWalkSprite("run") end)
+            self:setAnimation("skid", function () self:setWalkSprite(self.actor:getRunSprite()) end)
             Assets.playSound("run_skid", 0.75, 1)
             self:runSkidDust(walk_y > 0 and mult_y > 1)
             for index, value in ipairs(Game.world.followers) do
-                value:setAnimation("skid", function () value:setWalkSprite("run") end)
+                value:setAnimation("skid", function () value:setWalkSprite(value.actor:getRunSprite()) end)
             end
             if ((mult_x > 1) and (walk_y ~= 0) and (mult_y == 1)) and self.temp_boost_x == 0 then
                 self.temp_boost_y = math.min(self.temp_boost_y + 0.5, 2)
