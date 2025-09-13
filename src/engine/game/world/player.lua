@@ -217,6 +217,9 @@ function Player:endDash(new_state)
 end
 
 function Player:updateDash()
+    local sign = function (number)
+        return number > 0 and 1 or (number == 0 and 0 or -1)
+    end
     self.dash_timer = self.dash_timer + (1 * DTMULT)
     if (self.dash_timer >= 20 or Input.pressed("attack")) then
         if (Input.down("cancel")) then
@@ -239,10 +242,10 @@ function Player:updateDash()
         walk_y = joy_y
     end
 
-    local target_x = (math.abs(walk_x) > 0) and (walk_x * math.abs(self.dash_momentum[1])) or self.dash_momentum[1]
-    local target_y = (math.abs(walk_y) > 0) and (walk_y * math.abs(self.dash_momentum[2])) or self.dash_momentum[2]
-    self.dash_momentum[1] = Utils.approach(self.dash_momentum[1], target_x, DT * 4)
-    self.dash_momentum[2] = Utils.approach(self.dash_momentum[2], target_y, DT * 4)
+    local target_x = (math.abs(walk_x) > 0) and (sign(walk_x) * math.abs(self.dash_momentum[1])) or self.dash_momentum[1]
+    local target_y = (math.abs(walk_y) > 0) and (sign(walk_y) * math.abs(self.dash_momentum[2])) or self.dash_momentum[2]
+    self.dash_momentum[1] = Utils.approach(self.dash_momentum[1], target_x, DTMULT * 4)
+    self.dash_momentum[2] = Utils.approach(self.dash_momentum[2], target_y, DTMULT * 4)
 
     while self.dash_afterimages < math.floor(self.dash_timer) + 4 do
         local afterimage = AfterImage(self, 0.5)
