@@ -42,6 +42,7 @@ function Player:init(chara, x, y)
     self.dash_cd = 0
     self.dash_timer = 0
     self.dash_momentum = { 0, 0 }
+    self.dash_magnitude = { 0, 0 }
     self.dash_afterimages = 0
 
     self.last_move_x = self.x
@@ -191,6 +192,7 @@ function Player:beginDash(prev_state)
         self.dash_momentum = {walk_x, walk_y}
     end
 
+    self.dash_magnitude = {self.dash_momentum[1], self.dash_momentum[2]}
     -- for index, value in ipairs(Game.world.followers) do
     --     if (value.following) then
     --         value.state_manager:setState("DASH")
@@ -211,6 +213,7 @@ function Player:endDash(new_state)
     end
     self.was_running = false
     self.dash_momentum = {0, 0}
+    self.dash_magnitude = {0, 0}
     self.dash_cd = 10
     self.dash_timer = 0
     self.dash_afterimages = 0
@@ -242,10 +245,10 @@ function Player:updateDash()
         walk_y = joy_y
     end
 
-    local target_x = (math.abs(walk_x) > 0) and (sign(walk_x) * math.abs(self.dash_momentum[1])) or self.dash_momentum[1]
-    local target_y = (math.abs(walk_y) > 0) and (sign(walk_y) * math.abs(self.dash_momentum[2])) or self.dash_momentum[2]
-    self.dash_momentum[1] = Utils.approach(self.dash_momentum[1], target_x, DTMULT * 4)
-    self.dash_momentum[2] = Utils.approach(self.dash_momentum[2], target_y, DTMULT * 4)
+    local target_x = (math.abs(walk_x) > 0) and (sign(walk_x) * math.abs(self.dash_magnitude[1])) or self.dash_momentum[1]
+    local target_y = (math.abs(walk_y) > 0) and (sign(walk_y) * math.abs(self.dash_magnitude[2])) or self.dash_momentum[2]
+    self.dash_momentum[1] = Utils.approach(self.dash_momentum[1], target_x, DTMULT / 2)
+    self.dash_momentum[2] = Utils.approach(self.dash_momentum[2], target_y, DTMULT / 2)
 
     while self.dash_afterimages < math.floor(self.dash_timer) + 4 do
         local afterimage = AfterImage(self, 0.5)
