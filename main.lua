@@ -47,6 +47,7 @@ Text = require("src.engine.objects.text")
 DialogueText = require("src.engine.objects.dialoguetext")
 Explosion = require("src.engine.objects.explosion")
 AfterImage = require("src.engine.objects.afterimage")
+AbsoluteAfterImage = require("src.engine.objects.absoluteafterimage")
 FakeClone = require("src.engine.objects.fakeclone")
 Rectangle = require("src.engine.objects.rectangle")
 Ellipse = require("src.engine.objects.ellipse")
@@ -404,7 +405,6 @@ function love.run()
             local result = error_result()
             if result then
                 if result == "reload" then
-                    Mod = nil
                     error_result = nil
                     Kristal.returnToMenu()
                 else
