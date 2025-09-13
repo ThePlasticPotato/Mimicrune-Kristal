@@ -98,7 +98,7 @@ function Follower:updateDash()
     self.dash_timer = self.dash_timer + (1 * DTMULT)
 
     while self.dash_afterimages < math.floor(self.dash_timer) + 4 do
-        local afterimage = AfterImage(self, 0.5)
+        local afterimage = AbsoluteAfterImage(self, 0.5)
         Game.world:addChild(afterimage)
 
         self.dash_afterimages = self.dash_afterimages + 1
