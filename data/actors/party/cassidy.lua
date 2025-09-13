@@ -56,6 +56,7 @@ function actor:init()
         ["battle/victory"]      = {"battle/victory", 1/10, false},
 
         ["dash"]   = {"dash", 1/15, true},
+        ["skid"] = {"skid", 0.15, false},
     }
 
     self.offsets = {
@@ -81,6 +82,8 @@ function actor:init()
         ["battle/victory"] = {-4, 1};
         ["battle/overheat"] = {-7, 0};
         ["dash"] = {-13, -6};
+        ["run"] = {-5, -2};
+        ["skid"] = {-5, -2};
     }
 
     -- Sound to play when this actor speaks (optional)

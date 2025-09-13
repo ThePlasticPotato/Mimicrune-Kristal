@@ -348,11 +348,17 @@ function Player:handleMomentumMovement()
         if math.abs(walk_x) > 0 and (sign(walk_x) ~= sign(self.run_momentum[1])) and math.abs(self.run_momentum[1]) > 0.5 then mult_x = 3 end
         if math.abs(walk_y) > 0 and (sign(walk_y) ~= sign(self.run_momentum[2])) and math.abs(self.run_momentum[2]) > 0.5 then mult_y = 3 end
         if ((mult_x > 1) or (mult_y > 1)) and (math.abs(walk_x) > 0 or math.abs(walk_y) > 0) and not self.sprite:isSprite("skid") then
+            local facingangle = math.atan2(walk_y, walk_x)
+            local facingfromangle = Utils.facingFromAngle(facingangle)
+            self:setFacing(facingfromangle)
             self:setAnimation("skid", function () self:setWalkSprite("run") end)
+            
             Assets.playSound("run_skid", 0.75, 1)
             self:runSkidDust(walk_y > 0 and mult_y > 1)
             for index, value in ipairs(Game.world.followers) do
-                value:setAnimation("skid", function () value:setWalkSprite("run") end)
+                value:setFacing(facingfromangle)
+                value:runSkidDust(walk_y > 0 and mult_y > 1)
+                value:setAnimation({"skid/"..facingfromangle, 0.15, false}, function () value:setWalkSprite("run") end)
             end
             if ((mult_x > 1) and (walk_y ~= 0) and (mult_y == 1)) and self.temp_boost_x == 0 then
                 self.temp_boost_y = math.min(self.temp_boost_y + 0.5, 2)

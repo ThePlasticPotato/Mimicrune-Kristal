@@ -60,6 +60,21 @@ function Follower:updateIndex()
     end
 end
 
+function Follower:runSkidDust(above)
+    for i = 1, 3, 1 do
+        local dust = Sprite("effects/slide_dust")
+        dust:play(1 / 15, false, function () dust:remove() end)
+        dust:setOrigin(0.5, 0.5)
+        local scale_offset = Utils.random(-0.35, 0.35)
+        dust:setScale(1 + scale_offset, 1 + scale_offset)
+        dust:setPosition(self.x + Utils.random(-0.5, 0.5), self.y + 8)
+        dust.layer = self.layer - (above and 0.01 or -0.01)
+        dust.physics.speed_y = -4 + Utils.random(-1, 1)
+        dust.physics.speed_x = Utils.random(-1, 1) + (Game.world.player and Game.world.player.run_momentum[1])
+        self.world:addChild(dust)
+    end
+end
+
 --- Gets the delay in seconds this follower will follow its target's position,
 --- taking into account the delay of followers in front of itself.
 function Follower:getFollowDelay()

@@ -27,10 +27,12 @@ function actor:init()
 
     self.animations = {
         ["sit"] = {"sit", 0.15, true},
+        ["skid"] = {"skid", 0.15, false},
     }
 
     self.offsets = {
         ["run"] = {-5, -2};
+        ["skid"] = {-5, -2};
         ["sit"] = {0, 4};
     }
 
