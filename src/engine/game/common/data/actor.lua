@@ -206,4 +206,8 @@ function Actor:parseSpriteOptions(full_sprite, ignore_frames)
     return result
 end
 
+function Actor:getRunSprite()
+    return self.default_run or self:getDefault()
+end
+
 return Actor
