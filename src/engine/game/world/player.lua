@@ -48,6 +48,8 @@ function Player:init(chara, x, y)
     self.last_move_x = self.x
     self.last_move_y = self.y
 
+    self.idle_timer = 0
+
     self.history_time = 0
     self.history = {}
 
@@ -192,6 +194,8 @@ function Player:beginDash(prev_state)
         self.dash_momentum = {walk_x, walk_y}
     end
 
+    self.idle_timer = 0
+
     self.dash_magnitude = {self.dash_momentum[1], self.dash_momentum[2]}
     -- for index, value in ipairs(Game.world.followers) do
     --     if (value.following) then
@@ -268,6 +272,7 @@ function Player:beginRun(old_state)
         self.run_momentum[1] = 0
         self.run_momentum[2] = 0
     end
+    self.idle_timer = 0
 
     -- for index, value in ipairs(Game.world.followers) do
     --     if (value.following) then
@@ -574,6 +579,11 @@ function Player:updateWalk()
     if self:isMovementEnabled() then
         self:handleMovement()
     end
+    if (self.moving_x == 0 and self.moving_y == 0) then
+        self.idle_timer = self.idle_timer + DT
+    else
+        self.idle_timer = 0
+    end
 end
 
 function Player:isMoving()
@@ -686,6 +696,15 @@ end
 function Player:update()
     if (self.sprite:isSprite("run") and self.state_manager.state ~= "RUN" and not self.force_run) then
         self:resetSprite()
+    end
+
+    if (self.idle_timer) >= 20 and Game.world.humming and not Game.world.hum_boosted then
+        Game.world.hum_boosted = true
+        Game.world.additional_music:fade(2)
+    end
+    if (self.idle_timer < 20) and Game.world.humming and Game.world.hum_boosted then
+        Game.world.hum_boosted = false
+        Game.world.additional_music:fade(1.2)
     end
     if self.hurt_timer > 0 then
         self.hurt_timer = Utils.approach(self.hurt_timer, 0, DTMULT)

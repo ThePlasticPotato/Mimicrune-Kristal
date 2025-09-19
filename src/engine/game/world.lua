@@ -343,7 +343,7 @@ function World:startHumming()
             worldcassidy.humming = true
             self.additional_music:seek(self.music:tell())
             self.additional_music:setLooping(true)
-            self.additional_music:fade(1, 0.5)
+            self.additional_music:fade(1.2, 0.5)
         else
             if worldcassidy and (self.humming and not worldcassidy.humming) then
                 if worldcassidy.state_manager.state == "WALK" then worldcassidy:setWalkSprite("walk_hum") end
