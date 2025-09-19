@@ -27,7 +27,10 @@ function item:init()
         ["kris"] = 70,
         ["susie"] = 120,
         ["ralsei"] = 50,
-        ["noelle"] = 10
+        ["noelle"] = 10,
+        ["evan"] = 50,
+        ["cassidy"] = 70,
+        ["fredbear"] = 50
     }
 
     -- Default shop price (sell price is halved)
@@ -65,7 +68,8 @@ function item:init()
             ralsei = "D-don't drink so fast!"
         },
         ralsei = "It's soft and sweet.",
-        noelle = "... this is just water! You're pranking me, right?!"
+        noelle = "... this is just water! You're pranking me, right?!",
+        cassidy = "What is this flavor? It's... oddly familiar..."
     }
 end
 

@@ -57,7 +57,7 @@ function item:init()
         ["kris"] = "cd_bagel/kris",
         ["susie"] = "cd_bagel/susie",
         ["ralsei"] = "cd_bagel/ralsei",
-        ["noelle"] = "cd_bagel/noelle"
+        ["noelle"] = "cd_bagel/noelle",
     }
 end
 

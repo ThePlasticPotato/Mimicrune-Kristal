@@ -44,7 +44,8 @@ function item:init()
 
     -- Equippable characters (default true for armors, false for weapons)
     self.can_equip = {
-        susie = false
+        susie = false,
+        fredbear = false
     }
 
     -- Character reactions
@@ -53,6 +54,12 @@ function item:init()
             susie = "Nope. Not in 1st grade anymore.",
             ralsei = "Um... D-do I look cute...?",
             noelle = "... feels familiar.",
+            evan = "Kinda doesn't, um... work.",
+            cassidy = {
+                cassidy = "Pink, or red...",
+                evan = "I think it's cute..."
+            },
+            fredbear = "Too much bow for me."
         }
     else
         self.reactions = {

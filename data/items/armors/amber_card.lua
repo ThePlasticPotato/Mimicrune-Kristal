@@ -48,6 +48,9 @@ function item:init()
         susie = "... better than nothing.",
         ralsei = "It's sticky, huh, Kris...",
         noelle = "It's like a name-tag!",
+        evan = "More defense is... good?",
+        cassidy = "A sticker?",
+        fredbear = "Does it add to my look?"
     }
 end
 

@@ -39,7 +39,11 @@ function item:init()
     }
 
     self.reactions = {
-        evan = "...Do I look alright?",
+        evan = {
+            evan = "...Do I look alright?",
+            cassidy = "...",
+            fredbear = "Snazzy!"
+        },
         cassidy = "That'd be far too much bow to handle.",
         fredbear = "Snazzy as always!"
     }

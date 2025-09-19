@@ -40,8 +40,14 @@ function item:init()
     }
 
     self.reactions = {
-        evan = "(...I think Cassidy already licked it.)",
-        cassidy = "Hmm. Tastes like grape soda.",
+        evan = {
+            evan = "(...I think Cassidy already licked it.)",
+            cassidy = "(Guilty as charged.)"
+        },
+        cassidy = {
+            cassidy = "Hmm. Tastes like grape soda.",
+            evan = "(Wasn't it strawberry...?)"
+        },
         fredbear = "Ah... I'm not hungry."
     }
 

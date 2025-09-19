@@ -45,7 +45,10 @@ function item:init()
 
     self.reactions = {
         evan = "(...this is... not for me...)",
-        cassidy = "...What? ...Don't look at me like that...",
+        cassidy = {
+            evan = ". . .",
+            cassidy = "...What? ...Don't look at me like that...",
+        },
         fredbear = "It's beautiful. But it's not mine."
     }
 

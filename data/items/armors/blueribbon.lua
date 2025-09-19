@@ -44,6 +44,7 @@ function item:init()
     -- Equippable characters (default true for armors, false for weapons)
     self.can_equip = {
         susie = false,
+        fredbear = false
     }
 
     -- Character reactions
@@ -51,6 +52,12 @@ function item:init()
         susie = "ABSOLUTELY not.",
         ralsei = "Yeah!",
         noelle = "Go...  t... team?",
+        evan = "Uh... okay...?",
+        cassidy = {
+            cassidy = "Hmm... I feel like it clashes...",
+            evan = "I think it's cute..."
+        },
+        fredbear = "Too much bow for me."
     }
     -- Ralsei cheer reactions (advanced on each equip)
     self.ralsei_cheer_reactions = {

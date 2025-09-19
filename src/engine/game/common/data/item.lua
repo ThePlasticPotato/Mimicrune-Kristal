@@ -18,6 +18,8 @@
 ---@field description string
 ---@field check string
 ---
+---@field stack_size integer
+---
 ---@field price integer
 ---@field can_sell boolean
 ---
@@ -71,6 +73,8 @@ function Item:init()
     self.description = "Example description"
     -- Light world check text
     self.check = "Example info"
+
+    self.stack_size = 1
 
     -- Default shop price (sell price is halved)
     self.price = 0
@@ -268,7 +272,14 @@ function Item:convertToDarkEquip(chara) return self:convertToDark() end
 
 --[[ Getters ]]--
 
-function Item:getName() return self.name end
+function Item:getName()
+    local additional = ""
+    if (self.stack_size > 1 and self:getFlag("current_stack", 1) > 1) then
+        additional = " (x"..self:getFlag("current_stack", 1)..")"
+    end
+    return self.name..additional
+
+end
 function Item:getUseName() return self.use_name or self:getName():upper() end
 function Item:getWorldMenuName() return self:getName() end
 

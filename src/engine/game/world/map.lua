@@ -28,6 +28,8 @@ function Map:init(world, data)
     self.music = data and data.properties and data.properties["music"]
     self.keep_music = data and data.properties and data.properties["keepmusic"]
 
+    self.can_hum = data and data.properties and data.properties["can_hum"] or false
+
     self.light = data and data.properties and data.properties["light"] or false
 
     self.border = data and data.properties and data.properties["border"]

@@ -44,12 +44,19 @@ function item:init()
     self.can_equip = {
         kris = true,
         noelle = true,
+        evan = true,
     }
 
     -- Character reactions
     self.reactions = {
         susie = "... how is this a weapon?",
         ralsei = "I... shouldn't use it.",
+        evan = {
+            evan = "It's slippery...?",
+            cassidy = "You look... cool with it."
+        },
+        cassidy = "It gives me the heebie-jeebies.",
+        fredbear = "I'm... I'll pass."
     }
 end
 

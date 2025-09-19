@@ -7,6 +7,7 @@
 ---@field state_manager     StateManager                    An object that manages the state of this `World`
 ---
 ---@field music             Music                           The `Music` instance that controls audio playback for this `World`
+---@field additional_music  Music                           The `Music` instance that controls overlay audio playback for this `World`, like Cassidy's Humming
 ---
 ---@field map               Map                             The currently loaded map instance
 ---
@@ -61,6 +62,7 @@ function World:init(map)
     self.state_manager:addState("MENU")
 
     self.music = Music()
+    self.additional_music = Music()
 
     self.map = Map(self)
 
@@ -114,6 +116,10 @@ function World:init(map)
     self.door_delay = 0
 
     self.limited_interaction = false
+
+    self.humming = false
+    self.should_hum = false
+    self.hum_timer = 0
 
     if map then
         self:loadMap(map)
@@ -322,6 +328,30 @@ end
 ---@param scene string          The cutscene to play when the call is selected
 function World:replaceCall(name, index, scene)
     self.calls[index] = {name, scene}
+end
+
+function World:startHumming()
+    local cassidy = Game:getPartyMember("cassidy")
+    if cassidy then
+        local worldcassidy = self:getPartyCharacterInParty(cassidy)
+        if not (self.humming and self.map.keep_music) then
+            self.additional_music:stop()
+            self.additional_music.volume = 0
+            self.additional_music:play(self.map.data.properties.hum_track)
+            self.humming = true
+            if worldcassidy.state_manager.state == "WALK" then worldcassidy:setWalkSprite("walk_hum") end
+            worldcassidy.humming = true
+            self.additional_music:seek(self.music:tell())
+            self.additional_music:setLooping(true)
+            self.additional_music:fade(1, 0.5)
+        else
+            if worldcassidy and (self.humming and not worldcassidy.humming) then
+                if worldcassidy.state_manager.state == "WALK" then worldcassidy:setWalkSprite("walk_hum") end
+                worldcassidy.humming = true
+            end
+        end
+        
+    end
 end
 
 --- Shows party member health bars
@@ -937,6 +967,11 @@ function World:setupMap(map, ...)
 
     if not self.map.keep_music then
         self:transitionMusic(Kristal.callEvent(KRISTAL_EVENT.onMapMusic, self.map, self.map.music) or self.map.music)
+        self.additional_music:stop()
+
+        if (self.map.can_hum) then
+            self.hum_timer = self.map.data.properties.hum_delay * 60
+        end
     end
 end
 
@@ -1102,6 +1137,7 @@ function World:mapTransition(...)
         local map = Registry.createMap(map)
         if not map.keep_music then
             self:transitionMusic(Kristal.callEvent(KRISTAL_EVENT.onMapMusic, self.map, self.map.music) or map.music, true)
+            self.additional_music:stop()
         end
         local dark_transition = map.light ~= Game:isLight()
         local map_border = map:getBorder(dark_transition)
@@ -1238,6 +1274,13 @@ function World:update()
                 v[1]:onExit(v[2])
             end
             v[1].current_colliding[v[2]] = nil
+        end
+
+        if (self.hum_timer > 0) then
+            self.hum_timer = Utils.approach(self.hum_timer, 0, DT)
+            if (self.hum_timer == 0) then
+                self:startHumming()
+            end
         end
     end
 

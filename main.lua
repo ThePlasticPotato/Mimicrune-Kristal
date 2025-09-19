@@ -248,6 +248,8 @@ PsyBallBall = require("src.engine.game.effects.psyballball")
 PsyBurst = require("src.engine.game.effects.psyburst")
 
 Jumpscare = require("src.engine.objects.jumpscare")
+TitanDarknessController = require("src.engine.objects.titandarknesscontroller")
+HumNote = require("src.engine.objects.humnote")
 
 Shop = require("src.engine.game.shop")
 Shopkeeper = require("src.engine.game.shop.shopkeeper")

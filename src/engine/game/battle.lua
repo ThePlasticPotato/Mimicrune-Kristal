@@ -297,6 +297,9 @@ function Battle:postInit(state, encounter)
     if Game.world.music:isPlaying() and self.encounter.music then
         self.resume_world_music = true
         Game.world.music:pause()
+        if (Game.world.additional_music:isPlaying()) then
+            Game.world.additional_music:pause()
+        end
     end
 
     if self.encounter.queued_enemy_spawns then
@@ -2348,6 +2351,9 @@ function Battle:returnToWorld()
     self.music:stop()
     if self.resume_world_music then
         Game.world.music:resume()
+        if (Game.world.humming) then
+            Game.world.additional_music:resume()
+        end
     end
     self:remove()
     self.encounter.defeated_enemies = self.defeated_enemies
