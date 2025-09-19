@@ -700,7 +700,7 @@ function Player:update()
 
     if (self.idle_timer) >= 20 and Game.world.humming and not Game.world.hum_boosted then
         Game.world.hum_boosted = true
-        Game.world.additional_music:fade(2)
+        Game.world.additional_music:fade(1.75)
     end
     if (self.idle_timer < 20) and Game.world.humming and Game.world.hum_boosted then
         Game.world.hum_boosted = false
