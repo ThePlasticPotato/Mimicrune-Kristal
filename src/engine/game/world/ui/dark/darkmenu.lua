@@ -139,21 +139,38 @@ function DarkMenu:addButtons()
         end
     })
 
-    -- CONFIG
+    -- TALK
     self:addButton({
-        ["state"]          = "CONFIGMENU",
-        ["sprite"]         = Assets.getTexture("ui/menu/btn/config"),
-        ["hovered_sprite"] = Assets.getTexture("ui/menu/btn/config_h"),
-        ["desc_sprite"]    = Assets.getTexture("ui/menu/desc/config"),
+        ["state"]          = "TALK",
+        ["sprite"]         = Assets.getTexture("ui/menu/btn/talk"),
+        ["hovered_sprite"] = Assets.getTexture("ui/menu/btn/talk_h"),
+        ["desc_sprite"]    = Assets.getTexture("ui/menu/desc/talk"),
         ["callback"]       = function()
-            self.box = DarkConfigMenu()
-            self.box.layer = -1
-            self:addChild(self.box)
+            Input.clear("confirm")
+            Game.world:closeMenu()
 
             self.ui_select:stop()
             self.ui_select:play()
+
+            Game.world:startCutscene("_talk")
         end
     })
+
+    -- CONFIG
+    -- self:addButton({
+    --     ["state"]          = "CONFIGMENU",
+    --     ["sprite"]         = Assets.getTexture("ui/menu/btn/config"),
+    --     ["hovered_sprite"] = Assets.getTexture("ui/menu/btn/config_h"),
+    --     ["desc_sprite"]    = Assets.getTexture("ui/menu/desc/config"),
+    --     ["callback"]       = function()
+    --         self.box = DarkConfigMenu()
+    --         self.box.layer = -1
+    --         self:addChild(self.box)
+
+    --         self.ui_select:stop()
+    --         self.ui_select:play()
+    --     end
+    -- })
 end
 
 function DarkMenu:getButton(id)

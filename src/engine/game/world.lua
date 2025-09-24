@@ -331,9 +331,10 @@ function World:replaceCall(name, index, scene)
 end
 
 function World:startHumming()
-    local cassidy = Game:getPartyMember("cassidy")
+    local cassidy = Game:hasPartyMember("cassidy")
     if cassidy then
-        local worldcassidy = self:getPartyCharacterInParty(cassidy)
+        local worldcassidy = self:getPartyCharacterInParty("cassidy")
+        if not worldcassidy then return end
         if not (self.humming and self.map.keep_music) then
             self.additional_music:stop()
             self.additional_music.volume = 0
@@ -380,6 +381,12 @@ end
 ---@param old string
 ---@param new string
 function World:onStateChange(old, new)
+end
+
+---Todo: actually implement this but im lazy
+---@return boolean
+function World:hasTalkCutscene()
+    return true or self.map and self.map.data and self.map.data.properties and self.map.data.properties["has_talk"]
 end
 
 ---@param key string

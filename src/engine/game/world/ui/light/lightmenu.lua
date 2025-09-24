@@ -57,7 +57,7 @@ function LightMenu:init()
 end
 
 function LightMenu:getMaxSelecting()
-    return Game:getFlag("has_cell_phone", false) and 3 or 2
+    return Game:getFlag("has_cell_phone", false) and 4 or 3
 end
 
 function LightMenu:close()
@@ -115,6 +115,14 @@ end
 
 function LightMenu:onButtonSelect(button)
     if button == 1 then
+        Input.clear("confirm")
+        Game.world:closeMenu()
+
+        self.ui_select:stop()
+        self.ui_select:play()
+
+        Game.world:startCutscene("_talk_light")
+    elseif button == 2 then
         if Game.inventory:getItemCount(self.storage, false) > 0 then
             self.state = "ITEMMENU"
             Input.clear("confirm")
@@ -125,7 +133,7 @@ function LightMenu:onButtonSelect(button)
             self.ui_select:stop()
             self.ui_select:play()
         end
-    elseif button == 2 then
+    elseif button == 3 then
         self.state = "STATMENU"
         Input.clear("confirm")
         self.box = LightStatMenu()
@@ -134,7 +142,7 @@ function LightMenu:onButtonSelect(button)
 
         self.ui_select:stop()
         self.ui_select:play()
-    elseif button == 3 then
+    elseif button == 4 then
         if #Game.world.calls > 0 then
             Input.clear("confirm")
             self.state = "CELLMENU"
@@ -186,26 +194,35 @@ function LightMenu:draw()
         love.graphics.print(Utils.padString(Game:getConfig("lightCurrencyShort"), 4)..Game.lw_money, 46, 136 + offset)
 
         love.graphics.setFont(self.font)
+        local can_talk = Game.world:hasTalkCutscene()
+        
+        if (can_talk) then
+            Draw.setColor(PALETTE["world_text"], randAlpha)
+        else
+            Draw.setColor(PALETTE["world_gray"], randAlpha)
+        end
+        love.graphics.print("TALK", 84, 156 + (36 * 0))
+
         if Game.inventory:getItemCount(self.storage, false) <= 0 then
             Draw.setColor(PALETTE["world_gray"], randAlpha)
         else
             Draw.setColor(PALETTE["world_text"], randAlpha)
         end
-        love.graphics.print("ITEM", 84, 188 + (36 * 0))
+        love.graphics.print("ITEM", 84, 192 + (36 * 0))
         Draw.setColor(PALETTE["world_text"], randAlpha)
-        love.graphics.print("STAT", 84, 188 + (36 * 1))
+        love.graphics.print("STAT", 84, 192 + (36 * 1))
         if Game:getFlag("has_cell_phone", false) then
             if #Game.world.calls > 0 then
                 Draw.setColor(PALETTE["world_text"], randAlpha)
             else
                 Draw.setColor(PALETTE["world_gray"], randAlpha)
             end
-            love.graphics.print("CELL", 84, 188 + (36 * 2))
+            love.graphics.print("CELL", 84, 192 + (36 * 2))
         end
 
         if self.state == "MAIN" then
             Draw.setColor(Game:getSoulColor())
-            Draw.draw(self.heart_sprite, 56, 160 + (36 * self.current_selecting), 0, 2, 2)
+            Draw.draw(self.heart_sprite, 56, 128 + (36 * self.current_selecting), 0, 2, 2)
         end
         
     end
