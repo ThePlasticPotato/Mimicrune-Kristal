@@ -20,6 +20,8 @@
 ---
 ---@field reduced_tension       boolean
 ---
+---@field tense                 boolean
+---
 ---@overload fun(...) : Encounter
 local Encounter = Class()
 
@@ -49,6 +51,10 @@ function Encounter:init()
 
     -- Whether tension is reduced for this encounter.
     self.reduced_tension = false
+
+    self.tense = false
+    self.tense_offset = 0
+    self.surface_siner = 0
 end
 
 -- Callbacks
@@ -146,14 +152,64 @@ function Encounter:getVictoryXP(xp) end
 ---@return string? text
 function Encounter:getVictoryText(text, money, xp) end
 
-function Encounter:update() end
+function Encounter:update()
+    if (self.tense) then
+        self.tense_offset = self.tense_offset + 1 * DTMULT
+        if self.tense_offset > 100 then
+            self.tense_offset = self.tense_offset - 100
+        end
+        self.surface_siner = self.surface_siner + 2 * DTMULT
+    end
+end
+
+function Encounter.floorStencil()
+    love.graphics.rectangle("fill", -8, 80, SCREEN_WIDTH+16, 380-128)
+end
 
 --- *(Override)* Called before anything has been rendered each frame. Usable to draw custom backgrounds for specific encounters.
 ---@param fade number   The opacity of the background when fading in/out of the world.
 function Encounter:draw(fade) end
 --- *(Override)* Called after everything has been rendered each frame. Usable to draw custom effects for specific encounters.
 ---@param fade number   The opacity of the background when fading in/out of the world.
-function Encounter:drawBackground(fade) end
+function Encounter:drawBackground(fade)
+    if (self.tense) then
+        for i = 0, 11 do
+            local siner = self.surface_siner + (i * (10 * math.pi))
+
+            love.graphics.setLineWidth(2)
+            Draw.setColor(66 / 255, 0, 11 / 255, fade * math.sin(siner / 60))
+            if math.cos(siner / 60) < 0 then
+                love.graphics.line(0, 360 - (math.sin(siner / 60) * 60) + 30, SCREEN_WIDTH, 360 - (math.sin(siner / 60) * 60) + 30)
+                --love.graphics.line(0, 211 + (math.sin(siner / 60) * 30) - 30, SCREEN_WIDTH, 211 + (math.sin(siner / 60) * 30) - 30)
+            end
+        end
+
+        love.graphics.stencil(self.floorStencil, "replace", 1)
+        love.graphics.setStencilTest("greater", 0)
+        Draw.setColor(0, 0, 0, fade)
+        love.graphics.rectangle("fill", -8, 80, SCREEN_WIDTH+16, 380-128)
+
+        love.graphics.setLineStyle("rough")
+        love.graphics.setLineWidth(1)
+
+        for i = -2, 20 do
+            Draw.setColor(66 / 255, 0, 11 / 255, (fade) / 2)
+            love.graphics.line(0, -210 + (i * 50) + math.floor(self.tense_offset / 2), 640, 210 + (i * 50) + math.floor(self.tense_offset / 2))
+            love.graphics.line(-200 + (i * 50) + math.floor(self.tense_offset / 2), 0, 200 + (i * 50) + math.floor(self.tense_offset / 2), 480)
+        end
+
+        for i = 0, 20 do
+            Draw.setColor(66 / 255, 0, 11 / 255, fade)
+            love.graphics.line(0, -100 + (i * 50) - math.floor(self.tense_offset), 640, 100 + (i * 50) - math.floor(self.tense_offset))
+            love.graphics.line(-100 + (i * 50) - math.floor(self.tense_offset), 0, 100 + (i * 50) - math.floor(self.tense_offset), 480)
+        end
+        love.graphics.setStencilTest()
+        Draw.setColor(0.5, 0, 11/255)
+        love.graphics.setLineWidth(2)
+        love.graphics.line(0, 330, SCREEN_WIDTH, 330)
+        love.graphics.line(0, 80, SCREEN_WIDTH, 80)
+    end
+end
 
 -- Functions
 
@@ -297,6 +353,11 @@ end
 ---@return integer x
 ---@return integer y
 function Encounter:getSoulSpawnLocation()
+
+    if Game.battle and Game.battle.tense then
+        return 160, 160 + (Game.battle.display_soul.pos_offset)
+    end
+
     local main_chara = Game:getSoulPartyMember()
 
     if main_chara and main_chara:getSoulPriority() >= 0 then

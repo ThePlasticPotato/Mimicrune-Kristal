@@ -62,6 +62,8 @@
 ---@field temporary_mercy           number              The current amount of temporary mercy
 ---@field temporary_mercy_percent   DamageNumber|nil    The DamageNumber object, used to update the mercy display
 ---
+---@field twisted           boolean
+---
 ---@overload fun(actor?:Actor|string, use_overlay?:boolean) : EnemyBattler
 local EnemyBattler, super = Class(Battler)
 
@@ -144,6 +146,8 @@ function EnemyBattler:init(actor, use_overlay)
 
     self.temporary_mercy = 0
     self.temporary_mercy_percent = nil
+
+    self.twisted = false
 
     self.graze_tension = 1.6 -- (1/10 of a defend, or cheap spell)
 end
@@ -840,6 +844,7 @@ function EnemyBattler:onDefeat(damage, battler)
         self:onDefeatRun(damage, battler)
     else
         self.sprite:setAnimation("defeat")
+        self:onDefeatBreakdown(damage, battler)
     end
 end
 
@@ -888,6 +893,59 @@ function EnemyBattler:onDefeatFatal(damage, battler)
     death:setColor(sprite:getDrawColor())
     death:setScale(sprite:getScale())
     self:addChild(death)
+
+    self:defeat("KILLED", true)
+end
+
+---@param damage?    number
+---@param battler?   PartyBattler
+function EnemyBattler:onDefeatBreakdown(damage, battler)
+    self.hurt_timer = -1
+
+    local addition = self.twisted and "_twisted" or ""
+    Assets.playSound("breakdownnoise"..addition)
+
+    local sprite = self:getActiveSprite()
+
+    if (self.twisted) then
+        local sweat = Sprite("effects/defeat/agony")
+        sweat:setOrigin(0.5, 0.5)
+        sweat:play(5/30, true)
+        sweat.layer = 100
+        self:addChild(sweat)
+    else
+        local sweat = Sprite("effects/defeat/steam")
+        sweat:setOrigin(0.5, 0.5)
+        sweat:play(5/30, true)
+        sweat.layer = 100
+        self:addChild(sweat)
+    end
+
+    local gear = Sprite("effects/defeat/gear")
+    local bolt = Sprite("effects/defeat/bolt")
+    local screw = Sprite("effects/defeat/screw")
+
+    gear:setSpeed(Utils.random(-8, 8), Utils.random(-8, 8))
+    bolt:setSpeed(Utils.random(-8, 8), Utils.random(-8, 8))
+    screw:setSpeed(Utils.random(-8, 8), Utils.random(-8, 8))
+    gear.layer = 100
+    bolt.layer = 100
+    screw.layer = 100
+    gear:setOrigin(0.5, 0.5)
+    bolt:setOrigin(0.5, 0.5)
+    screw:setOrigin(0.5, 0.5)
+    gear.physics.match_rotation = false
+    bolt.physics.match_rotation = false
+    screw.physics.match_rotation = false
+    self:addChild(gear)
+    self:addChild(bolt)
+    self:addChild(screw)
+    Game.stage.timer:doWhile(function () return gear.scale_x > 0 end, function () gear.rotation = gear.rotation + DTMULT ; gear.scale_x = gear.scale_x - DTMULT ; gear.scale_y = gear.scale_x end, function() gear:remove() end)
+    Game.stage.timer:doWhile(function () return bolt.scale_x > 0 end, function () bolt.rotation = bolt.rotation - DTMULT ; bolt.scale_x = bolt.scale_x - DTMULT ; bolt.scale_y = bolt.scale_x end, function() bolt:remove() end)
+    Game.stage.timer:doWhile(function () return screw.scale_x > 0 end, function () screw.rotation = screw.rotation + DTMULT ; screw.scale_x = screw.scale_x - DTMULT ; screw.scale_y = screw.scale_x end, function() screw:remove() end)
+
+    sprite:stopShake()
+    self:setColor(0.5, 0.5, 0.5, 1)
 
     self:defeat("KILLED", true)
 end

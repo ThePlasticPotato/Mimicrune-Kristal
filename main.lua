@@ -249,7 +249,10 @@ PsyBurst = require("src.engine.game.effects.psyburst")
 
 Jumpscare = require("src.engine.objects.jumpscare")
 TitanDarknessController = require("src.engine.objects.titandarknesscontroller")
+TwistedDarknessController = require("src.engine.objects.twisteddarknesscontroller")
 HumNote = require("src.engine.objects.humnote")
+SoulGlow = require("src.engine.objects.soulglow")
+DisplaySoul = require("src.engine.objects.displaysoul")
 
 Shop = require("src.engine.game.shop")
 Shopkeeper = require("src.engine.game.shop.shopkeeper")

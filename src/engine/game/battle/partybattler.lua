@@ -391,6 +391,10 @@ end
 
 --- Sets the Battler's sprite back to their default (`battle/idle`)
 function PartyBattler:resetSprite()
+    if (Game.battle and Game.battle.tense) then
+        self:setAnimation("battle/idle_tense")
+        return
+    end
     self:setAnimation("battle/idle")
 end
 

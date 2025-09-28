@@ -68,8 +68,9 @@ function AttackBox:hit()
 
     self.bolt:burst()
     self.bolt.layer = 1
-    --self.bolt:setPosition(self.bolt:getRelativePos(0, 0, self.parent))
+    local relativex, relativey = self:getRelativePos(self.bolt.x, self.bolt.y, self.parent)
     self.bolt:setParent(self.parent)
+    self.bolt:setPosition(relativex, relativey)
 
     self.circle:fadeOutAndRemove(1)
     if p <= 0.10 + self.battler.chara.sweet_spot_tolerance then

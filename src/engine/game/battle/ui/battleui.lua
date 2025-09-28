@@ -877,8 +877,8 @@ function BattleUI:drawState()
                     if enemy.disable_mercy then
                         Draw.setColor(PALETTE["battle_mercy_text"])
                         love.graphics.setLineWidth(2)
-                        love.graphics.line(420, 56 + 20 + y_off, 420 + 81, 56 + y_off + 16 - 1)
-                        love.graphics.line(420, 56 + 20 + y_off + 16 - 1, 520 + 81, 56 + y_off)
+                        love.graphics.line(420, 56 + 20 + y_off, 420 + 81, 56 + 20 + y_off + 16 - 2)
+                        love.graphics.line(420, 56 + 20 + y_off + 16 - 2, 420 + 81, 20 + 56 + y_off)
                     else
                         Draw.setColor(1, 1, 0, 1)
                         love.graphics.rectangle("fill", 420, 55 + 20 + y_off, ((enemy.mercy / 100) * 81), 16)

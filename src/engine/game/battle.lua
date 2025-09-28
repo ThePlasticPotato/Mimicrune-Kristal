@@ -59,6 +59,8 @@
 ---@field resume_world_music        boolean                         *(only set during `postInit()`)*
 ---@field transitioned              boolean                         Whether the battle opened with a transition *(only set during `postInit()`)*
 ---
+---@field tense                     boolean                         Whether the battle is Tense (use different music, different transition animation, different party anims)
+---@field tense_intro               love.Source                     Intro for tense battle music.
 ---@overload fun(...) : Battle
 local Battle, super = Class(Object)
 
@@ -211,6 +213,16 @@ function Battle:init()
     self.description_panel:addChild(self.description)
     self.description_panel:addChild(self.cost_description)
     self.description_panel:addChild(self.note_display)
+
+    self.tense = false
+    self.tense_intro = Assets.newSound("battle_tense_intro")
+    self.tense_intro:setVolume(0.85)
+
+    self.display_soul = self:addChild(DisplaySoul(160, 160))
+    self.display_soul:setLayer(BATTLE_LAYERS["below_soul"])
+    self.tension_timer = 5
+
+    self.old_border = nil
 end
 
 function Battle:setDescription(text, cost_text, visible, notes)
@@ -294,7 +306,11 @@ function Battle:postInit(state, encounter)
         self.encounter = encounter
     end
 
-    if Game.world.music:isPlaying() and self.encounter.music then
+    if self.encounter and self.encounter.tense then
+        self.tense = true
+    end
+
+    if Game.world.music:isPlaying() and (self.encounter.music or self.tense) then
         self.resume_world_music = true
         Game.world.music:pause()
         if (Game.world.additional_music:isPlaying()) then
@@ -465,8 +481,12 @@ function Battle:onStateChange(old,new)
                 battler:resetSprite()
             end
 
-            if self.encounter.music then
-                self.music:play(self.encounter.music)
+            if self.encounter.music or self.tense then
+                if not self.encounter.music or (self.encounter.music == "battle" and self.tense)then
+                    --self.music:play("battle_tense.loop")
+                else
+                    self.music:play(self.encounter.music)
+                end
             end
         end
 
@@ -593,6 +613,11 @@ function Battle:onStateChange(old,new)
 
         if self.tension_bar then
             self.tension_bar:hide()
+        end
+
+        if (self.tense) then
+            if (self.old_border) then Game:setBorder(self.old_border, 0.125)
+            else Game:setBorder("simple") end
         end
 
         for _,battler in ipairs(self.party) do
@@ -867,7 +892,9 @@ end
 function Battle:spawnSoul(x, y)
     local bx, by = self:getSoulLocation()
     local color = {self.encounter:getSoulColor()}
-    self:addChild(HeartBurst(bx, by, color))
+    if not self.tense then self:addChild(HeartBurst(bx, by, color)) else
+        self.display_soul:flipVisible(false)
+    end
     if not self.soul then
         self.soul = self.encounter:createSoul(bx, by, color)
         self.soul:transitionTo(x or SCREEN_WIDTH/2, y or SCREEN_HEIGHT/2)
@@ -2561,6 +2588,13 @@ function Battle:update()
         end
     elseif self.state == "DEFENDING" then
         self:updateWaves()
+        if (self.tense) then
+            self.tension_timer = self.tension_timer - DTMULT
+            if (self.tension_timer <= 0) then
+                Game:giveTension(1)
+                self.tension_timer = 30
+            end
+        end
     elseif self.state == "ENEMYDIALOGUE" then
         self.textbox_timer = self.textbox_timer - DTMULT
         if (self.textbox_timer <= 0) and self.use_textbox_timer then
@@ -2659,6 +2693,47 @@ function Battle:updateIntro()
 end
 
 function Battle:updateTransition()
+    if (self.tense) then
+        if (not self.tense_intro:isPlaying() and self.transition_timer < 10) then
+            Game.fader:fadeOut({speed = 0.125, blocky = true, music = false})
+            self.display_soul:setParent(Game.stage)
+            self.display_soul.soul_glow:setParent(Game.stage)
+            self.display_soul.soul_glow:setPosition(self.display_soul.x, self.display_soul.y)
+            self.display_soul:setLayer(1003)
+            self.display_soul.soul_glow:setLayer(1002)
+            self.display_soul.x = SCREEN_WIDTH/2
+            self.display_soul.y = SCREEN_HEIGHT/2
+            self.display_soul.sprite.visible = true
+            self.display_soul.soul_glow.visible = true
+            self.tense_intro:play()
+            self.timer:after(0.25, function ()
+                Game.stage:addFX(ShaderFX("glitch", { ["iTime"] = function () return Kristal.getTime() end, ["glitchScale"] = 0.6}, false), "glitchy")
+                self.timer:after(1, function() Game.stage:removeFX("glitchy") end)
+                self.timer:after(3, function ()
+                    Game.stage:addFX(ShaderFX("glitch", { ["iTime"] = function () return Kristal.getTime() end, ["glitchScale"] = 0.6}, false), "glitchy")
+                self.timer:after(1, function() Game.stage:removeFX("glitchy") end)
+            end)
+            end)
+            self.timer:afterCond(function () return not self.tense_intro:isPlaying() end, function()
+                self.music:play("battle_tense.loop")
+                self.display_soul:setParent(self)
+                self.display_soul:slideTo(160, 160, 0.25, "in-out-cubic")
+                Game.fader:fadeOut(function () Game.fader:fadeIn({speed = 0.5, music = false}) end, {speed = 0.5, music = false, color = COLORS.white})
+                self.display_soul.soul_glow:setParent(self)
+                self:setState("INTRO")
+            end)
+        end
+        if (self.tense_intro:isPlaying() and self.tense_intro:tell() > 6 and not self.display_soul.soul_visible) then
+            self.display_soul.soul_glow:show(true)
+            self.display_soul.soul_visible = true
+            self.twisted_darkness = TwistedDarknessController(nil, true, true)
+            self:addChild(self.twisted_darkness)
+            local burst = Game.stage:addChild(HeartBurst(self.display_soul.x-self.display_soul.width/2, self.display_soul.y-self.display_soul.height/2, Kristal.getSoulColor()))
+            burst:setLayer(1005)
+            self.old_border = Game:getBorder()
+            Game:setBorder("tense", 0.25)
+        end
+    end
     while self.afterimage_count < math.floor(self.transition_timer) do
         for index, battler in ipairs(self.party) do
             local target_x, target_y = unpack(self.battler_targets[index])
@@ -2682,7 +2757,7 @@ function Battle:updateTransition()
 
     if self.transition_timer >= 10 then
         self.transition_timer = 10
-        self:setState("INTRO")
+        if not self.tense then self:setState("INTRO") end
     end
 
     for index, battler in ipairs(self.party) do

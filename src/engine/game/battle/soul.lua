@@ -142,10 +142,12 @@ function Soul:init(x, y, color)
     self.parry_sprite = Sprite("player/parry")
     self.parry_sprite:setOrigin(0.5, 0.5)
     self.parry_sprite.inherit_color = false
+    self.parry_sprite.visible = false
     self:addChild(self.parry_sprite)
     
     self.parry_glow = Sprite("player/heart_outline_outer")
     self.parry_glow:setOrigin(0.5, 0.5)
+    self.parry_glow.visible = false
     self.parry_sprite.inherit_color = false
     self:addChild(self.parry_glow)
 end
@@ -492,7 +494,11 @@ function Soul:update()
             Input.clear("cancel")
             self.timer = 0
             if self.transition_destroy then
-                Game.battle:addChild(HeartBurst(self.target_x, self.target_y, {Game:getSoulColor()}))
+                if not Game.battle.tense then 
+                    Game.battle:addChild(HeartBurst(self.target_x, self.target_y, {Game:getSoulColor()}))
+                else
+                    Game.battle.display_soul:flipVisible()
+                end
                 self:remove()
             else
                 self.transitioning = false

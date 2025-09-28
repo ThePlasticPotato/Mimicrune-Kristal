@@ -28,6 +28,7 @@ function actor:init()
     self.animations = {
                 -- Battle animations
         ["battle/idle"]         = {"battle/idle", 0.2, true},
+        ["battle/idle_tense"]   = {"battle/idle_tense", 0.2, true},
 
         ["battle/attack"]       = {"battle/attack", 1/15, false},
         ["battle/act"]          = {"battle/act", 1/15, false},
@@ -36,10 +37,10 @@ function actor:init()
         ["battle/spare"]        = {"battle/act", 1/15, false, next="battle/idle"},
 
         ["battle/attack_ready"] = {"battle/attackready", 1/15, false},
-        ["battle/act_ready"]    = {"battle/actready", 0.2, true},
+        ["battle/act_ready"]    = {"battle/actready", 0.2, false},
         ["battle/spell_ready"]  = {"battle/spellready", 0.2, true},
         ["battle/item_ready"]   = {"battle/itemready", 0.2, true},
-        ["battle/defend_ready"] = {"battle/defend", 1/15, false},
+        ["battle/defend_ready"] = {"battle/defend", 0.2, true},
 
         ["battle/act_end"]      = {"battle/actend", 1/15, false, next="battle/idle"},
 
@@ -62,9 +63,10 @@ function actor:init()
         ["battle/attackready"] = {-19, -6};
         ["battle/battle_transition"] = {-19, -12};
         ["battle/defeat"] = {-7, 1};
-        ["battle/defend"] = {-3, -3};
-        ["battle/hurt"] = {-13, -6};
+        ["battle/defend"] = {-19, -9};
+        ["battle/hurt"] = {-19, -11};
         ["battle/idle"] = {-8, 0};
+        ["battle/idle_tense"] = {-19, -11};
         ["battle/intro"] = {-19, -11};
         ["battle/item"] = {-13, -6};
         ["battle/itemend"] = {-13, -6};
@@ -86,6 +88,13 @@ function actor:init()
 
     -- Whether this actor as a follower will blush when close to the player
     self.can_blush = true
+end
+
+function actor:preSetAnimation(sprite, anim, callback)
+    if (anim == "battle/idle" and Game.battle and Game.battle.tense) then
+        sprite:setAnimation("battle/idle_tense")
+        return true
+    end
 end
 
 return actor
