@@ -54,22 +54,32 @@ function ActionBox:init(x, y, index, battler, partypanel_offset)
     self:createButtons()
 end
 
+function ActionBox:getSelectableButtons()
+    local buttons = {}
+    for i, button in ipairs(self.buttons) do
+        if not button.disabled then
+            table.insert(buttons, button)
+        end
+    end
+    return buttons
+end
+
 function ActionBox:getButtons(battler)
 end
 
 function ActionBox:createButtons()
-    for _,button in ipairs(self.buttons or {}) do
+    for _, button in ipairs(self.buttons or {}) do
         button:remove()
     end
 
     self.buttons = {}
 
-    local btn_types = {"fight", "act", "magic", "item", "spare", "defend"}
+    local btn_types = { "fight", "act", "magic", "item", "spare", "defend" }
 
     if not self.battler.chara:hasAct() then Utils.removeFromTable(btn_types, "act") end
     if not self.battler.chara:hasSpells() then Utils.removeFromTable(btn_types, "magic") end
 
-    for lib_id,_ in Kristal.iterLibraries() do
+    for lib_id, _ in Kristal.iterLibraries() do
         btn_types = Kristal.libCall(lib_id, "getActionButtons", self.battler, btn_types) or btn_types
     end
     btn_types = Kristal.modCall("getActionButtons", self.battler, btn_types) or btn_types
@@ -80,7 +90,7 @@ function ActionBox:createButtons()
     --     start_y = start_y - 5.5
     -- end
 
-    for i,btn in ipairs(btn_types) do
+    for i, btn in ipairs(btn_types) do
         if type(btn) == "string" then
             local button = ActionButton(btn, self.battler, 595.5, math.floor(start_y + ((i - 1) * 26)) + 0.5)
             button.actbox = self
@@ -95,7 +105,7 @@ function ActionBox:createButtons()
         end
     end
 
-    self.selected_button = Utils.clamp(self.selected_button, 1, #self.buttons)
+    self.selected_button = Utils.clamp(self.selected_button, 1, #self:getSelectableButtons())
 end
 
 function ActionBox:setHeadIcon(icon)
@@ -143,9 +153,9 @@ function ActionBox:update()
     --self.hp_sprite.y = 22 - self.data_offset
 
     if not self.force_head_sprite then
-        local current_head = self.battler.chara:getHeadIcons().."/"..self.battler:getHeadIcon()
+        local current_head = self.battler.chara:getHeadIcons() .. "/" .. self.battler:getHeadIcon()
         if not self.head_sprite:hasSprite(current_head) then
-            current_head = self.battler.chara:getHeadIcons().."/head"
+            current_head = self.battler.chara:getHeadIcons() .. "/head"
         end
 
         if not self.head_sprite:isSprite(current_head) then
@@ -153,7 +163,7 @@ function ActionBox:update()
         end
     end
 
-    for i,button in ipairs(self.buttons) do
+    for i, button in ipairs(self:getSelectableButtons()) do
         if (Game.battle.current_selecting == self.index) then
             button.visible = true
             button.selectable = true
@@ -169,11 +179,13 @@ function ActionBox:update()
 end
 
 function ActionBox:select()
-    self.buttons[self.selected_button]:select()
+    local buttons = self:getSelectableButtons()
+    buttons[self.selected_button]:select()
 end
 
 function ActionBox:unselect()
-    self.buttons[self.selected_button]:unselect()
+    local buttons = self:getSelectableButtons()
+    buttons[self.selected_button]:unselect()
 end
 
 function ActionBox:draw()

@@ -721,7 +721,7 @@ function BattleUI:drawState()
             Draw.draw(self.arrow_sprite, 470, 70 - (math.sin(Kristal.getTime()*6) * 2), 0, 1, -1)
         end
 
-    elseif Game.battle.state == "ENEMYSELECT" or Game.battle.state == "XACTENEMYSELECT" then
+    elseif Game.battle.state == "ENEMYSELECT" then
         Game.battle:setDescription("", "", false, "")
         local enemies = Game.battle.enemies_index
 
@@ -741,7 +741,7 @@ function BattleUI:drawState()
         Draw.setColor(1, 1, 1, 1)
 
         if draw_mercy then
-            if Game.battle.state == "ENEMYSELECT" then
+            if Game.battle.state_reason ~= "XACT" then
                 love.graphics.print("HP", 324, 39 + 20, 0, 1, 0.5)
             end
             love.graphics.print("MERCY", 424, 39 + 20, 0, 1, 0.5)
@@ -758,6 +758,7 @@ function BattleUI:drawState()
             local y_off = (index - page_offset - 1) * 30
 
             if enemy then
+                ---@cast enemy EnemyBattler
                 local name_colors = enemy:getNameColors()
                 if type(name_colors) ~= "table" then
                     name_colors = {name_colors}
@@ -825,20 +826,19 @@ function BattleUI:drawState()
                     end
                 end
 
-                if Game.battle.state == "XACTENEMYSELECT" then
+                if Game.battle.state_reason == "XACT" then
                     Draw.setColor(Game.battle.party[Game.battle.current_selecting].chara:getXActColor())
                     if Game.battle.selected_xaction.id == 0 then
                         love.graphics.print(enemy:getXAction(Game.battle.party[Game.battle.current_selecting]), self.xact_x_pos, 50 + 14 + y_off)
                     else
                         love.graphics.print(Game.battle.selected_xaction.name, self.xact_x_pos, 50 + 14 + y_off)
                     end
-                end
-
-                if Game.battle.state == "ENEMYSELECT" then
+                else
                     local namewidth = font:getWidth(enemy.name)
 
                     Draw.setColor(128/255, 128/255, 128/255, 1)
 
+                    
                     if ((80 + namewidth + 60 + (font:getWidth(enemy.comment) / 2)) < 415) then
                         love.graphics.print(enemy.comment, 50 + 80 + namewidth + 60, 50 + 20 + y_off)
                     else
@@ -860,7 +860,7 @@ function BattleUI:drawState()
 
                         if draw_percents then
                             Draw.setColor(PALETTE["action_health_text"])
-                            love.graphics.print(math.ceil(hp_percent * 100) .. "%", hp_x + 4, 55 + 20 + y_off, 0, 1, 0.5)
+                            love.graphics.print(enemy:getHealthDisplay(), hp_x + 4, 55 + 20 + y_off, 0, 1, 0.5)
                         end
                     end
                 end
@@ -885,7 +885,7 @@ function BattleUI:drawState()
 
                         if draw_percents and enemy.selectable then
                             Draw.setColor(PALETTE["battle_mercy_text"])
-                            love.graphics.print(math.ceil(enemy.mercy) .. "%", 424, 55 + 20 + y_off, 0, 1, 0.5)
+                            love.graphics.print(enemy:getMercyDisplay(), 424, 55 + 20 + y_off, 0, 1, 0.5)
                         end
                     end
                 end
