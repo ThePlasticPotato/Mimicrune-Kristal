@@ -27,8 +27,8 @@ function actor:init()
 
     self.animations = {
                 -- Battle animations
-        ["battle/idle"]         = {"battle/idle", 0.2, true},
-        ["battle/idle_tense"]   = {"battle/idle_tense", 0.2, true},
+        ["battle/idle"]         = {"battle/idle", 1/6, true},
+        ["battle/idle_tense"]   = {"battle/idle_tense", 1/6, true},
 
         ["battle/attack"]       = {"battle/attack", 1/15, false},
         ["battle/act"]          = {"battle/act", 1/15, false},

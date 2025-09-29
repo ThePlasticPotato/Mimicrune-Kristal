@@ -173,6 +173,8 @@ function Encounter:draw(fade) end
 ---@param fade number   The opacity of the background when fading in/out of the world.
 function Encounter:drawBackground(fade)
     if (self.tense) then
+        Draw.setColor(0, 0, 0, fade)
+        love.graphics.rectangle("fill", -8, -8, SCREEN_WIDTH+16, SCREEN_HEIGHT+16)
         for i = 0, 11 do
             local siner = self.surface_siner + (i * (10 * math.pi))
 

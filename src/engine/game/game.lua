@@ -15,6 +15,7 @@
 ---@field key_repeat        boolean
 ---@field started           boolean
 ---@field border            string|Border
+---@field fft               LoveFFT
 ---
 ---@field previous_state    string
 ---@field state             string
@@ -74,6 +75,7 @@ function Game:clear()
     self.key_repeat = false
     self.started = false
     self.border = "simple"
+    self.fft = nil
 end
 
 ---@overload fun(self: Game, previous_state: string, save_data: SaveData, save_id: number)
@@ -322,6 +324,9 @@ function Game:load(data, index, fade)
     self.fader = Fader()
     self.fader.layer = 1000
     self.stage:addChild(self.fader)
+
+    self.fft = LoveFFT
+    self.fft:init(512)
 
     if fade then
         self.fader:fadeIn(nil, {alpha = 1, speed = 0.5})

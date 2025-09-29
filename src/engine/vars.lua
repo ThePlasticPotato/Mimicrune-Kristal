@@ -116,8 +116,8 @@ local palette_data = {
     ["action_health_text"] = { 1, 1, 1, 1 },
     ["action_health"] = { 0, 1, 0, 1 },
 
-    ["tension_back"] = { 128 / 255, 0, 0, 1 },
-    ["tension_decrease"] = { 1, 1, 0.25, 1 },
+    ["tension_back"] = { 0, 64 / 255, 0, 1 },
+    ["tension_decrease"] = { 0, 0.5, 0.25, 1 },
     ["tension_fill"] = { 2 / 255, 1, 2 / 255, 1 },
     ["tension_max"] = { 2 / 255, 1, 111 / 255, 1 },
     ["tension_maxtext"] = { 1, 1, 0, 1 },

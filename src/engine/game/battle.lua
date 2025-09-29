@@ -216,13 +216,86 @@ function Battle:init()
 
     self.tense = false
     self.tense_intro = Assets.newSound("battle_tense_intro")
-    self.tense_intro:setVolume(0.85)
+    self.tense_intro:setVolume(0.6)
+
+    self.battle_intro = Assets.newSound("battle_intro")
+    self.battle_intro:setVolume(0.6)
 
     self.display_soul = self:addChild(DisplaySoul(160, 160))
     self.display_soul:setLayer(BATTLE_LAYERS["below_soul"])
     self.tension_timer = 5
+    self.surface_siner = 0
+
+    self.using_fft = true
+    self.fft_array = {}
 
     self.old_border = nil
+
+    self.should_prioritize_fredbear = false
+
+    self.glow_siner = 0
+
+    self.spotlights = {}
+
+    self.bg_primary = {0.85, 0.85, 0.85}
+    self.bg_secondary = {1, 1, 1}
+    self.bg_primaries = {
+        none = {0.85, 0.85, 0.85},
+        violence = {66/255, 0, 11/255},
+        enemy = {66 / 255, 0, 33 / 255},
+        evan = {0, 66 / 255, 33 / 255},
+        cassidy = {211/255/2, 130/255/2, 75/255/2},
+        fredbear = {66 / 255, 0, 66 / 255},
+    }
+    self.bg_secondaries = {
+        none = {1,1,1},
+        violence = {0.5, 0, 11/255},
+        enemy = {0.5, 0, 33 / 255},
+        evan = {0, 0.5, 11/255},
+        cassidy = {0.8, 200/255, 43/255},
+        fredbear = {0.5, 0, 0.5},
+    }
+end
+
+function Battle:getBattleBGColor()
+    local primary = self.bg_primaries.none
+    local secondary = self.bg_secondaries.none
+    if self.state == "DEFENDING" or self.state == "DEFENDINGBEGIN" or self.state == "DEFENDINGEND" or self.state == "ENEMYSELECT" or self.state == "ACTIONSDONE" then
+        primary = self.bg_primaries.enemy
+        secondary = self.bg_secondaries.enemy
+    elseif self.state == "ACTIONSELECT" then
+        local member = Game.party[self.current_selecting]
+        local selecting = member and member.id or "evan"
+        primary = self.bg_primaries[selecting] or self.bg_primaries.evan
+        secondary = self.bg_secondaries[selecting] or self.bg_secondaries.evan
+    elseif self.state == "ACTIONS" then
+        local actioning = self:getCurrentAction() and self:getCurrentAction().character_id or "evan"
+        primary = self.bg_primaries[actioning] or self.bg_primaries.evan
+        secondary = self.bg_secondaries[actioning] or self.bg_secondaries.evan
+    elseif self.state == "MENUSELECT" or self.state == "PARTYSELECT" then
+        local highlighted = "evan"
+        for _,member in ipairs(self.party) do
+            if (self:isHighlighted(member)) then
+                local id = member.chara.id
+                highlighted = id
+                break
+            end
+        end
+        primary = self.bg_primaries[highlighted] or self.bg_primaries.evan
+        secondary = self.bg_secondaries[highlighted] or self.bg_secondaries.evan
+    elseif self.state == "ATTACKING" then
+        primary = self.bg_primaries.violence
+        secondary = self.bg_secondaries.violence
+    end
+    self.bg_primary = Utils.mergeColor(self.bg_primary, primary, 0.12 * DTMULT)
+    self.bg_secondary = Utils.mergeColor(self.bg_secondary, secondary, 0.12 * DTMULT)
+    return Utils.mergeColor(self.bg_primary, {1,1,1}, math.sin(self.glow_siner) / 8), Utils.mergeColor(self.bg_secondary, {1,1,1}, math.sin(self.glow_siner) / 8)
+end
+
+---@param battler PartyBattler
+function Battle:shouldHaveSpotlight(battler)
+    local party = Game:getPartyMember(battler.chara.id)
+    return self:isHighlighted(battler) or (party and self.current_selecting == Game:getPartyIndex(battler.chara.id)) --or ((not party) and self.state == "DEFENDING")
 end
 
 function Battle:setDescription(text, cost_text, visible, notes)
@@ -292,6 +365,11 @@ function Battle:createPartyBattlers()
                 table.insert(self.party_beginning_positions, {chara_battler.x, chara_battler.y})
             end
         end
+
+        if not self.spotlights then
+            self.spotlights = {}
+        end
+        table.insert(self.spotlights, i, {width = 0, visible = false, offset = 0})
     end
 end
 
@@ -308,6 +386,7 @@ function Battle:postInit(state, encounter)
 
     if self.encounter and self.encounter.tense then
         self.tense = true
+        self.using_fft = false
     end
 
     if Game.world.music:isPlaying() and (self.encounter.music or self.tense) then
@@ -501,7 +580,13 @@ function Battle:onStateChange(old,new)
                 if not self.encounter.music or (self.encounter.music == "battle" and self.tense)then
                     --self.music:play("battle_tense.loop")
                 else
-                    self.music:play(self.encounter.music)
+                    self.battle_intro:play()
+                    self.timer:afterCond(function () return not self.battle_intro:isPlaying() end, function ()
+                        self.music:play(self.encounter.music)
+                        if (Game.fft and self.using_fft) then
+                            Game.fft:setSoundData(Assets.getMusicPath(self.encounter.music))
+                        end
+                    end)
                 end
             end
         end
@@ -2578,6 +2663,11 @@ function Battle:update()
     end
     if Game.battle == nil then return end -- cutscene ended the battle
 
+    if (self.music:isPlaying() and self.using_fft and Game.fft and Game.fft:getSoundData() and self.music:tell() >= 0.05 and self.music:tell() <= (Game.fft:getSoundData():getDuration()-0.05)) then
+        local duration = Game.fft:getSoundData():getDuration()
+        Game.fft:updatePlayTime(math.max(math.min(self.music:tell(), duration-0.5), 0.05))
+    end
+
     if self.state == "TRANSITION" then
         self:updateTransition()
     elseif self.state == "INTRO" then
@@ -2647,6 +2737,8 @@ function Battle:update()
     end
 
     self.offset = self.offset + 1 * DTMULT
+    self.surface_siner = self.surface_siner + 2 * DTMULT
+    self.glow_siner = self.glow_siner + DT
 
     if self.offset > 100 then
         self.offset = self.offset - 100
@@ -2974,6 +3066,10 @@ function Battle:draw()
     Draw.setColor(0, 0, 0, self.background_fade_alpha)
     love.graphics.rectangle("fill", -20, -20, SCREEN_WIDTH + 40, SCREEN_HEIGHT + 40)
 
+    if not (self.tense) then
+        self:drawSpotlights()
+    end
+
     super.draw(self)
 
     self.encounter:draw(self.transition_timer / 10)
@@ -2983,23 +3079,123 @@ function Battle:draw()
     end
 end
 
+function Battle:drawSpotlights()
+    for index, battler in ipairs(self.party) do
+        if not self.spotlights[index] then
+            self.spotlights[index] = {width = 0, visible = false, offset = 0}
+        end
+        if self:shouldHaveSpotlight(battler) then
+           self.spotlights[index].width = Utils.approach(self.spotlights[index].width, 32, DTMULT * 4)
+        else
+            self.spotlights[index].width = Utils.approach(self.spotlights[index].width, 0, DTMULT * 8)
+        end
+        self.spotlights[index].visible = self.spotlights[index].width > 0
+
+        if self.spotlights[index].visible then
+            self.spotlights[index].offset = self.spotlights[index].offset + (DT * 2)
+            Draw.setColor(Utils.mergeColor(self.bg_secondaries[battler.chara.id], {1,1,1, 0.75}, 0.5) or self.bg_secondaries.none, 0.75)
+            love.graphics.polygon("fill",
+                battler.x - 125, battler.y - 175,
+                battler.x + battler.width/2 - self.spotlights[index].width + math.sin(self.spotlights[index].offset) * 4, battler.y,
+                battler.x + battler.width / 2 + self.spotlights[index].width-4 + math.sin(self.spotlights[index].offset) * 4, battler.y,
+                battler.x + battler.width / 2 + self.spotlights[index].width + math.sin(self.spotlights[index].offset) * 4, battler.y - 4
+            )
+            Draw.setColor(Utils.mergeColor(self.bg_secondaries[battler.chara.id], {1,1,1, 0.75}, 0.75) or self.bg_secondaries.none, 0.75)
+            love.graphics.polygon("fill",
+                battler.x - 125, battler.y - 175,
+                battler.x + battler.width/2 - self.spotlights[index].width/1.5 + math.sin(self.spotlights[index].offset) * 4, battler.y,
+                battler.x + battler.width / 2 + self.spotlights[index].width/1.5 + math.sin(self.spotlights[index].offset) * 4, battler.y
+            )
+        end
+    end
+    Draw.setColor(1,1,1,1)
+end
+
+function Battle.floorStencil()
+    love.graphics.rectangle("fill", -8, 80, SCREEN_WIDTH+16, 380-128)
+end
+
 function Battle:drawBackground()
     Draw.setColor(0, 0, 0, self.transition_timer / 10)
     love.graphics.rectangle("fill", -8, -8, SCREEN_WIDTH+16, SCREEN_HEIGHT+16)
+    local primary, secondary = self:getBattleBGColor()
+
+    -- love.graphics.setLineStyle("rough")
+    -- love.graphics.setLineWidth(1)
+
+    -- for i = 2, 16 do
+    --     Draw.setColor(0, 66 / 255, 33 / 255, (self.transition_timer / 10) / 2)
+    --     love.graphics.line(0, -210 + (i * 50) + math.floor(self.offset / 2), 640, -210 + (i * 50) + math.floor(self.offset / 2))
+    --     love.graphics.line(-200 + (i * 50) + math.floor(self.offset / 2), 0, -200 + (i * 50) + math.floor(self.offset / 2), 480)
+    -- end
+
+    -- for i = 3, 16 do
+    --     Draw.setColor(0, 66 / 255, 33 / 255, self.transition_timer / 10)
+    --     love.graphics.line(0, -100 + (i * 50) - math.floor(self.offset), 640, -100 + (i * 50) - math.floor(self.offset))
+    --     love.graphics.line(-100 + (i * 50) - math.floor(self.offset), 0, -100 + (i * 50) - math.floor(self.offset), 480)
+    -- end
+    local fade = self.transition_timer / 10
+    for i = 0, 11 do
+        local siner = self.surface_siner + (i * (10 * math.pi))
+
+        love.graphics.setLineWidth(2)
+        Draw.setColor(primary, fade * math.sin(siner / 60))
+        if math.cos(siner / 60) < 0 then
+            love.graphics.line(0, 360 - (math.sin(siner / 60) * 60) + 30, SCREEN_WIDTH, 360 - (math.sin(siner / 60) * 60) + 30)
+            --love.graphics.line(0, 211 + (math.sin(siner / 60) * 30) - 30, SCREEN_WIDTH, 211 + (math.sin(siner / 60) * 30) - 30)
+        end
+    end
+
+    if (self.using_fft and self.music:isPlaying() and Game.fft and Game.fft:getSoundData()) then
+        self:drawVisualizer(fade, primary)
+    end
+
+    love.graphics.stencil(self.floorStencil, "replace", 1)
+    love.graphics.setStencilTest("greater", 0)
+    Draw.setColor(0, 0, 0, fade)
+    love.graphics.rectangle("fill", -8, 80, SCREEN_WIDTH+16, 380-128)
 
     love.graphics.setLineStyle("rough")
     love.graphics.setLineWidth(1)
 
-    for i = 2, 16 do
-        Draw.setColor(0, 66 / 255, 33 / 255, (self.transition_timer / 10) / 2)
-        love.graphics.line(0, -210 + (i * 50) + math.floor(self.offset / 2), 640, -210 + (i * 50) + math.floor(self.offset / 2))
-        love.graphics.line(-200 + (i * 50) + math.floor(self.offset / 2), 0, -200 + (i * 50) + math.floor(self.offset / 2), 480)
+    for i = -2, 20 do
+        Draw.setColor(primary, (fade) / 2)
+        love.graphics.line(0, -210 + (i * 50) + math.floor(self.offset / 2), 640, 210 + (i * 50) + math.floor(self.offset / 2))
+        love.graphics.line(-200 + (i * 50) + math.floor(self.offset / 2), 0, 200 + (i * 50) + math.floor(self.offset / 2), 480)
     end
 
-    for i = 3, 16 do
-        Draw.setColor(0, 66 / 255, 33 / 255, self.transition_timer / 10)
-        love.graphics.line(0, -100 + (i * 50) - math.floor(self.offset), 640, -100 + (i * 50) - math.floor(self.offset))
-        love.graphics.line(-100 + (i * 50) - math.floor(self.offset), 0, -100 + (i * 50) - math.floor(self.offset), 480)
+    for i = 0, 20 do
+        Draw.setColor(primary, fade)
+        love.graphics.line(0, -100 + (i * 50) - math.floor(self.offset), 640, 100 + (i * 50) - math.floor(self.offset))
+        love.graphics.line(-100 + (i * 50) - math.floor(self.offset), 0, 100 + (i * 50) - math.floor(self.offset), 480)
+    end
+    love.graphics.setStencilTest()
+    Draw.setColor(secondary)
+    love.graphics.setLineWidth(2)
+    love.graphics.line(0, 330, SCREEN_WIDTH, 330)
+    love.graphics.line(0, 80, SCREEN_WIDTH, 80)
+
+    -- if (self.using_fft and self.music:isPlaying() and Game.fft and Game.fft:getSoundData()) then
+    --     self:drawVisualizer()
+    -- end
+end
+
+function Battle:drawVisualizer(fade, color)
+    self.fft_array = Game.fft:get() -- This operation takes almost no time
+    local barWidth = SCREEN_WIDTH / 512 * 8 -- We only take care of the lowest 1/8 of the frequencies because it is where most energy resides
+    Draw.setColor(color, (fade) / 2)
+    local dark = true
+    for i = 1, 512 / 16 do
+        if (dark) then
+            dark = false
+            Draw.setColor(color, (fade))
+        else
+            dark = true
+            Draw.setColor(color, (fade) / 2)
+        end
+        local barHeight = self.fft_array[i] * 400 -- H is window height
+        love.graphics.rectangle("fill", (i - 1) * barWidth * 2 + 4, barHeight + 50, barWidth, 100)
+        love.graphics.rectangle("fill", (i - 1) * barWidth * 2 + 4, barHeight + 40, barWidth, 4)
     end
 end
 

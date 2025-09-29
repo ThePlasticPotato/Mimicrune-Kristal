@@ -28,6 +28,8 @@ Utils = require("src.utils.utils")
 CollisionUtil = require("src.utils.collision")
 Draw = require("src.utils.draw")
 
+LoveFFT = require("src.engine.lovefft")
+
 Kristal = require("src.kristal")
 -- Ease of access for game variables
 Game = Kristal.States["Game"]
