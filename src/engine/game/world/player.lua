@@ -77,15 +77,11 @@ function Player:init(chara, x, y)
     self.should_sit = true
 end
 
-function Player:getBaseWalkSpeed()
-    return Game:isLight() and 6 or 4
-end
-
 function Player:getCurrentSpeed(running)
     local speed = self:getBaseWalkSpeed()
     if running then
         if self.run_timer > 30 then
-            if (self.state_manager.state ~= "RUN") then self:setState("RUN") end
+            if (self.state ~= "RUN") then self:setState("RUN") end
             speed = speed + (Game:isLight() and 6 or 5)
         elseif self.run_timer > 10 then
             speed = speed + 4
@@ -98,20 +94,6 @@ end
 
 function Player:getBaseWalkSpeed()
     return 6 + Game.party[1].walk_speed_bonus
-end
-
-function Player:getCurrentSpeed(running)
-    local speed = self:getBaseWalkSpeed()
-    if running then
-        if self.run_timer > 60 then
-            speed = speed + (Game:isLight() and 6 or 5)
-        elseif self.run_timer > 10 then
-            speed = speed + 4
-        else
-            speed = speed + 2
-        end
-    end
-    return speed
 end
 
 function Player:getDebugInfo()
@@ -408,7 +390,7 @@ function Player:handleMomentumMovement()
             for index, value in ipairs(Game.world.followers) do
                 value:setFacing(facingfromangle)
                 value:runSkidDust(walk_y > 0 and mult_y > 1)
-                value:setAnimation({"skid/"..facingfromangle, 0.15, false}, function () value:setWalkSprite(self.actor:getRunSprite()) end)
+                value:setAnimation({"skid/"..facingfromangle, 0.15, false}, function () value:setWalkSprite(value.actor:getRunSprite()) end)
             end
             if ((mult_x > 1) and (walk_y ~= 0) and (mult_y == 1)) and self.temp_boost_x == 0 then
                 self.temp_boost_y = math.min(self.temp_boost_y + 0.5, 2)
@@ -425,7 +407,7 @@ function Player:handleMomentumMovement()
         self.run_momentum[2] = Utils.approach(self.run_momentum[2], walk_y + (walk_y * self.temp_boost_y), DT * mult_y)
     end
 
-    local speed = self:getCurrentSpeed(true) + (Game:isLight() and 4 or 4)
+    local speed = self:getBaseWalkSpeed() + (Game:isLight() and 4 or 4)
     
     self:move(walk_x + self.run_momentum[1], walk_y + self.run_momentum[2], speed * DTMULT)
 

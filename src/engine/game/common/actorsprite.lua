@@ -429,8 +429,8 @@ function ActorSprite:update()
 
             self:setFrame(floored_frame)
 
-            if (old_frame ~= floored_frame) and (self.on_footstep ~= nil) and (self.frame % 2 == 0) then
-                self.on_footstep(self, math.floor(floored_frame / 2))
+            if (old_frame ~= floored_frame) and (self.on_footstep ~= nil) and ((self.frame % 2 == 0) or (self.walk_override and Utils.contains(self.anim, "run") and self.frame % 3 == 0) ) then
+                self.on_footstep(self, math.floor(floored_frame / ((self.walk_override and Utils.contains(self.anim, "run")) and 3 or 2)))
             end
         else
             self:setFrame(1)
