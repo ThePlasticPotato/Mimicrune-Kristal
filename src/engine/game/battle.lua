@@ -269,7 +269,7 @@ function Battle:getBattleBGColor()
         local selecting = member and member.id or "evan"
         primary = self.bg_primaries[selecting] or self.bg_primaries.evan
         secondary = self.bg_secondaries[selecting] or self.bg_secondaries.evan
-    elseif self.state == "ACTIONS" then
+    elseif self.state == "ACTIONS" or self.state == "BATTLETEXT" then
         local actioning = self:getCurrentAction() and self:getCurrentAction().character_id or "evan"
         primary = self.bg_primaries[actioning] or self.bg_primaries.evan
         secondary = self.bg_secondaries[actioning] or self.bg_secondaries.evan
@@ -299,7 +299,7 @@ end
 ---@param battler PartyBattler
 function Battle:shouldHaveSpotlight(battler)
     local party = Game:getPartyMember(battler.chara.id)
-    return self:isHighlighted(battler) or (party and self.current_selecting == Game:getPartyIndex(battler.chara.id)) --or ((not party) and self.state == "DEFENDING")
+    return self:isHighlighted(battler) or (party and self.current_selecting == Game:getPartyIndex(battler.chara.id)) or (party and self:getCurrentAction() and self:getCurrentAction().character_id == battler.chara.id) --or ((not party) and self.state == "DEFENDING")
 end
 
 function Battle:setDescription(text, cost_text, visible, notes)
@@ -2799,7 +2799,7 @@ function Battle:updateIntro()
     self.intro_timer = self.intro_timer + 1 * DTMULT
     if self.intro_timer >= 15 then -- TODO: find out why this is 15 instead of 13
         for _,v in ipairs(self.party) do
-            v:setAnimation("battle/idle")
+            v:resetSprite()
         end
         self:setState("ACTIONSELECT", "INTRO")
         --self:nextTurn()

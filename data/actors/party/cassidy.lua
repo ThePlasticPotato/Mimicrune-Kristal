@@ -37,8 +37,8 @@ function actor:init()
         ["battle/item"]         = {"battle/item", 1/12, false, next="battle/idle"},
         ["battle/spare"]        = {"battle/act", 1/15, false, next="battle/idle"},
 
-        ["battle/attack_ready"] = {"battle/attackready", 1/10, true},
-        ["battle/act_ready"]    = {"battle/actready", 1/10, true},
+        ["battle/attack_ready"] = {"battle/attackready", 1/10, false},
+        ["battle/act_ready"]    = {"battle/actready", 1/10, false},
         ["battle/spell_ready"]  = {"battle/spellready", 1/10, true},
         ["battle/item_ready"]   = {"battle/itemready", 1/10, true},
         ["battle/defend"]       = {"battle/defendready", 1/10, false, next="battle/defend_loop"},

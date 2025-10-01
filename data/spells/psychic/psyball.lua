@@ -27,7 +27,7 @@ function spell:init()
     -- Tags that apply to this spell
     self.tags = {"psy", "damage"}
 
-    --self.cast_anim = "psywave"
+    self.cast_anim = "meditate"
 end
 
 function spell:getCastMessage(user, target)

@@ -262,6 +262,8 @@ function BattleUI:update()
     self.control_panel_infoborders.visible = (Game.battle.state ~= "SHORTACTTEXT") and (Game.battle.state ~= "BATTLETEXT") and (Game.battle.state ~= "ATTACKING") and self.shown and self.action_boxes[Game.battle.current_selecting]
     self.action_panel_cover.x = Utils.approach(self.action_panel_cover.x, self.action_panel_cover_target, DTMULT * 24)
     self.encounter_text.y = ((Game.battle.state ~= "SHORTACTTEXT") and (Game.battle.state ~= "BATTLETEXT")) and 98 or 15
+    self.encounter_text.face_y = ((Game.battle.state ~= "SHORTACTTEXT") and (Game.battle.state ~= "BATTLETEXT")) and -16 or 2
+    self.encounter_text.face:setCutout(0, 0, 0, ((Game.battle.state ~= "SHORTACTTEXT") and (Game.battle.state ~= "BATTLETEXT")) and 4 or 0)
     
     if (self.action_boxes and self.action_boxes[1]) and Game.battle.current_selecting and Game.battle.current_selecting ~= 0 then
         self.selector_sprite.y = Utils.approach(self.selector_sprite.y, self.action_boxes[Game.battle.current_selecting].partypanel_offset + 5, DTMULT * 12)
