@@ -236,6 +236,7 @@ function Battle:init()
     self.glow_siner = 0
 
     self.spotlights = {}
+    self.bars = {}
 
     self.bg_primary = {0.85, 0.85, 0.85}
     self.bg_secondary = {1, 1, 1}
@@ -260,7 +261,7 @@ end
 function Battle:getBattleBGColor()
     local primary = self.bg_primaries.none
     local secondary = self.bg_secondaries.none
-    if self.state == "DEFENDING" or self.state == "DEFENDINGBEGIN" or self.state == "DEFENDINGEND" or self.state == "ENEMYSELECT" or self.state == "ACTIONSDONE" then
+    if self.state == "DEFENDING" or self.state == "DEFENDINGBEGIN" or self.state == "DEFENDINGEND" or self.state == "ENEMYSELECT" or self.state == "ACTIONSDONE" or (self.state == "ENEMYDIALOGUE" and #self:getActiveEnemies() > 0) then
         primary = self.bg_primaries.enemy
         secondary = self.bg_secondaries.enemy
     elseif self.state == "ACTIONSELECT" then
@@ -286,6 +287,9 @@ function Battle:getBattleBGColor()
     elseif self.state == "ATTACKING" then
         primary = self.bg_primaries.violence
         secondary = self.bg_secondaries.violence
+    elseif self.state == "VICTORY" or self.state == "TRANSITIONOUT" or (self.state == "ENEMYDIALOGUE" and #self:getActiveEnemies() == 0) then
+        primary = self.bg_primaries.evan
+        secondary = self.bg_primaries.evan
     end
     self.bg_primary = Utils.mergeColor(self.bg_primary, primary, 0.12 * DTMULT)
     self.bg_secondary = Utils.mergeColor(self.bg_secondary, secondary, 0.12 * DTMULT)
@@ -581,11 +585,11 @@ function Battle:onStateChange(old,new)
                     --self.music:play("battle_tense.loop")
                 else
                     self.battle_intro:play()
+                    if (Game.fft and self.using_fft) then
+                            Game.fft:setSoundData(Assets.getMusicPath(self.encounter.music))
+                    end
                     self.timer:afterCond(function () return not self.battle_intro:isPlaying() end, function ()
                         self.music:play(self.encounter.music)
-                        if (Game.fft and self.using_fft) then
-                            Game.fft:setSoundData(Assets.getMusicPath(self.encounter.music))
-                        end
                     end)
                 end
             end
@@ -3147,7 +3151,7 @@ function Battle:drawBackground()
     end
 
     if (self.using_fft and self.music:isPlaying() and Game.fft and Game.fft:getSoundData()) then
-        self:drawVisualizer(fade, primary)
+        self:drawVisualizer(fade, secondary, primary)
     end
 
     love.graphics.stencil(self.floorStencil, "replace", 1)
@@ -3176,26 +3180,44 @@ function Battle:drawBackground()
     love.graphics.line(0, 80, SCREEN_WIDTH, 80)
 
     -- if (self.using_fft and self.music:isPlaying() and Game.fft and Game.fft:getSoundData()) then
-    --     self:drawVisualizer()
+    --     self:drawVisualizer(fade, secondary)
     -- end
 end
 
-function Battle:drawVisualizer(fade, color)
+function Battle:drawVisualizer(fade, color, secondary)
     self.fft_array = Game.fft:get() -- This operation takes almost no time
     local barWidth = SCREEN_WIDTH / 512 * 8 -- We only take care of the lowest 1/8 of the frequencies because it is where most energy resides
     Draw.setColor(color, (fade) / 2)
     local dark = true
-    for i = 1, 512 / 16 do
+    local displayed = math.max(2, math.floor(32 * (Game:getTension() / Game:getMaxTension())))
+    for i = 1, 32 do
+        local disabled = i > displayed
         if (dark) then
             dark = false
-            Draw.setColor(color, (fade))
+            Draw.setColor(color, (fade) / (disabled and 4 or Utils.lerp(3, 1, Game:getTension() / Game:getMaxTension())))
         else
             dark = true
-            Draw.setColor(color, (fade) / 2)
+            Draw.setColor(secondary, (fade) / (disabled and 4 or Utils.lerp(3, 1, Game:getTension() / Game:getMaxTension())))
         end
-        local barHeight = self.fft_array[i] * 400 -- H is window height
-        love.graphics.rectangle("fill", (i - 1) * barWidth * 2 + 4, barHeight + 50, barWidth, 100)
-        love.graphics.rectangle("fill", (i - 1) * barWidth * 2 + 4, barHeight + 40, barWidth, 4)
+        if (not self.bars[i]) then
+            self.bars[i] = {height = 0, max_height = 0, max_height_timer = 0}
+        end
+        local barHeight = self.fft_array[i] * 450 -- H is window height
+        if (disabled) then barHeight = -10 end
+        self.bars[i].height = Utils.approach(self.bars[i].height, barHeight, DTMULT * 4)
+        if (self.bars[i].max_height < self.bars[i].height) then
+            self.bars[i].max_height = self.bars[i].height
+            self.bars[i].max_height_timer = 15
+        end
+        self.bars[i].max_height_timer = Utils.approach(self.bars[i].max_height_timer, 0, DTMULT * (2 / math.max(1, self.bars[i].max_height_timer)))
+        if (self.bars[i].max_height_timer == 0) then
+            self.bars[i].max_height = barHeight
+        end
+        love.graphics.rectangle("fill", (i - 1) * barWidth * 2 + 4, -self.bars[i].height + 69, barWidth, math.max(11 + self.bars[i].height, 0))
+        love.graphics.rectangle("fill", (i - 1) * barWidth * 2 + 4, -self.bars[i].height + 59 + (disabled and 11 or 0), barWidth, 4)
+        --love.graphics.rectangle("line", (i - 1) * barWidth * 2 + 4, 59 + (disabled and 11 or 0) - math.max(self.bars[i].max_height * (math.min(10, self.bars[i].max_height_timer) / 10), self.bars[i].height), barWidth, 4)
+        love.graphics.rectangle("line", (i - 1) * barWidth * 2 + 4, 59 + (disabled and 11 or 0) - math.max(Ease.inCubic(math.max(0, 10 - self.bars[i].max_height_timer), self.bars[i].max_height, -self.bars[i].max_height, 10), self.bars[i].height), barWidth, 4)
+
     end
 end
 

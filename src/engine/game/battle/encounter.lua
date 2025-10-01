@@ -154,7 +154,7 @@ function Encounter:getVictoryText(text, money, xp) end
 
 function Encounter:update()
     if (self.tense) then
-        self.tense_offset = self.tense_offset + 1 * DTMULT
+        self.tense_offset = self.tense_offset + 4 * DTMULT
         if self.tense_offset > 100 then
             self.tense_offset = self.tense_offset - 100
         end

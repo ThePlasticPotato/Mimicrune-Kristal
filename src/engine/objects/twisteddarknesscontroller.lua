@@ -77,11 +77,15 @@ function TwistedDarknessController:update()
     self.streak_timer = self.streak_timer - DTMULT
     if self.spawn_timer < 0 then
         self.spawn_timer = self.spawn_timer + Utils.random(5, self.spawn_speed)
-        table.insert(self.fumes, {SCREEN_WIDTH + 30, Utils.random(0, SCREEN_HEIGHT), Utils.random(20, 40), self.timer, Utils.random(-1, 1), Utils.random(-1, 1, 1), 0, true, true})
+        local height = Utils.random(0, SCREEN_HEIGHT)
+        if (height > 330) then height = Utils.random(0, SCREEN_HEIGHT) end
+        table.insert(self.fumes, {SCREEN_WIDTH + 30, height, Utils.random(20, 40), self.timer, Utils.random(-1, 1), Utils.random(-1, 1, 1), 0, true, true})
     end
     if (self.streak_timer < 0) then
         self.streak_timer = self.streak_timer + Utils.random(1, (self.spawn_speed / 4))
-        table.insert(self.streaks, {SCREEN_WIDTH + 30 + Utils.random(0, 30), Utils.random(0, SCREEN_HEIGHT), Utils.random(20, 40), 0, self.timer})
+        local height = Utils.random(0, SCREEN_HEIGHT)
+        if (height > 330) then height = Utils.random(0, SCREEN_HEIGHT) end
+        table.insert(self.streaks, {SCREEN_WIDTH + 30 + Utils.random(0, 30), height, Utils.random(20, 40), 0, self.timer})
     end
 
     local to_remove = {}
