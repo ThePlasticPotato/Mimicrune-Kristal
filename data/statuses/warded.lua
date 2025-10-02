@@ -1,4 +1,4 @@
-local status, super = Class(Status, "heartbound")
+local status, super = Class(Status, "warded")
 
 function status:init()
     super.init(self)
@@ -27,7 +27,7 @@ end
 ---@param amount number
 ---@return boolean
 function status:onHurt(battler, effect, amount)
-    local activated = not (effect.data.source.is_down)
+    local activated = not (effect.data.source.is_down) and (battler.chara:getHealth() - amount <= 0)
     if (activated) then
         battler:removeStatus(self.id, "CONSUME")
     end
