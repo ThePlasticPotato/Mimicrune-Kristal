@@ -3101,14 +3101,14 @@ function Battle:drawSpotlights()
             love.graphics.polygon("fill",
                 battler.x - 125, battler.y - 175,
                 battler.x + battler.width/2 - self.spotlights[index].width + math.sin(self.spotlights[index].offset) * 4, battler.y,
-                battler.x + battler.width / 2 + self.spotlights[index].width-4 + math.sin(self.spotlights[index].offset) * 4, battler.y,
-                battler.x + battler.width / 2 + self.spotlights[index].width + math.sin(self.spotlights[index].offset) * 4, battler.y - 4
+                battler.x + battler.width / 2 + self.spotlights[index].width-4 + math.sin(self.spotlights[index].offset) * 8, battler.y,
+                battler.x + battler.width / 2 + self.spotlights[index].width + math.sin(self.spotlights[index].offset) * 8, battler.y - 4
             )
             Draw.setColor(Utils.mergeColor(self.bg_secondaries[battler.chara.id], {1,1,1, 0.75}, 0.75) or self.bg_secondaries.none, 0.75)
             love.graphics.polygon("fill",
                 battler.x - 125, battler.y - 175,
                 battler.x + battler.width/2 - self.spotlights[index].width/1.5 + math.sin(self.spotlights[index].offset) * 4, battler.y,
-                battler.x + battler.width / 2 + self.spotlights[index].width/1.5 + math.sin(self.spotlights[index].offset) * 4, battler.y
+                battler.x + battler.width / 2 + self.spotlights[index].width/1.5 + math.sin(self.spotlights[index].offset) * 8, battler.y
             )
         end
     end

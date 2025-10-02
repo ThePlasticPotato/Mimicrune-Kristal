@@ -13,6 +13,7 @@
 ---@field actors table<string, Actor>
 ---@field items table<string, Item>
 ---@field spells table<string, Spell>
+---@field statuses table<string, Status>
 ---@field party_members table<string, PartyMember>
 ---@field recruits table<string, Recruit>
 ---@field encounters table<string, Encounter>
@@ -46,6 +47,7 @@ Registry.paths = {
     ["drawfx"]           = "drawfx",
     ["items"]            = "data/items",
     ["spells"]           = "data/spells",
+    ["statuses"]         = "data/statuses",
     ["party_members"]    = "data/party",
     ["recruits"]         = "data/recruits",
     ["encounters"]       = "battle/encounters",
@@ -86,6 +88,7 @@ function Registry.initialize(preload)
         Registry.initDrawFX()
         Registry.initItems()
         Registry.initSpells()
+        Registry.initStatuses()
         Registry.initPartyMembers()
         Registry.initRecruits()
         Registry.initEncounters()
@@ -536,6 +539,12 @@ function Registry.registerSpell(id, class)
 end
 
 ---@param id string
+---@param class Status
+function Registry.registerStatus(id, class)
+    self.statuses[id] = class
+end
+
+---@param id string
 ---@param class Encounter
 function Registry.registerEncounter(id, class)
     self.encounters[id] = class
@@ -737,6 +746,18 @@ function Registry.initSpells()
     end
 
     Kristal.callEvent(KRISTAL_EVENT.onRegisterSpells)
+end
+
+function Registry.initStatuses()
+    self.statuses = {}
+
+    for _,path,status in self.iterScripts(Registry.paths["statuses"]) do
+        assert(status ~= nil, '"statuses/'..path..'.lua" does not return value')
+        status.id = status.id or path
+        self.registerStatus(status.id, status)
+    end
+
+    Kristal.callEvent(KRISTAL_EVENT.onRegisterStatuses)
 end
 
 function Registry.initEncounters()

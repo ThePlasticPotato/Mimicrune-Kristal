@@ -82,13 +82,15 @@ function actor:init()
     -- Sound to play when this actor speaks (optional)
     self.voice = "assets/sounds/voice/party/evan"
     -- Path to this actor's portrait for dialogue (optional)
-    self.portrait_path = "face/evan"
+    self.portrait_path = "face/evan/dark"
     -- Offset position for this actor's portrait (optional)
     self.portrait_offset = {-2, 0}
 
     -- Whether this actor as a follower will blush when close to the player
     self.can_blush = true
 end
+
+function actor:getPortraitOffset() return unpack(Game.battle and {0, 0} or self.portrait_offset or {0, 0}) end
 
 function actor:preSetAnimation(sprite, anim, callback)
     if (anim == "battle/idle" and Game.battle and Game.battle.tense) then

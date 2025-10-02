@@ -57,6 +57,8 @@ function Battler:init(x, y, width, height)
     self.alert_timer = 0
     self.alert_icon = nil
     self.alert_callback = nil
+
+    self.statuses = {}
 end
 
 --- Sets the actor used for this battler.

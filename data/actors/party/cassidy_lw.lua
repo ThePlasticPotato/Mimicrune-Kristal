@@ -39,9 +39,9 @@ function actor:init()
     -- Sound to play when this actor speaks (optional)
     self.voice = "party/cassidy"
     -- Path to this actor's portrait for dialogue (optional)
-    self.portrait_path = "face/cassidy"
+    self.portrait_path = "face/cassidy/light"
     -- Offset position for this actor's portrait (optional)
-    self.portrait_offset = nil
+    self.portrait_offset = {-4, 0}
 
     -- Whether this actor as a follower will blush when close to the player
     self.can_blush = true

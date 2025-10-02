@@ -273,6 +273,7 @@ KRISTAL_EVENT = {
     onRegisterDrawFX = "onRegisterDrawFX", -- DrawFX scripts finished registering / in: Registry.initDrawFX() / passes: NONE / returns: NONE
     onRegisterItems = "onRegisterItems", -- item scripts finished registering / in: Registry.initItems() / passes: NONE / returns: NONE
     onRegisterSpells = "onRegisterSpells", -- spell scripts finished registering / in: Registry.initSpells() / passes: NONE / returns: NONE
+    onRegisterStatuses = "onRegisterStatuses", -- status scripts finished registering / in: Registry.initStatuses() / passes: NONE / returns: NONE
     onRegisterPartyMembers = "onRegisterPartyMembers", -- party member scripts finished registering / in: Registry.initPartyMembers() / passes: NONE / returns: NONE
     onRegisterRecruits = "onRegisterRecruits", -- recruit scripts finished registering / in: Registry.initRecruits() / passes: NONE / returns: NONE
     onRegisterEncounters = "onRegisterEncounters", -- encounter scripts finished registering / in: Registry.initEncounters() / passes: NONE / returns: NONE
