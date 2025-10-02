@@ -58,6 +58,9 @@ function PartyBattler:init(chara, x, y)
     self:addChild(self.target_sprite)
 
     self.targeted = false
+    self.protected = false
+
+    self.max_statuses = 4
 end
 
 --- *(Override)*
@@ -70,7 +73,14 @@ end
 ---@param amount number
 ---@return number
 function PartyBattler:calculateDamage(amount)
-    local def = self.chara:getStat("defense")
+    local effect_bonus = 0
+    for id, status in pairs(self.statuses) do
+        if status.data.effect:hasTag("defense") and status.data.effect:hasTag("modifier") then
+            local amt = status.data.effect:onHurt(self, status)
+            effect_bonus = effect_bonus + amt
+        end
+    end
+    local def = self.chara:getStat("defense") * effect_bonus
     local max_hp = self.chara:getStat("health")
 
     local threshold_a = (max_hp / 5)
@@ -137,11 +147,30 @@ function PartyBattler:hurt(amount, exact, color, options)
 
     local swoon = options["swoon"]
 
+    local effect_bonus = 0
+    for id, status in pairs(self.statuses) do
+        if status.data.effect:hasTag("hiteffect") then
+            if (status.data.effect:hasTag("modifier")) then
+                local amt = status.data.effect:onHurt(self, status, amount)
+                effect_bonus = effect_bonus + amt
+            else
+                local cancel = status.data.effect:onHurt(self, status, amount)
+                if (Utils.contains(id, "ward")) then
+                    self:statusMessage("msg", "ward")
+                    self:healEffect(0, 200/255, 11/255)
+                end
+                if (cancel) then return end
+            end
+        end
+    end
+
+    amount = amount + effect_bonus
+
     if not options["all"] then
         Assets.playSound("hurt")
         if not exact then
             amount = self:calculateDamage(amount)
-            if self.defending then
+            if self.defending or self.protected then
                 amount = math.ceil((2 * amount) / 3)
             end
             -- we don't have elements right now
@@ -158,7 +187,7 @@ function PartyBattler:hurt(amount, exact, color, options)
             local element = 0
             amount = math.ceil((amount * self:getElementReduction(element)))
 
-            if self.defending then
+            if self.defending or self.protected then
                 amount = math.ceil((3 * amount) / 4) -- Slightly different than the above
             end
         end
@@ -485,6 +514,29 @@ function PartyBattler:draw()
     if self.actor then
         self.actor:onBattleDraw(self)
     end
+    self:drawStatuses()
+end
+
+function PartyBattler:drawStatuses()
+    local next_x = 16
+    local next_y = (-1 * self.chara.actor:getHeight()) - 8
+    local line_iterant = 0
+    for _,status in pairs(self.statuses) do
+        --todo: figure out how/when i want to use index ig
+        Draw.setColor(status.data.effect:getColor(1))
+        local icon = Assets.getTexture(status.data.effect:getIcon())
+        if icon then
+            Draw.draw(icon, next_x, next_y)
+        end
+        next_y = next_y + 12
+        line_iterant = line_iterant + 1
+        if (line_iterant > 1) then
+            next_x = next_x + 12
+            line_iterant = 0
+            next_y = (-1 * self.chara.actor:getHeight()) - 8
+        end
+    end
+    Draw.setColor(1,1,1,1)
 end
 
 return PartyBattler

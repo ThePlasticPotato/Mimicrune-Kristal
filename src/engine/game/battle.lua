@@ -600,6 +600,9 @@ function Battle:onStateChange(old,new)
         local party = self.party[self.current_selecting]
         party.chara:onActionSelect(party, false)
         self.encounter:onCharacterTurn(party, false)
+        for _, status in pairs(party.statuses) do
+            if status.data.effect.onTurnStart then status.data.effect:onTurnStart(party, status) end
+        end
     elseif new == "ACTIONS" then
         self.battle_ui:clearEncounterText()
         if self.state_reason ~= "DONTPROCESS" then
@@ -916,6 +919,29 @@ function Battle:onStateChange(old,new)
         end
 
         self.defending_begin_timer = 0
+    elseif new == "DEFENDINGEND" then
+        for _,pb in ipairs(self.party) do
+            for _, status in pairs(pb.statuses) do
+                if status.data.effect.onDefendEnd then status.data.effect:onDefendEnd(pb, status) end
+            end
+        end
+        for _,eb in ipairs(self.enemies) do
+            for _, status in pairs(eb.statuses) do
+                if status.data.effect.onDefendEnd then status.data.effect:onDefendEnd(eb, status) end
+                if status.data.effect.onTurnEnd then status.data.effect:onTurnEnd(eb, status) end
+            end
+        end
+    elseif new == "ACTIONSDONE" then
+        for _,pb in ipairs(self.party) do
+            for _, status in pairs(pb.statuses) do
+                if status.data.effect.onTurnEnd then status.data.effect:onTurnEnd(pb, status) end
+            end
+        end
+        for _,eb in ipairs(self.enemies) do
+            for _, status in pairs(eb.statuses) do
+                if status.data.effect.onTurnStart then status.data.effect:onTurnStart(eb, status) end
+            end
+        end
     end
 
     -- List of states that should remove the arena.
@@ -2695,6 +2721,16 @@ function Battle:update()
         end
     elseif self.state == "DEFENDINGBEGIN" then
         self.defending_begin_timer = self.defending_begin_timer + DTMULT
+        for _,pb in ipairs(self.party) do
+            for index, status in pairs(pb.statuses) do
+                if status.data.effect.onDefendStart then status.data.effect:onDefendStart(pb, status) end
+            end
+        end
+        for _,eb in ipairs(self.enemies) do
+            for index, status in pairs(eb.statuses) do
+                if status.data.effect.onDefendStart then status.data.effect:onDefendStart(eb, status) end
+            end
+        end
         if self.defending_begin_timer >= 15 then
             self:setState("DEFENDING")
         end

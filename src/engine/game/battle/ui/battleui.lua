@@ -391,8 +391,10 @@ function BattleUI:drawState()
 
         Draw.setColor(1,1,1,1)
         if (self.action_boxes and self.action_boxes[Game.battle.current_selecting]) then
-            local character = self.action_boxes[Game.battle.current_selecting].battler.chara
-            local battler = self.action_boxes[Game.battle.current_selecting].battler
+            ---@type ActionBox
+            local box = self.action_boxes[Game.battle.current_selecting]
+            local character = box.battler.chara
+            local battler = box.battler
 
             local name_sprite = Assets.getTexture(character:getNameSprite())
             local head_sprite = Assets.getTexture(character:getMenuIcon())
@@ -511,6 +513,14 @@ function BattleUI:drawState()
             else
                 Draw.draw(Assets.getTexture("ui/battle/panels/controlpanel_nothing"), 114, 0)
             end
+
+            Draw.setColor(1,1,1,1)
+            --statuses
+            if (#battler.statuses == 0) then
+                Draw.draw(Assets.getTexture("ui/battle/panels/controlpanel_nothing"), 403, 0)
+            else
+                
+            end
         end
 
         local font = Assets.getFont("main")
@@ -543,6 +553,7 @@ function BattleUI:drawState()
 
 
         Draw.setColor(1,1,1,1)
+
         love.graphics.setFont(font)
     end
 

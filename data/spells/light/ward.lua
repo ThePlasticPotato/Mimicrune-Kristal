@@ -25,6 +25,7 @@ function spell:init()
 end
 
 function spell:onCast(user, target)
+    target:addStatus({effect = "warded", source = user, duration = 3, stacks = 1}, false, false)
 end
 
 function spell:hasWorldUsage(chara)

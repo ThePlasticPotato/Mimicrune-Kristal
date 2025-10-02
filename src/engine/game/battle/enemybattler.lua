@@ -818,12 +818,24 @@ end
 ---@param points    number          The points of the hit, based on closeness to the target box when attacking, maximum value is `150`
 ---@return number
 function EnemyBattler:getAttackDamage(damage, battler, points)
-    local bonus = battler.next_attack_bonus
-    battler.next_attack_bonus = 0
-    if damage > 0 then
-        return damage + bonus
+    local bonus = 1
+    for _, status in pairs(battler.statuses) do
+        if (status.data.effect:hasTag("modifier") and status.data.effect:hasTag("attack")) then
+            bonus = bonus + status.data.effect:onAttack(battler, status)
+        end
+        if (battler.chara.is_psychic and status.data.effect:hasTag("modifier") and status.data.effect:hasTag("magic")) then
+            bonus = bonus + (status.data.effect:onAttack(battler, status) / 2)
+        end
     end
-    return ((battler.chara:getStat("attack") * points) / 20) + bonus - (self.defense * 3)
+    battler.next_attack_bonus = 0
+    local magic_attack = 0
+    if (battler.chara.is_psychic) then
+        magic_attack = battler.chara:getStat("magic") / 2
+    end
+    if damage > 0 then
+        return damage * bonus
+    end
+    return (((battler.chara:getStat("attack") + magic_attack) * points) / 20) * bonus - (self.defense * 3)
 end
 
 --- Gets the name of the damage sound used when this enemy is hit (defaults to `"damage"`)
@@ -1156,6 +1168,33 @@ end
 ---@return number new_value
 function EnemyBattler:addFlag(flag, amount)
     return Game:addFlag("enemy#"..self.id..":"..flag, amount)
+end
+
+function EnemyBattler:draw()
+    super.draw(self)
+    self:drawStatuses()
+end
+
+function EnemyBattler:drawStatuses()
+    local next_x = -16
+    local next_y = (-1 * self.actor:getHeight()) - 8
+    local line_iterant = 0
+    for _,status in pairs(self.statuses) do
+        --todo: figure out how/when i want to use index ig
+        Draw.setColor(status.data.effect:getColor(1))
+        local icon = Assets.getTexture(status.data.effect:getIcon())
+        if icon then
+            Draw.draw(icon, next_x, next_y)
+        end
+        next_y = next_y + 12
+        line_iterant = line_iterant + 1
+        if (line_iterant > 1) then
+            next_x = next_x - 12
+            line_iterant = 0
+            next_y = (-1 * self.actor:getHeight()) - 8
+        end
+    end
+    Draw.setColor(1,1,1,1)
 end
 
 return EnemyBattler

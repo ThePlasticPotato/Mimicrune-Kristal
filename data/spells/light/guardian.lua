@@ -24,18 +24,12 @@ function spell:init()
 end
 
 function spell:onCast(user, target)
-    local base_heal = user.chara:getStat("magic") * 5
-    local heal_amount = Game.battle:applyHealBonuses(base_heal, user.chara)
-
-    target:heal(heal_amount)
+    super.onCast(self, user, target)
+    target.protected = true
 end
 
 function spell:hasWorldUsage(chara)
-    return true
-end
-
-function spell:onWorldCast(chara)
-    Game.world:heal(chara, 100)
+    return false
 end
 
 return spell

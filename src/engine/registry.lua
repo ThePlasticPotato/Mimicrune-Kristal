@@ -208,6 +208,23 @@ function Registry.createSpell(id, ...)
 end
 
 ---@param id string
+---@return Status|nil
+function Registry.getStatus(id)
+    return self.statuses[id]
+end
+
+---@param id string
+---@param ... any
+---@return Status
+function Registry.createStatus(id, ...)
+    if self.statuses[id] then
+        return self.statuses[id](...)
+    else
+        error("Attempt to create non existent status effect \"" .. tostring(id) .. "\"")
+    end
+end
+
+---@param id string
 ---@return PartyMember|nil
 function Registry.getPartyMember(id)
     return self.party_members[id]
