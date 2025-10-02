@@ -31,7 +31,8 @@ function character:init()
     -- Spells
     self:addKnownSpell("cure", true)
     self:addKnownSpell("soulshine", true)
-    self:addKnownSpell("pacify", false)
+    self:addKnownSpell("ward", true)
+    self:addKnownSpell("heartbind", true)
 
     -- Current health (saved to the save file)
     self.health = 100

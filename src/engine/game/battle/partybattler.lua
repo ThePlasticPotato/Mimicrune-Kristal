@@ -518,9 +518,10 @@ function PartyBattler:draw()
 end
 
 function PartyBattler:drawStatuses()
-    local next_x = 16
-    local next_y = (-1 * self.chara.actor:getHeight()) - 8
+    local next_x = 28
+    local next_y = 60 + (-1 * self.chara.actor:getHeight()) - 8
     local line_iterant = 0
+    local row_iterant = 0
     for _,status in pairs(self.statuses) do
         --todo: figure out how/when i want to use index ig
         Draw.setColor(status.data.effect:getColor(1))
@@ -533,7 +534,8 @@ function PartyBattler:drawStatuses()
         if (line_iterant > 1) then
             next_x = next_x + 12
             line_iterant = 0
-            next_y = (-1 * self.chara.actor:getHeight()) - 8
+            row_iterant = row_iterant + 1
+            next_y = 60 + (-1 * self.chara.actor:getHeight()) - 8 + (8 * row_iterant)
         end
     end
     Draw.setColor(1,1,1,1)

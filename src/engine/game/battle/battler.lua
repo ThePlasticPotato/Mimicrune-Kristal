@@ -370,7 +370,7 @@ function Battler:addStatus(options, stack, force)
             self.statuses[id].stacks = math.min(self.statuses[id].stacks + options.stacks, (self.statuses[id].data.effect:getMaxStacking() > 0) and self.statuses[id].data.effect:getMaxStacking() or 99)
             self.statuses[id].time_left = options.duration
             if self.statuses[id].data.effect.onUpdate then
-                self.statuses[id].data.effect:onUpdate(self, self.statuses[id], old_stacks)
+                self.statuses[id].data.effect:onUpdate(self, self.statuses[id], old_stacks, options)
             end
         else
             self.statuses[id] = { time_left = options.duration or options.effect:getDefaultDuration(), stacks = options.stacks or 1, data = options }
@@ -380,7 +380,7 @@ function Battler:addStatus(options, stack, force)
         local new_status = {
             [id] = { time_left = options.duration or options.effect:getDefaultDuration(), stacks = options.stacks or 1, data = options }
         }
-        Utils.merge(self.statuses, new_status)
+        self.statuses = Utils.merge(self.statuses, new_status)
         options.effect:onApply(self, self.statuses[id])
     end
     return true

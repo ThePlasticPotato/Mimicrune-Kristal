@@ -25,8 +25,9 @@ function spell:init()
 end
 
 function spell:onCast(user, target)
-    local buffAmount = (user.chara:getStat("magic") * 5) + (user.chara:getStat("health") / 4)
-    target:buffNextAttack(buffAmount, false)
+    local effect = Registry.createStatus("attack")
+    effect.consume_on_trigger = true
+    target:addStatus({effect = effect, source = user, duration = 3, stacks = math.max(math.floor(user.chara:getStat("magic") / 5), 1)}, true, false)
 end
 
 function spell:hasWorldUsage(chara)

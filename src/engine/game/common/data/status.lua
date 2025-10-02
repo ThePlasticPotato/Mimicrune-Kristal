@@ -40,8 +40,8 @@ end
 ---@return string name
 function Status:getDisplayName() return self.name end
 ---@return string path
-function Status:getIcon() return self.icon or (self:isPositive() and "ui/menu/icon/up" or "ui/menu/icon/down") end
-function Status:getTypeIcon() return self.type_icon end
+function Status:getIcon() return self.icon end
+function Status:getTypeIcon() return self.type_icon or (self:isPositive() and "ui/status/type/up" or "ui/status/type/down") end
 ---@param index number
 ---@return table<number> color
 function Status:getColor(index)
@@ -76,7 +76,7 @@ function Status:getTickType() return self.tick_type end
 
 function Status:onApply(battler, effect) end
 
-function Status:onUpdate(battler, effect, old) end
+function Status:onUpdate(battler, effect, old, new) end
 Status.onUpdate = nil
 
 function Status:onTurnStart(battler, effect) end

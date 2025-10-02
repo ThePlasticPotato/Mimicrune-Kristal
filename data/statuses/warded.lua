@@ -6,7 +6,7 @@ function status:init()
     --The display name
     self.name = "WARD"
     self.icon = "ui/status/defense"
-    self.type_icon = nil
+    self.type_icon = "ui/status/type/neutral"
     -- The color(s) the status will display as
     self.color = COLORS.lime
     -- Tags that apply to this status

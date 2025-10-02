@@ -516,10 +516,27 @@ function BattleUI:drawState()
 
             Draw.setColor(1,1,1,1)
             --statuses
-            if (#battler.statuses == 0) then
+            if (Utils.tableLength(battler.statuses) == 0) then
                 Draw.draw(Assets.getTexture("ui/battle/panels/controlpanel_nothing"), 403, 0)
             else
-                
+                love.graphics.setFont(self.small_text)
+                local displayed = 0
+                for _,status in pairs(battler.statuses) do
+                    local data = status.data.effect
+                    Draw.setColor(data:getColor(1))
+                    Draw.draw(Assets.getTexture(data:getIcon()), 403, 12 * displayed + 4)
+                    love.graphics.print(data:getDisplayName(), 417, 12 * displayed + 4)
+
+                    Draw.draw(Assets.getTexture(data:getTypeIcon()), 457, 12 * displayed + 4)
+                    if (data:getMaxStacking() ~= 1) then love.graphics.print("x"..status.stacks, 469, 12 * displayed + 4) end
+
+                    local extra = ""
+                    if (data.consume_on_trigger) then
+                        extra = "'"
+                    end
+                    love.graphics.print("x"..status.time_left..extra, 517, 12 * displayed + 4)
+                    displayed = displayed + 1
+                end
             end
         end
 

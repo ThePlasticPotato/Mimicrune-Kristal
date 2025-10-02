@@ -4,7 +4,7 @@ function status:init()
     super.init(self)
 
     --The display name
-    self.name = "ATK"
+    self.name = "atk"
     self.icon = "ui/status/attack"
     self.type_icon = nil
     -- The color(s) the status will display as
