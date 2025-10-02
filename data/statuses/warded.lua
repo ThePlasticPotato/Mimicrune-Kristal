@@ -30,6 +30,7 @@ function status:onHurt(battler, effect, amount)
     local activated = not (effect.data.source.is_down) and (battler.chara:getHealth() - amount <= 0)
     if (activated) then
         battler:removeStatus(self.id, "CONSUME")
+        battler:healEffect(0, 200/255, 11/255)
     end
     return activated
 end
