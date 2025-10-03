@@ -517,7 +517,7 @@ function BattleUI:drawState()
             Draw.setColor(1,1,1,1)
             --statuses
             if (Utils.tableLength(battler.statuses) == 0) then
-                Draw.draw(Assets.getTexture("ui/battle/panels/controlpanel_nothing"), 403, 0)
+                Draw.draw(Assets.getTexture("ui/battle/panels/controlpanel_nothing"), 427, 10)
             else
                 love.graphics.setFont(self.small_text)
                 local displayed = 0
@@ -527,8 +527,8 @@ function BattleUI:drawState()
                     Draw.draw(Assets.getTexture(data:getIcon()), 403, 12 * displayed + 4)
                     love.graphics.print(data:getDisplayName(), 417, 12 * displayed + 4)
 
-                    Draw.draw(Assets.getTexture(data:getTypeIcon()), 457, 12 * displayed + 4)
-                    if (data:getMaxStacking() ~= 1) then love.graphics.print("x"..status.stacks, 469, 12 * displayed + 4) end
+                    Draw.draw(Assets.getTexture(data:getTypeIcon()), 462, 12 * displayed + 4)
+                    if (data:getMaxStacking() ~= 1) then love.graphics.print("x"..status.stacks, 474, 12 * displayed + 4) end
 
                     local extra = ""
                     if (data.consume_on_trigger) then
@@ -538,40 +538,41 @@ function BattleUI:drawState()
                     displayed = displayed + 1
                 end
             end
-        end
+            --instants
+            local font = Assets.getFont("main")
+            love.graphics.setFont(self.small_text)
 
-        local font = Assets.getFont("main")
-        love.graphics.setFont(self.small_text)
+            local bandaids = Game:getFlag("bandaids", 0)
+            local tonics = Game:getFlag("tonics", 0)
+            local purifiers = Game:getFlag("purifiers", 0)
+            local insta_color = battler.used_instant and COLORS.gray or COLORS.white
 
-        local bandaids = Game:getFlag("bandaids", 0)
-        local tonics = Game:getFlag("tonics", 0)
-        local purifiers = Game:getFlag("purifiers", 0)
+            if (bandaids == 0) then
+                Draw.setColor(COLORS.maroon)
+            else
+                Draw.setColor(insta_color)
+            end
+            love.graphics.print(bandaids, 134, 36)
 
-        if (bandaids == 0) then
-            Draw.setColor(COLORS.maroon)
-        else
+            if (tonics == 0) then
+                Draw.setColor(COLORS.maroon)
+            else
+                Draw.setColor(insta_color)
+            end
+            love.graphics.print(tonics, 134 + 37, 36)
+
+            if (purifiers == 0) then
+                Draw.setColor(COLORS.maroon)
+            else
+                Draw.setColor(insta_color)
+            end
+            love.graphics.print(purifiers, 134 + (37 * 2), 36)
+
+
             Draw.setColor(1,1,1,1)
+
+            love.graphics.setFont(font)
         end
-        love.graphics.print(bandaids, 134, 36)
-
-        if (tonics == 0) then
-            Draw.setColor(COLORS.maroon)
-        else
-            Draw.setColor(1,1,1,1)
-        end
-        love.graphics.print(tonics, 134 + 37, 36)
-
-        if (purifiers == 0) then
-            Draw.setColor(COLORS.maroon)
-        else
-            Draw.setColor(1,1,1,1)
-        end
-        love.graphics.print(purifiers, 134 + (37 * 2), 36)
-
-
-        Draw.setColor(1,1,1,1)
-
-        love.graphics.setFont(font)
     end
 
     if Game.battle.state == "MENUSELECT" then

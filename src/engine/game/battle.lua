@@ -924,6 +924,8 @@ function Battle:onStateChange(old,new)
             for _, status in pairs(pb.statuses) do
                 if status.data.effect.onDefendEnd then status.data.effect:onDefendEnd(pb, status) end
             end
+            pb.protected = false
+            pb.used_instant = false
         end
         for _,eb in ipairs(self.enemies) do
             for _, status in pairs(eb.statuses) do
@@ -3730,6 +3732,7 @@ end
 
 ---@param key string
 function Battle:handleActionSelectInput(key)
+    ---@type ActionBox
     local actbox = self.battle_ui.action_boxes[self.current_selecting]
     local old_selected_button = actbox.selected_button
 
@@ -3755,6 +3758,70 @@ function Battle:handleActionSelectInput(key)
         actbox.selected_button = actbox.selected_button - 1
     elseif Input.is("down", key) then
         actbox.selected_button = actbox.selected_button + 1
+    elseif Input.is("instant-heal", key) then
+        local bandaids = Game:getFlag("bandaids", 0)
+        if (bandaids > 0 and not actbox.battler.used_instant) then
+            local battler = actbox.battler
+            if (battler:isHealthRolling()) then
+                battler:healEffect(unpack(COLORS.lime))
+                Assets.playSound("power")
+                battler.health_rolling_to = battler.chara:getHealth()
+                battler.used_instant = true
+                Game:setFlag("bandaids", bandaids - 1)
+            else
+                Assets.playSound("bump")
+            end
+        end
+    elseif Input.is("instant-tonic", key) then
+        local tonics = Game:getFlag("tonics", 0)
+        if (tonics > 0 and not actbox.battler.used_instant) then
+            local battler = actbox.battler
+            local fail = false
+            if (battler.chara.is_psychic and battler.chara.neural_power < 100) then
+                battler.chara.neural_power = math.min(100, battler.chara.neural_power + 75)
+            elseif (battler.chara.is_musical and battler.chara.notes < 3) then
+                battler.chara.notes = 3
+            elseif (Game:getTension() < Game:getMaxTension()) then
+                Game:giveTension(50)
+            else
+                fail = true
+            end
+            if not fail then
+                battler:healEffect(1.0, 210/255, 53/255)
+                Assets.playSound("boost")
+                battler.used_instant = true
+                Game:setFlag("tonics", tonics - 1)
+            else
+                Assets.playSound("bump")
+            end
+        end
+    elseif Input.is("instant-purify", key) then
+        local purifiers = Game:getFlag("purifiers", 0)
+        if (purifiers > 0 and not actbox.battler.used_instant) then
+            local battler = actbox.battler
+            local fail = Utils.tableLength(battler.statuses) == 0
+            if (not fail) then
+                local found = nil
+                for id, status in pairs(battler.statuses) do
+                    if (status.data.effect:isCurable() and not status.data.effect:isPositive()) then
+                        found = id
+                    end
+                end
+                fail = not found
+                if (found) then
+                    battler:removeStatus(found, "CURE")
+                end
+            end
+
+            if (not fail) then
+                battler:healEffect(unpack(COLORS.purple))
+                Assets.playSound("cd_bagel/"..battler.chara.name:lower())
+                battler.used_instant = true
+                Game:setFlag("purifiers", purifiers - 1)
+            else
+                Assets.playSound("bump")
+            end
+        end
     end
 
     if actbox.selected_button < 1 then

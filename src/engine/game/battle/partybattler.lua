@@ -61,6 +61,8 @@ function PartyBattler:init(chara, x, y)
     self.protected = false
 
     self.max_statuses = 4
+
+    self.used_instant = false
 end
 
 --- *(Override)*
