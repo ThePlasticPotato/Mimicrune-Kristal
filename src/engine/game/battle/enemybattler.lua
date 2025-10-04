@@ -181,13 +181,23 @@ function EnemyBattler:getGrazeTension()
     return self.graze_tension
 end
 
+---@return bool boolean
+function EnemyBattler:shouldDisplayTiredMessage()
+    return self.tired_percentage > 0
+end
+
+---@return bool boolean
+function EnemyBattler:shouldDisplayAwakeMessage()
+    return true
+end
+
 ---@param bool boolean
 function EnemyBattler:setTired(bool)
     local old_tired = self.tired
     self.tired = bool
     if self.tired then
         self.comment = "(Tired)"
-        if not old_tired and Game:getConfig("tiredMessages") then
+        if not old_tired and Game:getConfig("tiredMessages") and self:shouldDisplayTiredMessage() then
             -- Check for self.parent so setting Tired state in init doesn't crash
             if self.parent then
                 self:statusMessage("msg", "tired")
@@ -196,7 +206,7 @@ function EnemyBattler:setTired(bool)
         end
     else
         self.comment = ""
-        if old_tired and Game:getConfig("awakeMessages") then
+        if old_tired and Game:getConfig("awakeMessages") and self:shouldDisplayAwakeMessage() then
             if self.parent then self:statusMessage("msg", "awake") end
         end
     end
