@@ -566,10 +566,10 @@ function EnemyBattler:mercyFlash(color)
 
     local recolor = self:addFX(RecolorFX())
     Game.battle.timer:during(8/30, function()
-        recolor.color = Utils.lerp(recolor.color, color, 0.12 * DTMULT)
+        recolor.color = ColorUtils.mergeColor(recolor.color, color, 0.12 * DTMULT)
     end, function()
         Game.battle.timer:during(8/30, function()
-            recolor.color = Utils.lerp(recolor.color, {1, 1, 1}, 0.16 * DTMULT)
+            recolor.color = ColorUtils.mergeColor(recolor.color, {1, 1, 1}, 0.16 * DTMULT)
         end, function()
             self:removeFX(recolor)
         end)
@@ -674,6 +674,25 @@ end
 ---@param battler PartyBattler
 function EnemyBattler:onCheck(battler) end
 
+--- *(Override)* Gets the text used by the Check act.
+--- *By default, returns the name of the enemy in all caps and then the value defined in EnemyBattler.check*
+---@param battler PartyBattler
+function EnemyBattler:getCheckText(battler)
+    if type(self.check) == "table" then
+        local tbl = {}
+        for i,check in ipairs(self.check) do
+            if i == 1 then
+                table.insert(tbl, "* " .. string.upper(self.name) .. " - " .. check)
+            else
+                table.insert(tbl, "* " .. check)
+            end
+        end
+        return tbl
+    else
+        return "* " .. string.upper(self.name) .. " - " .. self.check
+    end
+end
+
 --- *(Override)* Called when an ACT on this enemy starts \
 --- *By default, sets the sprties of all battlers involved in the act to `"battle/act"`
 ---@param battler PartyBattler  The battler using this act - if it is a multi-act, this only specifies the one who used the command
@@ -697,19 +716,7 @@ end
 function EnemyBattler:onAct(battler, name)
     if name == "Check" then
         self:onCheck(battler)
-        if type(self.check) == "table" then
-            local tbl = {}
-            for i,check in ipairs(self.check) do
-                if i == 1 then
-                    table.insert(tbl, "* " .. string.upper(self.name) .. " - " .. check)
-                else
-                    table.insert(tbl, "* " .. check)
-                end
-            end
-            return tbl
-        else
-            return "* " .. string.upper(self.name) .. " - " .. self.check
-        end
+        return self:getCheckText(battler)
     end
 end
 
