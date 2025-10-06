@@ -45,7 +45,7 @@ function MirrorArea:drawCharacter(chara)
     local oyd = chara.y - self.bottom
     love.graphics.translate(0, -oyd + self.offset)
     local oldsprite = string.sub(chara.sprite.texture_path, #chara.sprite.path + 2)
-    local t = Utils.split(oldsprite, "_")
+    local t = StringUtils.split(oldsprite, "_")
     local pathless = ""
 	for i=1, #t-1 do
 		pathless = pathless .. "_" .. t[i]

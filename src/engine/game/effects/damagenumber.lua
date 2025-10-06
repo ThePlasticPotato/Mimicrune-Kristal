@@ -121,7 +121,7 @@ function DamageNumber:update()
     end
 
     if self.timer >= self.delay then
-        self.physics.speed_x = Utils.approach(self.physics.speed_x, 0, DTMULT)
+        self.physics.speed_x = MathUtils.approach(self.physics.speed_x, 0, DTMULT)
 
         if self.bounces < 2 then
             self.physics.speed_y = self.physics.speed_y + DTMULT

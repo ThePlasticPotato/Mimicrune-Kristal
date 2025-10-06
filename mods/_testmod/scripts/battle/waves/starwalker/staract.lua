@@ -44,8 +44,8 @@ function StarAct:onStart()
             self.shake_timer = 0
             self.during_handle = self.timer:during(1, function()
                 self.shake_timer = self.shake_timer + 0.1 * DTMULT
-                self.starwalker.graphics.shake_x = Utils.random(-self.shake_timer, self.shake_timer)
-                self.starwalker.graphics.shake_y = Utils.random(-self.shake_timer, self.shake_timer)
+                self.starwalker.graphics.shake_x = MathUtils.random(-self.shake_timer, self.shake_timer)
+                self.starwalker.graphics.shake_y = MathUtils.random(-self.shake_timer, self.shake_timer)
             end)
         end)
 

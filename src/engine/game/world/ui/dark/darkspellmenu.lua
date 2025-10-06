@@ -165,12 +165,12 @@ function DarkSpellMenu:update()
             self.selected_spell = self.selected_spell + 1
         end
         local max_spells = self.party:getSelected():getStat("max_spells", 6)
-        self.selected_spell = Utils.clamp(self.selected_spell, 1, max_spells)
+        self.selected_spell = MathUtils.clamp(self.selected_spell, 1, max_spells)
         if self.selected_spell ~= old_selected then
             local spell_limit = self:getSpellLimit()
             local min_scroll = math.max(1, self.selected_spell - (spell_limit - 1))
             local max_scroll = math.min(math.max(1, max_spells - (spell_limit - 1)), self.selected_spell)
-            self.scroll_y = Utils.clamp(self.scroll_y, min_scroll, max_scroll)
+            self.scroll_y = MathUtils.clamp(self.scroll_y, min_scroll, max_scroll)
 
             self.ui_move:stop()
             self.ui_move:play()
@@ -221,12 +221,12 @@ function DarkSpellMenu:update()
         if Input.pressed("down", true) then
             self.selected_known = self.selected_known + 1
         end
-        self.selected_known = Utils.clamp(self.selected_known, 1, 30)
+        self.selected_known = MathUtils.clamp(self.selected_known, 1, 30)
         if self.selected_known ~= old_selected then
             local spell_limit = self:getSpellLimit()
             local min_scroll = math.max(1, self.selected_known - (spell_limit - 1))
             local max_scroll = math.min(math.max(1, 30 - (spell_limit - 1)), self.selected_known)
-            self.known_scroll = Utils.clamp(self.known_scroll, min_scroll, max_scroll)
+            self.known_scroll = MathUtils.clamp(self.known_scroll, min_scroll, max_scroll)
 
             self.ui_move:stop()
             self.ui_move:play()
@@ -241,7 +241,7 @@ function DarkSpellMenu:isRequired(spell)
 end
 
 function DarkSpellMenu:hasEquipped(spell)
-    return Utils.containsValue(self:getSpells(), spell)
+    return TableUtils.contains(self:getSpells(), spell)
 end
 
 function DarkSpellMenu:draw()

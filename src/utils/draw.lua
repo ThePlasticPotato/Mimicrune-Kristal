@@ -130,7 +130,7 @@ function Draw._clearUnusedCanvases()
             end
         end
         for _, v in ipairs(remove) do
-            Utils.removeFromTable(canvases, v)
+            TableUtils.removeValue(canvases, v)
         end
     end
     self._used_canvas = setmetatable({}, { __mode = "k" })
@@ -204,8 +204,8 @@ function Draw.scissorPoints(x1, y1, x2, y2)
     local tx1, ty1 = love.graphics.transformPoint(x1 or scrx, y1 or scry)
     local tx2, ty2 = love.graphics.transformPoint(x2 or scrx2, y2 or scry2)
 
-    local sx, sy = Utils.clamp(tx1, 0, SCREEN_WIDTH), Utils.clamp(ty1, 0, SCREEN_HEIGHT)
-    local sx2, sy2 = Utils.clamp(tx2, 0, SCREEN_WIDTH), Utils.clamp(ty2, 0, SCREEN_HEIGHT)
+    local sx, sy = MathUtils.clamp(tx1, 0, SCREEN_WIDTH), MathUtils.clamp(ty1, 0, SCREEN_HEIGHT)
+    local sx2, sy2 = MathUtils.clamp(tx2, 0, SCREEN_WIDTH), MathUtils.clamp(ty2, 0, SCREEN_HEIGHT)
 
     local min_sx, min_sy = math.min(sx, sx2), math.min(sy, sy2)
     local max_sx, max_sy = math.max(sx, sx2), math.max(sy, sy2)

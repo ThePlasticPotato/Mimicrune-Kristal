@@ -252,8 +252,8 @@ function Input.resetBinds(gamepad, mod_id)
             ["fast_forward"] = {},
             ["mod_rebind"] = {},
         }
-        if gamepad ~= true then Utils.merge(Input.key_bindings, key_bindings) end
-        if gamepad ~= false then Utils.merge(Input.gamepad_bindings, gamepad_bindings) end
+        if gamepad ~= true then TableUtils.merge(Input.key_bindings, key_bindings) end
+        if gamepad ~= false then TableUtils.merge(Input.gamepad_bindings, gamepad_bindings) end
         return
     -- If we receive a mod id, we are only resetting binds specific to that mod
     elseif mod_id then
@@ -262,13 +262,13 @@ function Input.resetBinds(gamepad, mod_id)
         local keys = mod.keybinds or {}
         local libs = mod.libs or {}
         for _, lib in pairs(libs) do
-            if lib.keybinds then Utils.merge(keys, lib.keybinds) end
+            if lib.keybinds then TableUtils.merge(keys, lib.keybinds) end
         end
         if keys == {} then return end
         if gamepad ~= true then
             for _, v in pairs(keys) do
                 if v.keys then
-                    Input.key_bindings[v.id] = Utils.copy(v.keys)
+                    Input.key_bindings[v.id] = TableUtils.copy(v.keys)
                 else
                     Input.key_bindings[v.id] = {}
                 end
@@ -277,7 +277,7 @@ function Input.resetBinds(gamepad, mod_id)
         if gamepad ~= false then
             for _, v in pairs(keys) do
                 if v.gamepad then
-                    Input.gamepad_bindings[v.id] = Utils.copy(v.gamepad)
+                    Input.gamepad_bindings[v.id] = TableUtils.copy(v.gamepad)
                 else
                     Input.gamepad_bindings[v.id] = {}
                 end
@@ -313,7 +313,7 @@ function Input.resetBinds(gamepad, mod_id)
                 Input.mod_keybinds[mod.id] = {}
                 for _,v in pairs(mod.keybinds) do
                     if v.keys then
-                        Input.key_bindings[v.id] = Utils.copy(v.keys)
+                        Input.key_bindings[v.id] = TableUtils.copy(v.keys)
                         table.insert(Input.mod_keybinds[mod.id], v.id)
                     else
                         Input.key_bindings[v.id] = {}
@@ -326,7 +326,7 @@ function Input.resetBinds(gamepad, mod_id)
                         Input.mod_keybinds[mod.id] = Input.mod_keybinds[mod.id] or {}
                         for _,v in pairs(lib.keybinds) do
                             if v.keys then
-                                Input.key_bindings[v.id] = Utils.copy(v.keys)
+                                Input.key_bindings[v.id] = TableUtils.copy(v.keys)
                                 table.insert(Input.mod_keybinds[mod.id], v.id)
                             else
                                 Input.key_bindings[v.id] = {}
@@ -363,7 +363,7 @@ function Input.resetBinds(gamepad, mod_id)
             if mod.keybinds then
                 for _,v in pairs(mod.keybinds) do
                     if v.gamepad then
-                        Input.gamepad_bindings[v.id] = Utils.copy(v.gamepad)
+                        Input.gamepad_bindings[v.id] = TableUtils.copy(v.gamepad)
                     else
                         Input.gamepad_bindings[v.id] = {}
                     end
@@ -374,7 +374,7 @@ function Input.resetBinds(gamepad, mod_id)
                     if lib.keybinds then
                         for _,v in pairs(lib.keybinds) do
                             if v.gamepad then
-                                Input.gamepad_bindings[v.id] = Utils.copy(v.gamepad)
+                                Input.gamepad_bindings[v.id] = TableUtils.copy(v.gamepad)
                             else
                                 Input.gamepad_bindings[v.id] = {}
                             end
@@ -395,10 +395,10 @@ function Input.loadBinds()
             local key_bind = {}
             local gamepad_bind = {}
             for _,key in ipairs(v) do
-                local split = Utils.split(key, "+")
+                local split = StringUtils.split(key, "+")
                 if #split > 1 then
                     table.insert(key_bind, split)
-                elseif Utils.startsWith(key, "gamepad:") then
+                elseif StringUtils.startsWith(key, "gamepad:") then
                     table.insert(gamepad_bind, key)
                 else
                     table.insert(key_bind, key)
@@ -428,7 +428,7 @@ function Input.orderedNumberToKey(number)
     else
         local index = #Input.order + 1
         for name, value in pairs(Input.key_bindings) do
-            if not Utils.containsValue(Input.order, name) then
+            if not TableUtils.contains(Input.order, name) then
                 if index == number then
                     return name
                 end
@@ -443,16 +443,16 @@ end
 function Input.saveBinds()
     local all_binds = {}
     for k,v in pairs(Input.key_bindings) do
-        all_binds[k] = Utils.copy(v)
+        all_binds[k] = TableUtils.copy(v)
     end
     for k,v in pairs(Input.stray_key_bindings) do
-        all_binds[k] = Utils.merge(all_binds[k] or {}, v)
+        all_binds[k] = TableUtils.merge(all_binds[k] or {}, v)
     end
     for k,v in pairs(Input.gamepad_bindings) do
-        all_binds[k] = Utils.merge(all_binds[k] or {}, v)
+        all_binds[k] = TableUtils.merge(all_binds[k] or {}, v)
     end
     for k,v in pairs(Input.stray_gamepad_bindings) do
-        all_binds[k] = Utils.merge(all_binds[k] or {}, v)
+        all_binds[k] = TableUtils.merge(all_binds[k] or {}, v)
     end
 
     local saved_binds = {}
@@ -487,7 +487,7 @@ function Input.setBind(alias, index, key, gamepad)
         end
     end
 
-    local is_gamepad_button = Utils.startsWith(key, "gamepad:")
+    local is_gamepad_button = StringUtils.startsWith(key, "gamepad:")
     if is_gamepad_button ~= gamepad or false then
         -- Cannot assign gamepad button to key or vice versa
         return false
@@ -960,7 +960,7 @@ function Input.getText(alias, gamepad)
     if type(name) == "table" then
         name = table.concat(name, "+")
     else
-        local is_gamepad, gamepad_button = Utils.startsWith(name, "gamepad:")
+        local is_gamepad, gamepad_button = StringUtils.startsWith(name, "gamepad:")
         if is_gamepad then
             return "[button:" .. gamepad_button .. "]"
         end
@@ -975,7 +975,7 @@ function Input.getTexture(alias, gamepad)
     local name = Input.getPrimaryBind(alias, gamepad) or "unbound"
     name = self.key_groups[alias] and self.key_groups[alias][1] or name
 
-    local is_gamepad, gamepad_button = Utils.startsWith(name, "gamepad:")
+    local is_gamepad, gamepad_button = StringUtils.startsWith(name, "gamepad:")
     if is_gamepad then
         return Input.getButtonTexture(gamepad_button)
     end
@@ -989,7 +989,7 @@ function Input.getControllerType()
 
     local name = Input.connected_gamepad:getName():lower()
 
-    local con = function(str) return Utils.contains(name, str) end
+    local con = function(str) return StringUtils.contains(name, str) end
     if con("nintendo") or con("switch") or con("joy-con") or con("wii") or con("gamecube") or con("nso") or con("nes") then
         return "switch"
     end
@@ -1079,7 +1079,7 @@ function Input.getButtonSprite(button)
     end]]
 
     -- Get the button name without the "gamepad:" prefix
-    local _, short = Utils.startsWith(button, "gamepad:")
+    local _, short = StringUtils.startsWith(button, "gamepad:")
 
     local sprite = Input.button_sprites[short]
 
@@ -1398,7 +1398,7 @@ end
 ---@param key string
 ---@return boolean gamepad, string button
 function Input.isGamepad(key)
-    return Utils.startsWith(key, "gamepad:")
+    return StringUtils.startsWith(key, "gamepad:")
 end
 
 function Input.onMousePressed(x, y, button, istouch, presses)
@@ -1433,7 +1433,7 @@ function Input.getMousePosition(x, y, relative)
     local off_x, off_y = Kristal.getSideOffsets()
     local floor = math.floor
     if relative then
-        floor = Utils.round
+        floor = MathUtils.round
         off_x, off_y = 0, 0
     end
     return floor((x - off_x) / Kristal.getGameScale()),
@@ -1510,7 +1510,7 @@ function Input.getGamepadCursorPosition(x, y, relative)
     local off_x, off_y = Kristal.getSideOffsets()
     local floor = math.floor
     if relative then
-        floor = Utils.round
+        floor = MathUtils.round
         off_x, off_y = 0, 0
     end
     return floor((x - off_x) / Kristal.getGameScale()),

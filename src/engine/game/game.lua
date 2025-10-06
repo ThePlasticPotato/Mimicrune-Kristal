@@ -176,7 +176,7 @@ end
 ---@param deep_merge?   boolean
 ---@return any
 function Game:getConfig(key, merge, deep_merge)
-    local default_config = Kristal.ChapterConfigs[Utils.clamp(self.chapter, 1, #Kristal.ChapterConfigs)]
+    local default_config = Kristal.ChapterConfigs[MathUtils.clamp(self.chapter, 1, #Kristal.ChapterConfigs)]
 
     if not Mod then return default_config[key] end
 
@@ -193,7 +193,7 @@ function Game:getConfig(key, merge, deep_merge)
     elseif default_value ~= nil and mod_value == nil then
         return default_value
     elseif type(default_value) == "table" and merge then
-        return Utils.merge(Utils.copy(default_value, true), mod_value, deep_merge)
+        return TableUtils.merge(TableUtils.copy(default_value, true), mod_value, deep_merge)
     else
         return mod_value
     end
@@ -621,7 +621,7 @@ end
 
 ---@param ... unknown
 function Game:saveQuick(...)
-    self.quick_save = Utils.copy(self:save(...), true)
+    self.quick_save = TableUtils.copy(self:save(...), true)
 end
 
 ---@param fade? boolean
@@ -821,7 +821,7 @@ function Game:removePartyMember(chara)
     if type(chara) == "string" then
         chara = self:getPartyMember(chara)
     end
-    Utils.removeFromTable(self.party, chara)
+    TableUtils.removeValue(self.party, chara)
     return chara
 end
 
@@ -1007,7 +1007,7 @@ end
 ---@param amount        number
 ---@param dont_clamp?   boolean
 function Game:setTension(amount, dont_clamp)
-    Game.tension = dont_clamp and amount or Utils.clamp(amount, 0, Game.max_tension)
+    Game.tension = dont_clamp and amount or MathUtils.clamp(amount, 0, Game.max_tension)
 end
 
 ---@return number

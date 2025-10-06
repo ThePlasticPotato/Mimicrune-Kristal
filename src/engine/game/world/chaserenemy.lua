@@ -231,11 +231,11 @@ function ChaserEnemy:snapToPath()
             local current_dist = 0
 
             for i = 1, #path.points-1 do
-                local next_dist = Utils.dist(path.points[i].x, path.points[i].y, path.points[i+1].x, path.points[i+1].y)
+                local next_dist = MathUtils.dist(path.points[i].x, path.points[i].y, path.points[i+1].x, path.points[i+1].y)
 
                 if current_dist + next_dist > dist then
-                    local x = Utils.lerp(path.points[i].x, path.points[i+1].x, (dist - current_dist) / next_dist)
-                    local y = Utils.lerp(path.points[i].y, path.points[i+1].y, (dist - current_dist) / next_dist)
+                    local x = MathUtils.lerp(path.points[i].x, path.points[i+1].x, (dist - current_dist) / next_dist)
+                    local y = MathUtils.lerp(path.points[i].y, path.points[i+1].y, (dist - current_dist) / next_dist)
 
                     if self.debug_x and self.debug_y and Kristal.DebugSystem.last_object == self then
                         x = Utils.ease(self.debug_x, x, Kristal.DebugSystem.release_timer, "outCubic")
@@ -292,7 +292,7 @@ function ChaserEnemy:update()
             if path.closed then
                 self.progress = self.progress % 1
             elseif self.progress > 1 or self.progress < 0 then
-                self.progress = Utils.clamp(self.progress, 0, 1)
+                self.progress = MathUtils.clamp(self.progress, 0, 1)
                 self.reverse_progress = not self.reverse_progress
             end
 
@@ -402,7 +402,7 @@ function ChaserEnemy:paceMovement()
             if self.pace_return then
                 self.return_to_spawn = true
             end
-            self:walkToSpeed(Utils.pick(self.pace_marker), self.pace_speed, nil, false, function() self.pace_timer = 0; self.wandering = false end)
+            self:walkToSpeed(TableUtils.pick(self.pace_marker), self.pace_speed, nil, false, function() self.pace_timer = 0; self.wandering = false end)
             return
         end
 

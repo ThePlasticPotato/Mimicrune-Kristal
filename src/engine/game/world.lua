@@ -1157,7 +1157,7 @@ function World:mapTransition(...)
         end
     end
     self:fadeInto(function()
-        self:loadMap(Utils.unpack(args))
+        self:loadMap(TableUtils.unpack(args))
     end)
 end
 
@@ -1288,7 +1288,7 @@ function World:update()
         end
 
         if (self.hum_timer > 0) then
-            self.hum_timer = Utils.approach(self.hum_timer, 0, DT)
+            self.hum_timer = MathUtils.approach(self.hum_timer, 0, DT)
             if (self.hum_timer == 0) then
                 self:startHumming()
             end

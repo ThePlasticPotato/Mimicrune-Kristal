@@ -309,7 +309,7 @@ function Battle:setDescription(text, cost_text, visible, notes)
     local oldNotes = self.note_display.text
     self.description:setText(text or oldText)
     self.cost_description:setText(cost_text or oldCostText)
-    if (Utils.contains(self.cost_description.text, "%[font%:smallnumbers%]")) then
+    if (StringUtils.contains(self.cost_description.text, "%[font%:smallnumbers%]")) then
         self.cost_description.y = 48
     else
         self.cost_description.y = 30
@@ -846,7 +846,7 @@ function Battle:onStateChange(old,new)
             self:setWaves(self.state_reason)
             local enemy_found = false
             for i,enemy in ipairs(self.enemies) do
-                if Utils.containsValue(enemy.waves, self.state_reason[1]) then
+                if TableUtils.contains(enemy.waves, self.state_reason[1]) then
                     enemy.selected_wave = self.state_reason[1]
                     enemy_found = true
                 end
@@ -952,7 +952,7 @@ function Battle:onStateChange(old,new)
     local remove_arena = {"DEFENDINGEND", "TRANSITIONOUT", "ACTIONSELECT", "VICTORY", "INTRO", "ACTIONS", "ENEMYSELECT", "PARTYSELECT", "MENUSELECT", "ATTACKING"}
 
     local should_end = true
-    if Utils.containsValue(remove_arena, new) then
+    if TableUtils.contains(remove_arena, new) then
         for _,wave in ipairs(self.waves) do
             if wave:beforeEnd() then
                 should_end = false
@@ -1186,7 +1186,7 @@ function Battle:processActionGroup(group)
             -- If the table contains the action
             -- Ex. if {"SPELL", "ITEM", "SPARE"} contains "SPARE"
             local action = self.character_actions[i]
-            if action and Utils.containsValue(group, action.action) then
+            if action and TableUtils.contains(group, action.action) then
                 self.character_actions[i] = nil
                 self:beginAction(action)
                 return true
@@ -1320,11 +1320,11 @@ function Battle:processAction(action)
 
             for i = 1, 3 do
                 local sx, sy = battler:getRelativePos(battler.width, 0)
-                local sparkle = Sprite("effects/criticalswing/sparkle", sx + Utils.random(50), sy + 30 + Utils.random(30))
+                local sparkle = Sprite("effects/criticalswing/sparkle", sx + MathUtils.random(50), sy + 30 + MathUtils.random(30))
                 sparkle:play(4/30, true)
                 sparkle:setScale(2)
                 sparkle.layer = BATTLE_LAYERS["above_battlers"]
-                sparkle.physics.speed_x = Utils.random(2, 6)
+                sparkle.physics.speed_x = MathUtils.random(2, 6)
                 sparkle.physics.friction = -0.25
                 sparkle:fadeOutSpeedAndRemove()
                 self:addChild(sparkle)
@@ -1344,13 +1344,13 @@ function Battle:processAction(action)
                 end
             end
 
-            local damage = Utils.round(enemy:getAttackDamage(action.damage or 0, battler, action.points or 0))
+            local damage = MathUtils.round(enemy:getAttackDamage(action.damage or 0, battler, action.points or 0))
             if damage < 0 then
                 damage = 0
             end
 
             if damage > 0 then
-                Game:giveTension(Utils.round(enemy:getAttackTension(action.points or 100)))
+                Game:giveTension(MathUtils.round(enemy:getAttackTension(action.points or 100)))
 
                 local attacksprite = battler.chara:getWeapon() and battler.chara:getWeapon():getAttackSprite(battler, enemy, action.points) or battler.chara:getAttackSprite()
                 local dmg_sprite = Sprite(attacksprite or "effects/attack/cut")
@@ -1370,7 +1370,7 @@ function Battle:processAction(action)
                     -- Ugly hardcoding BlackShard animation speed accuracy for now
                     dmg_anim_speed = 1/10
                 end
-                dmg_sprite:play(dmg_anim_speed, false, function(s) s:remove(); Utils.removeFromTable(enemy.dmg_sprites, dmg_sprite) end) -- Remove itself and Remove the dmg_sprite from the enemy's dmg_sprite table when its removed
+                dmg_sprite:play(dmg_anim_speed, false, function(s) s:remove(); TableUtils.removeValue(enemy.dmg_sprites, dmg_sprite) end) -- Remove itself and Remove the dmg_sprite from the enemy's dmg_sprite table when its removed
                 enemy.parent:addChild(dmg_sprite)
 
                 local sound = enemy:getDamageSound() or "damage"
@@ -1391,8 +1391,8 @@ function Battle:processAction(action)
 
             self:finishAction(action)
 
-            Utils.removeFromTable(self.normal_attackers, battler)
-            Utils.removeFromTable(self.auto_attackers, battler)
+            TableUtils.removeValue(self.normal_attackers, battler)
+            TableUtils.removeValue(self.auto_attackers, battler)
 
             if not self:retargetEnemy() then
                 self.cancel_attack = true
@@ -1586,14 +1586,14 @@ function Battle:finishAction(action, keep_animation)
     local all_processed = self:allActionsDone()
 
     if all_processed then
-        for _,iaction in ipairs(Utils.copy(self.current_actions)) do
+        for _,iaction in ipairs(TableUtils.copy(self.current_actions)) do
             local ibattler = self.party[iaction.character_id]
 
             local party_num = 1
             local callback = function()
                 party_num = party_num - 1
                 if party_num == 0 then
-                    Utils.removeFromTable(self.current_actions, iaction)
+                    TableUtils.removeValue(self.current_actions, iaction)
                     self:tryProcessNextAction()
                 end
             end
@@ -1607,7 +1607,7 @@ function Battle:finishAction(action, keep_animation)
 
                         local dont_end = false
                         if (keep_animation) then
-                            if Utils.containsValue(keep_animation, party) then
+                            if TableUtils.contains(keep_animation, party) then
                                 dont_end = true
                             end
                         end
@@ -1624,7 +1624,7 @@ function Battle:finishAction(action, keep_animation)
 
             local dont_end = false
             if (keep_animation) then
-                if Utils.containsValue(keep_animation, ibattler.chara.id) then
+                if TableUtils.contains(keep_animation, ibattler.chara.id) then
                     dont_end = true
                 end
             end
@@ -1788,7 +1788,7 @@ function Battle:commitAction(battler, action_type, target, data, extra)
 
     local tp_diff = 0
     if data.tp then
-        tp_diff = Utils.clamp(-data.tp, -Game:getTension(), Game:getMaxTension() - Game:getTension())
+        tp_diff = MathUtils.clamp(-data.tp, -Game:getTension(), Game:getMaxTension() - Game:getTension())
     end
 
     local party_id = self:getPartyIndex(battler.chara.id)
@@ -1818,7 +1818,7 @@ function Battle:commitAction(battler, action_type, target, data, extra)
         end
     end
 
-    self:commitSingleAction(Utils.merge({
+    self:commitSingleAction(TableUtils.merge({
         ["character_id"] = party_id,
         ["action"] = action_type:upper(),
         ["party"] = data.party,
@@ -1843,7 +1843,7 @@ function Battle:commitAction(battler, action_type, target, data, extra)
                     end
                 end
 
-                self:commitSingleAction(Utils.merge({
+                self:commitSingleAction(TableUtils.merge({
                     ["character_id"] = index,
                     ["action"] = "SKIP",
                     ["reason"] = action_type:upper(),
@@ -2084,7 +2084,7 @@ function Battle:randomTargetOld()
     -- Pick random party member
     local target = nil
     while not target do
-        local party = Utils.pick(self.party)
+        local party = TableUtils.pick(self.party)
         if party:canTarget() then
             target = party
         end
@@ -2155,9 +2155,9 @@ function Battle:getPartyFromTarget(target)
         return {target}
     elseif type(target) == "string" then
         if target == "ANY" then
-            return {Utils.pick(self.party)}
+            return {TableUtils.pick(self.party)}
         elseif target == "ALL" then
-            return Utils.copy(self.party)
+            return TableUtils.copy(self.party)
         else
             for _,battler in ipairs(self.party) do
                 if battler.chara.id == string.lower(target) then
@@ -2239,7 +2239,7 @@ function Battle:hurt(amount, exact, target, swoon)
 
     if target == "ALL" then
         Assets.playSound("hurt")
-        local alive_battlers = Utils.filter(self.party, function(battler) return not battler.is_down end)
+        local alive_battlers = TableUtils.filter(self.party, function(battler) return not battler.is_down end)
         for _,battler in ipairs(alive_battlers) do
             battler:hurt(amount, exact, nil, { all = true, swoon = self.encounter:canSwoon(battler) and swoon })
         end
@@ -2293,7 +2293,7 @@ end
 
 function Battle:nextParty()
     table.insert(self.selected_character_stack, self.current_selecting)
-    table.insert(self.selected_action_stack, Utils.copy(self.character_actions))
+    table.insert(self.selected_action_stack, TableUtils.copy(self.character_actions))
 
     local all_done = true
     local last_selected = self.current_selecting
@@ -2491,8 +2491,8 @@ function Battle:returnToWorld()
     end
     ---@type EnemyBattler[]
     local all_enemies = {}
-    Utils.merge(all_enemies, self.defeated_enemies)
-    Utils.merge(all_enemies, self.enemies)
+    TableUtils.merge(all_enemies, self.defeated_enemies)
+    TableUtils.merge(all_enemies, self.enemies)
     for _,enemy in ipairs(all_enemies) do
         local world_chara = self.enemy_world_characters[enemy]
         if world_chara then
@@ -2678,7 +2678,7 @@ function Battle:update()
     self.cost_description.visible = self.description_panel.operable
     self.note_display.visible = self.description_panel.operable
     for _,enemy in ipairs(self.enemies_to_remove) do
-        Utils.removeFromTable(self.enemies, enemy)
+        TableUtils.removeValue(self.enemies, enemy)
         local enemy_y = Utils.getKey(self.enemies_index, enemy)
         if enemy_y then
             self.enemies_index[enemy_y] = false
@@ -2707,7 +2707,7 @@ function Battle:update()
     elseif self.state == "ATTACKING" then
         self:updateAttacking()
     elseif self.state == "ACTIONSDONE" then
-        self.actions_done_timer = Utils.approach(self.actions_done_timer, 0, DT)
+        self.actions_done_timer = MathUtils.approach(self.actions_done_timer, 0, DT)
         local any_hurt = false
         for _,enemy in ipairs(self.enemies) do
             if enemy.hurt_timer > 0 then
@@ -2798,7 +2798,7 @@ function Battle:update()
         end
     end
 
-    if Utils.containsValue({"DEFENDINGEND", "ACTIONSELECT", "ACTIONS", "VICTORY", "TRANSITIONOUT", "BATTLETEXT"}, self.state) then
+    if TableUtils.contains({"DEFENDINGEND", "ACTIONSELECT", "ACTIONS", "VICTORY", "TRANSITIONOUT", "BATTLETEXT"}, self.state) then
         self.background_fade_alpha = math.max(self.background_fade_alpha - (0.05 * DTMULT), 0)
         if self.darkify then
             self.darkify = false
@@ -2893,8 +2893,8 @@ function Battle:updateTransition()
             local battler_x = battler.x
             local battler_y = battler.y
 
-            battler.x = Utils.lerp(self.party_beginning_positions[index][1], target_x, (self.afterimage_count + 1) / 10)
-            battler.y = Utils.lerp(self.party_beginning_positions[index][2], target_y, (self.afterimage_count + 1) / 10)
+            battler.x = MathUtils.lerp(self.party_beginning_positions[index][1], target_x, (self.afterimage_count + 1) / 10)
+            battler.y = MathUtils.lerp(self.party_beginning_positions[index][2], target_y, (self.afterimage_count + 1) / 10)
 
             local afterimage = AfterImage(battler, 0.5)
             self:addChild(afterimage)
@@ -2915,12 +2915,12 @@ function Battle:updateTransition()
     for index, battler in ipairs(self.party) do
         local target_x, target_y = unpack(self.battler_targets[index])
 
-        battler.x = Utils.lerp(self.party_beginning_positions[index][1], target_x, self.transition_timer / 10)
-        battler.y = Utils.lerp(self.party_beginning_positions[index][2], target_y, self.transition_timer / 10)
+        battler.x = MathUtils.lerp(self.party_beginning_positions[index][1], target_x, self.transition_timer / 10)
+        battler.y = MathUtils.lerp(self.party_beginning_positions[index][2], target_y, self.transition_timer / 10)
     end
     for _, enemy in ipairs(self.enemies) do
-        enemy.x = Utils.lerp(self.enemy_beginning_positions[enemy][1], enemy.target_x, self.transition_timer / 10)
-        enemy.y = Utils.lerp(self.enemy_beginning_positions[enemy][2], enemy.target_y, self.transition_timer / 10)
+        enemy.x = MathUtils.lerp(self.enemy_beginning_positions[enemy][1], enemy.target_x, self.transition_timer / 10)
+        enemy.y = MathUtils.lerp(self.enemy_beginning_positions[enemy][2], enemy.target_y, self.transition_timer / 10)
     end
 end
 
@@ -2930,8 +2930,8 @@ function Battle:updateTransitionOut()
     end
 
     local all_enemies = {}
-    Utils.merge(all_enemies, self.enemies)
-    Utils.merge(all_enemies, self.defeated_enemies)
+    TableUtils.merge(all_enemies, self.enemies)
+    TableUtils.merge(all_enemies, self.defeated_enemies)
 
     self.transition_timer = self.transition_timer - DTMULT
 
@@ -2948,15 +2948,15 @@ function Battle:updateTransitionOut()
     for index, battler in ipairs(self.party) do
         local target_x, target_y = unpack(self.battler_targets[index])
 
-        battler.x = Utils.lerp(self.party_beginning_positions[index][1], target_x, self.transition_timer / 10)
-        battler.y = Utils.lerp(self.party_beginning_positions[index][2], target_y, self.transition_timer / 10)
+        battler.x = MathUtils.lerp(self.party_beginning_positions[index][1], target_x, self.transition_timer / 10)
+        battler.y = MathUtils.lerp(self.party_beginning_positions[index][2], target_y, self.transition_timer / 10)
     end
 
     for _, enemy in ipairs(all_enemies) do
         local world_chara = self.enemy_world_characters[enemy]
         if enemy.target_x and enemy.target_y and not enemy.exit_on_defeat and world_chara and world_chara.parent then
-            enemy.x = Utils.lerp(self.enemy_beginning_positions[enemy][1], enemy.target_x, self.transition_timer / 10)
-            enemy.y = Utils.lerp(self.enemy_beginning_positions[enemy][2], enemy.target_y, self.transition_timer / 10)
+            enemy.x = MathUtils.lerp(self.enemy_beginning_positions[enemy][1], enemy.target_x, self.transition_timer / 10)
+            enemy.y = MathUtils.lerp(self.enemy_beginning_positions[enemy][2], enemy.target_y, self.transition_timer / 10)
         else
             local fade = enemy:getFX("battle_end")
             if not fade then
@@ -3127,9 +3127,9 @@ function Battle:drawSpotlights()
             self.spotlights[index] = {width = 0, visible = false, offset = 0}
         end
         if self:shouldHaveSpotlight(battler) then
-           self.spotlights[index].width = Utils.approach(self.spotlights[index].width, 32, DTMULT * 4)
+           self.spotlights[index].width = MathUtils.approach(self.spotlights[index].width, 32, DTMULT * 4)
         else
-            self.spotlights[index].width = Utils.approach(self.spotlights[index].width, 0, DTMULT * 8)
+            self.spotlights[index].width = MathUtils.approach(self.spotlights[index].width, 0, DTMULT * 8)
         end
         self.spotlights[index].visible = self.spotlights[index].width > 0
 
@@ -3232,22 +3232,22 @@ function Battle:drawVisualizer(fade, color, secondary)
         local disabled = i > displayed
         if (dark) then
             dark = false
-            Draw.setColor(color, (fade) / (disabled and 4 or Utils.lerp(3, 1, Game:getTension() / Game:getMaxTension())))
+            Draw.setColor(color, (fade) / (disabled and 4 or MathUtils.lerp(3, 1, Game:getTension() / Game:getMaxTension())))
         else
             dark = true
-            Draw.setColor(secondary, (fade) / (disabled and 4 or Utils.lerp(3, 1, Game:getTension() / Game:getMaxTension())))
+            Draw.setColor(secondary, (fade) / (disabled and 4 or MathUtils.lerp(3, 1, Game:getTension() / Game:getMaxTension())))
         end
         if (not self.bars[i]) then
             self.bars[i] = {height = 0, max_height = 0, max_height_timer = 0}
         end
         local barHeight = self.fft_array[i] * 450 -- H is window height
         if (disabled) then barHeight = -10 end
-        self.bars[i].height = Utils.approach(self.bars[i].height, barHeight, DTMULT * 4)
+        self.bars[i].height = MathUtils.approach(self.bars[i].height, barHeight, DTMULT * 4)
         if (self.bars[i].max_height < self.bars[i].height) then
             self.bars[i].max_height = self.bars[i].height
             self.bars[i].max_height_timer = 15
         end
-        self.bars[i].max_height_timer = Utils.approach(self.bars[i].max_height_timer, 0, DTMULT * (2 / math.max(1, self.bars[i].max_height_timer)))
+        self.bars[i].max_height_timer = MathUtils.approach(self.bars[i].max_height_timer, 0, DTMULT * (2 / math.max(1, self.bars[i].max_height_timer)))
         if (self.bars[i].max_height_timer == 0) then
             self.bars[i].max_height = barHeight
         end
@@ -3301,7 +3301,7 @@ function Battle:isHighlighted(battler)
             if isClass(highlighted) then
                 return highlighted == battler
             elseif type(highlighted) == "table" then
-                return Utils.containsValue(highlighted, battler)
+                return TableUtils.contains(highlighted, battler)
             end
         end
     end
@@ -3321,19 +3321,19 @@ end
 --- Gets a list of all the active (not defeated/spared) enemies
 ---@return EnemyBattler[]
 function Battle:getActiveEnemies()
-    return Utils.filter(self.enemies, function(enemy) return not enemy.done_state end)
+    return TableUtils.filter(self.enemies, function(enemy) return not enemy.done_state end)
 end
 
 --- Gets a list of all the active (not downed) party members
 ---@return PartyBattler[]
 function Battle:getActiveParty()
-    return Utils.filter(self.party, function(party) return not party.is_down end)
+    return TableUtils.filter(self.party, function(party) return not party.is_down end)
 end
 
 --- Resets the enemies index table, closing all gaps in the enemy select menu
 ---@param reset_xact? boolean         Whether to also reset the XACT position
 function Battle:resetEnemiesIndex(reset_xact)
-    self.enemies_index = Utils.copy(self.enemies, true)
+    self.enemies_index = TableUtils.copy(self.enemies, true)
     if reset_xact ~= false then
         self.battle_ui:resetXACTPosition()
     end
@@ -3342,8 +3342,8 @@ end
 ---@param id string
 ---@return EnemyBattler
 function Battle:parseEnemyIdentifier(id)
-    local args = Utils.split(id, ":")
-    local enemies = Utils.filter(self.enemies, function(enemy) return enemy.id == args[1] end)
+    local args = StringUtils.split(id, ":")
+    local enemies = TableUtils.filter(self.enemies, function(enemy) return enemy.id == args[1] end)
     return enemies[args[2] and tonumber(args[2]) or 1]
 end
 
@@ -3387,7 +3387,7 @@ function Battle:advanceBoxes()
     end
     -- Remove leftover dialogue
     for _,dialogue in ipairs(to_remove) do
-        Utils.removeFromTable(self.enemy_dialogue, dialogue)
+        TableUtils.removeValue(self.enemy_dialogue, dialogue)
     end
     -- If all dialogue is done, go to DIALOGUEEND state
     if all_done then
@@ -3558,7 +3558,7 @@ function Battle:onKeyPressed(key)
             self.selected_enemy = self.current_menu_y
             local enemy = self:_getEnemyByIndex(self.selected_enemy)
             if self.state_reason == "XACT" then
-                local xaction = Utils.copy(self.selected_xaction)
+                local xaction = TableUtils.copy(self.selected_xaction)
                 if xaction.default then
                     xaction.name = enemy:getXAction(self.party[self.current_selecting])
                 end

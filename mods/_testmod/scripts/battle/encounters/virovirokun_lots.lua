@@ -12,7 +12,7 @@ function Virovirokun:init()
     self.first_viro.money = 69
 
     for i = 1, 500 do
-        self:addEnemy("virovirokun", Utils.random(SCREEN_WIDTH/2) + SCREEN_WIDTH + 80, Utils.random(SCREEN_HEIGHT))
+        self:addEnemy("virovirokun", MathUtils.random(SCREEN_WIDTH/2) + SCREEN_WIDTH + 80, MathUtils.random(SCREEN_HEIGHT))
     end
 
     self.done_stupid_thing = false

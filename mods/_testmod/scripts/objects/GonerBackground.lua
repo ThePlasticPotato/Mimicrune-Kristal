@@ -35,7 +35,7 @@ function GonerBackground:init(x, y)
 end
 
 function GonerBackground:update()
-    self.music_pitch = Utils.approach(self.music_pitch, 0.96, 0.02 * DTMULT)
+    self.music_pitch = MathUtils.approach(self.music_pitch, 0.96, 0.02 * DTMULT)
     self.music:setPitch(self.music_pitch)
 
     super.update(self)

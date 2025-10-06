@@ -43,7 +43,7 @@ function LightCellMenu:update()
         self.current_selecting = self.current_selecting + 1
     end
 
-    self.current_selecting = Utils.clamp(self.current_selecting, 1, #Game.world.calls)
+    self.current_selecting = MathUtils.clamp(self.current_selecting, 1, #Game.world.calls)
 
     if self.current_selecting ~= old_selecting then
         self.ui_move:stop()
@@ -60,7 +60,7 @@ end
 function LightCellMenu:draw()
     if (self.panel_bg.operable) then
         love.graphics.setFont(self.font)
-        local randAlpha = Utils.random(0.8, 1.0)
+        local randAlpha = MathUtils.random(0.8, 1.0)
         Draw.setColor(PALETTE["world_text"], randAlpha)
 
         for index, call in ipairs(Game.world.calls) do

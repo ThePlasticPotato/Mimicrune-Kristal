@@ -360,7 +360,7 @@ function DebugSystem:addToExclusiveMenu(state, id)
         self.exclusive_menus[state] = {}
     end
     if type(id) == "table" then
-        Utils.merge(self.exclusive_menus[state], id)
+        TableUtils.merge(self.exclusive_menus[state], id)
     else
         table.insert(self.exclusive_menus[state], id)
     end
@@ -486,14 +486,14 @@ function DebugSystem:sortMenuOptions(options, filter)
         return a.name < b.name
     end)
     if filter then
-        local copied_options = Utils.copy(options)
+        local copied_options = TableUtils.copy(options)
 
         -- Make two tables, one for starting WITH the filter, and one for CONTAINING the filter.
 
         local start_with = {}
         for i = #copied_options, 1, -1 do
             local item = copied_options[i]
-            if Utils.startsWith(item.name:lower(), filter:lower()) then
+            if StringUtils.startsWith(item.name:lower(), filter:lower()) then
                 table.insert(start_with, 1, item)
                 table.remove(copied_options, i)
             end
@@ -502,13 +502,13 @@ function DebugSystem:sortMenuOptions(options, filter)
         local contains = {}
         for i = #copied_options, 1, -1 do
             local item = copied_options[i]
-            if Utils.contains(item.name:lower(), filter:lower()) then
+            if StringUtils.contains(item.name:lower(), filter:lower()) then
                 table.insert(contains, 1, item)
                 table.remove(copied_options, i)
             end
         end
 
-        Utils.clear(options)
+        TableUtils.clear(options)
         for _, item in ipairs(start_with) do
             table.insert(options, item)
         end
@@ -766,11 +766,11 @@ function DebugSystem:registerSubMenus()
 
     self:registerMenu("border_menu", "Border Test", "search")
 
-    local borders = Utils.getFilesRecursive("assets/sprites/borders", ".png")
+    local borders = FileSystemUtils.getFilesRecursive("assets/sprites/borders", ".png")
     if Mod then
-        Utils.merge(borders, Utils.getFilesRecursive(Mod.info.path.."/assets/sprites/borders", ".png"))
+        TableUtils.merge(borders, FileSystemUtils.getFilesRecursive(Mod.info.path.."/assets/sprites/borders", ".png"))
         for _,mod_lib in pairs(Mod.libs) do
-            Utils.merge(borders, Utils.getFilesRecursive(mod_lib.info.path.."/assets/sprites/borders", ".png"))
+            TableUtils.merge(borders, FileSystemUtils.getFilesRecursive(mod_lib.info.path.."/assets/sprites/borders", ".png"))
         end
     end
 
@@ -778,7 +778,7 @@ function DebugSystem:registerSubMenus()
         table.insert(borders, key)
     end
 
-    for _,border in ipairs(Utils.removeDuplicates(borders)) do
+    for _,border in ipairs(TableUtils.removeDuplicates(borders)) do
         self:registerOption("border_menu", border, "Switch to the border \"" .. border .. "\".", function() Game:setBorder(border) end)
     end
 end
@@ -1016,34 +1016,34 @@ function DebugSystem:onStateChange(old, new)
         self.circle_anim_timer = 0
 
         if Game.flags then
-            local flags = Utils.getKeys(Game.flags)
+            local flags = TableUtils.getKeys(Game.flags)
             if self.flag_type ~= "any" then
-                flags = Utils.filter(flags, function (v)
+                flags = TableUtils.filter(flags, function (v)
                     return type(Game:getFlag(v)) == self.flag_type
                 end)
             end
             if self.flag_query and self.flag_query[1] ~= "" then
-                local invert, mode = Utils.startsWith(self.flag_filter_mode, "invert_")
+                local invert, mode = StringUtils.startsWith(self.flag_filter_mode, "invert_")
                 if mode == "pattern" then
-                    flags = Utils.filter(flags, function (v)
+                    flags = TableUtils.filter(flags, function (v)
                         local cond = string.match(v, self.flag_query[1])
                         return invert and not cond or cond and not invert
                     end)
                 elseif mode == "startsWith" then
-                    flags = Utils.filter(flags, function (v)
-                        local cond = Utils.startsWith(v, self.flag_query[1])
+                    flags = TableUtils.filter(flags, function (v)
+                        local cond = StringUtils.startsWith(v, self.flag_query[1])
                         return invert and not cond or cond and not invert
                     end)
                 end
             end
-            self.filtered_flags_list = Utils.copy(flags)
+            self.filtered_flags_list = TableUtils.copy(flags)
         end
 
         OVERLAY_OPEN = true
     elseif new == "FLAG_FILTERS" then
         self.temp_flag_type = self.flag_type
         self.temp_flag_filter_mode = self.flag_filter_mode
-        self.temp_flag_query = Utils.copy(self.flag_query)
+        self.temp_flag_query = TableUtils.copy(self.flag_query)
         -- Force update TextInput to start showing current query
         self:startTextInput(self.temp_flag_query)
         TextInput.endInput()
@@ -1291,7 +1291,7 @@ function DebugSystem:onKeyPressed(key, is_repeat)
             elseif self.current_selecting == 5 then -- Save and Return
                 self.flag_type = self.temp_flag_type
                 self.flag_filter_mode = self.temp_flag_filter_mode
-                self.flag_query = Utils.copy(self.temp_flag_query)
+                self.flag_query = TableUtils.copy(self.temp_flag_query)
                 Assets.playSound("ui_select")
                 self:setState("FLAGS")
             end
@@ -1385,9 +1385,9 @@ function DebugSystem:update()
         end
 
         for state, menus in pairs(self.exclusive_menus) do
-            if Utils.containsValue(menus, self.current_menu) and Game.state ~= state then
+            if TableUtils.contains(menus, self.current_menu) and Game.state ~= state then
                 local states = excluded_states[self.current_menu] or {}
-                if not Utils.containsValue(states, Game.state) then
+                if not TableUtils.contains(states, Game.state) then
                     self:refresh()
                 end
             end
@@ -1411,7 +1411,7 @@ function DebugSystem:draw()
     local menu_alpha = 0
     local circle_alpha = 1
 
-    local circle_progress = Utils.lerp(0, 2, self.circle_anim_timer / 1.4, true)
+    local circle_progress = MathUtils.lerp(0, 2, self.circle_anim_timer / 1.4, true)
 
     if self.state ~= "IDLE" then
         menu_y = Utils.ease(-32, 0, self.menu_anim_timer, "outExpo")
@@ -1419,7 +1419,7 @@ function DebugSystem:draw()
     else
         menu_y = Utils.ease(0, -32, self.menu_anim_timer, "outExpo")
         menu_alpha = Utils.ease(1, 0, self.menu_anim_timer, "outExpo")
-        circle_alpha = Utils.lerp(1, 0, self.menu_anim_timer / 1.4, true)
+        circle_alpha = MathUtils.lerp(1, 0, self.menu_anim_timer / 1.4, true)
     end
 
     local text_offset = menu_x + 19
@@ -1497,7 +1497,7 @@ function DebugSystem:draw()
 
         local textures = {}
         for _, id in pairs(Assets.texture_ids) do
-            if Utils.startsWith(id, "face/") then
+            if StringUtils.startsWith(id, "face/") then
                 table.insert(textures, id:sub(6))
             end
         end
@@ -1518,7 +1518,7 @@ function DebugSystem:draw()
         local faces_per_row = 4
         local total_height = (math.ceil(#textures / faces_per_row) * gap)
 
-        self.faces_y = Utils.clamp(self.faces_y, -(total_height - 480 + 48 + 96), 0)
+        self.faces_y = MathUtils.clamp(self.faces_y, -(total_height - 480 + 48 + 96), 0)
 
         for i, texture_id in ipairs(textures) do
             local x = (i - 1) % faces_per_row
@@ -1548,7 +1548,7 @@ function DebugSystem:draw()
 
                 if self.mouse_clicked then
                     if self.state_reason then
-                        local split = Utils.split(texture_id, "/")
+                        local split = StringUtils.split(texture_id, "/")
                         local face  = split[#split]
                         local path  = split[#split - 1]
 
@@ -1568,7 +1568,7 @@ function DebugSystem:draw()
                         self.clicked_name = texture_id
                         local filename = texture_id
                         -- Remove everything before the last slash
-                        filename = Utils.split(filename, "/")[#Utils.split(filename, "/")]
+                        filename = StringUtils.split(filename, "/")[#StringUtils.split(filename, "/")]
                         love.system.setClipboardText(filename)
                     end
                     Assets.playSound("ui_select")
@@ -1644,7 +1644,7 @@ function DebugSystem:draw()
             name_offset = -32
         -- Filter mode
         elseif self.current_selecting == 3 then
-            local invert, mode = Utils.startsWith(self.temp_flag_filter_mode, "invert_")
+            local invert, mode = StringUtils.startsWith(self.temp_flag_filter_mode, "invert_")
             if mode == "pattern" then
                 name = "Filters to " .. (invert and "hide" or "show") .. " flags whose names match to\nthe FILTER QUERY"
             elseif mode == "startsWith" then
@@ -1717,7 +1717,7 @@ function DebugSystem:draw()
                 useobject = self.last_hovered
             else
                 self.last_hovered = object
-                self.hover_alpha = Utils.clamp(self.hover_alpha + DT / fadespeed, 0, 1)
+                self.hover_alpha = MathUtils.clamp(self.hover_alpha + DT / fadespeed, 0, 1)
             end
             Draw.setColor(0, 1, 1, self.hover_alpha)
             love.graphics.setLineWidth(1)
@@ -1762,7 +1762,7 @@ function DebugSystem:draw()
             love.graphics.print(tooltip_text, tooltip_x, tooltip_y)
         end
 
-        self:printShadow(string.format("Mouse: (%i, %i)", mx, my), 12, 480 - 32 + Utils.lerp(16, 0, menu_alpha),
+        self:printShadow(string.format("Mouse: (%i, %i)", mx, my), 12, 480 - 32 + MathUtils.lerp(16, 0, menu_alpha),
                          { 1, 1, 1, 1 })
 
         if not object then
@@ -1783,9 +1783,9 @@ function DebugSystem:draw()
             end
 
             if self.object and self.current_text_align == target_text_align and not Kristal.Console.is_open then
-                self.selected_alpha = Utils.clamp(self.selected_alpha + (DT / 0.2), 0, 1)
+                self.selected_alpha = MathUtils.clamp(self.selected_alpha + (DT / 0.2), 0, 1)
             else
-                self.selected_alpha = Utils.clamp(self.selected_alpha - (DT / 0.2), 0, 1)
+                self.selected_alpha = MathUtils.clamp(self.selected_alpha - (DT / 0.2), 0, 1)
             end
 
             if self.selected_alpha == 0 then
@@ -1832,7 +1832,7 @@ function DebugSystem:draw()
     else
         self.hover_alpha = 0
     end
-    self.hover_alpha = Utils.clamp(self.hover_alpha, 0, 1)
+    self.hover_alpha = MathUtils.clamp(self.hover_alpha, 0, 1)
 
     self:printShadow(header_name, 0, 16, COLORS.white, "center", 640)
 

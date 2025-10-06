@@ -108,7 +108,7 @@ function Mod:registerDebugContext(context, object)
         if object:getFX("funky_mode") then
             object:removeFX("funky_mode")
         else
-            local offset = Utils.random(0, 100)
+            local offset = MathUtils.random(0, 100)
             object:addFX(ShaderFX("wave", {
                                       ["wave_sine"] = function () return (Kristal.getTime() + offset) * 100 end,
                                       ["wave_mag"] = 4,
@@ -204,7 +204,7 @@ function Mod:onBattleMenuSelect(state, item, can_select)
                 for i = 1, item.amount do
                     Assets.stopAndPlaySound("pombark", 1)
                     wait(delay)
-                    delay = Utils.approach(delay, 2 / 30, 1 / 30)
+                    delay = MathUtils.approach(delay, 2 / 30, 1 / 30)
                 end
                 Game.battle:pushAction("SKIP")
             end)

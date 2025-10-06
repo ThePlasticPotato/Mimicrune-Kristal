@@ -285,7 +285,7 @@ function ContextMenu:draw()
 
         tooltip_width                              = tooltip_width + self.font:getWidth(tooltip_to_draw.description)
         tooltip_height                             = tooltip_height +
-            self.font:getHeight() * #Utils.split(tooltip_to_draw.description, "\n", false)
+            self.font:getHeight() * #StringUtils.split(tooltip_to_draw.description, "\n", false)
 
         if tooltip_x + tooltip_width > self:screenToLocalPos(SCREEN_WIDTH, SCREEN_HEIGHT) then
             tooltip_x = mouse_x - tooltip_width - 4

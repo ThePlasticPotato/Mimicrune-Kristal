@@ -179,7 +179,7 @@ function Sprite:setTextureExact(texture)
         self.texture = texture
     end
     if (not self.texture) and (texture ~= nil) then
-        Kristal.Console:warn("Texture not found: " .. Utils.dump(texture))
+        Kristal.Console:warn("Texture not found: " .. TableUtils.dump(texture))
     end
     self.texture_path = Assets.getTextureID(texture)
     if self.use_texture_size then
@@ -274,7 +274,7 @@ function Sprite:setAnimation(anim)
         if anim.next then
             local next = anim.next
             if type(anim.next) == "table" then
-                next = Utils.pick(anim.next)
+                next = TableUtils.pick(anim.next)
             end
             local old_callback = self.anim_callback
             self.anim_callback = function(s)
@@ -467,7 +467,7 @@ function Sprite:update()
         self:stop(true)
     end
     if self.crossfade_speed ~= 0 and self.crossfade_alpha ~= 1 then
-        self.crossfade_alpha = Utils.approach(self.crossfade_alpha, 1, self.crossfade_speed * DTMULT)
+        self.crossfade_alpha = MathUtils.approach(self.crossfade_alpha, 1, self.crossfade_speed * DTMULT)
         if self.crossfade_alpha == 1 and self.crossfade_after then
             self.crossfade_after(self)
         end
@@ -489,7 +489,7 @@ function Sprite:update()
     end
     if self.anim_callback then
         if self.anim_duration > 0 then
-            self.anim_duration = Utils.approach(self.anim_duration, 0, DT)
+            self.anim_duration = MathUtils.approach(self.anim_duration, 0, DT)
         elseif self.anim_duration == 0 then
             self:stop(true)
 
@@ -506,10 +506,10 @@ function Sprite:draw()
     local r,g,b,a = self:getDrawColor()
     local function drawSprite(...)
         if self.crossfade_alpha > 0 and self.crossfade_texture ~= nil then
-            Draw.setColor(r, g, b, self.crossfade_out and Utils.lerp(a, 0, self.crossfade_alpha) or a)
+            Draw.setColor(r, g, b, self.crossfade_out and MathUtils.lerp(a, 0, self.crossfade_alpha) or a)
             Draw.draw(self.texture, ...)
 
-            Draw.setColor(r, g, b, Utils.lerp(0, a, self.crossfade_alpha))
+            Draw.setColor(r, g, b, MathUtils.lerp(0, a, self.crossfade_alpha))
             Draw.draw(self.crossfade_texture, ...)
         else
             Draw.setColor(r, g, b, a)

@@ -29,7 +29,7 @@ function Mods.loadData(data, failed_mods)
             if old_mod.name then
                 self.named[old_mod.name] = nil
             end
-            Utils.removeFromTable(self.list, old_mod)
+            TableUtils.removeValue(self.list, old_mod)
         end
 
         -- convert image data into images
@@ -148,12 +148,12 @@ function Mods.getAndLoadMod(id)
     end
 
     if not mod.loaded_scripts then
-        for _,path in ipairs(Utils.getFilesRecursive(mod.path, ".lua")) do
+        for _,path in ipairs(FileSystemUtils.getFilesRecursive(mod.path, ".lua")) do
             mod.script_chunks[path] = love.filesystem.load(mod.path.."/"..path..".lua")
         end
 
         for _,lib in pairs(mod.libs) do
-            for _,path in ipairs(Utils.getFilesRecursive(lib.path, ".lua")) do
+            for _,path in ipairs(FileSystemUtils.getFilesRecursive(lib.path, ".lua")) do
                 lib.script_chunks[path] = love.filesystem.load(lib.path.."/"..path..".lua")
             end
         end

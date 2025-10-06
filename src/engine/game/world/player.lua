@@ -278,8 +278,8 @@ function Player:updateDash()
 
     local target_x = (math.abs(walk_x) > 0) and (sign(walk_x) * math.abs(self.dash_magnitude[1])) or self.dash_momentum[1]
     local target_y = (math.abs(walk_y) > 0) and (sign(walk_y) * math.abs(self.dash_magnitude[2])) or self.dash_momentum[2]
-    self.dash_momentum[1] = Utils.approach(self.dash_momentum[1], target_x, DTMULT / 2)
-    self.dash_momentum[2] = Utils.approach(self.dash_momentum[2], target_y, DTMULT / 2)
+    self.dash_momentum[1] = MathUtils.approach(self.dash_momentum[1], target_x, DTMULT / 2)
+    self.dash_momentum[2] = MathUtils.approach(self.dash_momentum[2], target_y, DTMULT / 2)
 
     while self.dash_afterimages < math.floor(self.dash_timer) + 4 do
         local afterimage = AbsoluteAfterImage(self, 0.5)
@@ -357,8 +357,8 @@ function Player:handleMomentumMovement()
     self.moving_x = walk_x
     self.moving_y = walk_y
 
-    self.temp_boost_x = Utils.approach(self.temp_boost_x, 0, DT)
-    self.temp_boost_y = Utils.approach(self.temp_boost_y, 0, DT)
+    self.temp_boost_x = MathUtils.approach(self.temp_boost_x, 0, DT)
+    self.temp_boost_y = MathUtils.approach(self.temp_boost_y, 0, DT)
 
     local running = (Input.down("cancel") or self.force_run) and not self.force_walk
     if Kristal.Config["autoRun"] and not self.force_run and not self.force_walk then
@@ -369,8 +369,8 @@ function Player:handleMomentumMovement()
         self.run_timer = 200
     end
     if self.run_timer == 0 then
-        self.run_momentum[1] = Utils.approach(self.run_momentum[1], 0, DT * 2)
-        self.run_momentum[2] = Utils.approach(self.run_momentum[2], 0, DT * 2)
+        self.run_momentum[1] = MathUtils.approach(self.run_momentum[1], 0, DT * 2)
+        self.run_momentum[2] = MathUtils.approach(self.run_momentum[2], 0, DT * 2)
 
         if (math.abs(self.run_momentum[1]) < 0.05 and math.abs(self.run_momentum[2]) < 0.05) then
             self:setState("WALK")
@@ -403,8 +403,8 @@ function Player:handleMomentumMovement()
                 self:flash()
             end
         end
-        self.run_momentum[1] = Utils.approach(self.run_momentum[1], walk_x + (walk_x * self.temp_boost_x), DT * mult_x)
-        self.run_momentum[2] = Utils.approach(self.run_momentum[2], walk_y + (walk_y * self.temp_boost_y), DT * mult_y)
+        self.run_momentum[1] = MathUtils.approach(self.run_momentum[1], walk_x + (walk_x * self.temp_boost_x), DT * mult_x)
+        self.run_momentum[2] = MathUtils.approach(self.run_momentum[2], walk_y + (walk_y * self.temp_boost_y), DT * mult_y)
     end
 
     local speed = self:getBaseWalkSpeed() + (Game:isLight() and 4 or 4)
@@ -617,7 +617,7 @@ function Player:beginSlide(last_state, in_place, lock_movement)
 end
 
 function Player:updateSlideDust()
-    self.slide_dust_timer = Utils.approach(self.slide_dust_timer, 0, DTMULT)
+    self.slide_dust_timer = MathUtils.approach(self.slide_dust_timer, 0, DTMULT)
 
     if self.slide_dust_timer == 0 then
         self.slide_dust_timer = 3
@@ -629,7 +629,7 @@ function Player:updateSlideDust()
         dust:setPosition(self.x, self.y)
         dust.layer = self.layer - 0.01
         dust.physics.speed_y = -6
-        dust.physics.speed_x = Utils.random(-1, 1)
+        dust.physics.speed_x = MathUtils.random(-1, 1)
         self.world:addChild(dust)
     end
 end
@@ -639,12 +639,12 @@ function Player:runSkidDust(above)
         local dust = Sprite("effects/slide_dust")
         dust:play(1 / 15, false, function () dust:remove() end)
         dust:setOrigin(0.5, 0.5)
-        local scale_offset = Utils.random(-0.35, 0.35)
+        local scale_offset = MathUtils.random(-0.35, 0.35)
         dust:setScale(1 + scale_offset, 1 + scale_offset)
-        dust:setPosition(self.x + Utils.random(-0.5, 0.5), self.y + 8)
+        dust:setPosition(self.x + MathUtils.random(-0.5, 0.5), self.y + 8)
         dust.layer = self.layer - (above and 0.01 or -0.01)
-        dust.physics.speed_y = -4 + Utils.random(-1, 1)
-        dust.physics.speed_x = Utils.random(-1, 1) + self.run_momentum[1]
+        dust.physics.speed_y = -4 + MathUtils.random(-1, 1)
+        dust.physics.speed_x = MathUtils.random(-1, 1) + self.run_momentum[1]
         self.world:addChild(dust)
     end
 end
@@ -724,18 +724,18 @@ function Player:update()
         Game.world.additional_music:fade(1.2)
     end
     if self.hurt_timer > 0 then
-        self.hurt_timer = Utils.approach(self.hurt_timer, 0, DTMULT)
+        self.hurt_timer = MathUtils.approach(self.hurt_timer, 0, DTMULT)
     end
 
     if (self.dash_cd > 0) then
-        self.dash_cd = Utils.approach(self.dash_cd, 0, DT * 4)
+        self.dash_cd = MathUtils.approach(self.dash_cd, 0, DT * 4)
         if self.dash_cd <= 0 then
             self:flash()
         end
     end
 
     if self.slide_land_timer > 0 and self.state_manager.state ~= "SLIDE" then
-        self.slide_land_timer = Utils.approach(self.slide_land_timer, 0, DTMULT)
+        self.slide_land_timer = MathUtils.approach(self.slide_land_timer, 0, DTMULT)
         if self.slide_land_timer == 0 then
             self.slide_sound:stop()
             self.sprite:resetSprite()
@@ -748,9 +748,9 @@ function Player:update()
     self:updateHistory()
 
     if not Game.world.cutscene and not Game.world.menu then
-        self.interact_buffer = Utils.approach(self.interact_buffer, 0, DT)
-        self.attack_buffer = Utils.approach(self.attack_buffer, 0, DT)
-        self.time_since_attack = Utils.approach(self.time_since_attack, 3, DT)
+        self.interact_buffer = MathUtils.approach(self.interact_buffer, 0, DT)
+        self.attack_buffer = MathUtils.approach(self.attack_buffer, 0, DT)
+        self.time_since_attack = MathUtils.approach(self.time_since_attack, 3, DT)
         if (self.time_since_attack >= 2.99 and self.attack_stage > 0) then
             self.attack_stage = 0
         end

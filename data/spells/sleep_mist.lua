@@ -49,7 +49,7 @@ function spell:onCast(user, target)
                 if success then
                     local w, h = 150, 100
                     Game.battle.timer:every(3/30, function()
-                        local snowflake = IceSpellEffect(x - (w/2) + MathUtils.random(w), y - (h/2) + Utils.random(h))
+                        local snowflake = IceSpellEffect(x - (w/2) + MathUtils.random(w), y - (h/2) + MathUtils.random(h))
                         snowflake:setScale(0.5)
                         snowflake.rotation_speed = MathUtils.random(5)
                         snowflake.layer = enemy.layer + 0.02

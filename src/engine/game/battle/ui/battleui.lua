@@ -156,7 +156,7 @@ function BattleUI:drawCurrentHealth(battler, color, x, y)
     end
     local health_offset = (max_string_length - 1) * 8
     x = x - health_offset
-    local roll_progress = Utils.clamp((battler.health_rolling_timer / battler:getRollSpeed()) * getConfig("display_roll_speed"), 0, 1)
+    local roll_progress = MathUtils.clamp((battler.health_rolling_timer / battler:getRollSpeed()) * getConfig("display_roll_speed"), 0, 1)
     local rolling_down = battler.chara:getHealth() < battler.health_rolling_last
     if rolling_down then roll_progress = 1 - roll_progress end
     for i = 1, max_string_length do
@@ -206,9 +206,9 @@ function BattleUI:beginAttack()
         table.insert(self.attack_boxes, attack_box)
 
         if i < #attack_order and last_offset ~= 0 then
-            last_offset = Utils.pick{0, 10, 15}
+            last_offset = TableUtils.pick{0, 10, 15}
         else
-            last_offset = Utils.pick{10, 15}
+            last_offset = TableUtils.pick{10, 15}
         end
     end
 
@@ -255,18 +255,18 @@ function BattleUI:hideMainPanel()
 end
 
 function BattleUI:update()
-    self.selector_sprite.visible = Utils.contains(Game.battle.state, "SELECT") and (Game.battle.current_selecting ~= 0)
+    self.selector_sprite.visible = StringUtils.contains(Game.battle.state, "SELECT") and (Game.battle.current_selecting ~= 0)
     self.party_panel_screen.visible = self.animation_done and self.shown
     --self.action_panel_screen.visible = self.animation_done and (self.action_panel_cover_target == 80)
     self.control_panel_screen.visible = self.animation_done and self.control_panel_done and (self.main_panel_target == -33) and self.shown
     self.control_panel_infoborders.visible = (Game.battle.state ~= "SHORTACTTEXT") and (Game.battle.state ~= "BATTLETEXT") and (Game.battle.state ~= "ATTACKING") and self.shown and self.action_boxes[Game.battle.current_selecting]
-    self.action_panel_cover.x = Utils.approach(self.action_panel_cover.x, self.action_panel_cover_target, DTMULT * 24)
+    self.action_panel_cover.x = MathUtils.approach(self.action_panel_cover.x, self.action_panel_cover_target, DTMULT * 24)
     self.encounter_text.y = ((Game.battle.state ~= "SHORTACTTEXT") and (Game.battle.state ~= "BATTLETEXT")) and 98 or 15
     self.encounter_text.face_y = ((Game.battle.state ~= "SHORTACTTEXT") and (Game.battle.state ~= "BATTLETEXT")) and -16 or 2
     self.encounter_text.face:setCutout(0, 0, 0, ((Game.battle.state ~= "SHORTACTTEXT") and (Game.battle.state ~= "BATTLETEXT")) and 4 or 0)
     
     if (self.action_boxes and self.action_boxes[1]) and Game.battle.current_selecting and Game.battle.current_selecting ~= 0 then
-        self.selector_sprite.y = Utils.approach(self.selector_sprite.y, self.action_boxes[Game.battle.current_selecting].partypanel_offset + 5, DTMULT * 12)
+        self.selector_sprite.y = MathUtils.approach(self.selector_sprite.y, self.action_boxes[Game.battle.current_selecting].partypanel_offset + 5, DTMULT * 12)
     end
 
     if (Game.battle.state == "ACTIONSELECT") then
@@ -298,7 +298,7 @@ function BattleUI:update()
                 self.animation_y = target
             end
         else
-            self.animation_y_lag = Utils.approach(self.animation_y_lag, self.y, 30 * DTMULT)
+            self.animation_y_lag = MathUtils.approach(self.animation_y_lag, self.y, 30 * DTMULT)
 
             if self.animation_y > 0 then
                 if math.floor((target - self.animation_y) / 5) > 15 then
@@ -702,8 +702,8 @@ function BattleUI:drawState()
                 current_heat = chara.chara.heat
             end
             -- if (self.neurometer) then
-            --     self.neurometer.potential_power = Utils.clamp(neural_power - npCost, 0, 100) / 100
-            --     self.neurometer.potential_heat = Utils.clamp(current_heat + heat, 0, max_heat) / max_heat
+            --     self.neurometer.potential_power = MathUtils.clamp(neural_power - npCost, 0, 100) / 100
+            --     self.neurometer.potential_heat = MathUtils.clamp(current_heat + heat, 0, max_heat) / max_heat
             -- end
             local heatpercent = tostring((heat / max_heat) * 100)
             local warning = ""

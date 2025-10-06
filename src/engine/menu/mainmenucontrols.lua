@@ -252,7 +252,7 @@ function MainMenuControls:onKeyPressed(key, is_repeat)
             local valid_key = true
             local bound_key
             if key ~= "escape" then
-                if gamepad ~= Utils.startsWith(key, "gamepad:") then
+                if gamepad ~= StringUtils.startsWith(key, "gamepad:") then
                     valid_key = false
                 else
                     bound_key = {key}
@@ -379,7 +379,7 @@ function MainMenuControls:update()
     self.scroll_y = self.scroll_y + ((self.scroll_target_y - self.scroll_y) / 2) * DTMULT
     
     if self.scroll_timer > 0 then
-        self.scroll_timer = Utils.approach(self.scroll_timer, 0, DT)
+        self.scroll_timer = MathUtils.approach(self.scroll_timer, 0, DT)
     end
 
     
@@ -478,7 +478,7 @@ function MainMenuControls:drawKeyBindMenu(name, menu_x, menu_y, y_offset)
     if self.selected_option == (y_offset + 1) then
         for i, v in ipairs(self:getBoundKeys(name)) do
             local drawstr = v:upper()
-            if Utils.startsWith(v, "gamepad:") then
+            if StringUtils.startsWith(v, "gamepad:") then
                 drawstr = "     "
             end
             if i < #self:getBoundKeys(name) then
@@ -494,7 +494,7 @@ function MainMenuControls:drawKeyBindMenu(name, menu_x, menu_y, y_offset)
     for i, v in ipairs(self:getBoundKeys(name)) do
         local drawstr = v:upper()
         local btn = nil
-        if Utils.startsWith(v, "gamepad:") then
+        if StringUtils.startsWith(v, "gamepad:") then
             drawstr = "     "
             btn = Input.getButtonTexture(v)
         end

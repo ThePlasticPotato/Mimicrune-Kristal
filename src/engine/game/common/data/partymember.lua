@@ -251,7 +251,7 @@ function PartyMember:update()
             local i = 1
             local flipped = Utils.reverse(self:getSpells())
             while (self:getSpellWeight() > max_weight and i <= #flipped) do
-                if (not flipped[i].required) then Utils.removeFromTable(self.spells, flipped[i]) end
+                if (not flipped[i].required) then TableUtils.removeValue(self.spells, flipped[i]) end
                 i = i+1
             end
         end
@@ -765,7 +765,7 @@ end
 
 ---@param light? boolean
 function PartyMember:getStats(light)
-    local stats = Utils.copy(self:getBaseStats(light))
+    local stats = TableUtils.copy(self:getBaseStats(light))
     for _,item in ipairs(self:getEquipment()) do
         for stat, amount in pairs(item:getStatBonuses()) do
             if stats[stat] then

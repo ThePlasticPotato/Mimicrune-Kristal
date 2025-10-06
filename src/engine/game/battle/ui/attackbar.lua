@@ -29,7 +29,7 @@ function AttackBar:update()
         self.scale_x = self.scale_x + self.burst_speed * DTMULT
         self.scale_y = self.scale_y + self.burst_speed * DTMULT
     else
-        if (not self.afterimage) then self.alpha = Utils.approach(self.alpha, 1.0, DT * 4) end
+        if (not self.afterimage) then self.alpha = MathUtils.approach(self.alpha, 1.0, DT * 4) end
     end
 
     super.update(self)

@@ -93,7 +93,7 @@ function ChapterSelect:updateScroll()
         self.scroll_tween = nil
     end
     self.scroll_tween = self.timer:tween(duration, self, {scroll = target}, "out-quint")
-    -- self.scroll = Utils.approach(self.scroll, self:getScrollTarget(), DT * 300)
+    -- self.scroll = MathUtils.approach(self.scroll, self:getScrollTarget(), DT * 300)
 end
 
 function ChapterSelect:getScrollTarget()
@@ -244,7 +244,7 @@ function ChapterSelect:onKeyPressedChapter(key)
     elseif Input.is("left", key) then
         self.selected_x = self.selected_x - 1
     end
-    self.selected_x = Utils.clamp(self.selected_x, 1, 2)
+    self.selected_x = MathUtils.clamp(self.selected_x, 1, 2)
     if old_sel_x ~= self.selected_x then Assets.playSound("ui_move") end
     if Input.isConfirm(key) and self.selected_x == 1 then
         self:startEnterChapter(self.chapters[self.selected_y])

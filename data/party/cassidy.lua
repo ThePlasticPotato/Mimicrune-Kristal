@@ -145,7 +145,7 @@ function character:onTurnStart(battler)
         end
     else
         if (self.neural_power < 100 and not battler.was_hit_last) then
-            self.neural_power = Utils.clamp(self.neural_power + (self:getStat("magic", 1)), 0, 100)
+            self.neural_power = MathUtils.clamp(self.neural_power + (self:getStat("magic", 1)), 0, 100)
         end
     end
 

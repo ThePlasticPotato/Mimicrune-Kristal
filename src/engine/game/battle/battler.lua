@@ -380,7 +380,7 @@ function Battler:addStatus(options, stack, force)
         local new_status = {
             [id] = { time_left = options.duration or options.effect:getDefaultDuration(), stacks = options.stacks or 1, data = options }
         }
-        self.statuses = Utils.merge(self.statuses, new_status)
+        self.statuses = TableUtils.merge(self.statuses, new_status)
         options.effect:onApply(self, self.statuses[id])
     end
     return true
@@ -419,7 +419,7 @@ function Battler:update()
     end
 
     if self.alert_timer > 0 then
-        self.alert_timer = Utils.approach(self.alert_timer, 0, DTMULT)
+        self.alert_timer = MathUtils.approach(self.alert_timer, 0, DTMULT)
         if self.alert_timer == 0 then
             self.alert_icon:remove()
             self.alert_icon = nil

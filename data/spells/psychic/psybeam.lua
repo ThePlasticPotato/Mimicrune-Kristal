@@ -75,7 +75,7 @@ function spell:onCast(user, target)
         blast.layer = BATTLE_LAYERS["above_ui"]
         Game.battle:addChild(blast)
         user.chara.heat = user.chara.heat + self:getNHeat(user.chara)
-        user.chara.neural_power = Utils.clamp(user.chara.neural_power - self:getNPCost(user.chara), 0, 100)
+        user.chara.neural_power = MathUtils.clamp(user.chara.neural_power - self:getNPCost(user.chara), 0, 100)
     end)
     return false
 end

@@ -48,7 +48,7 @@ function LightItemMenu:update()
             self.item_selecting = self.item_selecting + 1
         end
 
-        self.item_selecting = Utils.clamp(self.item_selecting, 1, Game.inventory:getItemCount(self.storage, false))
+        self.item_selecting = MathUtils.clamp(self.item_selecting, 1, Game.inventory:getItemCount(self.storage, false))
 
         if self.item_selecting ~= old_selecting then
             self.ui_move:stop()
@@ -76,7 +76,7 @@ function LightItemMenu:update()
             self.option_selecting = self.option_selecting + 1
         end
 
-        self.option_selecting = Utils.clamp(self.option_selecting, 1, 3)
+        self.option_selecting = MathUtils.clamp(self.option_selecting, 1, 3)
 
         if self.option_selecting ~= old_selecting then
             self.ui_move:stop()
@@ -101,7 +101,7 @@ end
 function LightItemMenu:draw()
     if (self.panel_bg.operable) then
         love.graphics.setFont(self.font)
-        local randAlpha = Utils.random(0.8, 1.0)
+        local randAlpha = MathUtils.random(0.8, 1.0)
 
         local inventory = Game.inventory:getStorage(self.storage)
 

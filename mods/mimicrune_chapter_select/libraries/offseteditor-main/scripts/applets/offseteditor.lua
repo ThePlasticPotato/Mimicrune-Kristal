@@ -22,7 +22,7 @@ function OffsetEditorApplet:setActor(actor)
     self.current_actor = actor
     self.current_actor_id = actor.id
     self.default_sprite = actor:getDefaultSprite() or actor:getDefault()
-    local sprite_choices = Utils.copy(actor.offsets)
+    local sprite_choices = TableUtils.copy(actor.offsets)
     self.current_sprite = next(sprite_choices) or self.default_sprite
     if sprite_choices[self.default_sprite .. "/down"] then
         self.current_sprite = self.default_sprite .. "/down"
@@ -184,17 +184,17 @@ function OffsetEditorApplet:saveOffsets()
         do
             for line in readfileiter do
                 fileprefix = fileprefix .. line .. "\n"
-                if Utils.contains(line, "Utils.merge%(self.offsets, *{") then
+                if StringUtils.contains(line, "TableUtils.merge%(self.offsets, *{") then
                     merge = true
                     break
                 end
-                if Utils.contains(line, "self.offsets *= *{") then
+                if StringUtils.contains(line, "self.offsets *= *{") then
                     break
                 end
             end
         end
         if readfile:isEOF() then
-            error("Couldn't find offsets definition (self.offsets = { or Utils.merge(self.offsets, {))")
+            error("Couldn't find offsets definition (self.offsets = { or TableUtils.merge(self.offsets, {))")
         end
 
         local offset_lines = {} ---@type OffsetEditorApplet.OffsetFileEntry[]
@@ -227,7 +227,7 @@ function OffsetEditorApplet:saveOffsets()
 
     local data, fileprefix, filepostfix = parseActorFile()
     local lineprefix = "        "
-    local offsets = Utils.copy(self.current_actor.offsets)
+    local offsets = TableUtils.copy(self.current_actor.offsets)
     for offsetid, offset in pairs(self.current_actor.offsets) do
         for line, entry in ipairs(data) do
             if entry.type == "offset" and entry.name == offsetid then

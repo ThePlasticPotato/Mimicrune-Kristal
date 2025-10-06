@@ -75,7 +75,7 @@ function Starwalker:getTarget()
 end
 
 function Starwalker:makeBullet(x, y)
-    if (Utils.random() < 0.25) then
+    if (MathUtils.random() < 0.25) then
         return Registry.createBullet("FallenStarBullet", x, y)
     end
 

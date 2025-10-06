@@ -84,20 +84,20 @@ function Choicebox:draw()
     if self.choices[3] then
         Draw.setColor(self.main_colors[3])
         if self.current_choice == 3 then Draw.setColor(self.hover_colors[3]) end
-        love.graphics.print(self.choices[3], 17 + Utils.round(self.width / 2) - Utils.round(self.font:getWidth(self.choices[3]) / 2), -8)
+        love.graphics.print(self.choices[3], 17 + MathUtils.round(self.width / 2) - MathUtils.round(self.font:getWidth(self.choices[3]) / 2), -8)
     end
     if self.choices[4] then
         Draw.setColor(self.main_colors[4])
         if self.current_choice == 4 then Draw.setColor(self.hover_colors[4]) end
-        love.graphics.print(self.choices[4], 17 + Utils.round(self.width / 2) - Utils.round(self.font:getWidth(self.choices[4]) / 2), 78)
+        love.graphics.print(self.choices[4], 17 + MathUtils.round(self.width / 2) - MathUtils.round(self.font:getWidth(self.choices[4]) / 2), 78)
     end
 
     local soul_positions = {
         --[[ Center: ]] {224, 38},
         --[[ Left:   ]] {4,   34},
         --[[ Right:  ]] {528 - self.font:getWidth(self.choices[2] or "") - 32, 34},
-        --[[ Top:    ]] {17 + Utils.round(self.width / 2) - Utils.round(self.font:getWidth(self.choices[3] or "") / 2) - 32, -8 + 6},
-        --[[ Bottom: ]] {17 + Utils.round(self.width / 2) - Utils.round(self.font:getWidth(self.choices[4] or "") / 2) - 32, 78 + 6}
+        --[[ Top:    ]] {17 + MathUtils.round(self.width / 2) - MathUtils.round(self.font:getWidth(self.choices[3] or "") / 2) - 32, -8 + 6},
+        --[[ Bottom: ]] {17 + MathUtils.round(self.width / 2) - MathUtils.round(self.font:getWidth(self.choices[4] or "") / 2) - 32, 78 + 6}
     }
 
     local heart_x = soul_positions[self.current_choice + 1][1]
@@ -138,7 +138,7 @@ function Choicebox:setColors(main, hover)
             {main[1], main[2], main[3], main[4] or 1},
         }
     else
-        self.main_colors = Utils.copy(main)
+        self.main_colors = TableUtils.copy(main)
     end
 
     hover = hover or {1,1,0}
@@ -150,7 +150,7 @@ function Choicebox:setColors(main, hover)
             {hover[1], hover[2], hover[3], hover[4] or 1},
         }
     else
-        self.hover_colors = Utils.copy(hover)
+        self.hover_colors = TableUtils.copy(hover)
     end
 end
 

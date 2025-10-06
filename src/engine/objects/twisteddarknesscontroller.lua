@@ -19,53 +19,53 @@ function TwistedDarknessController:init(layer, shrink, tails)
 
     for i = 1, 20 do
         table.insert(self.fumes,
-            { (SCREEN_WIDTH/2)+40 + i * 25, 330, Utils.random(20, 40), self.timer + Utils.random(-30, 30), Utils.random(-1, 1), Utils.random(-1, 1, 1), 0, false, false })
+            { (SCREEN_WIDTH/2)+40 + i * 25, 330, MathUtils.random(20, 40), self.timer + MathUtils.random(-30, 30), MathUtils.random(-1, 1), MathUtils.random(-1, 1, 1), 0, false, false })
     end
 
     for i = 1, 20 do
         table.insert(self.fumes,
-            { (SCREEN_WIDTH/2)-5 + i * 25, -10, Utils.random(20, 40), self.timer +
-            Utils.random(-30, 30), Utils.random(-1, 1), Utils.random(-1, 1, 1), 0, false, false })
+            { (SCREEN_WIDTH/2)-5 + i * 25, -10, MathUtils.random(20, 40), self.timer +
+            MathUtils.random(-30, 30), MathUtils.random(-1, 1), MathUtils.random(-1, 1, 1), 0, false, false })
     end
 
     -- for i = 1, 40 do
     --     table.insert(self.fumes,
-    --         { -10, -5 + i * 25, Utils.random(20, 40), self.timer +
-    --         Utils.random(-30, 30), Utils.random(-1, 1), Utils.random(-1, 1, 1), 0, false, false })
+    --         { -10, -5 + i * 25, MathUtils.random(20, 40), self.timer +
+    --         MathUtils.random(-30, 30), MathUtils.random(-1, 1), MathUtils.random(-1, 1, 1), 0, false, false })
     -- end
 
 
     for i = 1, 30 do
         table.insert(self.fumes,
-            { 650, -5 + i * 25, Utils.random(20, 40), self.timer +
-            Utils.random(-30, 30), Utils.random(-1, 1), Utils.random(-1, 1, 1), 0, false, false })
+            { 650, -5 + i * 25, MathUtils.random(20, 40), self.timer +
+            MathUtils.random(-30, 30), MathUtils.random(-1, 1), MathUtils.random(-1, 1, 1), 0, false, false })
     end
 
     for i = 1, 20 do
         table.insert(self.fumes,
-            { 400, 330 + i * 25, Utils.random(20, 40), self.timer +
-            Utils.random(-30, 30), Utils.random(-1, 1), Utils.random(-1, 1, 1), 0, false, false })
+            { 400, 330 + i * 25, MathUtils.random(20, 40), self.timer +
+            MathUtils.random(-30, 30), MathUtils.random(-1, 1), MathUtils.random(-1, 1, 1), 0, false, false })
     end
 
     for i = 1, 15 do
         table.insert(self.fumes,
-            { 385 + Utils.random(-5, 5), 340 + i * 25, Utils.random(20, 40), self.timer +
-            Utils.random(-30, 30), Utils.random(-1, 1), Utils.random(-1, 1, 1), 0, false, false })
+            { 385 + MathUtils.random(-5, 5), 340 + i * 25, MathUtils.random(20, 40), self.timer +
+            MathUtils.random(-30, 30), MathUtils.random(-1, 1), MathUtils.random(-1, 1, 1), 0, false, false })
     end
 
     for i = 1, 10 do
         table.insert(self.fumes,
-            { 365 + Utils.random(-5, 5), 365 + i * 25, Utils.random(20, 40), self.timer +
-            Utils.random(-30, 30), Utils.random(-1, 1), Utils.random(-1, 1, 1), 0, false, false })
+            { 365 + MathUtils.random(-5, 5), 365 + i * 25, MathUtils.random(20, 40), self.timer +
+            MathUtils.random(-30, 30), MathUtils.random(-1, 1), MathUtils.random(-1, 1, 1), 0, false, false })
     end
 
     for i = 1, 5 do
         table.insert(self.fumes,
-            { 345 + Utils.random(-5, 5), 388 + i * 25, Utils.random(20, 40), self.timer +
-            Utils.random(-30, 30), Utils.random(-1, 1), Utils.random(-1, 1, 1), 0, false, false })
+            { 345 + MathUtils.random(-5, 5), 388 + i * 25, MathUtils.random(20, 40), self.timer +
+            MathUtils.random(-30, 30), MathUtils.random(-1, 1), MathUtils.random(-1, 1, 1), 0, false, false })
     end
     -- for i = 1, 8 do
-    --     table.insert(self.fumes, {Utils.random(0, SCREEN_WIDTH), Utils.random(-30, SCREEN_HEIGHT + 30), Utils.random(20, 40), self.timer + Utils.random(-30, 30), Utils.random(-1, 1), Utils.random(-1, 1, 1), 0})
+    --     table.insert(self.fumes, {MathUtils.random(0, SCREEN_WIDTH), MathUtils.random(-30, SCREEN_HEIGHT + 30), MathUtils.random(20, 40), self.timer + MathUtils.random(-30, 30), MathUtils.random(-1, 1), MathUtils.random(-1, 1, 1), 0})
     -- end
 end
 
@@ -76,16 +76,16 @@ function TwistedDarknessController:update()
     self.spawn_timer = self.spawn_timer - DTMULT
     self.streak_timer = self.streak_timer - DTMULT
     if self.spawn_timer < 0 then
-        self.spawn_timer = self.spawn_timer + Utils.random(5, self.spawn_speed)
-        local height = Utils.random(0, SCREEN_HEIGHT)
-        if (height > 330) then height = Utils.random(0, SCREEN_HEIGHT) end
-        table.insert(self.fumes, {SCREEN_WIDTH + 30, height, Utils.random(20, 40), self.timer, Utils.random(-1, 1), Utils.random(-1, 1, 1), 0, true, true})
+        self.spawn_timer = self.spawn_timer + MathUtils.random(5, self.spawn_speed)
+        local height = MathUtils.random(0, SCREEN_HEIGHT)
+        if (height > 330) then height = MathUtils.random(0, SCREEN_HEIGHT) end
+        table.insert(self.fumes, {SCREEN_WIDTH + 30, height, MathUtils.random(20, 40), self.timer, MathUtils.random(-1, 1), MathUtils.random(-1, 1, 1), 0, true, true})
     end
     if (self.streak_timer < 0) then
-        self.streak_timer = self.streak_timer + Utils.random(1, (self.spawn_speed / 4))
-        local height = Utils.random(0, SCREEN_HEIGHT)
-        if (height > 330) then height = Utils.random(0, SCREEN_HEIGHT) end
-        table.insert(self.streaks, {SCREEN_WIDTH + 30 + Utils.random(0, 30), height, Utils.random(20, 40), 0, self.timer})
+        self.streak_timer = self.streak_timer + MathUtils.random(1, (self.spawn_speed / 4))
+        local height = MathUtils.random(0, SCREEN_HEIGHT)
+        if (height > 330) then height = MathUtils.random(0, SCREEN_HEIGHT) end
+        table.insert(self.streaks, {SCREEN_WIDTH + 30 + MathUtils.random(0, 30), height, MathUtils.random(20, 40), 0, self.timer})
     end
 
     local to_remove = {}
@@ -101,15 +101,15 @@ function TwistedDarknessController:update()
     end
 
     for _, fume in ipairs(to_remove) do
-        Utils.removeFromTable(self.fumes, fume)
+        TableUtils.removeValue(self.fumes, fume)
     end
     for _, streak in ipairs(to_remove_streaks) do
-        Utils.removeFromTable(self.streaks, streak)
+        TableUtils.removeValue(self.streaks, streak)
     end
 end
 
 function TwistedDarknessController:getFumeInformation(index)
-    local x, y, radius, time, rotation, rotdir, acceleration, shrink, tail = Utils.unpack(self.fumes[index])
+    local x, y, radius, time, rotation, rotdir, acceleration, shrink, tail = TableUtils.unpack(self.fumes[index])
     time = self.timer - time
     if (rotdir == 0) then rotdir = 1 end
     if (shrink) then 
@@ -125,7 +125,7 @@ function TwistedDarknessController:getFumeInformation(index)
 end
 
 function TwistedDarknessController:getStreakInformation(index)
-    local x, y, width, speed, time = Utils.unpack(self.streaks[index])
+    local x, y, width, speed, time = TableUtils.unpack(self.streaks[index])
 
     time = self.timer - time
     speed = speed + (time / 4)
@@ -176,7 +176,7 @@ function TwistedDarknessController:draw()
 
     Draw.setColor(0,0,0,Game.battle.transition_timer / 10)
     for index, value in ipairs(iterated) do
-        local x, y, radius, time, rotation, tail = Utils.unpack(value)
+        local x, y, radius, time, rotation, tail = TableUtils.unpack(value)
         if (self.tails and tail) then
             self:drawRotatedRectangle("fill", x+(1.5 * radius), y-(math.sin(time / 4) * 8), (radius/4)-2, (radius/4)-2, rotation)
             self:drawRotatedRectangle("fill", x+(1 * radius), y-(math.sin(time / 4) * 2), (radius/2)-2, (radius/2)-2, rotation)

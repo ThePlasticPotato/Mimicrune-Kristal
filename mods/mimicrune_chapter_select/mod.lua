@@ -2,7 +2,7 @@ local socket = require('socket')
 
 function Mod:init()
     -- If you set up your engine to have Kristal.returnToMenu load your TARGET_MOD, this will be helpful.
-    Utils.hook(Kristal.Overlay, "update", function (orig, self)
+    HookSystem.hook(Kristal.Overlay, "update", function (orig, self)
         if not (TARGET_MOD and AUTO_MOD_START) then
             return orig(self)
         end

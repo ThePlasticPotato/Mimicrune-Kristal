@@ -94,7 +94,7 @@ function ExampleAppCustomRendering:show()
                     table.remove(self.canvas.points, #self.canvas.points)
                 end
                 if (imgui.MenuItem_Bool("Remove all", nil, false, #self.canvas.points > 0)) then
-                    Utils.clear(self.canvas.points)
+                    TableUtils.clear(self.canvas.points)
                 end
                 imgui.EndPopup();
             end

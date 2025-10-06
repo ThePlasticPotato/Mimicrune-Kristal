@@ -2,9 +2,9 @@ return function(cutscene)
     cutscene:setSpeaker("susie")
 
     local text = love.filesystem.read("main.lua")
-    local lines = Utils.split(text, "\r\n", true)
+    local lines = StringUtils.split(text, "\r\n", true)
     if #lines == 1 then
-        lines = Utils.split(text, "\n", true)
+        lines = StringUtils.split(text, "\n", true)
     end
 
     local new_lines = {}

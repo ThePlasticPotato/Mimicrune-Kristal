@@ -35,9 +35,9 @@ function LancerKeyItem:init(x, y)
             return false
         end
         self.remmovecon = self.movecon
-        self.movecon = Utils.random(0, 4, 1)
+        self.movecon = MathUtils.random(0, 4, 1)
         if self.movecon == self.remmovecon then
-            self.movecon = Utils.random(0, 4, 1)
+            self.movecon = MathUtils.random(0, 4, 1)
         end
         self.con = 0
         if self.sleeptimer >= 900 then
@@ -79,9 +79,9 @@ function LancerKeyItem:update()
             self.con = 1
             self.contimer = 0
             self.contimermax = 30
-            self.flipchance = Utils.pick{0, 1, 2}
+            self.flipchance = TableUtils.pick{0, 1, 2}
             if self.flipchance == 2 then
-                self.lancer:setAnimation(Utils.pick{"walk/down", "up_flip"})
+                self.lancer:setAnimation(TableUtils.pick{"walk/down", "up_flip"})
 			end
 		end
         if self.con == 1 then
@@ -101,7 +101,7 @@ function LancerKeyItem:update()
                 self:setPhysics({
                     speed_x = 0,
                 })
-                self.lancer:setAnimation(Utils.pick{"walk/down", "up_flip"})
+                self.lancer:setAnimation(TableUtils.pick{"walk/down", "up_flip"})
                 self.con = 2
 			end
 		end

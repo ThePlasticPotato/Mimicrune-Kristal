@@ -52,7 +52,7 @@ function Status:getColor(index)
 end
 ---@param tag string
 ---@return boolean
-function Status:hasTag(tag) return Utils.containsValue(self.tags, tag) end
+function Status:hasTag(tag) return TableUtils.contains(self.tags, tag) end
 
 ---@return boolean
 function Status:isPositive() return self.positive end

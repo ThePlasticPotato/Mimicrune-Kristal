@@ -112,7 +112,7 @@ function Console:onUpLimit()
     if #self.command_history == 0 then return end
     if self.history_index > 1 then
         self.history_index = self.history_index - 1
-        self.input = Utils.copy(self.command_history[self.history_index] or {""})
+        self.input = TableUtils.copy(self.command_history[self.history_index] or {""})
         TextInput.updateInput(self.input)
         TextInput.selecting = false
         TextInput.sendCursorToEnd()
@@ -125,7 +125,7 @@ function Console:onDownLimit()
         -- Empty
     else
         self.history_index = self.history_index + 1
-        self.input = Utils.copy(self.command_history[self.history_index] or {""})
+        self.input = TableUtils.copy(self.command_history[self.history_index] or {""})
         TextInput.updateInput(self.input)
         TextInput.selecting = false
         TextInput.sendCursorToEnd()
@@ -194,7 +194,7 @@ function Console:draw()
     local y_offset = self.height
 
     for line = #self.history - self.height, #self.history do
-        --local lines = Utils.split(self.history[line] or "", "\n", false)
+        --local lines = StringUtils.split(self.history[line] or "", "\n", false)
         y_offset = y_offset - 1
     end
 
@@ -246,7 +246,7 @@ end
 function Console:push(str)
     if str == nil then return end
 
-    for _,line in ipairs(Utils.split(str, "\n", false)) do
+    for _,line in ipairs(StringUtils.split(str, "\n", false)) do
         local text = {}
         local current = ""
         local in_modifier = false
@@ -261,11 +261,11 @@ function Console:push(str)
             elseif char == "]" and in_modifier then
                 current = ""
                 in_modifier = false
-                local modifier = Utils.split(modifier_text, ":", false)
+                local modifier = StringUtils.split(modifier_text, ":", false)
                 if modifier[1] == "color" then
                     local color = {1, 1, 1, 1}
                     if modifier[2] then
-                        if Utils.startsWith(modifier[2], "#") then
+                        if StringUtils.startsWith(modifier[2], "#") then
                             color = Utils.hexToRgb(modifier[2])
                         elseif modifier[2] == "cyan" then
                             color = {0.5, 1, 1, 1}
@@ -319,7 +319,7 @@ end
 
 function Console:run(str)
     if not Utils.equal(str, self.command_history[#self.command_history]) then
-        table.insert(self.command_history, Utils.copy(str))
+        table.insert(self.command_history, TableUtils.copy(str))
     end
     self.history_index = #self.command_history + 1
     local run_string = ""
@@ -346,8 +346,8 @@ function Console:run(str)
         end
     end
     self:push(history_string)
-    if Utils.startsWith(run_string, "=") then
-        run_string = "print(" .. Utils.sub(run_string, 2) .. ")"
+    if StringUtils.startsWith(run_string, "=") then
+        run_string = "print(" .. StringUtils.sub(run_string, 2) .. ")"
     end
     local status, err = pcall(function() self:unsafeRun(run_string) end)
     if (not status) and err then

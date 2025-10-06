@@ -76,7 +76,7 @@ end
 function LightStatMenu:draw()
     if (self.panel_bg.operable) then
         love.graphics.setFont(self.font)
-        local randAlpha = Utils.random(0.8, 1.0)
+        local randAlpha = MathUtils.random(0.8, 1.0)
 
         for i,party in ipairs(Game.party) do
             if self.chara_selecting ~= i then

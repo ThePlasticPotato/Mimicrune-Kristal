@@ -633,8 +633,8 @@ function DarkTransition:draw()
             self.con      = 32
 
             for _, data in ipairs(self.character_data) do
-                data.x = Utils.round(data.x)
-                data.y = Utils.round(data.y)
+                data.x = MathUtils.round(data.x)
+                data.y = MathUtils.round(data.y)
 
                 data.sprite_1:set("smear")
                 data.sprite_1:setFrame(1)

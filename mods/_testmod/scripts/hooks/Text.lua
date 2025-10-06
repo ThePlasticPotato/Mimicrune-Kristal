@@ -1,6 +1,6 @@
 
 ---@clASS SUSI RULES CRISTAL DROOLS
-local Text, super = Utils.hookScript(Text)
+local Text, super = HookSystem.hookScript(Text)
 
 function Text:getCharPosition(node, state)
     local x, y = super.getCharPosition(self, node, state)

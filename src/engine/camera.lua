@@ -224,8 +224,8 @@ end
 ---@param amount number
 function Camera:approach(x, y, amount)
     local angle = Utils.angle(self.x, self.y, x, y)
-    self.x = Utils.approach(self.x, x, math.abs(math.cos(angle)) * amount)
-    self.y = Utils.approach(self.y, y, math.abs(math.sin(angle)) * amount)
+    self.x = MathUtils.approach(self.x, x, math.abs(math.cos(angle)) * amount)
+    self.y = MathUtils.approach(self.y, y, math.abs(math.sin(angle)) * amount)
     self:keepInBounds()
 end
 
@@ -233,8 +233,8 @@ end
 ---@param y number
 ---@param amount number
 function Camera:approachDirect(x, y, amount)
-    self.x = Utils.approach(self.x, x, amount)
-    self.y = Utils.approach(self.y, y, amount)
+    self.x = MathUtils.approach(self.x, x, amount)
+    self.y = MathUtils.approach(self.y, y, amount)
     self:keepInBounds()
 end
 
@@ -272,10 +272,10 @@ function Camera:panTo(x, y, time, ease, after)
     local max_x, max_y = self:getMaxPosition()
 
     if x then
-        x = Utils.clamp(x, min_x, max_x)
+        x = MathUtils.clamp(x, min_x, max_x)
     end
     if y then
-        y = Utils.clamp(y, min_y, max_y)
+        y = MathUtils.clamp(y, min_y, max_y)
     end
 
     if time == 0 then
@@ -317,10 +317,10 @@ function Camera:panToSpeed(x, y, speed, after)
     local max_x, max_y = self:getMaxPosition()
 
     if x then
-        x = Utils.clamp(x, min_x, max_x)
+        x = MathUtils.clamp(x, min_x, max_x)
     end
     if y then
-        y = Utils.clamp(y, min_y, max_y)
+        y = MathUtils.clamp(y, min_y, max_y)
     end
 
     if (x and self.x ~= x) or (y and self.y ~= y) then
@@ -360,8 +360,8 @@ function Camera:getTargetPosition()
     local min_x, min_y = self:getMinPosition()
     local max_x, max_y = self:getMaxPosition()
 
-    x = Utils.clamp(x, min_x, max_x)
-    y = Utils.clamp(y, min_y, max_y)
+    x = MathUtils.clamp(x, min_x, max_x)
+    y = MathUtils.clamp(y, min_y, max_y)
 
     return x, y
 end
@@ -468,8 +468,8 @@ function Camera:keepInBounds()
         local min_x, min_y = self:getMinPosition()
         local max_x, max_y = self:getMaxPosition()
 
-        self.x = Utils.clamp(self.x, min_x, max_x)
-        self.y = Utils.clamp(self.y, min_y, max_y)
+        self.x = MathUtils.clamp(self.x, min_x, max_x)
+        self.y = MathUtils.clamp(self.y, min_y, max_y)
     end
 end
 
@@ -482,8 +482,8 @@ function Camera:moveTo(x, y)
     if self.keep_in_bounds then
         local min_x, min_y = self:getMinPosition()
         local max_x, max_y = self:getMaxPosition()
-        target_x = Utils.clamp(target_x, min_x, max_x)
-        target_y = Utils.clamp(target_y, min_y, max_y)
+        target_x = MathUtils.clamp(target_x, min_x, max_x)
+        target_y = MathUtils.clamp(target_y, min_y, max_y)
     end
 
     --local approach_speed = Utils.dist(self.x, self.y, x, y)
@@ -509,8 +509,8 @@ function Camera:moveTo(x, y)
     if self.keep_in_bounds then
         local min_x, min_y = self:getMinPosition()
         local max_x, max_y = self:getMaxPosition()
-        target_x = Utils.clamp(target_x, min_x, max_x)
-        target_y = Utils.clamp(target_y, min_y, max_y)
+        target_x = MathUtils.clamp(target_x, min_x, max_x)
+        target_y = MathUtils.clamp(target_y, min_y, max_y)
     end
 
     if self.lerper.type == "time" then
@@ -520,7 +520,7 @@ function Camera:moveTo(x, y)
         if not self.lerper.start_y then
             self.lerper.start_y = self.y
         end
-        self.lerper.timer = Utils.approach(self.lerper.timer, self.lerper.time, DT)
+        self.lerper.timer = MathUtils.approach(self.lerper.timer, self.lerper.time, DT)
 
         if approach_x and approach_y then
             self.x, self.y = Utils.lerpPoint(
@@ -528,11 +528,11 @@ function Camera:moveTo(x, y)
                 target_x, target_y,
                 self.lerper.timer / self.lerper.time)
         elseif approach_x then
-            self.x = Utils.lerp(self.lerper.start_x, target_x, self.lerper.timer / self.lerper.time)
+            self.x = MathUtils.lerp(self.lerper.start_x, target_x, self.lerper.timer / self.lerper.time)
             self.y = target_y
         elseif approach_y then
             self.x = target_x
-            self.y = Utils.lerp(self.lerper.start_y, target_y, self.lerper.timer / self.lerper.time)
+            self.y = MathUtils.lerp(self.lerper.start_y, target_y, self.lerper.timer / self.lerper.time)
         else
             self.x = target_x
             self.y = target_y
@@ -541,11 +541,11 @@ function Camera:moveTo(x, y)
         if approach_x and approach_y then
             self:approach(target_x, target_y, self.lerper.speed * DTMULT)
         elseif approach_x then
-            self.x = Utils.approach(self.x, target_x, self.lerper.speed * DTMULT)
+            self.x = MathUtils.approach(self.x, target_x, self.lerper.speed * DTMULT)
             self.y = target_y
         elseif approach_y then
             self.x = target_x
-            self.y = Utils.approach(self.y, target_y, self.lerper.speed * DTMULT)
+            self.y = MathUtils.approach(self.y, target_y, self.lerper.speed * DTMULT)
         else
             self.x = target_x
             self.y = target_y
@@ -597,7 +597,7 @@ function Camera:processMod(name, mod, x, y)
         local min_x, min_y = self:getMinPosition(target_bx, target_by, target_bw, target_bh)
         local max_x, max_y = self:getMaxPosition(target_bx, target_by, target_bw, target_bh)
 
-        return Utils.clamp(x, min_x, max_x), Utils.clamp(y, min_y, max_y)
+        return MathUtils.clamp(x, min_x, max_x), MathUtils.clamp(y, min_y, max_y)
     end
 end
 
@@ -610,8 +610,8 @@ function Camera:update()
             self.shake_timer = self.shake_timer - 1
         end
         if self.shake_friction then
-            self.shake_x = Utils.approach(self.shake_x, 0, self.shake_friction * DTMULT)
-            self.shake_y = Utils.approach(self.shake_y, 0, self.shake_friction * DTMULT)
+            self.shake_x = MathUtils.approach(self.shake_x, 0, self.shake_friction * DTMULT)
+            self.shake_y = MathUtils.approach(self.shake_y, 0, self.shake_friction * DTMULT)
         end
     end
 
@@ -670,11 +670,11 @@ function Camera:updatePanning()
     local min_x, min_y = self:getMinPosition()
     local max_x, max_y = self:getMaxPosition()
 
-    local pan_x = self.pan_target.x and Utils.clamp(self.pan_target.x, min_x, max_x) or self.x
-    local pan_y = self.pan_target.y and Utils.clamp(self.pan_target.y, min_y, max_y) or self.y
+    local pan_x = self.pan_target.x and MathUtils.clamp(self.pan_target.x, min_x, max_x) or self.x
+    local pan_y = self.pan_target.y and MathUtils.clamp(self.pan_target.y, min_y, max_y) or self.y
 
     if self.pan_target.time then
-        self.pan_target.timer = Utils.approach(self.pan_target.timer, self.pan_target.time, DT)
+        self.pan_target.timer = MathUtils.approach(self.pan_target.timer, self.pan_target.time, DT)
 
         if self.pan_target.x then
             self.x = Utils.ease(self.pan_target.start_x, pan_x, self.pan_target.timer / self.pan_target.time, self.pan_target.ease)
@@ -745,8 +745,8 @@ function Camera:applyTo(transform, ceil_x, ceil_y)
     local ty = -y + th
 
     if ceil_x then
-        tx = Utils.ceil(tx, ceil_x / self.zoom_x)
-        ty = Utils.ceil(ty, ceil_y / self.zoom_y)
+        tx = MathUtils.ceilToMultiple(tx, ceil_x / self.zoom_x)
+        ty = MathUtils.ceilToMultiple(ty, ceil_y / self.zoom_y)
     end
 
     transform:translate(tx, ty)

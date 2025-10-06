@@ -76,8 +76,8 @@ function ActionBox:createButtons()
 
     local btn_types = { "fight", "act", "magic", "item", "spare", "defend" }
 
-    if not self.battler.chara:hasAct() then Utils.removeFromTable(btn_types, "act") end
-    if not self.battler.chara:hasSpells() then Utils.removeFromTable(btn_types, "magic") end
+    if not self.battler.chara:hasAct() then TableUtils.removeValue(btn_types, "act") end
+    if not self.battler.chara:hasSpells() then TableUtils.removeValue(btn_types, "magic") end
 
     for lib_id, _ in Kristal.iterLibraries() do
         btn_types = Kristal.libCall(lib_id, "getActionButtons", self.battler, btn_types) or btn_types
@@ -105,7 +105,7 @@ function ActionBox:createButtons()
         end
     end
 
-    self.selected_button = Utils.clamp(self.selected_button, 1, #self:getSelectableButtons())
+    self.selected_button = MathUtils.clamp(self.selected_button, 1, #self:getSelectableButtons())
 end
 
 function ActionBox:setHeadIcon(icon)
@@ -200,11 +200,11 @@ function ActionBox:draw()
     --     Draw.setColor(1, 1, 1, 1)
 
     --     local name = self.battler.chara:getName():upper()
-    --     local spacing = 5 - Utils.len(name)
+    --     local spacing = 5 - StringUtils.len(name)
 
     --     local off = 0
-    --     for i = 1, Utils.len(name) do
-    --         local letter = Utils.sub(name, i, i)
+    --     for i = 1, StringUtils.len(name) do
+    --         local letter = StringUtils.sub(name, i, i)
     --         love.graphics.print(letter, self.box.x + 51 + off, self.box.y + 14 - self.data_offset - 1)
     --         off = off + font:getWidth(letter) + spacing
     --     end

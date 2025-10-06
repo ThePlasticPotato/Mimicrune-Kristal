@@ -157,7 +157,7 @@ function PartyBattler:hurt(amount, exact, color, options)
                 effect_bonus = effect_bonus + amt
             else
                 local cancel = status.data.effect:onHurt(self, status, amount)
-                if (Utils.contains(id, "ward")) then
+                if (StringUtils.contains(id, "ward")) then
                     self:statusMessage("msg", "ward")
                     self:healEffect(0, 200/255, 11/255)
                 end
@@ -232,7 +232,7 @@ end
 ---@param swoon boolean? Whether to swoon rather than down
 function PartyBattler:removeHealth(amount, swoon)
     if (self.chara:getHealth() <= 0) then
-        amount = Utils.round(amount / 4)
+        amount = MathUtils.round(amount / 4)
         self.chara:setHealth(self.chara:getHealth() - amount)
     else
         self.chara:setHealth(self.chara:getHealth() - amount)
@@ -241,7 +241,7 @@ function PartyBattler:removeHealth(amount, swoon)
                 self.chara:setHealth(-999)
             else
                 amount = math.abs((self.chara:getHealth() - (self.chara:getStat("health") / 2)))
-                self.chara:setHealth(Utils.round(((-self.chara:getStat("health")) / 2)))
+                self.chara:setHealth(MathUtils.round(((-self.chara:getStat("health")) / 2)))
             end
         end
     end
@@ -258,7 +258,7 @@ function PartyBattler:removeHealthBroken(amount, swoon)
             self.chara:setHealth(-999)
         else
             -- BUG: Use Kris' max health...
-            self.chara:setHealth(Utils.round(((-Game.party[1]:getStat("health")) / 2)))
+            self.chara:setHealth(MathUtils.round(((-Game.party[1]:getStat("health")) / 2)))
         end
     end
     self:checkHealth(swoon)

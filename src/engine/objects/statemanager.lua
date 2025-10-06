@@ -73,7 +73,7 @@ function StateManager:getHandler(state)
 end
 
 function StateManager:addEvent(event, state_callbacks)
-    Utils.merge(self.state_events[event:lower()], state_callbacks or {})
+    TableUtils.merge(self.state_events[event:lower()], state_callbacks or {})
 end
 
 function StateManager:removeEvent(event)
@@ -177,7 +177,7 @@ function StateManager:setState(state, ...)
             coroutine.yield()
         end
         local args = {...}
-        self.routine = coroutine.create(function() self:call("coroutine", wait, Utils.unpack(args)) end)
+        self.routine = coroutine.create(function() self:call("coroutine", wait, TableUtils.unpack(args)) end)
     else
         self.routine = nil
     end
@@ -228,7 +228,7 @@ function StateManager:pushState(state, ...)
             coroutine.yield()
         end
         local args = {...}
-        self.routine = coroutine.create(function() self:call("coroutine", wait, Utils.unpack(args)) end)
+        self.routine = coroutine.create(function() self:call("coroutine", wait, TableUtils.unpack(args)) end)
     end
 end
 
@@ -282,7 +282,7 @@ function StateManager:update()
     end
 
     if self.routine and coroutine.status(self.routine) == "suspended" then
-        self.routine_wait = Utils.approach(self.routine_wait, 0, DT)
+        self.routine_wait = MathUtils.approach(self.routine_wait, 0, DT)
         if self.routine_wait == 0 then
             coroutine.resume(self.routine)
         end

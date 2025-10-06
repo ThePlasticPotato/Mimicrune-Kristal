@@ -65,12 +65,12 @@ function Follower:runSkidDust(above)
         local dust = Sprite("effects/slide_dust")
         dust:play(1 / 15, false, function () dust:remove() end)
         dust:setOrigin(0.5, 0.5)
-        local scale_offset = Utils.random(-0.35, 0.35)
+        local scale_offset = MathUtils.random(-0.35, 0.35)
         dust:setScale(1 + scale_offset, 1 + scale_offset)
-        dust:setPosition(self.x + Utils.random(-0.5, 0.5), self.y + 8)
+        dust:setPosition(self.x + MathUtils.random(-0.5, 0.5), self.y + 8)
         dust.layer = self.layer - (above and 0.01 or -0.01)
-        dust.physics.speed_y = -4 + Utils.random(-1, 1)
-        dust.physics.speed_x = Utils.random(-1, 1) + (Game.world.player and Game.world.player.run_momentum[1])
+        dust.physics.speed_y = -4 + MathUtils.random(-1, 1)
+        dust.physics.speed_x = MathUtils.random(-1, 1) + (Game.world.player and Game.world.player.run_momentum[1])
         self.world:addChild(dust)
     end
 end
@@ -145,8 +145,8 @@ function Follower:getTargetPosition()
 
                 local t = (follow_delay - lower) / (upper - lower)
 
-                tx = Utils.lerp(prev.x, v.x, t)
-                ty = Utils.lerp(prev.y, v.y, t)
+                tx = MathUtils.lerp(prev.x, v.x, t)
+                ty = MathUtils.lerp(prev.y, v.y, t)
             end
             break
         end
@@ -160,8 +160,8 @@ function Follower:moveToTarget(speed)
         local dx, dy = tx - self.x, ty - self.y
 
         if speed then
-            dx = Utils.approach(self.x, tx, speed * DTMULT) - self.x
-            dy = Utils.approach(self.y, ty, speed * DTMULT) - self.y
+            dx = MathUtils.approach(self.x, tx, speed * DTMULT) - self.x
+            dy = MathUtils.approach(self.y, ty, speed * DTMULT) - self.y
         end
 
         self:move(dx, dy)
@@ -216,7 +216,7 @@ end
 
 function Follower:copyHistoryFrom(target)
     self.history_time = target.history_time
-    self.history = Utils.copy(target.history)
+    self.history = TableUtils.copy(target.history)
 end
 function Follower:updateHistory(moved, auto)
     if moved then

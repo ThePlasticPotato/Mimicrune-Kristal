@@ -4,7 +4,7 @@
 local Kristal = {}
 
 if HOTSWAPPING then
-    Utils.copyInto(Kristal, _G.Kristal)
+    TableUtils.copyInto(Kristal, _G.Kristal)
 else
     Kristal.Config = {}
     Kristal.Mods = require("src.engine.mods")
@@ -276,7 +276,7 @@ function love.draw()
         PERFORMANCE_TEST = nil
     end
 
-    local screenshot_size = Utils.lerp(20, 0, SCREENSHOT_DISPLAY)
+    local screenshot_size = MathUtils.lerp(20, 0, SCREENSHOT_DISPLAY)
     if screenshot_size > 0 and not TAKING_SCREENSHOT then
         local w = love.graphics.getWidth() / Kristal.getGameScale()
         local h = love.graphics.getHeight() / Kristal.getGameScale()
@@ -361,15 +361,15 @@ function love.update(dt)
     elseif BORDER_FADING == "IN" then
         BORDER_ALPHA = BORDER_ALPHA + (dt / BORDER_FADE_TIME)
     end
-    BORDER_ALPHA = Utils.clamp(BORDER_ALPHA, 0, 1)
+    BORDER_ALPHA = MathUtils.clamp(BORDER_ALPHA, 0, 1)
 
     if MOUSE_VISIBLE then
         local cursor_speed = (16 * (dt * 30))
         local thumb_x, thumb_y = Input.getLeftThumbstick()
         Input.gamepad_cursor_x = Input.gamepad_cursor_x + thumb_x * cursor_speed
         Input.gamepad_cursor_y = Input.gamepad_cursor_y + thumb_y * cursor_speed
-        Input.gamepad_cursor_x = Utils.clamp(Input.gamepad_cursor_x, 0, love.graphics.getWidth() / Kristal.getGameScale())
-        Input.gamepad_cursor_y = Utils.clamp(Input.gamepad_cursor_y, 0,
+        Input.gamepad_cursor_x = MathUtils.clamp(Input.gamepad_cursor_x, 0, love.graphics.getWidth() / Kristal.getGameScale())
+        Input.gamepad_cursor_y = MathUtils.clamp(Input.gamepad_cursor_y, 0,
                                              love.graphics.getHeight() / Kristal.getGameScale())
     end
 
@@ -380,7 +380,7 @@ function love.update(dt)
 
     Kristal.Stage:update()
 
-    SCREENSHOT_DISPLAY = Utils.approach(SCREENSHOT_DISPLAY, 1, 4 * dt)
+    SCREENSHOT_DISPLAY = MathUtils.approach(SCREENSHOT_DISPLAY, 1, 4 * dt)
 
     if Kristal.Loader.waiting > 0 then
         while Kristal.Loader.out_channel:getCount() > 0 do
@@ -485,7 +485,7 @@ function Kristal.onKeyPressed(key, is_repeat)
     end
 
     if not TextInput.active and not (Input.gamepad_locked and Input.isGamepad(key)) then
-        if not Utils.startsWith(key, "gamepad:") then
+        if not StringUtils.startsWith(key, "gamepad:") then
             Input.active_gamepad = nil
         end
 
@@ -652,7 +652,7 @@ function Kristal.errorHandler(msg, trace_level)
                 end
             end
         elseif msg.msg then
-            local split = Utils.split(msg.msg, "\n")
+            local split = StringUtils.split(msg.msg, "\n")
             trace = table.concat(split, "\n", 2)
             msg = split[1]
         end
@@ -732,7 +732,7 @@ function Kristal.errorHandler(msg, trace_level)
 
     love.graphics.origin()
 
-    local split = Utils.split(msg, ": ")
+    local split = StringUtils.split(msg, ": ")
 
     local version_string = "Kristal v" .. tostring(Kristal.Version)
     local trimmed_commit = GitFinder:fetchTrimmedCommit()
@@ -746,9 +746,9 @@ function Kristal.errorHandler(msg, trace_level)
     local w = 0
     local h = 18
     if Mod then
-        local chapter = (Mod.info.id == "mimicrune") and 1 or (Mod.info.id == "mimicrune_chapter_select") and "Select" or Utils.sub(Mod.info.chapter)
+        local chapter = (Mod.info.id == "mimicrune") and 1 or (Mod.info.id == "mimicrune_chapter_select") and "Select" or StringUtils.sub(Mod.info.chapter)
         mod_string = "Mimicrune: Chapter " .. chapter .. " " .. (Mod.info.version or "v?.?.?")
-        if Utils.tableLength(Mod.libs) > 0 then
+        if TableUtils.getKeyCount(Mod.libs) > 0 then
             lib_string = "Libraries:"
             for _, lib in Kristal.iterLibraries() do
                 -- Very rare edge case where `lib` ends up being `nil`, we'll add an
@@ -1065,7 +1065,7 @@ end
 --- Sets the master volume to the given value and saves it to the config.
 ---@param volume number The volume to set.
 function Kristal.setVolume(volume)
-    Kristal.Config["masterVolume"] = Utils.clamp(volume, 0, 1)
+    Kristal.Config["masterVolume"] = MathUtils.clamp(volume, 0, 1)
     love.audio.setVolume(volume)
     Kristal.saveConfig()
 end
@@ -1673,7 +1673,7 @@ function Kristal.loadConfig()
         brokenMenuBoxes = false
     }
     if love.filesystem.getInfo("settings.json") then
-        Utils.merge(config, JSON.decode(love.filesystem.read("settings.json")))
+        TableUtils.merge(config, JSON.decode(love.filesystem.read("settings.json")))
     end
     return config
 end
@@ -1797,7 +1797,7 @@ function Kristal.libCall(id, f, ...)
                 end
             end
         end
-        return Utils.unpack(result)
+        return TableUtils.unpack(result)
     else
         local lib = Mod.libs[id]
         if lib and lib[f] and type(lib[f]) == "function" then
@@ -1816,9 +1816,9 @@ function Kristal.callEvent(f, ...)
     local mod_result = {Kristal.modCall(f, ...)}
     --print("EVENT: "..tostring(f), #mod_result, #lib_result)
     if(#mod_result > 0) then
-        return Utils.unpack(mod_result)
+        return TableUtils.unpack(mod_result)
     else
-        return Utils.unpack(lib_result)
+        return TableUtils.unpack(lib_result)
     end
 end
 
@@ -1876,7 +1876,7 @@ function Kristal.getLibConfig(lib_id, key, merge, deep_merge)
     elseif lib_value ~= nil and mod_value == nil then
         return lib_value
     elseif type(lib_value) == "table" and merge then
-        return Utils.merge(Utils.copy(lib_value, true), mod_value, deep_merge)
+        return TableUtils.merge(TableUtils.copy(lib_value, true), mod_value, deep_merge)
     else
         return mod_value
     end
@@ -1938,7 +1938,7 @@ function Kristal.iterLibraries()
     end
 end
 
---- Clears all mod-defined hooks from `Utils.hook`, and restores the original functions. \
+--- Clears all mod-defined hooks from `HookSystem.hook`, and restores the original functions. \
 --- Called internally when a mod is unloaded.
 function Kristal.clearModHooks()
     for _, hook in ipairs(HookSystem.__MOD_HOOKS) do

@@ -108,7 +108,7 @@ end
 ---@param soul Soul
 function Solid:onSquished(soul)
     --[[if soul.inv_timer == 0 and self.squish_damage and self.squish_damage ~= 0 then
-        local battler = Utils.pick(Game.battle:getActiveParty())
+        local battler = TableUtils.pick(Game.battle:getActiveParty())
         if battler then
             battler:hurt(self.squish_damage)
         end
@@ -117,7 +117,7 @@ function Solid:onSquished(soul)
     end]]
 
     if self.squish_damage and self.squish_damage ~= 0 then
-        local battler = Utils.pick(Game.battle:getActiveParty())
+        local battler = TableUtils.pick(Game.battle:getActiveParty())
         if battler then
             battler:hurt(self.squish_damage)
         end

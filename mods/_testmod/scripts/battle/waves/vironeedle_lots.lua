@@ -5,17 +5,17 @@ function Vironeedle:onStart()
     self.timer:every(1 / 30, function()
         local arena = Game.battle.arena
 
-        local x, y = arena.right + 40 + Utils.random(140), Utils.random(arena.top, arena.bottom)
+        local x, y = arena.right + 40 + MathUtils.random(140), MathUtils.random(arena.top, arena.bottom)
         self:spawnBullet("virovirokun/needle", x, y, false)
 
-        x, y = arena.left - 40 - Utils.random(140), Utils.random(arena.top, arena.bottom)
+        x, y = arena.left - 40 - MathUtils.random(140), MathUtils.random(arena.top, arena.bottom)
         self:spawnBullet("virovirokun/needle", x, y, false, true)
 
-        x, y = Utils.random(arena.left, arena.right), arena.top - 40 - Utils.random(140)
+        x, y = MathUtils.random(arena.left, arena.right), arena.top - 40 - MathUtils.random(140)
         local bullet = self:spawnBullet("virovirokun/needle", x, y, false)
         bullet.rotation = math.pi/2
 
-        x, y = Utils.random(arena.left, arena.right), arena.bottom + 40 + Utils.random(140)
+        x, y = MathUtils.random(arena.left, arena.right), arena.bottom + 40 + MathUtils.random(140)
         bullet = self:spawnBullet("virovirokun/needle", x, y, false)
         bullet.rotation = -math.pi/2
     end)

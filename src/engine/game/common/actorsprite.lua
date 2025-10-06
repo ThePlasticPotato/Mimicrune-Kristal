@@ -250,7 +250,7 @@ function ActorSprite:setAnimation(anim, callback, ignore_actor_callback)
         if type(anim) == "function" then
             anim = {anim}
         else
-            anim = Utils.copy(anim)
+            anim = TableUtils.copy(anim)
         end
         if anim.temp then
             if last_anim then
@@ -325,7 +325,7 @@ end
 ---@param sprite string
 ---@return boolean
 function ActorSprite:isSprite(sprite)
-    return Utils.containsValue(self.sprite_options, sprite)
+    return TableUtils.contains(self.sprite_options, sprite)
 end
 
 --- Selects from the given table `tbl` the relevant value for the current sprite, if it exists
@@ -444,8 +444,8 @@ function ActorSprite:update()
                 self:setFrame(floored_frame)
 
                 -- If we've changed frames into a "step" frame, call the footstep callback
-                if (old_frame ~= floored_frame) and (self.on_footstep ~= nil) and ((self.frame % 2 == 0) or (self.walk_override and Utils.contains(self.anim, "run") and self.frame % 3 == 0) ) then
-                    self.on_footstep(self, math.floor(floored_frame / ((self.walk_override and Utils.contains(self.anim, "run")) and 3 or 2)))
+                if (old_frame ~= floored_frame) and (self.on_footstep ~= nil) and ((self.frame % 2 == 0) or (self.walk_override and StringUtils.contains(self.anim, "run") and self.frame % 3 == 0) ) then
+                    self.on_footstep(self, math.floor(floored_frame / ((self.walk_override and StringUtils.contains(self.anim, "run")) and 3 or 2)))
                 end
             elseif self.frames then
                 -- We should NOT do the walking animation right now, despite having a walking sprite, so reset.

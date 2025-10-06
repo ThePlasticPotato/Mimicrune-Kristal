@@ -43,7 +43,7 @@ function DisplaySoul:update()
     self.flash_timer = self.flash_timer - DTMULT
     if (self.flash_timer <= 0) then
         self.sprite:flash()
-        self.flash_timer = 40 + Utils.random(1, 10)
+        self.flash_timer = 40 + MathUtils.random(1, 10)
     end
     self.soul_glow.x = self.x
     self.soul_glow.y = self.y

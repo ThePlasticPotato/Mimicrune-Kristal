@@ -28,14 +28,14 @@ function preview:update()
     end
 
     for _,particle in ipairs(to_remove) do
-        Utils.removeFromTable(self.particles, particle)
+        TableUtils.removeValue(self.particles, particle)
     end
 
     self.particle_timer = self.particle_timer + DT
     if self.particle_timer >= 0.25 then
         self.particle_timer = 0
-        local radius = Utils.random() * 48 + 16
-        table.insert(self.particles, {radius = radius, x = Utils.random() * SCREEN_WIDTH, y = SCREEN_HEIGHT + radius, max_radius = radius, speed = Utils.random() * 0.5 + 0.5})
+        local radius = MathUtils.random() * 48 + 16
+        table.insert(self.particles, {radius = radius, x = MathUtils.random() * SCREEN_WIDTH, y = SCREEN_HEIGHT + radius, max_radius = radius, speed = MathUtils.random() * 0.5 + 0.5})
     end
 end
 

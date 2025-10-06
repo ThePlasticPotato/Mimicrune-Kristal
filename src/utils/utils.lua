@@ -1689,14 +1689,14 @@ function Utils.getPointOnPath(path, t)
         local nx, ny = next_point.x or next_point[1], next_point.y or next_point[2]
 
         -- Get the length of the current line
-        local current_length = Utils.dist(cx, cy, nx, ny)
+        local current_length = MathUtils.dist(cx, cy, nx, ny)
 
         -- Using the distance we've traversed so far, and the length of the current line,
         -- check if the point we're looking for is on this line
         if traversed + current_length > t then
             -- Calculate the position of the point on the line
             local progress = (t - traversed) / current_length
-            return Utils.lerp(cx, nx, progress), Utils.lerp(cy, ny, progress)
+            return MathUtils.lerp(cx, nx, progress), MathUtils.lerp(cy, ny, progress)
         end
 
         -- Remember the furthest point on the path so far

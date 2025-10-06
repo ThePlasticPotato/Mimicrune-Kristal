@@ -734,25 +734,25 @@ function Shop:update()
         if self.shopkeeper.slide then
             local target_x = SCREEN_WIDTH/2 - 80
             if self.shopkeeper.x > target_x + 60 then
-                self.shopkeeper.x = Utils.approach(self.shopkeeper.x, target_x, 4 * DTMULT)
+                self.shopkeeper.x = MathUtils.approach(self.shopkeeper.x, target_x, 4 * DTMULT)
             end
             if self.shopkeeper.x > target_x + 40 then
-                self.shopkeeper.x = Utils.approach(self.shopkeeper.x, target_x, 4 * DTMULT)
+                self.shopkeeper.x = MathUtils.approach(self.shopkeeper.x, target_x, 4 * DTMULT)
             end
             if self.shopkeeper.x > target_x then
-                self.shopkeeper.x = Utils.approach(self.shopkeeper.x, target_x, 4 * DTMULT)
+                self.shopkeeper.x = MathUtils.approach(self.shopkeeper.x, target_x, 4 * DTMULT)
             end
         end
     elseif self.shopkeeper.slide then
         local target_x = SCREEN_WIDTH/2
         if self.shopkeeper.x < target_x - 50 then
-            self.shopkeeper.x = Utils.approach(self.shopkeeper.x, target_x, 4 * DTMULT)
+            self.shopkeeper.x = MathUtils.approach(self.shopkeeper.x, target_x, 4 * DTMULT)
         end
         if self.shopkeeper.x < target_x - 30 then
-            self.shopkeeper.x = Utils.approach(self.shopkeeper.x, target_x, 4 * DTMULT)
+            self.shopkeeper.x = MathUtils.approach(self.shopkeeper.x, target_x, 4 * DTMULT)
         end
         if self.shopkeeper.x < target_x then
-            self.shopkeeper.x = Utils.approach(self.shopkeeper.x, target_x, 4 * DTMULT)
+            self.shopkeeper.x = MathUtils.approach(self.shopkeeper.x, target_x, 4 * DTMULT)
         end
     end
 
@@ -829,7 +829,7 @@ function Shop:draw()
         else
             Draw.draw(self.heart_sprite, 30 + 420, 230 + 80 + 10 + (self.current_selecting_choice * 30))
             Draw.setColor(COLORS.white)
-            local lines = Utils.split(string.format(self.buy_confirmation_text, string.format(self.currency_text, self.items[self.current_selecting].options["price"] or 0)), "\n")
+            local lines = StringUtils.split(string.format(self.buy_confirmation_text, string.format(self.currency_text, self.items[self.current_selecting].options["price"] or 0)), "\n")
             for i = 1, #lines do
                 love.graphics.print(lines[i], 60 + 400, 420 - 160 + ((i - 1) * 30))
             end
@@ -948,7 +948,7 @@ function Shop:draw()
         if self.sell_confirming then
             Draw.draw(self.heart_sprite, 30 + 420, 230 + 80 + 10 + (self.current_selecting_choice * 30))
             Draw.setColor(COLORS.white)
-            local lines = Utils.split(string.format(self.sell_confirmation_text, string.format(self.currency_text, inventory[self.item_current_selecting]:getSellPrice())), "\n")
+            local lines = StringUtils.split(string.format(self.sell_confirmation_text, string.format(self.currency_text, inventory[self.item_current_selecting]:getSellPrice())), "\n")
             for i = 1, #lines do
                 love.graphics.print(lines[i], 60 + 400, 420 - 160 + ((i - 1) * 30))
             end

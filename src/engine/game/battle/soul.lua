@@ -178,7 +178,7 @@ function Soul:shatter(count)
         local y_pos = self.shard_y_table[((i - 1) % #self.shard_y_table) + 1]
         local shard = Sprite("player/heart_shard", self.x + x_pos, self.y + y_pos)
         shard:setColor(self:getColor())
-        shard.physics.direction = math.rad(Utils.random(360))
+        shard.physics.direction = math.rad(MathUtils.random(360))
         shard.physics.speed = 7
         shard.physics.gravity = 0.2
         shard.layer = self.layer
@@ -480,13 +480,13 @@ end
 
 function Soul:update()
     if self.parry_cd > 0 then
-        self.parry_cd = Utils.approach(self.parry_cd, 0, DT)
+        self.parry_cd = MathUtils.approach(self.parry_cd, 0, DT)
     end
     if self.parry_timer > 0 then
-        self.parry_timer = Utils.approach(self.parry_timer, 0, DT)
+        self.parry_timer = MathUtils.approach(self.parry_timer, 0, DT)
     end
     if self.parry_draw_timer > 0 then
-        self.parry_draw_timer = Utils.approach(self.parry_draw_timer, 0, DT)
+        self.parry_draw_timer = MathUtils.approach(self.parry_draw_timer, 0, DT)
     end
 
     if self.transitioning then
@@ -506,10 +506,10 @@ function Soul:update()
             end
         else
             self:setExactPosition(
-                Utils.lerp(self.original_x, self.target_x, self.timer / 7),
-                Utils.lerp(self.original_y, self.target_y, self.timer / 7)
+                MathUtils.lerp(self.original_x, self.target_x, self.timer / 7),
+                MathUtils.lerp(self.original_y, self.target_y, self.timer / 7)
             )
-            self.alpha = Utils.lerp(0, self.target_alpha or 1, self.timer / 3)
+            self.alpha = MathUtils.lerp(0, self.target_alpha or 1, self.timer / 3)
             self.sprite:setColor(self.color[1], self.color[2], self.color[3], self.alpha)
             self.timer = self.timer + (1 * DTMULT)
         end
@@ -523,7 +523,7 @@ function Soul:update()
 
     -- Bullet collision !!! Yay
     if self.inv_timer > 0 then
-        self.inv_timer = Utils.approach(self.inv_timer, 0, DT)
+        self.inv_timer = MathUtils.approach(self.inv_timer, 0, DT)
     end
 
     local collided_bullets = {}

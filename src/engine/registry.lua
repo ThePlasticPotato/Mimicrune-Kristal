@@ -75,7 +75,7 @@ function Registry.initialize(preload)
         local chapter = Kristal.getModOption("chapter") or 2
         Game.chapter = chapter
 
-        for _,path in ipairs(Utils.getFilesRecursive("data", ".lua")) do
+        for _,path in ipairs(FileSystemUtils.getFilesRecursive("data", ".lua")) do
             local chunk = love.filesystem.load("data/"..path..".lua")
             self.base_scripts["data/"..path] = chunk
         end
@@ -388,7 +388,7 @@ end
 ---@return boolean|nil grouped
 function Registry.getEventScript(group, id)
     if not id then
-        local args = Utils.split(group, ".")
+        local args = StringUtils.split(group, ".")
         group = args[1]
         id = args[2]
     end
@@ -870,7 +870,7 @@ function Registry.initTilesets()
     for full_path,path,data in self.iterScripts(Registry.paths["tilesets"]) do
         data.full_path = full_path
         data.id = path
-        self.registerTileset(path, Tileset(data, full_path, Utils.getDirname(full_path)))
+        self.registerTileset(path, Tileset(data, full_path, FileSystemUtils.getDirname(full_path)))
     end
 
     Kristal.callEvent(KRISTAL_EVENT.onRegisterTilesets)
@@ -881,7 +881,7 @@ function Registry.initMaps()
     self.map_data = {}
 
     for full_path,path,data in self.iterScripts(Registry.paths["maps"]) do
-        local split_path = Utils.split(path, "/", true)
+        local split_path = StringUtils.split(path, "/", true)
         if isClass(data) then
             if split_path[#split_path] == "map" then
                 self.registerMap(table.concat(split_path, "/", 1, #split_path-1), data)
@@ -988,7 +988,7 @@ function Registry.iterScripts(base_path, exclude_folder)
         else
             local result_path = file
             if exclude_folder then
-                local split_path = Utils.split(file, "/", true)
+                local split_path = StringUtils.split(file, "/", true)
                 result_path = split_path[#split_path]
             end
             local id = type(a) == "table" and a.id or result_path

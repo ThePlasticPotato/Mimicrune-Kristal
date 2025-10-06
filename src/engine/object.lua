@@ -1290,7 +1290,7 @@ function Object:removeFX(id)
         if fx.parent == self then
             fx.parent = nil
         end
-        Utils.removeFromTable(self.draw_fx, fx)
+        TableUtils.removeValue(self.draw_fx, fx)
         return fx
     end
 end

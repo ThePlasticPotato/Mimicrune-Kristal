@@ -215,7 +215,7 @@ function RecruitMenu:draw()
 
         if self:getMaxPages() > 1 then
             Draw.setColor(1, 1, 1, 1)
-            local offset = Utils.round(math.sin(Kristal.getTime() * 5)) * 2
+            local offset = MathUtils.round(math.sin(Kristal.getTime() * 5)) * 2
             Draw.draw(self.arrow_left, 22 - offset, 213, 0, 2, 2)
             Draw.draw(self.arrow_right, 612 + offset, 213, 0, 2, 2)
         end
@@ -267,7 +267,7 @@ function RecruitMenu:draw()
             end
 
             Draw.setColor(1, 1, 1, 1)
-            local offset = Utils.round(math.sin(Kristal.getTime() * 5)) * 2
+            local offset = MathUtils.round(math.sin(Kristal.getTime() * 5)) * 2
             Draw.draw(self.arrow_left, 22 - offset, 218, 0, 2, 2)
             Draw.draw(self.arrow_right, 602 + offset, 218, 0, 2, 2)
         end

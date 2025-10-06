@@ -74,7 +74,7 @@ return function(cutscene, event, player, facing)
         cutscene:setSpeaker(event)
         cutscene:text("* These [color:yellow]bananas[color:reset] are [color:yellow]Pissing[color:reset] me\noff...")
         while Game.money > 0 do
-            Game.money = math.floor(Utils.lerp(Game.money, 0, 0.33))
+            Game.money = math.floor(MathUtils.lerp(Game.money, 0, 0.33))
             cutscene:wait(1 / 30)
         end
         cutscene:text("* I'm the original   [color:yellow]Starwalker[color:reset][talk:false][react:1][wait:5][react:2][wait:5][react:3][wait:5][react:sussy]", {reactions = {

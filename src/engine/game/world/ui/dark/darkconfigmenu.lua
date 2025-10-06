@@ -40,12 +40,12 @@ function DarkConfigMenu:getBindNumberFromIndex(current_index)
     local keys = Input.getBoundKeys(alias, Input.usingGamepad())
     for index, current_key in ipairs(keys) do
         if Input.usingGamepad() then
-            if Utils.startsWith(current_key, "gamepad:") then
+            if StringUtils.startsWith(current_key, "gamepad:") then
                 shown_bind = index
                 break
             end
         else
-            if not Utils.startsWith(current_key, "gamepad:") then
+            if not StringUtils.startsWith(current_key, "gamepad:") then
                 shown_bind = index
                 break
             end
@@ -57,7 +57,7 @@ end
 function DarkConfigMenu:onKeyPressed(key)
     if self.state == "CONTROLS" then
         if self.rebinding then
-            local gamepad = Utils.startsWith(key, "gamepad:")
+            local gamepad = StringUtils.startsWith(key, "gamepad:")
 
             local worked = key ~= "escape" and
                 Input.setBind(Input.orderedNumberToKey(self.currently_selected), 1, key, gamepad)
@@ -115,7 +115,7 @@ function DarkConfigMenu:onKeyPressed(key)
             self.currently_selected = self.currently_selected + 1
         end
 
-        self.currently_selected = Utils.clamp(self.currently_selected, 1, 9)
+        self.currently_selected = MathUtils.clamp(self.currently_selected, 1, 9)
 
         if old_selected ~= self.currently_selected then
             self.ui_move:stop()
@@ -170,10 +170,10 @@ function DarkConfigMenu:update()
             self.ui_move:play()
         end
 
-        self.currently_selected = Utils.clamp(self.currently_selected, 1, 7)
+        self.currently_selected = MathUtils.clamp(self.currently_selected, 1, 7)
     elseif self.state == "VOLUME" then
         if Input.pressed("cancel") or Input.pressed("confirm") then
-            Kristal.setVolume(Utils.round(Kristal.getVolume() * 100) / 100)
+            Kristal.setVolume(MathUtils.round(Kristal.getVolume() * 100) / 100)
             self.ui_select:stop()
             self.ui_select:play()
             self.state = "MAIN"
@@ -231,7 +231,7 @@ function DarkConfigMenu:draw()
         if self.state == "VOLUME" then
             Draw.setColor(PALETTE["world_text_selected"])
         end
-        love.graphics.print(Utils.round(Kristal.getVolume() * 100) .. "%", 348, 38 + (0 * 32))
+        love.graphics.print(MathUtils.round(Kristal.getVolume() * 100) .. "%", 348, 38 + (0 * 32))
         Draw.setColor(PALETTE["world_text"])
         love.graphics.print(Kristal.Config["simplifyVFX"] and "ON" or "OFF", 348, 38 + (2 * 32))
         love.graphics.print(Kristal.Config["fullscreen"] and "ON" or "OFF", 348, 38 + (3 * 32))

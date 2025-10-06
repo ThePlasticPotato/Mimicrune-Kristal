@@ -1,5 +1,5 @@
 ---@class love : love
-local lv, super = Utils.hookScript(love)
+local lv, super = HookSystem.hookScript(love)
 
 local imgui = Imgui.lib
 

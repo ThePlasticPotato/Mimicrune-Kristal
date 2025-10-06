@@ -157,7 +157,7 @@ function Wave:spawnBulletTo(parent, bullet, ...)
     new_bullet.wave = self
     local attackers = self:getAttackers()
     if #attackers > 0 then
-        new_bullet.attacker = Utils.pick(attackers)
+        new_bullet.attacker = TableUtils.pick(attackers)
     end
     table.insert(self.bullets, new_bullet)
     table.insert(self.objects, new_bullet)

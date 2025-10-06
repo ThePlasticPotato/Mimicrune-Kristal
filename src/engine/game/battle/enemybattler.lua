@@ -373,7 +373,7 @@ function EnemyBattler:spare(pacify)
             spare_flash.amount = spare_flash.amount + 0.2 * DTMULT
             sparkle_timer = sparkle_timer + DTMULT
             if sparkle_timer >= 0.5 then
-                local x, y = Utils.random(0, self.width), Utils.random(0, self.height)
+                local x, y = MathUtils.random(0, self.width), MathUtils.random(0, self.height)
                 local sparkle = SpareSparkle(self:getRelativePos(x, y))
                 sparkle.layer = self.layer + 0.001
                 parent:addChild(sparkle)
@@ -506,7 +506,7 @@ function EnemyBattler:addTemporaryMercy(amount, play_sound, clamp, kill_conditio
     self.temporary_mercy = self.temporary_mercy + amount
 
     local min, max = clamp[1], clamp[2]
-    self.temporary_mercy = Utils.clamp(self.temporary_mercy, min, max)
+    self.temporary_mercy = MathUtils.clamp(self.temporary_mercy, min, max)
 
     if Game:getConfig("mercyMessages") then
         if self.temporary_mercy == 0 then
@@ -626,7 +626,7 @@ function EnemyBattler:getEncounterText()
         return self.spareable_text
     end
 
-    return Utils.pick(self.text)
+    return TableUtils.pick(self.text)
 end
 
 ---@return string
@@ -643,7 +643,7 @@ function EnemyBattler:getEnemyDialogue()
         self.dialogue_override = nil
         return dialogue
     end
-    return Utils.pick(self.dialogue)
+    return TableUtils.pick(self.dialogue)
 end
 
 --- *(Override)* Gets the list of waves this enemy can use each turn.
@@ -664,7 +664,7 @@ end
 function EnemyBattler:selectWave()
     local waves = self:getNextWaves()
     if waves and #waves > 0 then
-        local wave = Utils.pick(waves)
+        local wave = TableUtils.pick(waves)
         self.selected_wave = wave
         return wave
     end
@@ -977,9 +977,9 @@ function EnemyBattler:onDefeatBreakdown(damage, battler)
     local bolt = Sprite("effects/defeat/bolt")
     local screw = Sprite("effects/defeat/screw")
 
-    gear:setSpeed(Utils.random(-8, 8), Utils.random(-8, 8))
-    bolt:setSpeed(Utils.random(-8, 8), Utils.random(-8, 8))
-    screw:setSpeed(Utils.random(-8, 8), Utils.random(-8, 8))
+    gear:setSpeed(MathUtils.random(-8, 8), MathUtils.random(-8, 8))
+    bolt:setSpeed(MathUtils.random(-8, 8), MathUtils.random(-8, 8))
+    screw:setSpeed(MathUtils.random(-8, 8), MathUtils.random(-8, 8))
     gear.layer = 100
     bolt.layer = 100
     screw.layer = 100
@@ -1141,7 +1141,7 @@ end
 
 function EnemyBattler:update()
     if self.hurt_timer > 0 then
-        self.hurt_timer = Utils.approach(self.hurt_timer, 0, DT)
+        self.hurt_timer = MathUtils.approach(self.hurt_timer, 0, DT)
 
         if self.hurt_timer == 0 then
             self:onHurtEnd()
@@ -1149,7 +1149,7 @@ function EnemyBattler:update()
     end
 
     if self.temporary_mercy_percent and self.temporary_mercy_percent.kill_condition_succeed then
-        self.mercy = Utils.clamp(self.mercy + self.temporary_mercy, 0, 100)
+        self.mercy = MathUtils.clamp(self.mercy + self.temporary_mercy, 0, 100)
         self.temporary_mercy = 0
         self.temporary_mercy_percent = nil
     end
