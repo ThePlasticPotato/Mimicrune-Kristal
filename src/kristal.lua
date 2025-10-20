@@ -102,7 +102,7 @@ function love.load(args)
     -- Save the defaults so if we do setWindowTitle for a mod we're able to revert it
     -- Unfortunate variable names
     Kristal.icon = love.window.getIcon()
-    Kristal.game_default_name = love.window.getTitle()
+    Kristal.game_default_name = "MIMICRUNE"
 
     -- pixel scaling (the good one)
     -- the second nearest isn't needed, but the love2d extension marks the second argument as required for some reason

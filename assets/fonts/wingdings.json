@@ -1,6 +1,7 @@
 {
     "defaultSize": 8,
     "lineSpacing": 28,
+    "kerning": 0.25,
 
     "fallbacks": [
         {
