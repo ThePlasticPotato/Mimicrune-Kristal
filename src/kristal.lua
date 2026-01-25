@@ -98,6 +98,61 @@ function Kristal.emplacePersistentVariable(path, value)
     
 end
 
+function Kristal.verifyCoreFiles()
+    -- prognosticus core
+        if (not Kristal.checkPersistentVariable("device/prognosticus.core")) then
+            Kristal.emplacePersistentVariable("device/prognosticus.core", [[
+LIGHT and DARKNESS
+SHINE and SHADOW
+BALANCE held since
+So long ago
+
+Two WORLDS kept in HARMONY
+But nothing is eternal
+
+One day far or now at hand
+Shall come a threat to all that stands
+
+WRATH and ANGER
+HATE and LOSS that
+A GO NY that's festered, and
+
+then the WORLDs shall both crack with hate
+CALAMITY from a poisoned fate
+
+and
+then the EARTH shall near EXPIRE
+through the BLACKEND CLAWS of the SMILING LIAR
+
+BUT, BEFORE ALL MEETS ITS END
+OH, LO ON HOPE ARE THREE THEY SEND
+
+ARRIVING AT WORLD'S DARKEST HOUR
+TO WIELD THEIR BLADES AND HEARTS AND POWER
+
+[THE BOY, WIELDING HOPE BRIGHT IN HIS HAND]
+
+[THE GIRL, AS HER HOURGLASS RUNS OUT OF SAND]
+
+[THE FRIEND, HELD WITHIN THEIR SHINING HEARTS]
+
+[AND THE LIGHT THAT SHALL LEAD THEM THROUGH THE DARK]
+
+And when the night turns to day at the edge of
+Dawn where the memories fade
+
+The promise made by the one with the blade shall
+Weather whatever they’ll face…
+
+∴⍑ᒷリ  ℸ ̣ ⍑ᒷ  ↸ᔑ∷ꖌリᒷᓭᓭ  ᓭℸ ̣ ᔑ∷ℸ ̣ ᓭ  ℸ ̣ 𝙹  ᓵ⚍ℸ ̣   ℸ ̣ 𝙹𝙹  ↸ᒷᒷ!¡,  ∴ᒷ’ꖎꖎ  ⎓╎リ↸  ℸ ̣ ⍑ᒷ  ↸ᔑ||
+ℸ ̣ ⍑ᒷ∷ᒷ’ᓭ  リ𝙹ℸ ̣ ⍑╎リ⊣  ℸ ̣ ⍑ᔑℸ ̣   ᓵ𝙹⚍ꖎ↸  ᒷ⍊ᒷ∷  ᓭℸ ̣ ᔑリ↸  ╎リ  𝙹⚍∷  ∴ᔑ||
+
+ᔑリ↸  ╎  ꖌリ𝙹∴  ℸ ̣ ⍑ᔑℸ ̣   ∴ᒷ’ꖎꖎ  ᒲᔑꖌᒷ  ╎ℸ ̣   ℸ ̣ ⍑∷𝙹⚍⊣⍑…
+ᓵᔑ⚍ᓭᒷ  ╎’ᒲ  ∴╎ℸ ̣ ⍑  ||𝙹⚍  ╎リ  ℸ ̣ ⍑ᒷ  ↸ᔑ∷ꖌ.
+        ]])
+    end
+end
+
 function love.load(args)
     --[[
         Launch args:
@@ -168,6 +223,9 @@ function love.load(args)
     love.filesystem.createDirectory("pv/vessel")
     love.filesystem.createDirectory("pv/plot")
     love.filesystem.createDirectory("pv/device")
+
+    -- ensure corefiles exist
+    Kristal.verifyCoreFiles()
 
     -- default registry
     Registry.initialize()
