@@ -76,7 +76,7 @@ end
 ---@param path string The path to the variable
 ---@return string|boolean
 function Kristal.checkPersistentVariable(path)
-    local full_path = "pv/" + path
+    local full_path = "pv/" .. path
     if love.filesystem.getInfo(full_path) then
         if (StringUtils.contains(path, "json")) then
             return JSON.decode(love.filesystem.read(full_path))
@@ -87,8 +87,9 @@ function Kristal.checkPersistentVariable(path)
     return false
 end
 
-function Kristal.emplacePersistentVariable(path, value, isJson)
-    local full_path = "pv/" + path
+function Kristal.emplacePersistentVariable(path, value)
+    local full_path = "pv/" .. path
+    local isJson = StringUtils.contains(path, "json")
     if (isJson) then
         love.filesystem.write(full_path, JSON.encode(value))
     else
@@ -166,6 +167,7 @@ function love.load(args)
     love.filesystem.createDirectory("pv")
     love.filesystem.createDirectory("pv/vessel")
     love.filesystem.createDirectory("pv/plot")
+    love.filesystem.createDirectory("pv/device")
 
     -- default registry
     Registry.initialize()

@@ -76,7 +76,6 @@ end
 ---@param data Assets.data
 function Assets.loadData(data)
     TableUtils.merge(self.data, data, true)
-    TableUtils.merge(self.data, data, true)
 
     self.parseData(data)
 
