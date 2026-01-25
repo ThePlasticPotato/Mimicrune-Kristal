@@ -391,6 +391,11 @@ function Battle:postInit(state, encounter)
     if self.encounter and self.encounter.tense then
         self.tense = true
         self.using_fft = false
+        self.fountain = TaintedFountainBase({x = SCREEN_WIDTH/2, y = (-373), properties = {}}, true)
+        self.fountain.layer = BATTLE_LAYERS["bottom"] - 1
+        self.fountain.wing_left:setParent(self)
+        self.fountain.wing_right:setParent(self)
+        self:addChild(self.fountain)
     end
 
     if Game.world.music:isPlaying() and (self.encounter.music or self.tense) then

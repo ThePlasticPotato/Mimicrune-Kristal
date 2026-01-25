@@ -72,6 +72,31 @@ function Kristal.fetch(url, options)
     return true
 end
 
+---Checks the pv folder for persitent variables. Returns the variable if it exists, or false if it doesn't.
+---@param path string The path to the variable
+---@return string|boolean
+function Kristal.checkPersistentVariable(path)
+    local full_path = "pv/" + path
+    if love.filesystem.getInfo(full_path) then
+        if (StringUtils.contains(path, "json")) then
+            return JSON.decode(love.filesystem.read(full_path))
+        else
+            return love.filesystem.read(full_path)
+        end
+    end
+    return false
+end
+
+function Kristal.emplacePersistentVariable(path, value, isJson)
+    local full_path = "pv/" + path
+    if (isJson) then
+        love.filesystem.write(full_path, JSON.encode(value))
+    else
+        love.filesystem.write(full_path, value)
+    end
+    
+end
+
 function love.load(args)
     --[[
         Launch args:
@@ -136,6 +161,9 @@ function love.load(args)
     -- setup structure
     love.filesystem.createDirectory("mods")
     love.filesystem.createDirectory("saves")
+    love.filesystem.createDirectory("pv")
+    love.filesystem.createDirectory("pv/vessel")
+    love.filesystem.createDirectory("pv/plot")
 
     -- default registry
     Registry.initialize()

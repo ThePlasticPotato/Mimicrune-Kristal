@@ -20,31 +20,16 @@ function Loading:enter(from, dir)
     self.load_complete = false
 
     self.animation_done = false
+    self.debug_wait = false
+    self.debug_input_buffer = 0
 
     self.w = self.logo:getWidth()
     self.h = self.logo:getHeight()
 
     if not Kristal.Config["skipIntro"] then
-        love.window.setTitle("SURVEY_PROGRAM")
-        love.window.setIcon(self.dr_icon)
-        self.noise = love.audio.newSource("assets/sounds/kristal_intro.ogg", "static")
-        self.intro = love.audio.newSource("assets/sounds/titlecard.wav", "static")
-        self.end_noise = love.audio.newSource("assets/sounds/kristal_intro_end.ogg", "static")
-        self.shine = love.audio.newSource("assets/sounds/snd_greatshine.wav", "static")
-        self.glitch1 = love.audio.newSource("assets/sounds/intercept_short_1.ogg", "static")
-        self.glitch1:setVolume(0.5)
-        self.glitch2 = love.audio.newSource("assets/sounds/intercept_short_2.ogg", "static")
-        self.glitch2:setVolume(0.5)
-        self.noise:play()
-        self.shaking_base_x = 0
-        self.shaking_base_y = 0
-        self.shaking = false
-        self.shake_x = 0
-        self.sahke_y = 0
-        self.shake_friction = 0
-        self.shake_timer = 0
-        self.glitch1_played = false
-        self.glitch2_played = false
+        if not self.debug_wait then
+            self:startIntro()
+        end
     else
         self:beginLoad()
     end
@@ -66,6 +51,29 @@ function Loading:enter(from, dir)
     self.fader_alpha = 0
 
     self.done_loading = false
+end
+
+function Loading:startIntro()
+    love.window.setTitle("SURVEY_PROGRAM")
+    love.window.setIcon(self.dr_icon)
+    self.noise = love.audio.newSource("assets/sounds/kristal_intro.ogg", "static")
+    self.intro = love.audio.newSource("assets/sounds/titlecard.wav", "static")
+    self.end_noise = love.audio.newSource("assets/sounds/kristal_intro_end.ogg", "static")
+    self.shine = love.audio.newSource("assets/sounds/snd_greatshine.wav", "static")
+    self.glitch1 = love.audio.newSource("assets/sounds/intercept_short_1.ogg", "static")
+    self.glitch1:setVolume(0.5)
+    self.glitch2 = love.audio.newSource("assets/sounds/intercept_short_2.ogg", "static")
+    self.glitch2:setVolume(0.5)
+    self.noise:play()
+    self.shaking_base_x = 0
+    self.shaking_base_y = 0
+    self.shaking = false
+    self.shake_x = 0
+    self.sahke_y = 0
+    self.shake_friction = 0
+    self.shake_timer = 0
+    self.glitch1_played = false
+    self.glitch2_played = false
 end
 
 -- Inspired by Agent 7's Window Utils, go check that out!
@@ -95,6 +103,9 @@ function Loading:beginLoad()
 end
 
 function Loading:update()
+    if (self.debug_input_buffer > 0) then
+        self.debug_input_buffer = self.debug_input_buffer - DT
+    end
     if (self.shaking) then
         if (self.shake_x ~= 0) or (self.shake_y ~= 0) then
             self.shake_timer = self.shake_timer + DT
@@ -205,6 +216,9 @@ function Loading:drawTerminalText(text, x, y, color)
 end
 
 function Loading:draw()
+    if (self.debug_wait) then
+        return
+    end
     if Kristal.Config["skipIntro"] then
         love.graphics.push()
         love.graphics.translate(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2)
@@ -233,16 +247,6 @@ function Loading:draw()
             self.glitch1_played = false
             self.glitch2_played = false
         else
-            for i = 0, self.h - 1 do
-                self.ia = ((self.siner / 25) - (math.abs((i - (self.h / 2))) * 0.05))
-                self.xoff = ((40 * math.sin(((self.siner / 5) + (i / 3)))) * self.factor)
-                self.xoff2 = ((40 * math.sin((((self.siner / 5) + (i / 3)) + 0.6))) * self.factor)
-                self.xoff3 = ((40 * math.sin((((self.siner / 5) + (i / 3)) + 1.2))) * self.factor)
-                
-                self:drawScissor(self.logo_kristal, 0, i, self.w, 2, (self.x + self.xoff), (self.y + i), (not self.glitch2_played) and ((1 - self.factor) / 2) or 0)
-                self:drawScissor(self.logo_kristal, 0, i, self.w, 2, (self.x + self.xoff2), (self.y + i), (not self.glitch2_played) and ((1 - self.factor) / 2) or 0)
-                self:drawScissor(self.logo_kristal, 0, i, self.w, 2, (self.x + self.xoff3), (self.y + i), (not self.glitch2_played) and ((1 - self.factor) / 2) or 0)
-            end
             if (self.factor <= 0.50 and self.factor >= 0.40) or (self.factor <= 0 and self.factor >= -0.15) then
                 love.graphics.setShader(self.glitch_shader)
                 if (self.factor <= 0.50 and self.factor >= 0.40) and not self.glitch1_played then
@@ -262,11 +266,21 @@ function Loading:draw()
                 self.glitch_shader:send("horizontal_shake", 0.01)
                 self.glitch_shader:send("color_drift", 0.03)
             end
-            self:drawSprite(self.logo_kristal, self.x + (self.w / 2), self.y + (self.h / 2), 1 - self.factor)
+            for i = 0, self.h - 1 do
+                self.ia = ((self.siner / 25) - (math.abs((i - (self.h / 2))) * 0.05))
+                self.xoff = ((40 * math.sin(((self.siner / 5) + (i / 3)))) * self.factor)
+                self.xoff2 = ((40 * math.sin((((self.siner / 5) + (i / 3)) + 0.6))) * self.factor)
+                self.xoff3 = ((40 * math.sin((((self.siner / 5) + (i / 3)) + 1.2))) * self.factor)
+                
+                self:drawScissor(self.logo_kristal, 0, i, self.w, 2, (self.x + self.xoff), (self.y + i), (not self.glitch2_played) and ((1 - self.factor) / 2) or 0)
+                self:drawScissor(self.logo_kristal, 0, i, self.w, 2, (self.x + self.xoff2), (self.y + i), (not self.glitch2_played) and ((1 - self.factor) / 2) or 0)
+                self:drawScissor(self.logo_kristal, 0, i, self.w, 2, (self.x + self.xoff3), (self.y + i), (not self.glitch2_played) and ((1 - self.factor) / 2) or 0)
+            end
             love.graphics.setShader()
             if (self.glitch1_played) then
                 local nextline = self:drawTerminalText("> [FATAL] : UNABLE TO ESTABLISH CONNECTION TO 'deltarune'. (125 : PREEXISTING_CONNECTION)", 8, 4, {1, 0.25, 0.25, 1})
                 if (self.glitch2_played) then
+                    self:drawSprite(self.logo_kristal, self.x + (self.w / 2), self.y + (self.h / 2), 1 - self.factor)
                     nextline = self:drawTerminalText("> REROUTING TO ALTERNATIVE DEVICE SERVER...", 8, nextline)
                 end
             end
@@ -420,10 +434,16 @@ function Loading:draw()
 end
 
 function Loading:onKeyPressed(key)
-    self.key_check = true
-    self.skipped = true
-    if not self.loading and not self.load_complete then
-        self:beginLoad()
+    if (self.debug_wait) then
+        self.debug_wait = false
+        self.debug_input_buffer = 1
+        self:startIntro()
+    elseif self.debug_input_buffer <= 0 then
+        self.key_check = true
+        self.skipped = true
+        if not self.loading and not self.load_complete then
+            self:beginLoad()
+        end
     end
 end
 
