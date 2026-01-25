@@ -10,10 +10,8 @@ function Map:init(world, data)
     self.data = data
 
     if data and data.full_path then
-        local map_path = data.full_path
-        map_path = StringUtils.split(map_path, "/")
-        map_path = table.concat(map_path, "/", 1, #map_path - 1)
-        self.full_map_path = map_path
+        local split_map_path = StringUtils.split(data.full_path, "/")
+        self.full_map_path = table.concat(split_map_path, "/", 1, #split_map_path - 1)
     else
         self.full_map_path = Mod and Mod.info.path or ""
     end
@@ -36,9 +34,9 @@ function Map:init(world, data)
 
     if data and data.backgroundcolor then
         local bgc = data.backgroundcolor
-        self.bg_color = {bgc[1]/255, bgc[2]/255, bgc[3]/255, (bgc[4] or 255)/255}
+        self.bg_color = { bgc[1] / 255, bgc[2] / 255, bgc[3] / 255, (bgc[4] or 255) / 255 }
     else
-        self.bg_color = {0, 0, 0, 0}
+        self.bg_color = { 0, 0, 0, 0 }
     end
 
     self.tilesets = {}
@@ -88,10 +86,8 @@ function Map:load()
     self.world:addChild(self.timer)
     if self.data then
         self:loadMapData(self.data)
-    else
-        self:addTileLayer(0)
     end
-    for _,event in ipairs(self.events) do
+    for _, event in ipairs(self.events) do
         if event.onLoad then
             event:onLoad()
         end
@@ -117,22 +113,22 @@ function Map:getBorder(dark_transition)
 end
 
 function Map:getUniqueID()
-    return "#"..self.id
+    return "#" .. self.id
 end
 
 function Map:setFlag(flag, value)
     local uid = self:getUniqueID()
-    Game:setFlag(uid..":"..flag, value)
+    Game:setFlag(uid .. ":" .. flag, value)
 end
 
 function Map:getFlag(flag, default)
     local uid = self:getUniqueID()
-    return Game:getFlag(uid..":"..flag, default)
+    return Game:getFlag(uid .. ":" .. flag, default)
 end
 
 function Map:addFlag(flag, amount)
     local uid = self:getUniqueID()
-    return Game:addFlag(uid..":"..flag, amount)
+    return Game:addFlag(uid .. ":" .. flag, amount)
 end
 
 --- Gets a specific marker from the current map.
@@ -141,7 +137,7 @@ end
 ---@return number y The y-coordinate of the marker's center.
 function Map:getMarker(name)
     local marker = self.markers[name]
-    return marker and marker.center_x or (self.width * self.tile_width/2), marker and marker.center_y or (self.height * self.tile_height/2)
+    return marker and marker.center_x or (self.width * self.tile_width / 2), marker and marker.center_y or (self.height * self.tile_height / 2)
 end
 
 function Map:hasMarker(name)
@@ -160,7 +156,7 @@ function Map:addTileset(id)
         self.max_gid = self.max_gid + tileset.tile_count
         return tileset
     else
-        error("No tileset with id '"..id.."'")
+        error("No tileset with id '" .. id .. "'")
     end
 end
 
@@ -175,7 +171,7 @@ function Map:getTile(x, y, layer)
 end
 
 function Map:setTile(x, y, tileset, ...)
-    local args = {...}
+    local args = { ... }
 
     local tile_layer
     if type(args[#args]) == "string" then
@@ -252,7 +248,7 @@ end
 
 function Map:getTileLayer(name)
     if name then
-        for _,layer in ipairs(self.tile_layers) do
+        for _, layer in ipairs(self.tile_layers) do
             if layer.name == name then
                 return layer
             end
@@ -288,7 +284,7 @@ function Map:loadMapData(data)
         if layer.type ~= "group" then
             table.insert(layers, layer)
         else
-            for i,sublayer in ipairs(layer.layers) do
+            for i, sublayer in ipairs(layer.layers) do
                 local sublayer_copy = TableUtils.copy(sublayer)
                 sublayer_copy.properties = TableUtils.mergeMany(layer.properties, sublayer_copy.properties)
                 if i == #layer.layers then
@@ -303,11 +299,11 @@ function Map:loadMapData(data)
         end
     end
 
-    for _,layer in ipairs(data.layers or {}) do
+    for _, layer in ipairs(data.layers or {}) do
         loadLayer(TableUtils.copy(layer))
     end
 
-    for i,layer in ipairs(layers) do
+    for i, layer in ipairs(layers) do
         self.layers[layer.name] = self.next_layer
         indexed_layers[i] = self.next_layer
         if not (layer.properties and layer.properties.thin) then
@@ -316,11 +312,11 @@ function Map:loadMapData(data)
     end
 
     self.object_layer = nil
-    for i,layer in ipairs(layers) do
+    for i, layer in ipairs(layers) do
         local name = layer.name:lower()
         local depth = indexed_layers[i]
         if not has_battle_border and StringUtils.startsWith(name, "battleborder") then
-            self.battle_fader_layer = depth - (self.depth_per_layer/2)
+            self.battle_fader_layer = depth - (self.depth_per_layer / 2)
             has_battle_border = true
         end
         if layer.type == "objectgroup" and StringUtils.startsWith(name, "objects") then
@@ -342,7 +338,7 @@ function Map:loadMapData(data)
         self.object_layer = 1
         local priority_object_layer = nil
         local has_markers_layer = false
-        for i,layer in ipairs(layers) do
+        for i, layer in ipairs(layers) do
             local name = layer.name:lower()
             local depth = indexed_layers[i]
             if layer.type == "objectgroup" then
@@ -355,7 +351,7 @@ function Map:loadMapData(data)
                     else
                         -- Otherwise, set the object depth to the closest object layer's depth
                         local closest
-                        for _,obj_depth in ipairs(object_depths) do
+                        for _, obj_depth in ipairs(object_depths) do
                             if not closest then
                                 closest = obj_depth
                             elseif math.abs(depth - obj_depth) <= math.abs(depth - closest) then
@@ -386,7 +382,7 @@ function Map:loadMapData(data)
 
     -- Set the tile layer depth to the closest tile layer below the object layer
     self.tile_layer = 0
-    for _,depth in ipairs(tile_depths) do
+    for _, depth in ipairs(tile_depths) do
         if depth >= self.object_layer then break end
 
         self.tile_layer = depth
@@ -394,7 +390,7 @@ function Map:loadMapData(data)
 
     -- If no battleborder layer, set the battle fader layer depth to be below the object layer
     if not has_battle_border then
-        self.battle_fader_layer = self.object_layer - (self.depth_per_layer/2)
+        self.battle_fader_layer = self.object_layer - (self.depth_per_layer / 2)
     end
 end
 
@@ -437,16 +433,16 @@ function Map:loadTiles(layer, depth)
 end
 
 function Map:loadImage(layer, depth)
-    local texture = FileSystemUtils.absoluteToLocalPath("assets/sprites/", layer.image, self.full_map_path)
-    if not texture then
-        error("Invalid image location for layer " .. layer.name)
+    local success, texture_result = self:loadTextureFromImagePath(layer.image)
+    if not success then
+        error("Map \"" .. self.data.id .. "\" failed to load image layer \"" .. layer.name .. "\"\n" .. texture_result)
     end
-    local sprite = Sprite(texture, layer.offsetx, layer.offsety)
+    local sprite = Sprite(texture_result, layer.offsetx, layer.offsety)
     sprite:setParallax(layer.parallaxx, layer.parallaxy)
     sprite.alpha = layer.opacity
     sprite.layer = depth
     if layer.tintcolor then
-        sprite:setColor(layer.tintcolor[1]/255, layer.tintcolor[2]/255, layer.tintcolor[3]/255)
+        sprite:setColor(layer.tintcolor[1] / 255, layer.tintcolor[2] / 255, layer.tintcolor[3] / 255)
     end
     sprite:setSpeed(layer.properties["speedx"] or 0, layer.properties["speedy"] or 0)
     if layer.repeatx or layer.properties["wrapx"] then
@@ -468,6 +464,23 @@ function Map:loadImage(layer, depth)
     end
 end
 
+function Map:loadTextureFromImagePath(filename)
+    local image_dir = "assets/sprites"
+    local success, result, final_path = TiledUtils.relativePathToAssetId(image_dir, filename, self.full_map_path)
+
+    if not success then
+        if result == "not under prefix" then
+            return false, "Image not found in \"" .. image_dir .. "\" (Got path \"" .. final_path .. "\")"
+        elseif result == "path outside root" then
+            return false, "Image path located outside Kristal (Got path \"<kristal>/" .. final_path .. "\")"
+        else
+            return false, "Unknown reason"
+        end
+    end
+
+    return true, result
+end
+
 function Map:loadCollision(layer)
     TableUtils.merge(self.collision, self:loadHitboxes(layer))
 end
@@ -487,8 +500,8 @@ end
 function Map:loadHitboxes(layer)
     local hitboxes = {}
     local ox, oy = layer.offsetx or 0, layer.offsety or 0
-    for _,v in ipairs(layer.objects) do
-        local hitbox = Utils.colliderFromShape(self.world, v, v.x+ox, v.y+oy, v.properties)
+    for _, v in ipairs(layer.objects) do
+        local hitbox = TiledUtils.colliderFromShape(self.world, v, v.x + ox, v.y + oy, v.properties)
         if hitbox then
             table.insert(hitboxes, hitbox)
 
@@ -504,7 +517,7 @@ end
 function Map:loadShapes(layer)
     self.shape_layers[layer.name] = layer
 
-    for _,v in ipairs(layer.objects) do
+    for _, v in ipairs(layer.objects) do
         self.shapes_by_id[v.id] = v
 
         self.shapes_by_name[v.name] = self.shapes_by_name[v.name] or {}
@@ -513,11 +526,11 @@ function Map:loadShapes(layer)
 end
 
 function Map:loadMarkers(layer)
-    for _,v in ipairs(layer.objects) do
+    for _, v in ipairs(layer.objects) do
         v.width = v.width or 0
         v.height = v.height or 0
-        v.center_x = v.x + v.width/2
-        v.center_y = v.y + v.height/2
+        v.center_x = v.x + v.width / 2
+        v.center_y = v.y + v.height / 2
 
         local marker = TableUtils.copy(v, true)
 
@@ -532,7 +545,7 @@ end
 
 function Map:loadPaths(layer)
     local ox, oy = layer.offsetx or 0, layer.offsety or 0
-    for _,v in ipairs(layer.objects) do
+    for _, v in ipairs(layer.objects) do
         local path = {}
         if v.shape == "ellipse" then
             path.shape = "ellipse"
@@ -575,15 +588,15 @@ function Map:shouldLoadObject(data, layer)
     local skip_loading = false
     local uid = self:getUniqueID() .. "#" .. tostring(data.properties["uid"] or data.id)
     if data.properties["cond"] then
-        local env = setmetatable({}, {__index = function (t, k)
-            return Game.flags[uid .. ":" .. k] or Game.flags[k] or _G[k]
+        local env = setmetatable({}, {__index = function(t, k)
+            return Game:getFlag(uid .. ":" .. k) or Game:getFlag(k) or _G[k]
         end})
         local chunk, _ = assert(loadstring("return " .. data.properties["cond"]))
         skip_loading = not setfenv(chunk, env)()
     elseif data.properties["flagcheck"] then
         local inverted, flag = StringUtils.startsWith(data.properties["flagcheck"], "!")
 
-        local result = Game.flags[uid .. ":" .. flag] or Game.flags[flag]
+        local result = Game:getFlag(uid .. ":" .. flag) or Game:getFlag(flag)
         local value = data.properties["flagvalue"]
         local is_true
         if value ~= nil then
@@ -607,7 +620,7 @@ function Map:loadObjects(layer, depth, layer_type)
     local parent = layer_type == "controllers" and self.world.controller_parent or self.world
 
     self.events_by_layer[layer.name] = {}
-    for _,v in ipairs(layer.objects) do
+    for _, v in ipairs(layer.objects) do
         v.width = v.width or 0
         v.height = v.height or 0
         v.center_x = v.x + v.width / 2
@@ -652,6 +665,7 @@ function Map:loadObjects(layer, depth, layer_type)
                 if obj then
                     obj.x = obj.x + (layer.offsetx or 0)
                     obj.y = obj.y + (layer.offsety or 0)
+                    obj:setParallax((obj.parallax_x or 1) * layer.parallaxx, (obj.parallax_y or 1) * layer.parallaxy)
                     if not obj.object_id then
                         obj.object_id = v.id
                     end
@@ -683,105 +697,62 @@ function Map:loadObjects(layer, depth, layer_type)
     end
 end
 
-function Map:loadObject(name, data)
-    -- Mod object loading
-    local obj = Kristal.modCall("loadObject", self.world, name, data)
-    if obj then
-        if type(obj) == "boolean" then -- don't load the object if it returns true
-            return
-        end
-        return obj
-    else
-        local events = Kristal.modGet("Events")
-        if events and events[name] then
-            return events[name](data)
-        end
-    end
-    local registered_event = Registry.getEvent(name)
+--- Loads an object using the old system, based on the Registry.
+---
+--- Solely for legacy support of mods and libraries that use the old event system.
+---@internal
+---@param name string # The name of the object to load.
+---@param data table # The Tiled object data for the object.
+---@return Event? # The loaded object, or `nil` if none was found.
+function Map:legacyLoadObject(name, data)
+    local registered_event = Registry.getLegacyEvent(name)
     if registered_event then
-        return Registry.createEvent(name, data)
+        return Registry.createLegacyEvent(name, data)
     end
-    -- Library object loading
-    for id,lib in Kristal.iterLibraries() do
-        local obj = Kristal.libCall(id, "loadObject", self.world, name, data)
-        if obj then
-            return obj
-        else
-            if lib.Events and lib.Events[name] then
-                return lib.Events[name](data)
+
+    return nil
+end
+
+--- Load an object by its name.
+---@param name string The name of the object to load.
+---@param data table The Tiled object data for the object.
+---@return Event? The loaded object, or `nil` if none was found.
+function Map:loadObject(name, data)
+
+    -- Check the events
+    local loaded = Kristal.callEvent(KRISTAL_EVENT.loadObject, self.world, name, data)
+    if loaded ~= nil then
+        if type(loaded) == "boolean" then -- don't load the object if it returns true
+            if loaded then
+                return
             end
+        else
+            return loaded
         end
     end
-    local chara_x, chara_y = data.center_x, data.center_y
-    if data.gid then
-        local tx, ty, tw, th = self:getTileObjectRect(data)
-        chara_x = tx + tw / 2
-        chara_y = ty + th
+
+    -- Check the registry
+    if Game.event_registry:has(name) then
+        return Game.event_registry:create(name, data)
     end
 
-    local shape_data = {data.width, data.height, data.polygon}
-
-    local rect_data = TableUtils.copy(shape_data)
-    rect_data[3] = nil
-
-    -- Kristal object loading
-    if name:lower() == "savepoint" then
-        return Savepoint(data.center_x, data.center_y, data.properties)
-    elseif name:lower() == "interactable" then
-        return Interactable(data.x, data.y, shape_data, data.properties)
-    elseif name:lower() == "attackable" then
-        return Attackable(data.x, data.y, shape_data, data.properties)
-    elseif name:lower() == "script" then
-        return Script(data.x, data.y, shape_data, data.properties)
-    elseif name:lower() == "transition" then
-        return Transition(data.x, data.y, shape_data, data.properties)
-    elseif name:lower() == "npc" then
-        return NPC(data.properties["actor"], chara_x, chara_y, data.properties)
-    elseif name:lower() == "enemy" then
-        return ChaserEnemy(data.properties["actor"], chara_x, chara_y, data.properties)
-    elseif name:lower() == "outline" then
-        return Outline(data.x, data.y, rect_data)
-    elseif name:lower() == "silhouette" then
-        return Silhouette(data.x, data.y, rect_data)
-    elseif name:lower() == "slidearea" then
-        return SlideArea(data.x, data.y, rect_data, data.properties)
-    elseif name:lower() == "mirror" then
-        return MirrorArea(data.x, data.y, rect_data, data.properties)
-    elseif name:lower() == "chest" then
-        return TreasureChest(data.center_x, data.center_y, data.properties)
-    elseif name:lower() == "cameratarget" then
-        return CameraTarget(data.x, data.y, shape_data, data.properties)
-    elseif name:lower() == "hideparty" then
-        return HideParty(data.x, data.y, shape_data, data.properties.alpha)
-    elseif name:lower() == "setflag" then
-        return SetFlagEvent(data.x, data.y, shape_data, data.properties)
-    elseif name:lower() == "cybertrash" then
-        return CyberTrashCan(data.center_x, data.center_y, data.properties)
-    elseif name:lower() == "forcefield" then
-        return Forcefield(data.x, data.y, rect_data, data.properties)
-    elseif name:lower() == "pushblock" then
-        return PushBlock(data.x, data.y, rect_data, data.properties)
-    elseif name:lower() == "tilebutton" then
-        return TileButton(data.x, data.y, rect_data, data.properties)
-    elseif name:lower() == "magicglass" then
-        return MagicGlass(data.x, data.y, rect_data)
-    elseif name:lower() == "warpdoor" then
-        return WarpDoor(data.x, data.y, data.properties)
-    elseif name:lower() == "darkfountain" then
-        return DarkFountain(data.x, data.y, data.properties)
-    elseif name:lower() == "fountainfloor" then
-        return FountainFloor(data.x, data.y, rect_data)
-    elseif name:lower() == "quicksave" then
-        return QuicksaveEvent(data.x, data.y, shape_data, data.properties["marker"])
-    elseif name:lower() == "sprite" then
-        local sprite = Sprite(data.properties["texture"], data.x, data.y)
-        sprite:play(data.properties["speed"], true)
-        sprite:setScale(data.properties["scalex"] or 2, data.properties["scaley"] or 2)
-        return sprite
+    -- Attempt to use the legacy system to load it
+    loaded = self:legacyLoadObject(name, data)
+    if loaded ~= nil then
+        return loaded
     end
+
+    -- Check for built-in events, must happen after everything else
+    if Game.builtin_event_registry:has(name) then
+        return Game.builtin_event_registry:create(name, data)
+    end
+
+    -- Fallback to a TileObject
     if data.gid then
         return self:createTileObject(data)
     end
+
+    Kristal.Console:warn("No event with ID '" .. tostring(name) .. "' found")
 end
 
 function Map:loadController(name, data)
@@ -800,7 +771,7 @@ function Map:loadController(name, data)
         return Registry.createController(name, data)
     end
     -- Library object loading
-    for id,lib in Kristal.iterLibraries() do
+    for id, lib in Kristal.iterLibraries() do
         local obj = Kristal.libCall(id, "loadController", self.world, name, data)
         if obj then
             return obj
@@ -820,23 +791,46 @@ end
 
 function Map:populateTilesets(data)
     self.tilesets = {}
-    for _,tileset_data in ipairs(data) do
+    for _, tileset_data in ipairs(data) do
         local tileset
         local filename = tileset_data.exportfilename or tileset_data.filename
         if filename then
-            local tileset_path = FileSystemUtils.absoluteToLocalPath("scripts/world/tilesets/", filename, self.full_map_path)
-            tileset = Registry.getTileset(tileset_path)
-            if not tileset then
-                error("Failed to load map \""..self.data.id.."\", tileset not found: \""..filename.."\"")
+            local success, result = self:loadTilesetFromTilesetPath(filename)
+            if not success then
+                error("Map \"" .. self.data.id .. "\" failed to load tileset \"" .. tostring(tileset_data.name) .. "\"\n" .. result)
             end
+            tileset = result
         else
-            tileset = Tileset(tileset_data, self.full_map_path.."/"..self.data.id, self.full_map_path)
+            tileset = Tileset(tileset_data, self.full_map_path .. "/" .. self.data.id, self.full_map_path)
         end
         table.insert(self.tilesets, tileset)
         local gid = tileset_data.firstgid or (self.max_gid + 1)
         self.tileset_gids[tileset] = gid
         self.max_gid = math.max(self.max_gid, gid + tileset.id_count - 1)
     end
+end
+
+function Map:loadTilesetFromTilesetPath(filename)
+    local tileset_dir = "scripts/world/tilesets"
+    local success, result, final_path = TiledUtils.relativePathToAssetId(tileset_dir, filename, self.full_map_path)
+
+    if not success then
+        if result == "not under prefix" then
+            return false, "Tileset not found in \"" .. tileset_dir .. "\" (Got path \"" .. final_path .. "\")"
+        elseif result == "path outside root" then
+            return false, "Tileset path located outside Kristal (Got path \"<kristal>/" .. final_path .. "\")"
+        else
+            return false, "Unknown reason"
+        end
+    end
+
+    local tileset = Registry.getTileset(result)
+
+    if not tileset then
+        return false, "No tileset found with id \"" .. result .. "\""
+    end
+
+    return true, tileset
 end
 
 function Map:getTileset(id)
@@ -854,7 +848,7 @@ function Map:getTileset(id)
             end
         end
     elseif type(id) == "string" then
-        for _,v in ipairs(self.tilesets) do
+        for _, v in ipairs(self.tilesets) do
             if v.name == id then
                 return v, self.tileset_gids[v]
             end

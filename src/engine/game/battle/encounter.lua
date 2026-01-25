@@ -85,14 +85,16 @@ function Encounter:onCharacterTurn(battler, undo) end
 
 --- *(Override)* Called when [`Battle:setState()`](lua://Battle.setState) is called. \
 --- *Changing the state to something other than `new`, or returning `true` will stop the standard state change code for this state change from occurring.*
----@param old string
----@param new string
+---@param old BattleState
+---@param new BattleState
+---@param reason string
 ---@return boolean?
-function Encounter:beforeStateChange(old, new) end
+function Encounter:beforeStateChange(old, new, reason) end
 --- *(Override)* Called when [`Battle:setState()`](lua://Battle.setState) is called, after any state change code has run.
----@param old string
----@param new string
-function Encounter:onStateChange(old, new) end
+---@param old BattleState
+---@param new BattleState
+---@param reason string
+function Encounter:onStateChange(old, new, reason) end
 
 --- *(Override)* Called when an [`ActionButton`](lua://ActionButton.init) is selected.
 ---@param battler   PartyBattler
@@ -140,6 +142,7 @@ function Encounter:onReturnToWorld(events) end
 ---@return string|BattleCutsceneFunc?, any
 function Encounter:getDialogueCutscene() end
 
+--- *(Override)* Called to modify the victory money earned from the battle.
 ---@param money integer     Current victory money based on normal money calculations
 ---@return integer? money
 function Encounter:getVictoryMoney(money) end
@@ -166,10 +169,11 @@ function Encounter.floorStencil()
     love.graphics.rectangle("fill", -8, 80, SCREEN_WIDTH+16, 380-128)
 end
 
---- *(Override)* Called before anything has been rendered each frame. Usable to draw custom backgrounds for specific encounters.
+--- *(Override)* Called after everything has been rendered each frame. Usable to draw custom effects for specific encounters.
 ---@param fade number   The opacity of the background when fading in/out of the world.
 function Encounter:draw(fade) end
---- *(Override)* Called after everything has been rendered each frame. Usable to draw custom effects for specific encounters.
+
+--- *(Override)* Called before anything has been rendered each frame. Usable to draw custom backgrounds for specific encounters.
 ---@param fade number   The opacity of the background when fading in/out of the world.
 function Encounter:drawBackground(fade)
     if (self.tense) then
@@ -246,7 +250,7 @@ function Encounter:addEnemy(enemy, x, y, ...)
             enemy_obj:setPosition(x, y)
         end
     else
-        for _,enemy in ipairs(enemies) do
+        for _, enemy in ipairs(enemies) do
             enemy.target_x = enemy.target_x - 10
             enemy.target_y = enemy.target_y - 45
             if not transition then
@@ -366,14 +370,14 @@ function Encounter:getSoulSpawnLocation()
         local battler = Game.battle.party[Game.battle:getPartyIndex(main_chara.id)]
 
         if battler then
-            if main_chara.actor:getSoulOffset() then
-                return battler:localToScreenPos(main_chara.actor:getSoulOffset())
+            if main_chara:getActor():getSoulOffset() then
+                return battler:localToScreenPos(main_chara:getActor():getSoulOffset())
             else
-                return battler:localToScreenPos((battler.sprite.width/2) - 4.5, battler.sprite.height/2)
+                return battler:localToScreenPos((battler.sprite.width / 2) - 4.5, battler.sprite.height / 2)
             end
         end
     end
-    return -9, -9
+    return 0, 0
 end
 
 --- *(Override)* Called when enemy dialogue is finished and closed, before the transition into a wave.

@@ -1,3 +1,6 @@
+--- The Text object, made for displaying formatted text.
+---
+--- If you're looking for text which writes itself out over time, see [`DialogueText`](lua://DialogueText).
 ---@class Text : Object
 ---@overload fun(...) : Text
 local Text, super = Class(Object)
@@ -96,13 +99,16 @@ function Text:onAddToStage(stage)
 end
 
 function Text:processInitialNodes()
-    self:drawToCanvas(function()
-        for i = 1, #self.nodes do
-            local current_node = self.nodes[i]
-            self:processNode(current_node, false)
-            self.state.current_node = self.state.current_node + 1
-        end
-    end, true)
+    self:drawToCanvas(
+        function()
+            for i = 1, #self.nodes do
+                local current_node = self.nodes[i]
+                self:processNode(current_node, false)
+                self.state.current_node = self.state.current_node + 1
+            end
+        end,
+        true
+    )
 end
 
 function Text:resetState()
@@ -143,6 +149,19 @@ function Text:resetState()
         current_line = 1,
         line_lengths = { 0 },
     }
+end
+
+--- A helper function to avoid deep-cloning the entire state table.
+---@param state table The state to clone.
+---@return table state The cloned state.
+function Text:cloneState(state)
+    local clone = TableUtils.copy(state)
+
+    -- Clone tables we DO want copied
+    clone.color = TableUtils.copy(state.color)
+    clone.line_lengths = TableUtils.copy(state.line_lengths)
+
+    return clone
 end
 
 function Text:update()
@@ -237,9 +256,7 @@ function Text:textToNodes(input_string)
                     local command = split[1]
                     local arguments = {}
                     if #split > 1 then
-                        -- arguments = Utils.splitFast(split[2], ",")
                         local k = 1
-                        local k_start = 1
                         local escaping = false
                         local arg = ""
                         while k <= StringUtils.len(split[2]) do
@@ -253,7 +270,6 @@ function Text:textToNodes(input_string)
                                 elseif char == "," then
                                     table.insert(arguments, arg)
                                     arg = ""
-                                    k_start = k + 1
                                 elseif k == StringUtils.len(split[2]) then
                                     table.insert(arguments, arg .. char)
                                 else
@@ -300,7 +316,7 @@ function Text:textToNodes(input_string)
                         if self.preprocess then
                             local prior_state
                             if self.wrap then
-                                prior_state = TableUtils.copy(self.state, true)
+                                prior_state = self:cloneState(self.state)
                             end
                             self:processNode(new_node, true)
                             if self.wrap and self.state.current_x > self.width then
@@ -356,7 +372,7 @@ function Text:textToNodes(input_string)
             if self.wrap and (current_char == " " or current_char == "\n") then
                 last_space = #nodes
                 last_space_char = StringUtils.len(display_text)
-                last_space_state = TableUtils.copy(self.state, true)
+                last_space_state = self:cloneState(self.state)
             end
             local new_node = {
                 ["type"] = "character",
@@ -367,7 +383,7 @@ function Text:textToNodes(input_string)
             if self.preprocess then
                 local prior_state
                 if self.wrap then
-                    prior_state = TableUtils.copy(self.state, true)
+                    prior_state = self:cloneState(self.state)
                 end
                 self:processNode(new_node, true)
                 if self.wrap and self.state.current_x > self.width then
@@ -494,8 +510,9 @@ function Text:processNode(node, dry)
             end
             --print("INSERTING " .. node.character .. " AT " .. self.state.current_x .. ", " .. self.state.current_y)
             if not dry then
-                self:drawChar(node, self.state)
-                table.insert(self.nodes_to_draw, { node, TableUtils.copy(self.state, true) })
+                local cloned = self:cloneState(self.state)
+                self:drawChar(node, cloned)
+                table.insert(self.nodes_to_draw, { node, cloned })
             end
             local w, h = self:getNodeSize(node, self.state)
             self.state.current_x = self.state.current_x + w + self.state.spacing
@@ -505,8 +522,9 @@ function Text:processNode(node, dry)
             self.state.escaping = false
             if node.character == "\\" or node.character == StringUtils.sub(self.state.indent_string, 1, 1) or node.character == "[" or node.character == "]" then
                 if not dry then
-                    self:drawChar(node, self.state)
-                    table.insert(self.nodes_to_draw, { node, TableUtils.copy(self.state, true) })
+                    local cloned = self:cloneState(self.state)
+                    self:drawChar(node, cloned)
+                    table.insert(self.nodes_to_draw, { node, cloned })
                 end
                 local w, h = self:getNodeSize(node, self.state)
                 self.state.current_x = self.state.current_x + w + self.state.spacing
@@ -550,10 +568,10 @@ function Text:processModifier(node, dry)
             self.state.color = self.text_color
         elseif #node.arguments[1] == 6 then
             -- It's 6 letters long, assume hashless hex
-            self.state.color = Utils.hexToRgb("#" .. node.arguments[1])
+            self.state.color = ColorUtils.hexToRGB("#" .. node.arguments[1])
         elseif #node.arguments[1] == 7 then
             -- It's 7 letters long, assume hex
-            self.state.color = Utils.hexToRgb(node.arguments[1])
+            self.state.color = ColorUtils.hexToRGB(node.arguments[1])
         end
     elseif node.command == "font" then
         if node.arguments[1] == "reset" then

@@ -28,13 +28,13 @@ function MainMenuModCreate:init(menu)
     self.state_manager = StateManager("NONE", self, true)
 
     self.options = {
-        name = {""},
-        id = {""},
+        name = { "" },
+        id = { "" },
         chapter = 2
     }
     self.selected_option = 1
 
-    self.chapter_options = {1, 2, 3, 4}
+    self.chapter_options = { 1, 2, 3, 4 }
     self.id_adjusted = false
 
     self.input_pos_x = 0
@@ -63,8 +63,8 @@ function MainMenuModCreate:onEnter(old_state)
     end
 
     self.options = {
-        name = {""},
-        id = {""},
+        name = { "" },
+        id = { "" },
         chapter = 2
     }
     self.selected_option = 1
@@ -91,12 +91,12 @@ function MainMenuModCreate:onKeyPressed(key, is_repeat)
         end
 
         local old = self.selected_option
-        if Input.is("up"   , key)                              then self.selected_option = self.selected_option - 1  end
-        if Input.is("down" , key)                              then self.selected_option = self.selected_option + 1  end
-        if Input.is("left" , key) and not Input.usingGamepad() then self.selected_option = self.selected_option - 1  end
-        if Input.is("right", key) and not Input.usingGamepad() then self.selected_option = self.selected_option + 1  end
-        if self.selected_option > 5 then self.selected_option = is_repeat and 5 or 1    end
-        if self.selected_option < 1 then self.selected_option = is_repeat and 1 or 5    end
+        if Input.is("up", key) then self.selected_option = self.selected_option - 1 end
+        if Input.is("down", key) then self.selected_option = self.selected_option + 1 end
+        if Input.is("left", key) and not Input.usingGamepad() then self.selected_option = self.selected_option - 1 end
+        if Input.is("right", key) and not Input.usingGamepad() then self.selected_option = self.selected_option + 1 end
+        if self.selected_option > 5 then self.selected_option = is_repeat and 5 or 1 end
+        if self.selected_option < 1 then self.selected_option = is_repeat and 1 or 5 end
 
         local y_off = (self.selected_option - 1) * 32
         if self.selected_option >= 5 then
@@ -186,11 +186,11 @@ function MainMenuModCreate:draw()
     local menu_x = 64
     local menu_y = 128
 
-    self:drawInputLine("Mod name: ",          menu_x, menu_y + (32 * 0), "name")
-    self:drawInputLine("Mod ID:   ",          menu_x, menu_y + (32 * 1), "id")
-    Draw.printShadow(  "Base chapter: ",      menu_x, menu_y + (32 * 2))
-    Draw.printShadow(  "Edit feature config", menu_x, menu_y + (32 * 3))
-    Draw.printShadow(  "Create mod",          menu_x, menu_y + (32 * 5))
+    self:drawInputLine("Mod name: ", menu_x, menu_y + (32 * 0), "name")
+    self:drawInputLine("Mod ID:   ", menu_x, menu_y + (32 * 1), "id")
+    Draw.printShadow("Base chapter: ", menu_x, menu_y + (32 * 2))
+    Draw.printShadow("Edit feature config", menu_x, menu_y + (32 * 3))
+    Draw.printShadow("Create mod", menu_x, menu_y + (32 * 5))
 
     local off = 256
     self:drawSelectionField(menu_x + off, menu_y + (32 * 2), "chapter", self.chapter_options, "CHAPTER")
@@ -253,7 +253,7 @@ function MainMenuModCreate:onStateChange(old_state, state)
             if TableUtils.contains(disallowed, letter) then
                 return false
             end
-            if letter == " "  then return "_" end
+            if letter == " " then return "_" end
             return letter:lower()
         end)
     elseif state == "CHAPTER" then
@@ -262,14 +262,14 @@ function MainMenuModCreate:onStateChange(old_state, state)
 end
 
 function MainMenuModCreate:onInputCancel()
-    TextInput.input = {""}
+    TextInput.input = { "" }
     TextInput.endInput()
     self:setState("MENU")
 end
 
 function MainMenuModCreate:onInputSubmit(id)
     Assets.stopAndPlaySound("ui_select")
-    TextInput.input = {""}
+    TextInput.input = { "" }
     TextInput.endInput()
 
     if id == "id" then
@@ -345,7 +345,7 @@ function MainMenuModCreate:createMod()
         local chosen = option.options[option.selected]
         local text = chosen
 
-        if chosen == true  then
+        if chosen == true then
             text = "true"
         elseif chosen == false then
             text = "false"
@@ -392,7 +392,7 @@ function MainMenuModCreate:createMod()
                 if file == "mod.json" then
                     -- Special handling in case we're mod.json
                     local data = love.filesystem.read("string", src) --[[@as string]]
-                    data = Utils.format(data, formatting_dict)
+                    data = StringUtils.format(data, formatting_dict)
 
                     local write_file = love.filesystem.newFile(dst)
                     write_file:open("w")
@@ -412,7 +412,7 @@ function MainMenuModCreate:createMod()
             end
         end
     end
-    
+
     -- Create empty useful folders (GitHub won't track empty folders)
     love.filesystem.createDirectory(dir .. "libraries")
     love.filesystem.createDirectory(dir .. "preview")

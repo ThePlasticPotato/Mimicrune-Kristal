@@ -178,6 +178,21 @@ function ActionBox:update()
     super.update(self)
 end
 
+function ActionBox:animateBox()
+    if Game.battle.current_selecting == self.index then
+        if self.box.y > -32 then self.box.y = self.box.y - 2 * DTMULT end
+        if self.box.y > -24 then self.box.y = self.box.y - 4 * DTMULT end
+        if self.box.y > -16 then self.box.y = self.box.y - 6 * DTMULT end
+        if self.box.y > -8  then self.box.y = self.box.y - 8 * DTMULT end
+        -- originally '= -64' but that was an oversight by toby
+        if self.box.y < -32 then self.box.y = -32 end
+    elseif self.box.y < -14 then
+        self.box.y = self.box.y + 15 * DTMULT
+    else
+        self.box.y = 0
+    end
+end
+
 function ActionBox:select()
     local buttons = self:getSelectableButtons()
     buttons[self.selected_button]:select()

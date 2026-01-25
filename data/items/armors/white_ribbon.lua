@@ -47,10 +47,10 @@ function item:init()
     }
 
     -- Character reactions
-    if Game.chapter == 1 then
+    if Game.chapter == 2 then
         self.reactions = {
-            susie = "Nope. Not in 1st grade anymore.",
-            ralsei = "Um... D-do I look cute...?",
+            susie = "I said NO! C'mon already!",
+            ralsei = "It's nice being dressed up...",
             noelle = "... feels familiar.",
             evan = "I guess it matches...?",
             cassidy = {
@@ -61,8 +61,8 @@ function item:init()
         }
     else
         self.reactions = {
-            susie = "I said NO! C'mon already!",
-            ralsei = "It's nice being dressed up...",
+            susie = "Nope. Not in 1st grade anymore.",
+            ralsei = "Um... D-do I look cute...?",
             noelle = "... feels familiar.",
         }
     end

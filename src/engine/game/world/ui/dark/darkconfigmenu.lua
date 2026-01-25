@@ -17,8 +17,6 @@ function DarkConfigMenu:init()
     self.heart_sprite = Assets.getTexture("player/heart")
     self.arrow_sprite = Assets.getTexture("ui/page_arrow_down")
 
-    self.tp_sprite = Assets.getTexture("ui/menu/caption_tp")
-
     self.bg = UIBox(0, 0, self.width, self.height)
     self.bg.layer = -1
     self.bg.debug_select = false
@@ -65,19 +63,16 @@ function DarkConfigMenu:onKeyPressed(key)
             self.rebinding = false
 
             if worked then
-                self.ui_select:stop()
-                self.ui_select:play()
+                Assets.stopAndPlaySound("ui_select")
             else
-                self.ui_cant_select:stop()
-                self.ui_cant_select:play()
+                Assets.stopAndPlaySound("ui_cant_select")
             end
 
             return
         end
         if Input.pressed("confirm") then
             if self.currently_selected < 8 then
-                self.ui_select:stop()
-                self.ui_select:play()
+                Assets.stopAndPlaySound("ui_select")
                 self.rebinding = true
                 return
             end
@@ -100,8 +95,9 @@ function DarkConfigMenu:onKeyPressed(key)
                 self.reset_flash_timer = 0
                 self.state = "MAIN"
                 self.currently_selected = 2
-                self.ui_select:stop()
-                self.ui_select:play()
+
+                Assets.stopAndPlaySound("ui_select")
+
                 Input.clear("confirm", true)
             end
             return
@@ -118,8 +114,7 @@ function DarkConfigMenu:onKeyPressed(key)
         self.currently_selected = MathUtils.clamp(self.currently_selected, 1, 9)
 
         if old_selected ~= self.currently_selected then
-            self.ui_move:stop()
-            self.ui_move:play()
+            Assets.stopAndPlaySound("ui_move")
         end
     end
 end
@@ -127,8 +122,7 @@ end
 function DarkConfigMenu:update()
     if self.state == "MAIN" then
         if Input.pressed("confirm") then
-            self.ui_select:stop()
-            self.ui_select:play()
+            Assets.stopAndPlaySound("ui_select")
 
             if self.currently_selected == 1 then
                 self.state = "VOLUME"
@@ -219,26 +213,26 @@ function DarkConfigMenu:draw()
         if self.state == "VOLUME" then
             Draw.setColor(PALETTE["world_text_selected"])
         end
-        love.graphics.print("Master Volume", 88, 38 + (0 * 32))
+        love.graphics.print("Master Volume", 88, 38 + (0 * 35))
         Draw.setColor(PALETTE["world_text"])
-        love.graphics.print("Controls", 88, 38 + (1 * 32))
-        love.graphics.print("Simplify VFX", 88, 38 + (2 * 32))
-        love.graphics.print("Fullscreen", 88, 38 + (3 * 32))
-        love.graphics.print("Auto-Run", 88, 38 + (4 * 32))
-        love.graphics.print("Return to Title", 88, 38 + (5 * 32))
-        love.graphics.print("Back", 88, 38 + (6 * 32))
+        love.graphics.print("Controls", 88, 38 + (1 * 35))
+        love.graphics.print("Simplify VFX", 88, 38 + (2 * 35))
+        love.graphics.print("Fullscreen", 88, 38 + (3 * 35))
+        love.graphics.print("Auto-Run", 88, 38 + (4 * 35))
+        love.graphics.print("Return to Title", 88, 38 + (5 * 35))
+        love.graphics.print("Back", 88, 38 + (6 * 35))
 
         if self.state == "VOLUME" then
             Draw.setColor(PALETTE["world_text_selected"])
         end
         love.graphics.print(MathUtils.round(Kristal.getVolume() * 100) .. "%", 348, 38 + (0 * 32))
         Draw.setColor(PALETTE["world_text"])
-        love.graphics.print(Kristal.Config["simplifyVFX"] and "ON" or "OFF", 348, 38 + (2 * 32))
-        love.graphics.print(Kristal.Config["fullscreen"] and "ON" or "OFF", 348, 38 + (3 * 32))
-        love.graphics.print(Kristal.Config["autoRun"] and "ON" or "OFF", 348, 38 + (4 * 32))
+        love.graphics.print(Kristal.Config["simplifyVFX"] and "ON" or "OFF", 348, 38 + (2 * 35))
+        love.graphics.print(Kristal.Config["fullscreen"] and "ON" or "OFF", 348, 38 + (3 * 35))
+        love.graphics.print(Kristal.Config["autoRun"] and "ON" or "OFF", 348, 38 + (4 * 35))
 
         Draw.setColor(Game:getSoulColor())
-        Draw.draw(self.heart_sprite, 63, 48 + ((self.currently_selected - 1) * 32))
+        Draw.draw(self.heart_sprite, 63, 48 + ((self.currently_selected - 1) * 35))
     else
         -- NOTE: This is forced to true if using a PlayStation in DELTARUNE... Kristal doesn't have a PlayStation port though.
         local dualshock = Input.getControllerType() == "ps4"
@@ -278,11 +272,11 @@ function DarkConfigMenu:draw()
                 if type(alias) == "table" then
                     local title_cased = {}
                     for _, word in ipairs(alias) do
-                        table.insert(title_cased, Utils.titleCase(word))
+                        table.insert(title_cased, StringUtils.titleCase(word))
                     end
                     love.graphics.print(table.concat(title_cased, "+"), 243, 0 + (28 * index))
                 elseif alias ~= nil then
-                    love.graphics.print(Utils.titleCase(alias), 243, 0 + (28 * index))
+                    love.graphics.print(StringUtils.titleCase(alias), 243, 0 + (28 * index))
                 end
             end
 

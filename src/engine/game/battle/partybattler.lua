@@ -54,7 +54,7 @@ function PartyBattler:init(chara, x, y)
     self.darken_fx = self:addFX(RecolorFX())
 
     self.target_sprite = Sprite("ui/battle/chartarget")
-    self.target_sprite:play(10/30)
+    self.target_sprite:play(10 / 30)
     self:addChild(self.target_sprite)
 
     self.targeted = false
@@ -122,8 +122,8 @@ function PartyBattler:getElementReduction(element)
 
     -- dummy values since we don't have elements
     local armor_elements = {
-        {element = 0, element_reduce_amount = 0},
-        {element = 0, element_reduce_amount = 0}
+        { element = 0, element_reduce_amount = 0 },
+        { element = 0, element_reduce_amount = 0 }
     }
 
     local reduction = 1
@@ -271,7 +271,7 @@ function PartyBattler:swoon()
     self:toggleOverlay(true)
     self.overlay_sprite:setAnimation("battle/swooned")
     if self.action then
-        Game.battle:removeAction(Game.battle:getPartyIndex(self.chara.id))
+        Game.battle:removeAction(Game.battle:getPartyIndex(self.chara.id), true)
     end
     Game.battle:checkGameOver()
 end
@@ -283,7 +283,7 @@ function PartyBattler:down()
     self:toggleOverlay(true)
     self.overlay_sprite:setAnimation("battle/defeat")
     if self.action then
-        Game.battle:removeAction(Game.battle:getPartyIndex(self.chara.id))
+        Game.battle:removeAction(Game.battle:getPartyIndex(self.chara.id), true)
     end
     Game.battle:checkGameOver()
 end
@@ -300,7 +300,7 @@ function PartyBattler:setSleeping(sleeping)
             self.overlay_sprite:setAnimation("battle/defeat")
         end
         if self.action then
-            Game.battle:removeAction(Game.battle:getPartyIndex(self.chara.id))
+            Game.battle:removeAction(Game.battle:getPartyIndex(self.chara.id), true)
         end
     else
         self.sleeping = false

@@ -13,8 +13,7 @@ function love.conf(t)
     local major, minor, revision, codename = love.getVersion()
 
     t.identity = "mimicrune"
-    -- TODO: hmm
-    t.version = "11.0"
+    t.version = "11.5"
 
     t.window.title = "Mimicrune"
     t.window.icon = "icon.png"
@@ -23,11 +22,11 @@ function love.conf(t)
 
     if major >= 12 then
         t.highdpi = true
-        t.usedpiscale = false
+        t.window.usedpiscale = false
     else
         t.window.highdpi = true
         t.window.usedpiscale = false
     end
-	
-	t.externalstorage = true
+
+    t.externalstorage = true
 end

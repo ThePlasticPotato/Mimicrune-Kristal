@@ -698,6 +698,7 @@ end
 ---@return number new_x # The horizontal position of the new point.
 ---@return number new_y # The vertical position of the new point.
 ---
+---@deprecated Use `MathUtils.lerpPoint` instead. As it does not clamp by default, clamp the percentage yourself if needed.
 function Utils.lerpPoint(x1, y1, x2, y2, t, oob)
     local percentage = oob and t or MathUtils.clamp(t, 0, 1)
     return MathUtils.lerpPoint(x1, y1, x2, y2, percentage)
@@ -928,7 +929,7 @@ end
 function Utils.isPolygonClockwise(points)
     local edges = Utils.getPolygonEdges(points)
     local sum = 0
-    for _,edge in ipairs(edges) do
+    for _, edge in ipairs(edges) do
         sum = sum + ((edge[2][1] - edge[1][1]) * (edge[2][2] + edge[1][2]))
     end
     return sum > 0
@@ -1200,12 +1201,12 @@ end
 function Utils.pickMultiple(tbl, amount, sort, remove)
     local t = {}
     local indexes = {}
-    for i,v in ipairs(tbl) do
+    for i, v in ipairs(tbl) do
         if not sort or sort(v) then
             table.insert(indexes, i)
         end
     end
-    for _=1,amount do
+    for _ = 1, amount do
         local i = table.remove(indexes, love.math.random(#indexes))
         if remove then
             table.insert(t, table.remove(tbl, i))
@@ -1243,12 +1244,12 @@ function Utils.reverse(tbl, group)
         tbl = Utils.group(tbl, group)
     end
     -- Loop through the table backwards, and insert each value into the new table.
-    for i=#tbl,1,-1 do
+    for i = #tbl, 1, -1 do
         table.insert(t, tbl[i])
     end
     -- If the table was grouped, flatten it back into a single array.
     if group then
-        t = Utils.flatten(t)
+        t = TableUtils.flatten(t)
     end
     return t
 end
@@ -1400,14 +1401,23 @@ function Utils.endsWith(value, suffix)
     return false, value
 end
 
--- TODO: this function is a mess please comment it later
----@param prefix string base directory of images in the mod
----@param image string raw image path specified by tileset/map
----@param path string path of tileset/map, `image` is relative to this
----@return string|nil final_path nil in case of error
----@deprecated Use `FileSystemUtils.absoluteToLocalPath` instead.
-function Utils.absoluteToLocalPath(prefix, image, path)
-    return FileSystemUtils.absoluteToLocalPath(prefix, image, path)
+---
+--- Attempts to resolve a relative path from a Tiled export to a valid asset id, given it points to a path inside the
+--- `target_dir` of the current mod.
+---
+--- Relative directories (`..`) of the asset path are resolved by starting from the `source_dir`, which should match the
+--- directory the Tiled data was exported to. Exporting to a different directory and copying/moving the exported data will
+--- likely cause this relative search to fail.
+---
+---@param target_dir string # The Kristal folder to get the path relative to.
+---@param asset_path string # The asset path from a Tiled export to resolve.
+---@param source_dir string # Parent directory of the Tiled export, which the `asset_path` should be relative to.
+---@return string? asset_id # The asset path relative the `target_dir` without its extension, or `nil` if the resolution failed.
+---
+---@deprecated Use `TiledUtils.relativePathToAssetId` instead.
+function Utils.absoluteToLocalPath(target_dir, asset_path, source_dir)
+    local success, result = TiledUtils.relativePathToAssetId(target_dir, asset_path, source_dir)
+    return success and result or nil
 end
 
 ---
@@ -1535,7 +1545,7 @@ function Utils.absMax(a, b)
     return MathUtils.absMax(a, b)
 end
 
----@alias facing
+---@alias FacingDirection
 ---| "right"
 ---| "down"
 ---| "left"
@@ -1544,8 +1554,8 @@ end
 ---
 --- Returns a facing direction nearest to the specified angle.
 ---
----@param angle number      # The angle to convert.
----@return facing direction # The facing direction the specified angle is closest to.
+---@param angle number               # The angle to convert.
+---@return FacingDirection direction # The facing direction the specified angle is closest to.
 ---
 function Utils.facingFromAngle(angle)
     local deg = math.deg(angle) % 360
@@ -1566,9 +1576,9 @@ end
 ---
 --- Returns whether the specified angle is considered to be in the specified direction.
 ---
----@param facing facing   # The facing direction to compare.
----@param angle number    # The angle to compare.
----@return boolean result # Whether the angle is closest to the specified facing direction.
+---@param facing FacingDirection # The facing direction to compare.
+---@param angle number           # The angle to compare.
+---@return boolean result        # Whether the angle is closest to the specified facing direction.
 ---
 function Utils.isFacingAngle(facing, angle)
     local deg = math.deg(angle) % 360
@@ -1588,9 +1598,9 @@ end
 ---
 --- Returns two numbers defining a vector based on the specified direction.
 ---
----@param facing facing # The facing direction to get the vector of.
----@return number x     # The horizontal factor of the specified direction.
----@return number y     # The vertical factor of the specified direction.
+---@param facing FacingDirection # The facing direction to get the vector of.
+---@return number x              # The horizontal factor of the specified direction.
+---@return number y              # The vertical factor of the specified direction.
 ---
 function Utils.getFacingVector(facing)
     if facing == "right" then
@@ -1695,7 +1705,7 @@ function Utils.getPointOnPath(path, t)
         -- check if the point we're looking for is on this line
         if traversed + current_length > t then
             -- Calculate the position of the point on the line
-            local progress = (t - traversed) / current_length
+            local progress = MathUtils.clamp((t - traversed) / current_length, 0, 1)
             return MathUtils.lerp(cx, nx, progress), MathUtils.lerp(cy, ny, progress)
         end
 
@@ -1775,7 +1785,7 @@ function Utils.colliderFromShape(parent, data, x, y, properties)
         local line_colliders = {}
 
         -- Loop through each pair of points in the polyline
-        for i = 1, #data.polyline-1 do
+        for i = 1, #data.polyline - 1 do
             local j = i + 1
             -- Create a LineCollider using the current and next point of the polyline
             local x1, y1 = x + data.polyline[i].x, y + data.polyline[i].y
@@ -1791,7 +1801,7 @@ function Utils.colliderFromShape(parent, data, x, y, properties)
 
         for i = 1, #data.polygon do
             -- Convert points from the format {[x] = x, [y] = y} to {x, y}
-            table.insert(points, {x + data.polygon[i].x, y + data.polygon[i].y})
+            table.insert(points, { x + data.polygon[i].x, y + data.polygon[i].y })
         end
 
         current_hitbox = PolygonCollider(parent, points, mode)

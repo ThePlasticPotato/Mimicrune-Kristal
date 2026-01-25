@@ -366,7 +366,7 @@ end
 ---@return boolean
 ---@return Arena|nil
 function Soul:moveYExact(amount, move_x)
-    local sign = Utils.sign(amount)
+    local sign = MathUtils.sign(amount)
     for i = sign, amount, sign do
         local last_x = self.x
         local last_y = self.y
@@ -457,10 +457,10 @@ function Soul:doMovement()
     local move_x, move_y = 0, 0
 
     -- Keyboard input:
-    if Input.down("left")  then move_x = move_x - 1 end
+    if Input.down("left") then move_x = move_x - 1 end
     if Input.down("right") then move_x = move_x + 1 end
-    if Input.down("up")    then move_y = move_y - 1 end
-    if Input.down("down")  then move_y = move_y + 1 end
+    if Input.down("up") then move_y = move_y - 1 end
+    if Input.down("down") then move_y = move_y + 1 end
 
     self.moving_x = move_x
     self.moving_y = move_y
@@ -506,10 +506,10 @@ function Soul:update()
             end
         else
             self:setExactPosition(
-                MathUtils.lerp(self.original_x, self.target_x, self.timer / 7),
-                MathUtils.lerp(self.original_y, self.target_y, self.timer / 7)
+                MathUtils.lerp(self.original_x, self.target_x, MathUtils.clamp(self.timer / 7, 0, 1)),
+                MathUtils.lerp(self.original_y, self.target_y, MathUtils.clamp(self.timer / 7, 0, 1))
             )
-            self.alpha = MathUtils.lerp(0, self.target_alpha or 1, self.timer / 3)
+            self.alpha = MathUtils.lerp(0, self.target_alpha or 1, MathUtils.clamp(self.timer / 3, 0, 1))
             self.sprite:setColor(self.color[1], self.color[2], self.color[3], self.alpha)
             self.timer = self.timer + (1 * DTMULT)
         end
@@ -528,7 +528,7 @@ function Soul:update()
 
     local collided_bullets = {}
     Object.startCache()
-    for _,bullet in ipairs(Game.stage:getObjects(Bullet)) do
+    for _, bullet in ipairs(Game.stage:getObjects(Bullet)) do
         if bullet:collidesWith(self.collider) then
             -- Store collided bullets to a table before calling onCollide
             -- to avoid issues with cacheing inside onCollide
@@ -549,7 +549,7 @@ function Soul:update()
                 else
                     Assets.playSound("graze")
                     Game:giveTension(bullet:getGrazeTension() * self.graze_tp_factor)
-                    if Game.battle.wave_timer < Game.battle.wave_length - (1/3) then
+                    if Game.battle.wave_timer < Game.battle.wave_length - (1 / 3) then
                         Game.battle.wave_timer = Game.battle.wave_timer + ((bullet.time_bonus / 30) * self.graze_time_factor)
                     end
                     self.graze_sprite.timer = 1 / 3
@@ -561,13 +561,13 @@ function Soul:update()
         end
     end
     Object.endCache()
-    for _,bullet in ipairs(collided_bullets) do
+    for _, bullet in ipairs(collided_bullets) do
         self:onCollide(bullet)
     end
 
     if self.inv_timer > 0 then
         self.inv_flash_timer = self.inv_flash_timer + DT
-        local amt = math.floor(self.inv_flash_timer / (4/30))
+        local amt = math.floor(self.inv_flash_timer / (4 / 30))
         if (amt % 2) == 1 then
             self.sprite:setColor(0.5, 0.5, 0.5)
         else

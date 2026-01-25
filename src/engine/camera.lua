@@ -68,19 +68,19 @@ function Camera:init(parent, x, y, width, height, keep_in_bounds)
 
     self.state_manager = StateManager("ATTACHED", self, true)
     self.state_manager:addState("STATIC")
-    self.state_manager:addState("ATTACHED", {enter = self.beginAttached, update = self.updateAttached, leave = self.endAttached})
-    self.state_manager:addState("PAN", {update = self.updatePanning})
+    self.state_manager:addState("ATTACHED", { enter = self.beginAttached, update = self.updateAttached, leave = self.endAttached })
+    self.state_manager:addState("PAN", { update = self.updatePanning })
 
     -- Camera modifiers (position, offset, bounds - smoothly transitioned between)
     self.mods = {
-        x =      {value = 0,   state = "INACTIVE", x = true,  y = false},
-        y =      {value = 0,   state = "INACTIVE", x = false, y = true },
-        ox =     {value = 0,   state = "INACTIVE", x = true,  y = false},
-        oy =     {value = 0,   state = "INACTIVE", x = false, y = true },
-        bounds = {value = nil, state = "INACTIVE", x = true,  y = true }
+        x = { value = 0, state = "INACTIVE", x = true, y = false },
+        y = { value = 0, state = "INACTIVE", x = false, y = true },
+        ox = { value = 0, state = "INACTIVE", x = true, y = false },
+        oy = { value = 0, state = "INACTIVE", x = false, y = true },
+        bounds = { value = nil, state = "INACTIVE", x = true, y = true }
     }
     -- Order camera modifiers are processed in
-    self.mod_order = {"x", "y", "ox", "oy", "bounds"}
+    self.mod_order = { "x", "y", "ox", "oy", "bounds" }
     -- Whether modifiers have been updated this frame
     self.updated_mods = false
 
@@ -160,7 +160,7 @@ end
 ---@overload fun()
 function Camera:setBounds(x, y, width, height)
     if x then
-        self.bounds = {x = x, y = y, width = width, height = height}
+        self.bounds = { x = x, y = y, width = width, height = height }
     else
         self.bounds = nil
     end
@@ -223,7 +223,7 @@ end
 ---@param y number
 ---@param amount number
 function Camera:approach(x, y, amount)
-    local angle = Utils.angle(self.x, self.y, x, y)
+    local angle = MathUtils.angle(self.x, self.y, x, y)
     self.x = MathUtils.approach(self.x, x, math.abs(math.cos(angle)) * amount)
     self.y = MathUtils.approach(self.y, y, math.abs(math.sin(angle)) * amount)
     self:keepInBounds()
@@ -288,7 +288,7 @@ function Camera:panTo(x, y, time, ease, after)
     end
 
     if (x and self.x ~= x) or (y and self.y ~= y) then
-        self.pan_target = {x = x, y = y, time = time, timer = 0, start_x = self.x, start_y = self.y, ease = ease or "linear", after = after}
+        self.pan_target = { x = x, y = y, time = time, timer = 0, start_x = self.x, start_y = self.y, ease = ease or "linear", after = after }
         self:setState("PAN")
         return true
     else
@@ -325,7 +325,7 @@ function Camera:panToSpeed(x, y, speed, after)
 
     if (x and self.x ~= x) or (y and self.y ~= y) then
         self:setState("PAN")
-        self.pan_target = {x = x, y = y, speed = speed, after = after}
+        self.pan_target = { x = x, y = y, speed = speed, after = after }
         return true
     else
         if after then
@@ -493,7 +493,7 @@ function Camera:moveTo(x, y)
 
     self.updated_mods = true
 
-    for _,v in ipairs(self.mod_order) do
+    for _, v in ipairs(self.mod_order) do
         local mod = self.mods[v]
         if mod.state == "IN" or mod.state == "ACTIVE" then
             local mod_x, mod_y = self:processMod(v, self.mods[v], target_x, target_y)
@@ -523,10 +523,10 @@ function Camera:moveTo(x, y)
         self.lerper.timer = MathUtils.approach(self.lerper.timer, self.lerper.time, DT)
 
         if approach_x and approach_y then
-            self.x, self.y = Utils.lerpPoint(
+            self.x, self.y = MathUtils.lerpPoint(
                 self.lerper.start_x, self.lerper.start_y,
                 target_x, target_y,
-                self.lerper.timer / self.lerper.time)
+                MathUtils.clamp(self.lerper.timer / self.lerper.time, 0, 1))
         elseif approach_x then
             self.x = MathUtils.lerp(self.lerper.start_x, target_x, self.lerper.timer / self.lerper.time)
             self.y = target_y
@@ -555,7 +555,7 @@ function Camera:moveTo(x, y)
         self.y = target_y
     end
 
-    for k,v in pairs(self.mods) do
+    for k, v in pairs(self.mods) do
         if (not v.x or self.x == target_x) and (not v.y or self.y == target_y) then
             if v.state == "IN" then
                 v.state = "ACTIVE"
@@ -620,7 +620,7 @@ function Camera:update()
     self.state_manager:update()
 
     if not self.updated_mods then
-        for k,v in pairs(self.mods) do
+        for k, v in pairs(self.mods) do
             if v.state == "ACTIVE" then
                 v.state = "IN"
             end
@@ -710,13 +710,13 @@ function Camera:getParallax(px, py, ox, oy)
     local parallax_x, parallax_y
 
     if ox then
-        parallax_x = (x - (ox - w/2)) * (1 - px)
+        parallax_x = (x - (ox - w / 2)) * (1 - px)
     else
         parallax_x = x * (1 - px)
     end
 
     if oy then
-        parallax_y = (y - (oy - h/2)) * (1 - py)
+        parallax_y = (y - (oy - h / 2)) * (1 - py)
     else
         parallax_y = y * (1 - py)
     end
@@ -729,9 +729,9 @@ end
 ---@param ceil_y? number
 function Camera:applyTo(transform, ceil_x, ceil_y)
     if self.rotation ~= 0 then
-        transform:translate(self.width/2, self.height/2)
+        transform:translate(self.width / 2, self.height / 2)
         transform:rotate(self.rotation)
-        transform:translate(-self.width/2, -self.height/2)
+        transform:translate(-self.width / 2, -self.height / 2)
     end
 
     transform:scale(self.zoom_x, self.zoom_y)

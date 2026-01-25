@@ -86,7 +86,7 @@ Input.mod_keybinds = {}
 Input.gamepad_locked = false
 
 Input.gamepad_cursor_size = 10
-Input.gamepad_cursor_x = (love.graphics.getWidth()  / 2) - (Input.gamepad_cursor_size / 2)
+Input.gamepad_cursor_x = (love.graphics.getWidth() / 2) - (Input.gamepad_cursor_size / 2)
 Input.gamepad_cursor_y = (love.graphics.getHeight() / 2) - (Input.gamepad_cursor_size / 2)
 
 Input.mouse_button_max = 3
@@ -114,10 +114,10 @@ Input.required_binds = {
 }
 
 Input.key_groups = {
-    ["shift"] = {"lshift", "rshift"},
-    ["ctrl"]  = {"lctrl",  "rctrl"},
-    ["alt"]   = {"lalt",   "ralt"},
-    ["cmd"]   = {"lgui",   "rgui"}
+    ["shift"] = { "lshift", "rshift" },
+    ["ctrl"]  = { "lctrl", "rctrl" },
+    ["alt"]   = { "lalt", "ralt" },
+    ["cmd"]   = { "lgui", "rgui" }
 }
 
 Input.group_for_key = {
@@ -195,10 +195,10 @@ function Input.getBoundKeys(key, gamepad)
         end
 
         local bindings = {}
-        for _,bind in ipairs(key_bindings or {}) do
+        for _, bind in ipairs(key_bindings or {}) do
             table.insert(bindings, bind)
         end
-        for _,bind in ipairs(gamepad_bindings or {}) do
+        for _, bind in ipairs(gamepad_bindings or {}) do
             table.insert(bindings, bind)
         end
         return bindings
@@ -255,7 +255,7 @@ function Input.resetBinds(gamepad, mod_id)
         if gamepad ~= true then TableUtils.merge(Input.key_bindings, key_bindings) end
         if gamepad ~= false then TableUtils.merge(Input.gamepad_bindings, gamepad_bindings) end
         return
-    -- If we receive a mod id, we are only resetting binds specific to that mod
+        -- If we receive a mod id, we are only resetting binds specific to that mod
     elseif mod_id then
         local mod = Kristal.Mods.getMod(mod_id)
         if not mod then return end
@@ -308,10 +308,10 @@ function Input.resetBinds(gamepad, mod_id)
             ["fast_forward"] = {{"ctrl", "g"}},
             ["mod_rebind"] = {"/"},
         }
-        for _,mod in ipairs(Kristal.Mods.getMods()) do
+        for _, mod in ipairs(Kristal.Mods.getMods()) do
             if mod.keybinds then
                 Input.mod_keybinds[mod.id] = {}
-                for _,v in pairs(mod.keybinds) do
+                for _, v in pairs(mod.keybinds) do
                     if v.keys then
                         Input.key_bindings[v.id] = TableUtils.copy(v.keys)
                         table.insert(Input.mod_keybinds[mod.id], v.id)
@@ -321,10 +321,10 @@ function Input.resetBinds(gamepad, mod_id)
                 end
             end
             if mod.libs then
-                for _,lib in pairs(mod.libs) do
+                for _, lib in pairs(mod.libs) do
                     if lib.keybinds then
                         Input.mod_keybinds[mod.id] = Input.mod_keybinds[mod.id] or {}
-                        for _,v in pairs(lib.keybinds) do
+                        for _, v in pairs(lib.keybinds) do
                             if v.keys then
                                 Input.key_bindings[v.id] = TableUtils.copy(v.keys)
                                 table.insert(Input.mod_keybinds[mod.id], v.id)
@@ -359,9 +359,9 @@ function Input.resetBinds(gamepad, mod_id)
             ["fast_forward"] = {},
             ["mod_rebind"] = {},
         }
-        for _,mod in ipairs(Kristal.Mods.getMods()) do
+        for _, mod in ipairs(Kristal.Mods.getMods()) do
             if mod.keybinds then
-                for _,v in pairs(mod.keybinds) do
+                for _, v in pairs(mod.keybinds) do
                     if v.gamepad then
                         Input.gamepad_bindings[v.id] = TableUtils.copy(v.gamepad)
                     else
@@ -370,9 +370,9 @@ function Input.resetBinds(gamepad, mod_id)
                 end
             end
             if mod.libs then
-                for _,lib in pairs(mod.libs) do
+                for _, lib in pairs(mod.libs) do
                     if lib.keybinds then
-                        for _,v in pairs(lib.keybinds) do
+                        for _, v in pairs(lib.keybinds) do
                             if v.gamepad then
                                 Input.gamepad_bindings[v.id] = TableUtils.copy(v.gamepad)
                             else
@@ -391,7 +391,7 @@ function Input.loadBinds()
 
     if love.filesystem.getInfo("keybinds.json") then
         local user_binds = JSON.decode(love.filesystem.read("keybinds.json"))
-        for k,v in pairs(user_binds) do
+        for k, v in pairs(user_binds) do
             local key_bind = {}
             local gamepad_bind = {}
             for _,key in ipairs(v) do
@@ -456,9 +456,9 @@ function Input.saveBinds()
     end
 
     local saved_binds = {}
-    for k,v in pairs(all_binds) do
+    for k, v in pairs(all_binds) do
         local new_bind = {}
-        for _,key in ipairs(v) do
+        for _, key in ipairs(v) do
             if type(key) == "table" then
                 table.insert(new_bind, table.concat(key, "+"))
             else
@@ -472,7 +472,7 @@ end
 
 ---@param alias string
 ---@param index number
----@param key string
+---@param key string|string[] # A single key, or a chord
 ---@param gamepad? boolean
 ---@return boolean
 function Input.setBind(alias, index, key, gamepad)
@@ -493,7 +493,7 @@ function Input.setBind(alias, index, key, gamepad)
         return false
     end
 
-    if self.group_for_key[key] then
+    if type(key) ~= "table" and self.group_for_key[key] then
         key = self.group_for_key[key]
     end
 
@@ -538,9 +538,9 @@ function Input.clear(key, clear_down)
     if key then
         local bindings = Input.getBoundKeys(key)
         if bindings then
-            for _,k in ipairs(bindings) do
-                local keys = type(k) == "table" and k or {k}
-                for _,l in ipairs(keys) do
+            for _, k in ipairs(bindings) do
+                local keys = type(k) == "table" and k or { k }
+                for _, l in ipairs(keys) do
                     self.key_pressed[l] = false
                     self.key_repeated[l] = false
                     self.key_released[l] = false
@@ -552,7 +552,7 @@ function Input.clear(key, clear_down)
             end
             return false
         elseif self.key_groups[key] then
-            for _,k in ipairs(self.key_groups[key]) do
+            for _, k in ipairs(self.key_groups[key]) do
                 self.key_pressed[k] = false
                 self.key_repeated[k] = false
                 self.key_released[k] = false
@@ -578,11 +578,11 @@ function Input.clear(key, clear_down)
             self.key_down = {}
             self.key_down_timer = {}
         end
-        for i=1, self.mouse_button_max do
-            self.mouse_pressed[i] = {x = 0, y = 0, presses = 0}
-            self.mouse_released[i] = {x = 0, y = 0, presses = 0}
+        for i = 1, self.mouse_button_max do
+            self.mouse_pressed[i] = { x = 0, y = 0, presses = 0 }
+            self.mouse_released[i] = { x = 0, y = 0, presses = 0 }
             if not self.mouse_down[i] then
-                self.mouse_down[i] = {x = 0, y = 0, presses = 0, dx = 0, dy = 0}
+                self.mouse_down[i] = { x = 0, y = 0, presses = 0, dx = 0, dy = 0 }
             else
                 self.mouse_down[i].dx = 0
                 self.mouse_down[i].dy = 0
@@ -602,47 +602,122 @@ function love.gamepadaxis(joystick, axis, value)
         Input.connected_gamepad = joystick
     end
 
-	if axis == "leftx" then
+    if axis == "leftx" then
         self.gamepad_left_x = value
 
-        local adjusted,_ = Input.getThumbstick("left", true)
+        local adjusted, _ = Input.getThumbstick("left", true)
 
-        if (adjusted < -threshold) then if not Input.keyDown("gamepad:lsleft" ) then Input.onKeyPressed("gamepad:lsleft" , false) end else if Input.keyDown("gamepad:lsleft" ) then Input.onKeyReleased("gamepad:lsleft" ) end end
-        if (adjusted >  threshold) then if not Input.keyDown("gamepad:lsright") then Input.onKeyPressed("gamepad:lsright", false) end else if Input.keyDown("gamepad:lsright") then Input.onKeyReleased("gamepad:lsright") end end
-
-	elseif axis == "lefty" then
+        if (adjusted < -threshold) then
+            if not Input.keyDown("gamepad:lsleft") then
+                Input.onKeyPressed("gamepad:lsleft", false)
+            end
+        else
+            if Input.keyDown("gamepad:lsleft") then
+                Input.onKeyReleased("gamepad:lsleft")
+            end
+        end
+        if (adjusted > threshold) then
+            if not Input.keyDown("gamepad:lsright") then
+                Input.onKeyPressed("gamepad:lsright", false)
+            end
+        else
+            if Input.keyDown("gamepad:lsright") then
+                Input.onKeyReleased("gamepad:lsright")
+            end
+        end
+    elseif axis == "lefty" then
         self.gamepad_left_y = value
 
-        local _,adjusted = Input.getThumbstick("left", true)
+        local _, adjusted = Input.getThumbstick("left", true)
 
-        if (adjusted < -threshold) then if not Input.keyDown("gamepad:lsup"  ) then Input.onKeyPressed("gamepad:lsup"  , false) end else if Input.keyDown("gamepad:lsup"  ) then Input.onKeyReleased("gamepad:lsup"  ) end end
-        if (adjusted >  threshold) then if not Input.keyDown("gamepad:lsdown") then Input.onKeyPressed("gamepad:lsdown", false) end else if Input.keyDown("gamepad:lsdown") then Input.onKeyReleased("gamepad:lsdown") end end
-
+        if (adjusted < -threshold) then
+            if not Input.keyDown("gamepad:lsup") then
+                Input.onKeyPressed("gamepad:lsup", false)
+            end
+        else
+            if Input.keyDown("gamepad:lsup") then
+                Input.onKeyReleased("gamepad:lsup")
+            end
+        end
+        if (adjusted > threshold) then
+            if not Input.keyDown("gamepad:lsdown") then
+                Input.onKeyPressed("gamepad:lsdown", false)
+            end
+        else
+            if Input.keyDown("gamepad:lsdown") then
+                Input.onKeyReleased("gamepad:lsdown")
+            end
+        end
     elseif axis == "rightx" then
         self.gamepad_right_x = value
 
-        local adjusted,_ = Input.getThumbstick("right", true)
+        local adjusted, _ = Input.getThumbstick("right", true)
 
-        if (adjusted < -threshold) then if not Input.keyDown("gamepad:rsleft" ) then Input.onKeyPressed("gamepad:rsleft" , false) end else if Input.keyDown("gamepad:rsleft" ) then Input.onKeyReleased("gamepad:rsleft" ) end end
-        if (adjusted >  threshold) then if not Input.keyDown("gamepad:rsright") then Input.onKeyPressed("gamepad:rsright", false) end else if Input.keyDown("gamepad:rsright") then Input.onKeyReleased("gamepad:rsright") end end
-
+        if (adjusted < -threshold) then
+            if not Input.keyDown("gamepad:rsleft") then
+                Input.onKeyPressed("gamepad:rsleft", false)
+            end
+        else
+            if Input.keyDown("gamepad:rsleft") then
+                Input.onKeyReleased("gamepad:rsleft")
+            end
+        end
+        if (adjusted > threshold) then
+            if not Input.keyDown("gamepad:rsright") then
+                Input.onKeyPressed("gamepad:rsright", false)
+            end
+        else
+            if Input.keyDown("gamepad:rsright") then
+                Input.onKeyReleased("gamepad:rsright")
+            end
+        end
     elseif axis == "righty" then
         self.gamepad_right_y = value
 
-        local _,adjusted = Input.getThumbstick("right", true)
+        local _, adjusted = Input.getThumbstick("right", true)
 
-        if (adjusted < -threshold) then if not Input.keyDown("gamepad:rsup"  ) then Input.onKeyPressed("gamepad:rsup"  , false) end else if Input.keyDown("gamepad:rsup"  ) then Input.onKeyReleased("gamepad:rsup"  ) end end
-        if (adjusted >  threshold) then if not Input.keyDown("gamepad:rsdown") then Input.onKeyPressed("gamepad:rsdown", false) end else if Input.keyDown("gamepad:rsdown") then Input.onKeyReleased("gamepad:rsdown") end end
-
+        if (adjusted < -threshold) then
+            if not Input.keyDown("gamepad:rsup") then
+                Input.onKeyPressed("gamepad:rsup", false)
+            end
+        else
+            if Input.keyDown("gamepad:rsup") then
+                Input.onKeyReleased("gamepad:rsup")
+            end
+        end
+        if (adjusted > threshold) then
+            if not Input.keyDown("gamepad:rsdown") then
+                Input.onKeyPressed("gamepad:rsdown", false)
+            end
+        else
+            if Input.keyDown("gamepad:rsdown") then
+                Input.onKeyReleased("gamepad:rsdown")
+            end
+        end
     elseif axis == "triggerleft" then
         self.gamepad_left_trigger = value
 
-        if (value > threshold) then if not Input.keyDown("gamepad:lefttrigger") then Input.onKeyPressed("gamepad:lefttrigger", false) end else if Input.keyDown("gamepad:lefttrigger") then Input.onKeyReleased("gamepad:lefttrigger") end end
-
+        if (value > threshold) then
+            if not Input.keyDown("gamepad:lefttrigger") then
+                Input.onKeyPressed("gamepad:lefttrigger", false)
+            end
+        else
+            if Input.keyDown("gamepad:lefttrigger") then
+                Input.onKeyReleased("gamepad:lefttrigger")
+            end
+        end
     elseif axis == "triggerright" then
         self.gamepad_right_trigger = value
 
-        if (value > threshold) then if not Input.keyDown("gamepad:righttrigger") then Input.onKeyPressed("gamepad:righttrigger", false) end else if Input.keyDown("gamepad:righttrigger") then Input.onKeyReleased("gamepad:righttrigger") end end
+        if (value > threshold) then
+            if not Input.keyDown("gamepad:righttrigger") then
+                Input.onKeyPressed("gamepad:righttrigger", false)
+            end
+        else
+            if Input.keyDown("gamepad:righttrigger") then
+                Input.onKeyReleased("gamepad:righttrigger")
+            end
+        end
     end
 end
 
@@ -681,7 +756,7 @@ function Input.update()
     -- Clear input from last frame
     Input.clear()
 
-    for key,down in pairs(self.key_down) do
+    for key, down in pairs(self.key_down) do
         if down then
             self.key_down_timer[key] = self.key_down_timer[key] + BASE_DT
             if self.key_down_timer[key] >= KEY_REPEAT_DELAY then
@@ -753,12 +828,12 @@ end
 function Input.down(key)
     local bindings = Input.getBoundKeys(key)
     if bindings then
-        for _,k in ipairs(bindings) do
+        for _, k in ipairs(bindings) do
             if type(k) == "string" and Input.keyDown(k) then
                 return true
             elseif type(k) == "table" then
                 local success = true
-                for _,l in ipairs(k) do
+                for _, l in ipairs(k) do
                     if not Input.keyDown(l) then
                         success = false
                     end
@@ -779,7 +854,7 @@ end
 function Input.keyDown(key)
     if self.gamepad_locked and Input.isGamepad(key) then return false end
     if self.key_groups[key] then
-        for _,k in ipairs(self.key_groups[key]) do
+        for _, k in ipairs(self.key_groups[key]) do
             if self.key_down[k] then
                 return true
             end
@@ -794,13 +869,13 @@ end
 function Input.pressed(key, repeatable)
     local bindings = Input.getBoundKeys(key)
     if bindings then
-        for _,k in ipairs(bindings) do
+        for _, k in ipairs(bindings) do
             if type(k) == "string" and Input.keyPressed(k, repeatable) then
                 return true
             elseif type(k) == "table" then
                 local any_pressed = false
                 local any_up = false
-                for _,l in ipairs(k) do
+                for _, l in ipairs(k) do
                     if Input.keyPressed(l, repeatable) then
                         any_pressed = true
                     elseif Input.keyUp(l) then
@@ -824,7 +899,7 @@ end
 function Input.keyPressed(key, repeatable)
     if self.gamepad_locked and Input.isGamepad(key) then return false end
     if self.key_groups[key] then
-        for _,k in ipairs(self.key_groups[key]) do
+        for _, k in ipairs(self.key_groups[key]) do
             if self.key_pressed[k] or (repeatable and self.key_repeated[k]) then
                 return true
             end
@@ -847,13 +922,13 @@ end
 function Input.released(key)
     local bindings = Input.getBoundKeys(key)
     if bindings then
-        for _,k in ipairs(bindings) do
+        for _, k in ipairs(bindings) do
             if type(k) == "string" and Input.keyReleased(k) then
                 return true
             elseif type(k) == "table" then
                 local any_released = false
                 local any_up_not_released = false
-                for _,l in ipairs(k) do
+                for _, l in ipairs(k) do
                     if Input.keyReleased(l) then
                         any_released = true
                     elseif Input.keyUp(l) then
@@ -876,7 +951,7 @@ end
 function Input.keyReleased(key)
     if self.gamepad_locked and Input.isGamepad(key) then return false end
     if self.key_groups[key] then
-        for _,k in ipairs(self.key_groups[key]) do
+        for _, k in ipairs(self.key_groups[key]) do
             if self.key_released[k] then
                 return true
             end
@@ -891,12 +966,12 @@ end
 function Input.up(key)
     local bindings = Input.getBoundKeys(key)
     if bindings then
-        for _,k in ipairs(bindings) do
+        for _, k in ipairs(bindings) do
             if type(k) == "string" and Input.keyDown(k) then
                 return false
             elseif type(k) == "table" then
                 local success = true
-                for _,l in ipairs(k) do
+                for _, l in ipairs(k) do
                     if not Input.keyDown(l) then
                         success = false
                     end
@@ -917,7 +992,7 @@ end
 function Input.keyUp(key)
     if self.gamepad_locked and Input.isGamepad(key) then return true end
     if self.key_groups[key] then
-        for _,k in ipairs(self.key_groups[key]) do
+        for _, k in ipairs(self.key_groups[key]) do
             if self.key_down[k] then
                 return false
             end
@@ -933,12 +1008,12 @@ function Input.is(alias, key)
     if self.group_for_key[key] then
         key = self.group_for_key[key]
     end
-    for _,k in ipairs(Input.getBoundKeys(alias) or {}) do
+    for _, k in ipairs(Input.getBoundKeys(alias) or {}) do
         if type(k) == "string" and k == key then
             return true
         elseif type(k) == "table" then
             local success = true
-            for _,l in ipairs(k) do
+            for _, l in ipairs(k) do
                 if l ~= key and not Input.keyDown(l) then
                     success = false
                 end
@@ -965,7 +1040,7 @@ function Input.getText(alias, gamepad)
             return "[button:" .. gamepad_button .. "]"
         end
     end
-    return "["..name:upper().."]"
+    return "[" .. name:upper() .. "]"
 end
 
 ---@param alias string
@@ -1002,18 +1077,18 @@ end
 ---@param bind string
 ---@return string? name
 function Input.getBindName(bind)
-    for k,v in pairs(Kristal.Mods.getMods()) do
+    for k, v in pairs(Kristal.Mods.getMods()) do
         if v.keybinds then
-            for _,modBind in pairs(v.keybinds) do
+            for _, modBind in pairs(v.keybinds) do
                 if modBind.id == bind then
                     return modBind.name
                 end
             end
         end
         if v.libs then
-            for _,lib in pairs(v.libs) do
+            for _, lib in pairs(v.libs) do
                 if lib.keybinds then
-                    for _,modBind in pairs(lib.keybinds) do
+                    for _, modBind in pairs(lib.keybinds) do
                         if modBind.id == bind then
                             return modBind.name
                         end
@@ -1032,36 +1107,36 @@ function Input.getButtonTexture(button)
 end
 
 Input.button_sprites = {
-    ["lsleft"]  = "common/left_stick_left",
-    ["lsright"] = "common/left_stick_right",
-    ["lsup"]    = "common/left_stick_up",
-    ["lsdown"]  = "common/left_stick_down",
+    ["lsleft"]        = "common/left_stick_left",
+    ["lsright"]       = "common/left_stick_right",
+    ["lsup"]          = "common/left_stick_up",
+    ["lsdown"]        = "common/left_stick_down",
 
-    ["rsleft"]  = "common/right_stick_left",
-    ["rsright"] = "common/right_stick_right",
-    ["rsup"]    = "common/right_stick_up",
-    ["rsdown"]  = "common/right_stick_down",
+    ["rsleft"]        = "common/right_stick_left",
+    ["rsright"]       = "common/right_stick_right",
+    ["rsup"]          = "common/right_stick_up",
+    ["rsdown"]        = "common/right_stick_down",
 
-    ["dpleft"]  = {switch = "switch/left",  ps4 = "ps4/dpad_left",  xbox = "xbox/left"},
-    ["dpright"] = {switch = "switch/right", ps4 = "ps4/dpad_right", xbox = "xbox/right"},
-    ["dpup"]    = {switch = "switch/up",    ps4 = "ps4/dpad_up",    xbox = "xbox/up"},
-    ["dpdown"]  = {switch = "switch/down",  ps4 = "ps4/dpad_down",  xbox = "xbox/down"},
+    ["dpleft"]        = { switch = "switch/left", ps4 = "ps4/dpad_left", xbox = "xbox/left" },
+    ["dpright"]       = { switch = "switch/right", ps4 = "ps4/dpad_right", xbox = "xbox/right" },
+    ["dpup"]          = { switch = "switch/up", ps4 = "ps4/dpad_up", xbox = "xbox/up" },
+    ["dpdown"]        = { switch = "switch/down", ps4 = "ps4/dpad_down", xbox = "xbox/down" },
 
-    ["a"]       = {switch = "switch/a", ps4 = "ps4/cross",    xbox = "xbox/a"},
-    ["b"]       = {switch = "switch/b", ps4 = "ps4/circle",   xbox = "xbox/b"},
-    ["x"]       = {switch = "switch/x", ps4 = "ps4/square",   xbox = "xbox/x"},
-    ["y"]       = {switch = "switch/y", ps4 = "ps4/triangle", xbox = "xbox/y"},
+    ["a"]             = { switch = "switch/a", ps4 = "ps4/cross", xbox = "xbox/a" },
+    ["b"]             = { switch = "switch/b", ps4 = "ps4/circle", xbox = "xbox/b" },
+    ["x"]             = { switch = "switch/x", ps4 = "ps4/square", xbox = "xbox/x" },
+    ["y"]             = { switch = "switch/y", ps4 = "ps4/triangle", xbox = "xbox/y" },
 
-    ["start"]   = {switch = "switch/plus",  ps4 = "ps4/options", xbox = "xbox/menu"},
-    ["back"]    = {switch = "switch/minus", ps4 = "ps4/share",   xbox = "xbox/view"},
-    ["guide"]   = {switch = "switch/home",  ps4 = "ps4/ps",      xbox = "xbox/xbox"},
+    ["start"]         = { switch = "switch/plus", ps4 = "ps4/options", xbox = "xbox/menu" },
+    ["back"]          = { switch = "switch/minus", ps4 = "ps4/share", xbox = "xbox/view" },
+    ["guide"]         = { switch = "switch/home", ps4 = "ps4/ps", xbox = "xbox/xbox" },
 
-    ["leftshoulder"]  = {switch = "switch/l",           ps4 = "ps4/l1", xbox = "xbox/left_bumper"},
-    ["rightshoulder"] = {switch = "switch/r",           ps4 = "ps4/r1", xbox = "xbox/right_bumper"},
-    ["lefttrigger"]   = {switch = "switch/zl",          ps4 = "ps4/l2", xbox = "xbox/left_trigger"},
-    ["righttrigger"]  = {switch = "switch/zr",          ps4 = "ps4/r2", xbox = "xbox/right_trigger"},
-    ["leftstick"]     = {switch = "switch/lStickClick", ps4 = "ps4/l3", xbox = "xbox/left_stick"},
-    ["rightstick"]    = {switch = "switch/rStickClick", ps4 = "ps4/r3", xbox = "xbox/right_stick"},
+    ["leftshoulder"]  = { switch = "switch/l", ps4 = "ps4/l1", xbox = "xbox/left_bumper" },
+    ["rightshoulder"] = { switch = "switch/r", ps4 = "ps4/r1", xbox = "xbox/right_bumper" },
+    ["lefttrigger"]   = { switch = "switch/zl", ps4 = "ps4/l2", xbox = "xbox/left_trigger" },
+    ["righttrigger"]  = { switch = "switch/zr", ps4 = "ps4/r2", xbox = "xbox/right_trigger" },
+    ["leftstick"]     = { switch = "switch/lStickClick", ps4 = "ps4/l3", xbox = "xbox/left_stick" },
+    ["rightstick"]    = { switch = "switch/rStickClick", ps4 = "ps4/r3", xbox = "xbox/right_stick" },
 }
 
 ---@param button string
@@ -1325,8 +1400,8 @@ end
             }
             return button_sprite;
         }
-        
-        
+
+
 ]]
 
 ---@return boolean
@@ -1403,17 +1478,17 @@ end
 
 function Input.onMousePressed(x, y, button, istouch, presses)
     self.mouse_button_max = math.max(self.mouse_button_max, button) -- some mouses have more than 3 buttons, always support this by extending the default count
-    self.mouse_pressed[button] = {x = x, y = y, presses = presses}
-    self.mouse_down[button] = {x = x, y = y, presses = presses, dx = 0, dy = 0}
+    self.mouse_pressed[button] = { x = x, y = y, presses = presses }
+    self.mouse_down[button] = { x = x, y = y, presses = presses, dx = 0, dy = 0 }
 end
 
 function Input.onMouseReleased(x, y, button, istouch, presses)
-    self.mouse_released[button] = {x = x, y = y, presses = presses}
-    self.mouse_down[button] = {x = 0, y = 0, presses = 0, dx = 0, dy = 0}
+    self.mouse_released[button] = { x = x, y = y, presses = presses }
+    self.mouse_down[button] = { x = 0, y = 0, presses = 0, dx = 0, dy = 0 }
 end
 
 function Input.onMouseMoved(x, y, dx, dy, istouch)
-    for i=1, self.mouse_button_max do
+    for i = 1, self.mouse_button_max do
         if self.mouse_down[i].presses > 0 then
             self.mouse_down[i].x = x
             self.mouse_down[i].y = y
@@ -1437,14 +1512,14 @@ function Input.getMousePosition(x, y, relative)
         off_x, off_y = 0, 0
     end
     return floor((x - off_x) / Kristal.getGameScale()),
-           floor((y - off_y) / Kristal.getGameScale())
+        floor((y - off_y) / Kristal.getGameScale())
 end
 
 ---@param button? number
 ---@return boolean success, number x, number y, number presses
 function Input.mousePressed(button)
     if not button then
-        for i=1, self.mouse_button_max do
+        for i = 1, self.mouse_button_max do
             local success, x, y, presses = self.mousePressed(i)
             if success then
                 return success, x, y, presses
@@ -1464,7 +1539,7 @@ end
 ---@return boolean success, number x, number y, number presses, number? dx, number? dy
 function Input.mouseDown(button)
     if not button then
-        for i=1, self.mouse_button_max do
+        for i = 1, self.mouse_button_max do
             local success, x, y, presses = self.mouseDown(i)
             if success then
                 return success, x, y, presses
@@ -1484,7 +1559,7 @@ end
 ---@return boolean success, number x, number y, number presses
 function Input.mouseReleased(button)
     if not button then
-        for i=1, self.mouse_button_max do
+        for i = 1, self.mouse_button_max do
             local success, x, y, presses = self.mouseReleased(i)
             if success then
                 return success, x, y, presses
@@ -1514,7 +1589,7 @@ function Input.getGamepadCursorPosition(x, y, relative)
         off_x, off_y = 0, 0
     end
     return floor((x - off_x) / Kristal.getGameScale()),
-           floor((y - off_y) / Kristal.getGameScale())
+        floor((y - off_y) / Kristal.getGameScale())
 end
 
 ---@param x? number

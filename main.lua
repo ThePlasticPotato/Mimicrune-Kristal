@@ -1,5 +1,3 @@
-require("src.engine.tweaks")
-
 require("src.engine.vars")
 require("src.engine.statevars")
 require("src.engine.vendcust")
@@ -43,6 +41,7 @@ Kristal = require("src.kristal")
 -- Ease of access for game variables
 Game = Kristal.States["Game"]
 MainMenu = Kristal.States["MainMenu"]
+LoadingState = Kristal.States["Loading"]
 
 Assets = require("src.engine.assets")
 Music = require("src.engine.music")
@@ -185,6 +184,8 @@ LightMenu = require("src.engine.game.world.ui.light.lightmenu")
 LightItemMenu = require("src.engine.game.world.ui.light.lightitemmenu")
 LightStatMenu = require("src.engine.game.world.ui.light.lightstatmenu")
 LightCellMenu = require("src.engine.game.world.ui.light.lightcellmenu")
+
+EventRegistry = require("src.engine.game.world.eventregistry")
 
 Event = require("src.engine.game.world.event")
 Script = require("src.engine.game.world.events.script")

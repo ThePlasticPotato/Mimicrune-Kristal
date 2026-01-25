@@ -115,6 +115,10 @@ function Spell:getNHeat(chara)
     return self.pheat
 end
 
+--- Gets the target of this spell
+---@return string
+function Spell:getTarget() return self.target end
+
 --- *(Override)* Gets whether the spell can be cast in the world \
 --- *(Always false by default)*
 ---@param chara PartyMember The `PartyMember` the check is being run for

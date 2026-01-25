@@ -64,7 +64,7 @@ function DebugWindow:close()
 end
 
 function DebugWindow:onMousePressed(x, y, button, istouch, presses)
-    local offset = self.font:getHeight(self.name) + 4 + self:getVerticalPadding() -- name has 4 extra pixels
+    local offset = self.font:getHeight() + 4 + self:getVerticalPadding() -- name has 4 extra pixels
 
     if self:isMouseOver(0, 0, self.width, offset) then
         self.grabbing = true

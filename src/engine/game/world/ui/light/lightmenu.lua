@@ -100,7 +100,7 @@ function LightMenu:onKeyPressed(key)
 
     if self.state == "MAIN" then
         local old_selected = self.current_selecting
-        if Input.is("up", key)    then self.current_selecting = self.current_selecting - 1 end
+        if Input.is("up", key) then self.current_selecting = self.current_selecting - 1 end
         if Input.is("down", key) then self.current_selecting = self.current_selecting + 1 end
         self.current_selecting = MathUtils.clamp(self.current_selecting, 1, self:getMaxSelecting())
         if old_selected ~= self.current_selecting then

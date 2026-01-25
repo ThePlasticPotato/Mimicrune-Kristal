@@ -6,7 +6,10 @@ function GonerChoice:init(x, y, choices, on_complete, on_select)
     super.init(self, x, y)
 
     self.choices = choices or {
-        {{"YES",0,0},{"NO",80,0}}
+        {
+            { "YES", 0, 0 },
+            { "NO", 80, 0 }
+        }
     }
 
     self.on_select = on_select
@@ -30,9 +33,11 @@ function GonerChoice:init(x, y, choices, on_complete, on_select)
     self.soul = Sprite("player/heart_blur")
     self.soul:setScale(2, 2)
     self.soul:setColor(Kristal.getSoulColor())
-	if Kristal.getState() ~= Game and MainMenu.mod_list:getSelectedMod().soulColor then
-		self.soul:setColor(unpack(MainMenu.mod_list:getSelectedMod().soulColor))
-	end
+
+    if Kristal.getState() ~= Game and MainMenu.mod_list:getSelectedMod().soulColor then
+        self.soul:setColor(unpack(MainMenu.mod_list:getSelectedMod().soulColor))
+    end
+
     self.soul.alpha = 0.6
     self.soul.inherit_color = true
     self:addChild(self.soul)
@@ -72,7 +77,10 @@ function GonerChoice:onComplete(choice, x, y) end
 
 function GonerChoice:setChoices(choices, selected_x, selected_y)
     self.choices = choices or {
-        {{"NO",0,0},{"YES",80,0}}
+        {
+            { "NO", 0, 0 },
+            { "YES", 80, 0 }
+        }
     }
 
     self.selected_x = selected_x or 1
@@ -308,12 +316,12 @@ function GonerChoice:moveSelection(x, y, dx, dy)
     local choice
     repeat
         if self.wrap_y then
-            y = Utils.clampWrap(y, 1, #self.choices)
+            y = MathUtils.wrapIndex(y, #self.choices)
         else
             y = MathUtils.clamp(y, 1, #self.choices)
         end
         if self.wrap_x then
-            x = Utils.clampWrap(x, 1, #self.choices[y])
+            x = MathUtils.wrapIndex(x, #self.choices[y])
         else
             x = MathUtils.clamp(x, 1, #self.choices[y])
         end

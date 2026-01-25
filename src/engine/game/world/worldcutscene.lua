@@ -68,7 +68,7 @@ end
 
 function WorldCutscene:update()
     local new_moving = {}
-    for _,object in ipairs(self.moving_objects) do
+    for _, object in ipairs(self.moving_objects) do
         if object.stage and object.physics.move_target then
             table.insert(new_moving, object)
         end
@@ -159,7 +159,7 @@ function WorldCutscene:detachFollowers()
 end
 
 local function waitForFollowers(self)
-    for _,follower in ipairs(self.world.followers) do
+    for _, follower in ipairs(self.world.followers) do
         if follower.returning then
             return false
         end
@@ -198,7 +198,7 @@ end
 --- Resets the sprites of the player and all their followers to their defaults.
 function WorldCutscene:resetSprites()
     self.world.player:resetSprite()
-    for _,follower in ipairs(self.world.followers) do
+    for _, follower in ipairs(self.world.followers) do
         follower:resetSprite()
     end
 end
@@ -245,7 +245,7 @@ function WorldCutscene:walkTo(chara, x, y, time, facing, keep_facing, ease, afte
     end
     local walked = false
     if chara:walkTo(x, y, time, facing, keep_facing, ease, after) then
-        chara.physics.move_target.after = Utils.override(chara.physics.move_target.after, function(orig) orig() walked = true end)
+        chara.physics.move_target.after = HookSystem.override(chara.physics.move_target.after, function(orig) orig() walked = true end)
         table.insert(self.moving_objects, chara)
         return function() return walked end
     else
@@ -270,7 +270,7 @@ function WorldCutscene:walkToSpeed(chara, x, y, speed, facing, keep_facing, afte
     end
     local walked = false
     if chara:walkToSpeed(x, y, speed, facing, keep_facing, after) then
-        chara.physics.move_target.after = Utils.override(chara.physics.move_target.after, function(orig) orig() walked = true end)
+        chara.physics.move_target.after = HookSystem.override(chara.physics.move_target.after, function(orig) orig() walked = true end)
         table.insert(self.moving_objects, chara)
         return function() return walked end
     else
@@ -302,7 +302,7 @@ function WorldCutscene:walkPath(chara, path, options)
     local walked = false
 
     options = options or {}
-    options.after = Utils.override(options.after, function(orig) orig() walked = true end)
+    options.after = HookSystem.override(options.after, function(orig) orig() walked = true end)
 
     chara:walkPath(path, options)
     table.insert(self.moving_objects, chara)
@@ -564,7 +564,7 @@ local function waitForCameraPan(self) return self.world.camera.pan_target == nil
 ---@param after?    fun()       A function that is run once the camera reaches its panning target.
 ---@return fun(self: WorldCutscene) finished A function that returns true once the camera panning is complete.
 function WorldCutscene:panTo(...)
-    local args = {...}
+    local args = { ... }
     local x, y = 0, 0
     local time = 1
     local ease = "linear"
@@ -582,7 +582,7 @@ function WorldCutscene:panTo(...)
         after = args[4]
     elseif isClass(args[1]) and args[1]:includes(Character) then
         local chara = args[1]
-        x, y = chara:getRelativePos(chara.width/2, chara.height/2)
+        x, y = chara:getRelativePos(chara.width / 2, chara.height / 2)
         time = args[2] or time
         ease = args[3] or ease
         after = args[4]
@@ -608,7 +608,7 @@ end
 ---@param speed?    number      The speed, in pixels per frame at 30FPS, that the camera should move towards its target. Defaults to `4`.
 ---@param after?    fun()       A function that is run once the camera reaches its panning target.
 function WorldCutscene:panToSpeed(...)
-    local args = {...}
+    local args = { ... }
     local x, y = 0, 0
     local speed = 4
     local after = nil
@@ -623,7 +623,7 @@ function WorldCutscene:panToSpeed(...)
         after = args[3]
     elseif isClass(args[1]) and args[1]:includes(Character) then
         local chara = args[1]
-        x, y = chara:getRelativePos(chara.width/2, chara.height/2)
+        x, y = chara:getRelativePos(chara.width / 2, chara.height / 2)
         speed = args[2] or speed
         after = args[3]
     else
@@ -792,8 +792,8 @@ function WorldCutscene:text(text, portrait, actor, options)
         options["top"] = player_y > 260
     end
     if options["top"] or (options["top"] == nil and self.textbox_top) then
-       local bx, by = self.textbox:getBorder()
-       self.textbox.y = by + 2
+        local bx, by = self.textbox:getBorder()
+        self.textbox.y = by + 2
     end
 
     self.textbox.active = true
@@ -801,13 +801,13 @@ function WorldCutscene:text(text, portrait, actor, options)
     self.textbox:setFace(portrait, options["x"], options["y"])
 
     if options["reactions"] then
-        for id,react in pairs(options["reactions"]) do
+        for id, react in pairs(options["reactions"]) do
             self.textbox:addReaction(id, react[1], react[2], react[3], react[4], react[5])
         end
     end
 
     if options["functions"] then
-        for id,func in pairs(options["functions"]) do
+        for id, func in pairs(options["functions"]) do
             self.textbox:addFunction(id, func)
         end
     end
@@ -882,16 +882,16 @@ function WorldCutscene:choicer(choices, options)
         width, height = 530, 104
     end
 
+    options = options or {}
     self.choicebox = Choicebox(56, 344, width, height, false, options)
     self.choicebox.layer = WORLD_LAYERS["textbox"]
     self.world:addChild(self.choicebox)
     self.choicebox:setParallax(0, 0)
 
-    for _,choice in ipairs(choices) do
+    for _, choice in ipairs(choices) do
         self.choicebox:addChoice(choice)
     end
 
-    options = options or {}
     if options["top"] == nil and self.textbox_top == nil then
         local _, player_y = self.world.player:localToScreenPos()
         options["top"] = player_y > 260
@@ -954,7 +954,7 @@ function WorldCutscene:textChoicer(text, choices, portrait, actor, options)
     self.world:addChild(self.textchoicebox)
     self.textchoicebox:setParallax(0, 0)
 
-    for _,choice in ipairs(choices) do
+    for _, choice in ipairs(choices) do
         self.textchoicebox:addChoice(choice)
     end
 
@@ -984,8 +984,8 @@ function WorldCutscene:textChoicer(text, choices, portrait, actor, options)
         options["top"] = player_y > 260
     end
     if options["top"] or (options["top"] == nil and self.textbox_top) then
-       local bx, by = self.textchoicebox:getBorder()
-       self.textchoicebox.y = by + 2
+        local bx, by = self.textchoicebox:getBorder()
+        self.textchoicebox.y = by + 2
     end
 
     self.textchoicebox.active = true
@@ -993,13 +993,13 @@ function WorldCutscene:textChoicer(text, choices, portrait, actor, options)
     self.textchoicebox:setFace(portrait, options["x"], options["y"])
 
     if options["reactions"] then
-        for id,react in pairs(options["reactions"]) do
+        for id, react in pairs(options["reactions"]) do
             self.textchoicebox:addReaction(id, react[1], react[2], react[3], react[4], react[5])
         end
     end
 
     if options["functions"] then
-        for id,func in pairs(options["functions"]) do
+        for id, func in pairs(options["functions"]) do
             self.textchoicebox:addFunction(id, func)
         end
     end

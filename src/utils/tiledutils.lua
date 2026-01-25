@@ -29,6 +29,10 @@ end
 function TiledUtils.parsePropertyList(id, properties)
     properties = properties or {}
     if properties[id] then
+        if type(properties[id]) == "table" and TableUtils.isArray(properties[id]) then
+            -- New Tiled list property. Use as-is.
+            return properties[id]
+        end
         -- Numberless property found, return it as the only value in the list
         return { properties[id] }
     else
@@ -55,6 +59,17 @@ end
 ---@return table result    # The list of property values found.
 ---
 function TiledUtils.parsePropertyMultiList(id, properties)
+    if type(properties[id]) == "table" and TableUtils.isArray(properties[id]) then
+        -- New Tiled list properties.
+        for _,v in ipairs(properties[id]) do
+            -- If it's not all nested lists, make it a nested list.
+            if not (type(v) == "table" and TableUtils.isArray(v)) then
+                return { properties[id] }
+            end
+        end
+        -- Use as-is.
+        return properties[id]
+    end
     local single_list = TiledUtils.parsePropertyList(id, properties)
     if #single_list > 0 then
         -- If a shallower list was found (e.g. "id1", "id2" instead of "id1_1", "id1_2"),
@@ -185,6 +200,65 @@ function TiledUtils.colliderFromShape(parent, data, x, y, properties)
     end
 
     return current_hitbox
+end
+
+---@alias TiledUtils.PathFailReason
+---| "not under prefix"
+---| "path outside root"
+
+---
+--- Attempts to resolve a relative path from a Tiled export to a valid asset id, given it points to a path inside the
+--- `target_dir` of the current mod.
+---
+--- Relative directories (`..`) of the asset path are resolved by starting from the `source_dir`, which should match the
+--- directory the Tiled data was exported to. Exporting to a different directory and copying/moving the exported data will
+--- likely cause this relative search to fail.
+---
+---@param target_dir string # The Kristal folder to get the path relative to.
+---@param asset_path string # The asset path from a Tiled export to resolve.
+---@param source_dir string # Parent directory of the Tiled export, which the `asset_path` should be relative to.
+---@return boolean success # Whether the path resolution was successful.
+---@return string|TiledUtils.PathFailReason result # If resolution was successful, this is the asset path relative the `target_dir` without its extension. Otherwise, this is a reason the resolution failed.
+---@return string final_path # The final path with its extension, possibly unresolved if resolution failed. Used for debugging.
+---
+function TiledUtils.relativePathToAssetId(target_dir, asset_path, source_dir)
+    local prefix = Mod.info.path .. "/" .. target_dir .. "/"
+
+    -- Split paths by seperator
+    local base_parts = StringUtils.split(source_dir, "/")
+    -- Separator is assumed to be a forward slash as Tiled uses it
+    local dest_parts = StringUtils.split(asset_path, "/")
+
+    local up_count = 0
+    while dest_parts[1] == ".." do
+        up_count = up_count + 1
+        -- Move up one directory
+        if #base_parts == 0 then
+            return false, "path outside root", table.concat(dest_parts, "/")
+        end
+        table.remove(base_parts, #base_parts)
+        table.remove(dest_parts, 1)
+    end
+
+    -- Strip library directory prefix
+    if dest_parts[1] == "libraries" then
+        for _ = 2, up_count do
+            table.remove(dest_parts, 1)
+        end
+    end
+
+    local final_path = table.concat(TableUtils.merge(base_parts, dest_parts), "/")
+
+    -- Strip prefix
+    local has_prefix
+    has_prefix, final_path = StringUtils.startsWith(final_path, prefix)
+
+    if not has_prefix then
+        return false, "not under prefix", final_path
+    end
+
+    -- Strip extension
+    return true, final_path:sub(1, -1 - (final_path:reverse():find("%.") or 0)), final_path
 end
 
 return TiledUtils

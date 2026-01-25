@@ -105,6 +105,8 @@ function Player:getDebugInfo()
     table.insert(info, "Run timer: " .. self.run_timer)
     table.insert(info, "Hurt timer: " .. self.hurt_timer)
     table.insert(info, "Slide in place: " .. (self.slide_in_place and "True" or "False"))
+    table.insert(info, "Force run: " .. (self.force_run and "True" or "False"))
+    table.insert(info, "Force walk: " .. (self.force_walk and "True" or "False"))
     return info
 end
 
@@ -112,11 +114,11 @@ function Player:getDebugOptions(context)
     context = super.getDebugOptions(self, context)
     context:addMenuItem(
         "Toggle force run", "Toggle if the player is forced to run or not",
-        function () self.force_run = not self.force_run end
+        function() self.force_run = not self.force_run end
     )
     context:addMenuItem(
         "Toggle force walk", "Toggle if the player is forced to walk or not",
-        function () self.force_walk = not self.force_walk end
+        function() self.force_walk = not self.force_walk end
     )
     return context
 end
@@ -170,18 +172,18 @@ function Player:interact()
         return true
     end
 
-    local col = self.interact_collider[self.facing]
+    local col = self.interact_collider[self:getFacing()]
 
     local interactables = {}
     for _, obj in ipairs(self.world.children) do
         if obj.onInteract and obj:collidesWith(col) then
             local rx, ry = obj:getRelativePos(obj.width / 2, obj.height / 2, self.parent)
-            table.insert(interactables, { obj = obj, dist = Utils.dist(self.x, self.y, rx, ry) })
+            table.insert(interactables, { obj = obj, dist = MathUtils.dist(self.x, self.y, rx, ry) })
         end
     end
-    table.sort(interactables, function (a, b) return a.dist < b.dist end)
+    table.sort(interactables, function(a, b) return a.dist < b.dist end)
     for _, v in ipairs(interactables) do
-        if v.obj:onInteract(self, self.facing) then
+        if v.obj:onInteract(self, self:getFacing()) then
             self.interact_buffer = v.obj.interact_buffer or 0
             return true
         end
@@ -496,7 +498,7 @@ end
 ---@param y?        number  The y-coordinate of the 'front' of the line. (Defaults to player's y-position)
 ---@param dist?     number  The distance between each follower.
 function Player:alignFollowers(facing, x, y, dist)
-    facing = facing or self.facing
+    facing = facing or self:getFacing()
     x, y = x or self.x, y or self.y
 
     local offset_x, offset_y = 0, 0
@@ -513,9 +515,15 @@ function Player:alignFollowers(facing, x, y, dist)
     self.history = { { x = x, y = y, time = self.history_time } }
     for i = 1, Game.max_followers do
         local idist = dist and (i * dist) or (((i * FOLLOW_DELAY) / (1 / 30)) * 4)
-        table.insert(self.history,
-            { x = x + (offset_x * idist), y = y + (offset_y * idist), facing = facing,
-                time = self.history_time - (i * FOLLOW_DELAY) })
+        table.insert(
+            self.history,
+            {
+                x = x + (offset_x * idist),
+                y = y + (offset_y * idist),
+                facing = facing,
+                time = self.history_time - (i * FOLLOW_DELAY)
+            }
+        )
     end
     self:resetFollowerHistory()
 end
@@ -549,10 +557,17 @@ function Player:handleMovement()
     local walk_x = 0
     local walk_y = 0
 
-    if     Input.down("left")  then walk_x = walk_x - 1
-    elseif Input.down("right") then walk_x = walk_x + 1 end
-    if     Input.down("up")    then walk_y = walk_y - 1
-    elseif Input.down("down")  then walk_y = walk_y + 1 end
+    if Input.down("left") then
+        walk_x = walk_x - 1
+    elseif Input.down("right") then
+        walk_x = walk_x + 1
+    end
+
+    if Input.down("up") then
+        walk_y = walk_y - 1
+    elseif Input.down("down") then
+        walk_y = walk_y + 1
+    end
 
     local joy_x, joy_y = Input.getThumbstick("left")
     if (joy_x ~= 0 or joy_y ~= 0) then
@@ -623,7 +638,7 @@ function Player:updateSlideDust()
         self.slide_dust_timer = 3
 
         local dust = Sprite("effects/slide_dust")
-        dust:play(1 / 15, false, function () dust:remove() end)
+        dust:play(1 / 15, false, function() dust:remove() end)
         dust:setOrigin(0.5, 0.5)
         dust:setScale(2, 2)
         dust:setPosition(self.x, self.y)
@@ -694,9 +709,20 @@ function Player:updateHistory()
     if moved then
         self.history_time = self.history_time + DT
 
-        table.insert(self.history, 1,
-            { x = self.x, y = self.y, facing = self.facing, time = self.history_time, state = self.state_manager.state,
-                state_args = self.state_manager.args, auto = auto })
+        table.insert(
+            self.history,
+            1,
+            {
+                x = self.x,
+                y = self.y,
+                facing = self:getFacing(),
+                time = self.history_time,
+                state = self.state_manager.state,
+                state_args = self.state_manager.args,
+                auto = auto
+            }
+        )
+
         while (self.history_time - self.history[#self.history].time) > (Game.max_followers * FOLLOW_DELAY) do
             table.remove(self.history, #self.history)
         end
@@ -782,7 +808,7 @@ function Player:draw()
     -- Draw the player
     super.draw(self)
 
-    local col = self.interact_collider[self.facing]
+    local col = self.interact_collider[self:getFacing()]
     if DEBUG_RENDER then
         col:draw(1, 0, 0, 0.5)
     end

@@ -118,7 +118,7 @@ function TensionBar:flash()
         sparkle:fadeTo(0.25, duration / 30)
         self.timer:tween(duration / 30, sparkle.physics, { speed = 0 }, "linear")
 
-        self.timer:after(duration / 30, function ()
+        self.timer:after(duration / 30, function()
             sparkle:remove()
         end)
     end

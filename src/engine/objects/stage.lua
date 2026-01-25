@@ -46,8 +46,13 @@ end
 --- Adds an object and all of its children to this stage
 ---@param object Object
 function Stage:addToStage(object)
+    if not isClass(object) or not object:includes(Object) then
+        error("Cannot add non-Object to stage")
+    end
     table.insert(self.objects, object)
-    for class,_ in pairs(object.__includes_all) do
+    ---@diagnostic disable-next-line: invisible
+    for class, _ in pairs(object.__includes_all) do
+        ---@diagnostic disable-next-line: invisible
         if class.__tracked ~= false then
             self.objects_by_class[class] = self.objects_by_class[class] or {}
             table.insert(self.objects_by_class[class], object)
@@ -55,13 +60,14 @@ function Stage:addToStage(object)
     end
     object.stage = self
     object:onAddToStage(self)
-    for _,child in ipairs(object.children) do
+    for _, child in ipairs(object.children) do
         self:addToStage(child)
     end
 end
 
 function Stage:updateAllLayers()
-    for _,object in ipairs(self.objects) do
+    for _, object in ipairs(self.objects) do
+        ---@diagnostic disable-next-line: invisible
         if object.update_child_list or object.__index == World then
             object:updateChildList()
             object.update_child_list = false
@@ -77,7 +83,7 @@ function Stage:removeFromStage(object)
         object.stage = nil
     end
     object:onRemoveFromStage(self)
-    for _,child in ipairs(object.children) do
+    for _, child in ipairs(object.children) do
         self:removeFromStage(child)
     end
 end

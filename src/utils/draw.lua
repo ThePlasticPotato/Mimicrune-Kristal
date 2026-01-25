@@ -120,7 +120,7 @@ function Draw.setCanvas(canvas, options)
     end
 end
 
----@private
+---@internal
 function Draw._clearUnusedCanvases()
     for k, canvases in pairs(self._canvases) do
         local remove = {}
@@ -136,7 +136,7 @@ function Draw._clearUnusedCanvases()
     self._used_canvas = setmetatable({}, { __mode = "k" })
 end
 
----@private
+---@internal
 function Draw._clearStacks()
     self._canvases = {}
     self._used_canvas = setmetatable({}, { __mode = "k" })
@@ -145,6 +145,11 @@ function Draw._clearStacks()
 
     self._scissor_stack = {}
     self._shader_stack = {}
+end
+
+---@internal
+function Draw._clearScissorStack()
+    self._scissor_stack = {}
 end
 
 ---@return number x, number y, number w, number h
@@ -468,8 +473,26 @@ function Draw.printAlign(text, x, y, align, r, sx, sy, ox, oy, kx, ky)
             align = align["align"]
         end
     end
+
     for line in string.gmatch(text, "([^\n]+)") do
-        love.graphics.print(line, x - ((align == "center" or align == "right") and love.graphics.getFont():getWidth(line) or 0) / (align == "center" and 2 or 1) * ((align == "center" or align == "right") and sx or 1), y + new_line_space, r, sx, sy, ox, oy, kx, ky)
+        local font = love.graphics.getFont()
+        local line_width = font:getWidth(line)
+
+        local offset_x = 0
+        if align == "center" then
+            offset_x = (line_width / 2) * (sx or 1)
+        elseif align == "right" then
+            offset_x = line_width * (sx or 1)
+        end
+
+        love.graphics.print(
+            line,
+            x - offset_x,
+            y + new_line_space,
+            r,
+            sx, sy, ox, oy, kx, ky
+        )
+
         new_line_space = new_line_space + new_line_space_height * (sy or 1)
     end
 end
