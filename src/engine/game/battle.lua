@@ -238,7 +238,12 @@ function Battle:init()
 
     self.tense = false
     self.tense_intro = Assets.newSound("battle_tense_intro")
-    self.tense_intro:setVolume(0.6)
+    self.tense_intro:setVolume(0.0)
+
+    self.tense_timer = Text("[shake:0.5]00:00", 288, 48, 100, 100, {color = COLORS.red})
+    self:addChild(self.tense_timer)
+    self.tense_timer:setLayer(BATTLE_LAYERS["below_arena"])
+    self.tense_timer.visible = false
 
     self.battle_intro = Assets.newSound("battle_intro")
     self.battle_intro:setVolume(0.6)
@@ -416,7 +421,10 @@ function Battle:postInit(state, encounter)
         self.fountain = TaintedFountainBase({x = SCREEN_WIDTH/2, y = (-373), properties = {}}, true)
         self.fountain.layer = BATTLE_LAYERS["bottom"] - 1
         self.fountain.wing_left:setParent(self)
+        self.fountain.wing_left.visible = false
         self.fountain.wing_right:setParent(self)
+        self.fountain.wing_right.visible = false
+        self.tense_timer.visible = true
         self:addChild(self.fountain)
     end
 
@@ -2879,6 +2887,28 @@ function Battle:update()
         Game.fft:updatePlayTime(math.max(math.min(self.music:tell(), duration-0.5), 0.05))
     end
 
+    if (self.tense and self.music.source) then
+        local duration = self.music.source:getDuration("seconds")
+        local remainder = math.max(duration - self.music:tell(), 0)
+        local shakeAmount = (remainder <= 10) and 3 or (remainder <= 35) and 2 or (remainder <= (66)) and 1 or 0
+        local seconds = math.floor(remainder % 60)
+        local addition = (seconds >=10) and "" or "0"
+        local minutes = math.floor(remainder/60)
+        self.tense_timer:setText("[shake:".. tostring(shakeAmount) .. "]0" .. tostring(minutes)..":"..addition..tostring(seconds))
+        if seconds == 0 and minutes == 0 then
+            self.music:stop()
+            if self:getState() == "DEFENDING" then
+                for _, wave in ipairs(self.waves) do
+                    wave:onEnd(true)
+                end
+            end
+            if self.encounter:onGameOver() then
+                return
+            end
+            Game:gameOver(self:getSoulLocation())
+        end
+    end
+
     if self.state == "TRANSITION" then
         self:updateTransition()
     elseif self.state == "INTRO" then
@@ -2991,6 +3021,7 @@ function Battle:updateTransition()
             self.display_soul.soul_glow.visible = true
             self.tense_intro:play()
             self.timer:after(0.25, function ()
+                self.music:play("battle_tense")
                 Game.stage:addFX(ShaderFX("glitch", { ["iTime"] = function () return Kristal.getTime() end, ["glitchScale"] = 0.6}, false), "glitchy")
                 self.timer:after(1, function() Game.stage:removeFX("glitchy") end)
                 self.timer:after(3, function ()
@@ -2999,7 +3030,6 @@ function Battle:updateTransition()
             end)
             end)
             self.timer:afterCond(function () return not self.tense_intro:isPlaying() end, function()
-                self.music:play("battle_tense.loop")
                 self.display_soul:setParent(self)
                 self.display_soul:slideTo(160, 160, 0.25, "in-out-cubic")
                 Game.fader:fadeOut(function () Game.fader:fadeIn({speed = 0.5, music = false}) end, {speed = 0.5, music = false, color = COLORS.white})
@@ -3012,7 +3042,7 @@ function Battle:updateTransition()
             self.display_soul.soul_visible = true
             self.twisted_darkness = TwistedDarknessController(nil, true, true)
             self:addChild(self.twisted_darkness)
-            local burst = Game.stage:addChild(HeartBurst(self.display_soul.x-self.display_soul.width/2, self.display_soul.y-self.display_soul.height/2, Kristal.getSoulColor()))
+            local burst = Game.stage:addChild(HeartBurst(self.display_soul.x, self.display_soul.y, Kristal.getSoulColor()))
             burst:setLayer(1005)
             self.old_border = Game:getBorder()
             Game:setBorder("tense", 0.25)

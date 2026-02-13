@@ -230,7 +230,7 @@ end
 --- Removes health from the character and sets their downed HP value if necessary
 ---@param amount number
 ---@param swoon boolean? Whether to swoon rather than down
-function PartyBattler:removeHealth(amount, swoon)
+function PartyBattler:removeHealth(amount, swoon, immediate)
     if (self.chara:getHealth() <= 0) then
         amount = MathUtils.round(amount / 4)
         self.chara:setHealth(self.chara:getHealth() - amount)

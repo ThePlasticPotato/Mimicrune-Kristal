@@ -160,10 +160,11 @@ function BattleUI:drawCurrentHealth(battler, color, x, y)
     local rolling_down = battler.chara:getHealth() < battler.health_rolling_last
     if rolling_down then roll_progress = 1 - roll_progress end
     for i = 1, max_string_length do
-        local number_from, number_to = string_from[i] or '', string_to[i] or ''
+        local number_from, number_to = string.sub(string_from, i, i+1) or '', string.sub(string_to, i, i+1) or ''
         if number_from == number_to then
             Draw.setColor(color)
             love.graphics.print(number_from, x + (i - 1) * 8, y)
+            --Kristal.Console:log(string_from)
         else
             -- Looks horrible (but it works)
             local function drawNumber(number, first, dark)
