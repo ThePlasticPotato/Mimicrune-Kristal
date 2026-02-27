@@ -64,7 +64,7 @@ function SoulGlow:draw()
         end
     end
     if (self.momentum < 0) then
-        self.radius = MathUtils.lerp(self.radius, self.t, math.abs(self.momentum) * DTMULT)
+        self.radius = MathUtils.approach(self.radius, self.t, math.abs(self.momentum) * 2 * DTMULT)
     end
 end
 

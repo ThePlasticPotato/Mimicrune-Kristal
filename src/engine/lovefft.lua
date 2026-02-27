@@ -45,6 +45,7 @@ function loveFFT:setSoundData(soundDataOrPath) -- The sound data or path to the 
     self.sampleRate = self.soundData:getSampleRate()
     self.bitDepth = self.soundData:getBitDepth()
     self.channelCount = self.soundData:getChannelCount()
+    --error("DID WE GET IT? " .. tostring(self.soundData and true or false))
 end
 
 function loveFFT:getSoundData()

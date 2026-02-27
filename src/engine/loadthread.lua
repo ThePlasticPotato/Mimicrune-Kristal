@@ -49,6 +49,7 @@ function resetData()
             shaders = {},
             shader_paths = {},
             bubble_settings = {},
+            midi = {}
         }
     }
 
@@ -62,6 +63,7 @@ function resetData()
         ["music"] = {},
         ["videos"] = {},
         ["bubbles"] = {},
+        ["midi"] = {}
     }
 
     tileset_image_data = {}
@@ -337,6 +339,12 @@ local loaders = {
                 error("Bubble \"" .. path .. "\" has an invalid json file!")
             end
             data.assets.bubble_settings[id] = loaded_data
+        end
+    end },
+    ["midi"] = { "assets/midi", function (base_dir, path, full_path)
+        local id = checkExtension(path, "mid", "midi")
+        if id then
+            data.assets.midi[id] = full_path
         end
     end },
 }

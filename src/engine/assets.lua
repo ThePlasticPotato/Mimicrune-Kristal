@@ -31,6 +31,7 @@ local self = Assets
 ---@field shader_paths table<string, string>
 ---@field videos table<string, string>
 ---@field bubble_settings table<string, table>
+---@field midi table<string, string>
 
 --- Settings for a font asset, paired with the actual font data as a .json file.
 ---@class Assets.font_settings
@@ -64,7 +65,8 @@ function Assets.clear()
         bubbles = {},
         bubble_settings = {},
         shaders = {},
-        shader_paths = {}
+        shader_paths = {},
+        midi = {}
     }
     self.frames_for = {}
     self.texture_ids = {}
@@ -84,10 +86,6 @@ end
 
 function Assets.saveData()
     self.saved_data = {
-        data = TableUtils.copy(self.data, true),
-        frames_for = TableUtils.copy(self.frames_for, true),
-        texture_ids = TableUtils.copy(self.texture_ids, true),
-        sounds = TableUtils.copy(self.sounds, true),
         data = TableUtils.copy(self.data, true),
         frames_for = TableUtils.copy(self.frames_for, true),
         texture_ids = TableUtils.copy(self.texture_ids, true),
@@ -450,6 +448,13 @@ end
 ---@return string
 function Assets.getMusicPath(music)
     return self.data.music[music]
+end
+
+---@param midi string
+---@return string
+function Assets.getMidiPath(midi)
+    Kristal.Console:log("Retrieved midi at " .. self.data.midi[midi])
+    return self.data.midi[midi]
 end
 
 ---@param video string
