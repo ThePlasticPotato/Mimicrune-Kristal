@@ -185,6 +185,9 @@ function Sprite:setTextureExact(texture)
     self.texture_path = Assets.getTextureID(texture)
     if self.use_texture_size then
         if self.texture then
+            if type(self.texture) ~= "userdata" then
+                error(string.format("Somehow self.texture is a %q??", self.texture))
+            end
             self.width = self.texture:getWidth()
             self.height = self.texture:getHeight()
         else
