@@ -12,6 +12,7 @@ function TwistedDarknessController:init(layer, shrink, tails)
     self.streak_timer = self.spawn_speed / 4
     self.fumes = {}
     self.streaks = {}
+    self.full_alpha = 1
     self:addFX(ShaderFX('pixelize', {
         size = {SCREEN_WIDTH, SCREEN_HEIGHT},
         factor = 2
@@ -25,7 +26,7 @@ function TwistedDarknessController:init(layer, shrink, tails)
     for i = 1, 20 do
         table.insert(self.fumes,
             { (SCREEN_WIDTH/2)-5 + i * 25, -10, MathUtils.random(20, 40), self.timer +
-            MathUtils.random(-30, 30), MathUtils.random(-1, 1), MathUtils.random(-1, 1, 1), 0, false, false })
+            MathUtils.random(-30, 30), MathUtils.random(-1, 1), MathUtils.randomInt(-1, 1), 0, false, false })
     end
 
     -- for i = 1, 40 do
@@ -38,31 +39,31 @@ function TwistedDarknessController:init(layer, shrink, tails)
     for i = 1, 30 do
         table.insert(self.fumes,
             { 650, -5 + i * 25, MathUtils.random(20, 40), self.timer +
-            MathUtils.random(-30, 30), MathUtils.random(-1, 1), MathUtils.random(-1, 1, 1), 0, false, false })
+            MathUtils.random(-30, 30), MathUtils.random(-1, 1), MathUtils.randomInt(-1, 1), 0, false, false })
     end
 
     for i = 1, 20 do
         table.insert(self.fumes,
             { 400, 330 + i * 25, MathUtils.random(20, 40), self.timer +
-            MathUtils.random(-30, 30), MathUtils.random(-1, 1), MathUtils.random(-1, 1, 1), 0, false, false })
+            MathUtils.random(-30, 30), MathUtils.random(-1, 1), MathUtils.randomInt(-1, 1), 0, false, false })
     end
 
     for i = 1, 15 do
         table.insert(self.fumes,
             { 385 + MathUtils.random(-5, 5), 340 + i * 25, MathUtils.random(20, 40), self.timer +
-            MathUtils.random(-30, 30), MathUtils.random(-1, 1), MathUtils.random(-1, 1, 1), 0, false, false })
+            MathUtils.random(-30, 30), MathUtils.random(-1, 1), MathUtils.randomInt(-1, 1), 0, false, false })
     end
 
     for i = 1, 10 do
         table.insert(self.fumes,
             { 365 + MathUtils.random(-5, 5), 365 + i * 25, MathUtils.random(20, 40), self.timer +
-            MathUtils.random(-30, 30), MathUtils.random(-1, 1), MathUtils.random(-1, 1, 1), 0, false, false })
+            MathUtils.random(-30, 30), MathUtils.random(-1, 1), MathUtils.randomInt(-1, 1), 0, false, false })
     end
 
     for i = 1, 5 do
         table.insert(self.fumes,
             { 345 + MathUtils.random(-5, 5), 388 + i * 25, MathUtils.random(20, 40), self.timer +
-            MathUtils.random(-30, 30), MathUtils.random(-1, 1), MathUtils.random(-1, 1, 1), 0, false, false })
+            MathUtils.random(-30, 30), MathUtils.random(-1, 1), MathUtils.randomInt(-1, 1), 0, false, false })
     end
     -- for i = 1, 8 do
     --     table.insert(self.fumes, {MathUtils.random(0, SCREEN_WIDTH), MathUtils.random(-30, SCREEN_HEIGHT + 30), MathUtils.random(20, 40), self.timer + MathUtils.random(-30, 30), MathUtils.random(-1, 1), MathUtils.random(-1, 1, 1), 0})
@@ -75,11 +76,12 @@ function TwistedDarknessController:update()
     self.timer = self.timer + DTMULT
     self.spawn_timer = self.spawn_timer - DTMULT
     self.streak_timer = self.streak_timer - DTMULT
+    self.full_alpha = MathUtils.approach(self.full_alpha, (Game.battle and StringUtils.contains(Game.battle.state, "DEFENDING")) and 0.25 or 1, DT * 4)
     if self.spawn_timer < 0 then
         self.spawn_timer = self.spawn_timer + MathUtils.random(5, self.spawn_speed)
         local height = MathUtils.random(0, SCREEN_HEIGHT)
         if (height > 330) then height = MathUtils.random(0, SCREEN_HEIGHT) end
-        table.insert(self.fumes, {SCREEN_WIDTH + 30, height, MathUtils.random(20, 40), self.timer, MathUtils.random(-1, 1), MathUtils.random(-1, 1, 1), 0, true, true})
+        table.insert(self.fumes, {SCREEN_WIDTH + 30, height, MathUtils.random(20, 40), self.timer, MathUtils.random(-1, 1), MathUtils.randomInt(-1, 1), 0, true, true})
     end
     if (self.streak_timer < 0) then
         self.streak_timer = self.streak_timer + MathUtils.random(1, (self.spawn_speed / 4))
@@ -148,7 +150,7 @@ end
 function TwistedDarknessController:draw()
     local iterated = {}
 
-    Draw.setColor(0.2, 0, 0, Game.battle.transition_timer / 10)
+    Draw.setColor(0.2, 0, 0, math.min(Game.battle.transition_timer / 10, self.full_alpha))
     love.graphics.setLineWidth(2)
 
     for index, _ in ipairs(self.streaks) do
@@ -160,7 +162,7 @@ function TwistedDarknessController:draw()
 
     super.draw(self)
 
-    Draw.setColor(1,0,0,Game.battle.transition_timer / 10)
+    Draw.setColor(1,0,0, math.min(Game.battle.transition_timer / 10, self.full_alpha))
 
     for index, _ in ipairs(self.fumes) do
         local x, y, radius, time, rotation, tail = self:getFumeInformation(index)
