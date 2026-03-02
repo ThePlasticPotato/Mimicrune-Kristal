@@ -131,6 +131,7 @@ function BattleUI:clearEncounterText()
     self.encounter_text:setAdvance(false)
     self.encounter_text:setAuto(false)
     self.encounter_text:setText("")
+    Game.battle:setDescription("", "", false, "")
 end
 
 function BattleUI:drawCurrentHealth(battler, color, x, y)

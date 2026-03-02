@@ -1000,6 +1000,8 @@ function EnemyBattler:onDefeatBreakdown(damage, battler)
     Game.stage.timer:doWhile(function () return bolt.scale_x > 0 end, function () bolt.rotation = bolt.rotation - DTMULT ; bolt.scale_x = bolt.scale_x - DTMULT ; bolt.scale_y = bolt.scale_x end, function() bolt:remove() end)
     Game.stage.timer:doWhile(function () return screw.scale_x > 0 end, function () screw.rotation = screw.rotation + DTMULT ; screw.scale_x = screw.scale_x - DTMULT ; screw.scale_y = screw.scale_x end, function() screw:remove() end)
 
+    self:recruitMessage("mortal")
+
     sprite:stopShake()
     self:setColor(0.5, 0.5, 0.5, 1)
 

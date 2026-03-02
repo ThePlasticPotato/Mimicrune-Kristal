@@ -11,7 +11,7 @@ function DisplaySoul:init(x, y)
     self.soul_visible = false
     self.sprite.visible = false
     self.soul_glow = SoulGlow(x, y, self, true)
-    self.soul_glow:hide()
+    self.soul_glow:hide(true)
     self.runtime = 0
     self.flash_timer = 20
 end

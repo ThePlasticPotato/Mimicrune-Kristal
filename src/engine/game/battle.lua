@@ -283,6 +283,8 @@ function Battle:init()
         cassidy = {0.8, 200/255, 43/255},
         fredbear = {0.5, 0, 0.5},
     }
+
+    self.purified = 0
 end
 
 function Battle:getBattleBGColor()
@@ -417,6 +419,7 @@ function Battle:postInit(state, encounter)
 
     if self.encounter and self.encounter.tense then
         self.tense = true
+        Game.fader:fadeOut({speed = 0, blocky = true, music = false})
         self.using_fft = false
         self.fountain = TaintedFountainBase({x = SCREEN_WIDTH/2, y = (-373), properties = {}}, true)
         self.fountain.layer = BATTLE_LAYERS["bottom"] - 1
@@ -928,6 +931,26 @@ function Battle:onVictory()
 
     win_text = self.encounter:getVictoryText(win_text, self.money, self.xp) or win_text
 
+    if (self.display_soul) then
+        local position_x, position_y
+        local main_chara = Game:getSoulPartyMember()
+
+        if main_chara and main_chara:getSoulPriority() >= 0 then
+            local battler = Game.battle.party[Game.battle:getPartyIndex(main_chara.id)]
+
+            if battler then
+                if main_chara:getActor():getSoulOffset() then
+                    position_x, position_y = battler:localToScreenPos(main_chara:getActor():getSoulOffset())
+                else
+                    position_x, position_y = battler:localToScreenPos((battler.sprite.width / 2) - 4.5, battler.sprite.height / 2)
+                end
+            end
+        end
+        self.display_soul:slideTo(position_x or 0, position_y or 0, 0.25, "out-expo")
+        self.display_soul:fadeOutAndRemove(0.5)
+        self.display_soul.soul_glow:hide()
+    end
+
     if self.encounter.no_end_message then
         self:setState("TRANSITIONOUT")
         self.encounter:onBattleEnd()
@@ -952,6 +975,7 @@ function Battle:onTransitionOutState()
 
     self.battle_ui:transitionOut()
     self.music:fade(0, 20 / 30)
+
     for _, battler in ipairs(self.party) do
         local index = self:getPartyIndex(battler.chara.id)
         if index then
@@ -3009,7 +3033,6 @@ end
 function Battle:updateTransition()
     if (self.tense) then
         if (not self.tense_intro:isPlaying() and self.transition_timer < 10) then
-            Game.fader:fadeOut({speed = 0.125, blocky = true, music = false})
             self.display_soul:setParent(Game.stage)
             self.display_soul.soul_glow:setParent(Game.stage)
             self.display_soul.soul_glow:setPosition(self.display_soul.x, self.display_soul.y)
