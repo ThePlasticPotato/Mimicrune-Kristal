@@ -379,17 +379,21 @@ end
 ---@param texture love.Image|string
 ---@return string
 function Assets.getTextureID(texture)
-    if type(texture) == "string" then
-        return texture
-    else
-        return self.texture_ids[texture]
+    for bucket_n = #Assets.buckets, 1, -1 do
+        for sprite_id, sprite in pairs(Assets.buckets[bucket_n].loaded_assets.sprite or {}) do
+            for frame_n = 1, #sprite do
+                if texture == sprite[frame_n] then
+                    return sprite_id .. "_" .. frame_n
+                end
+            end
+        end
     end
 end
 
 ---@param path string
 ---@return love.Image[]
 function Assets.getFrames(path)
-    return self.data.frames[path]
+    return self.getFramesOrTexture(path)
 end
 
 ---@param path string
