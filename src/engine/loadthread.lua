@@ -321,6 +321,7 @@ local loaders = {
 
 function loadPath(baseDir, loader, path, pre)
     if path_loaded[loader][path] then return end
+    -- print(loader, path)
 
     if verbose then
         out_channel:push({ status = "loading", loader = loader, path = path })
