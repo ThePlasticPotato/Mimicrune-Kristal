@@ -372,6 +372,7 @@ function Assets.getTexture(path)
     return texture
 end
 
+---@return boolean
 function Assets.hasSprite(asset_id)
     return Assets.internalHas("sprite", asset_id)
 end
