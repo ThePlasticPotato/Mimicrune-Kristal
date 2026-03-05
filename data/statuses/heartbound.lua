@@ -10,7 +10,7 @@ function status:init()
     -- The color(s) the status will display as
     self.color = COLORS.lime
     -- Tags that apply to this status
-    self.tags = {"modifier", "hiteffect"}
+    self.tags = {"modifier", "hiteffect", "heartbind"}
 
     self.positive = true
     self.curable = false
@@ -31,9 +31,10 @@ end
 function status:onHurt(battler, effect, amount)
     if (effect.data.source.is_down) then return 0 end
     local reduction = amount * self.modifier
+    ---@type PartyBattler
     local defender = effect.data.source
     reduction = math.max(0, math.min(defender.chara:getHealth(), reduction))
-    defender:hurt(reduction)
+    defender:hurt(reduction, nil, nil, {"heartbind"})
     return -reduction
 end
 

@@ -144,6 +144,7 @@ end
 ---@param options?  table   A table defining additional properties to control the way damage is taken
 ---|"all"   # Whether the damage being taken comes from a strike targeting the whole party
 ---|"swoon" # Whether the damage should swoon the battler instead of downing them
+---|"heartbind"
 function PartyBattler:hurt(amount, exact, color, options)
     options = options or {}
 
@@ -153,13 +154,18 @@ function PartyBattler:hurt(amount, exact, color, options)
     for id, status in pairs(self.statuses) do
         if status.data.effect:hasTag("hiteffect") then
             if (status.data.effect:hasTag("modifier")) then
-                local amt = status.data.effect:onHurt(self, status, amount)
-                effect_bonus = effect_bonus + amt
+                if (options and TableUtils.contains(options, "heartbind") and StringUtils.contains(id, "heartbound")) then
+                    --skip applying thi
+                else
+                    local amt = status.data.effect:onHurt(self, status, amount)
+                    effect_bonus = effect_bonus + amt
+                end
             else
                 local cancel = status.data.effect:onHurt(self, status, amount)
                 if (StringUtils.contains(id, "ward")) then
-                    self:statusMessage("msg", "ward")
+                    self:statusMessage("msg", "warded")
                     self:healEffect(0, 200/255, 11/255)
+                    Assets.playSound("metalhit")
                 end
                 if (cancel) then return end
             end
