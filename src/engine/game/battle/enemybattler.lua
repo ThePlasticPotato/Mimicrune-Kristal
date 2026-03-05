@@ -849,13 +849,16 @@ function EnemyBattler:getAttackDamage(damage, battler, points)
     end
     battler.next_attack_bonus = 0
     local magic_attack = 0
+    --incredibly named
+    local attack_attack = (battler.chara:getStat("attack"))
     if (battler.chara.is_psychic) then
+        attack_attack = attack_attack / 4
         magic_attack = battler.chara:getStat("magic") / 2
     end
     if damage > 0 then
         return damage * bonus
     end
-    return (((battler.chara:getStat("attack") + magic_attack) * points) / 20) * bonus - (self.defense * 3)
+    return (((attack_attack + magic_attack) * points) / 20) * bonus - (self.defense * 3)
 end
 
 --- Gets the name of the damage sound used when this enemy is hit (defaults to `"damage"`)
