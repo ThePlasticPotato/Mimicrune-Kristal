@@ -1021,7 +1021,7 @@ function Game:getSoulColor()
         return r, g, b, a or 1
     end
 
-    return 1, 0, 0, 1
+    return 2/255, 1, 2/255, 1
 end
 
 ---@return PartyMember?

@@ -49,6 +49,8 @@
 ---@field light_item Item
 ---@field light_location {storage: string, index: integer}
 ---
+---@field buffs table<table<string, number, number, boolean>>
+---
 ---@overload fun(...) : Item
 local Item = Class()
 
@@ -121,6 +123,8 @@ function Item:init()
 
     self.light_item = nil
     self.light_location = nil
+
+    self.buffs = {}
 end
 
 --[[ Callbacks ]]--

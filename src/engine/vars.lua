@@ -154,7 +154,8 @@ COLORS = {
     silver = { 0.75, 0.75, 0.75, 1 },
     teal = { 0, 0.5, 0.5, 1 },
     white = { 1, 1, 1, 1 },
-    yellow = { 1, 1, 0, 1 }
+    yellow = { 1, 1, 0, 1 },
+    time = {2/255, 1, 2/255, 1}
 }
 for _, v in pairs(COLORS) do
     setmetatable(v, { __call = function (c, a) return { c[1], c[2], c[3], a or 1 } end })

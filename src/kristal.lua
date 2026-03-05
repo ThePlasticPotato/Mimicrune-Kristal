@@ -1778,7 +1778,7 @@ function Kristal.getSoulColor()
     if Kristal.getState() == Game then
         return Game:getSoulColor()
     end
-    return COLORS.red[1], COLORS.red[2], COLORS.red[3], COLORS.red[4]
+    return COLORS.time[1], COLORS.time[2], COLORS.time[3], COLORS.time[4]
 end
 
 --- Called internally. Loads the saved user config, with default values.
@@ -1800,7 +1800,7 @@ function Kristal.loadConfig()
         systemCursor = false,
         alwaysShowCursor = false,
         objectSelectionSlowdown = true,
-        borders = "off",
+        borders = "dynamic",
         leftStickDeadzone = 0.2,
         rightStickDeadzone = 0.2,
         defaultName = "",

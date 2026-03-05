@@ -2426,6 +2426,7 @@ function Battle:setWaves(waves, allow_duplicates)
     self.waves = {}
     self.finished_waves = false
     local added_wave = {}
+    local solo_wave = nil
     for _, wave in ipairs(waves) do
         local exists = (type(wave) == "string" and added_wave[wave]) or (isClass(wave) and added_wave[wave.id])
         if allow_duplicates or not exists then
@@ -2439,7 +2440,15 @@ function Battle:setWaves(waves, allow_duplicates)
 
             -- Keep wave inactive until it's time to start
             wave.active = false
+            if (wave.solo) then
+                solo_wave = wave
+                break
+            end
         end
+    end
+    
+    if (solo_wave) then
+        self.waves = TableUtils.filter(self.waves, function(wave) return wave == solo_wave end)
     end
     return self.waves
 end

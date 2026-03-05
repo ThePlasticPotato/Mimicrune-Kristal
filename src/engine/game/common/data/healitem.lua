@@ -95,21 +95,33 @@ function HealItem:onBattleUse(user, target)
         -- Heal single party member
         local amount = self:getBattleHealAmountModified(target.chara.id, user.chara)
         target:heal(amount)
+        for i, buff in ipairs(self.buffs) do
+            target:addStatus({effect = buff[1], source = user, duration = buff[2], stacks = buff[3]}, buff[4], false)
+        end
     elseif self:getTarget() == "party" then
         -- Heal all party members
         for _,battler in ipairs(target) do
             local amount = self:getBattleHealAmountModified(battler.chara.id, user.chara)
             battler:heal(amount)
+            for i, buff in ipairs(self.buffs) do
+                battler:addStatus({effect = buff[1], source = user, duration = buff[2], stacks = buff[3]}, buff[4], false)
+            end
         end
     elseif self:getTarget() == "enemy" then
         -- Heal single enemy (why)
         local amount = self:getBattleHealAmountModified(target.id, user.chara)
         target:heal(amount)
+        for i, buff in ipairs(self.buffs) do
+            target:addStatus({effect = buff[1], source = user, duration = buff[2], stacks = buff[3]}, buff[4], false)
+        end
     elseif self:getTarget() == "enemies" then
         -- Heal all enemies (why????)
         for _,enemy in ipairs(target) do
             local amount = self:getBattleHealAmountModified(enemy.id, user.chara)
             enemy:heal(amount)
+            for i, buff in ipairs(self.buffs) do
+                enemy:addStatus({effect = buff[1], source = user, duration = buff[2], stacks = buff[3]}, buff[4], false)
+            end
         end
     else
         -- No target, do nothing
