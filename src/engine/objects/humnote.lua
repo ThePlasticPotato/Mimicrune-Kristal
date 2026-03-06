@@ -1,8 +1,9 @@
 ---@class HumNote : Sprite
 local HumNote, super = Class(Sprite)
 
-function HumNote:init(variant, x, y, width, height)
-    local real_sprite = "effects/cassinote_"..variant
+function HumNote:init(variant, x, y, width, height, base)
+    base = base or "effects/cassinote_"
+    local real_sprite = base..variant
     super.init(self, real_sprite, x, y, width, height)
     self:setOrigin(0.5, 0.5)
     self.note_timer = 0

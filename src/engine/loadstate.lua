@@ -453,7 +453,7 @@ function Loading:onKeyPressed(key)
     elseif self.debug_input_buffer <= 0 then
         self.key_check = true
         self.skipped = true
-        if not self.loading_state == Loading.States.WAITING then
+        if self.loading_state == Loading.States.WAITING then
             self:beginLoad()
         end
     end

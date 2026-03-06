@@ -242,7 +242,7 @@ function Battle:init()
 
     self.tense_timer = Text("[shake:0.5]00:00", 288, 48, 100, 100, {color = COLORS.red})
     self:addChild(self.tense_timer)
-    self.tense_timer:setLayer(BATTLE_LAYERS["below_arena"])
+    self.tense_timer:setLayer(BATTLE_LAYERS["ui"])
     self.tense_timer.visible = false
 
     self.battle_intro = Assets.newSound("battle_intro")
@@ -285,6 +285,10 @@ function Battle:init()
     }
 
     self.purified = 0
+    
+    self.notes = nil
+    self.bpm = 0
+
 end
 
 function Battle:getBattleBGColor()
@@ -671,9 +675,11 @@ function Battle:onActionSelectState()
 
         if self.encounter.music or self.tense then
             if not self.encounter.music or (self.encounter.music == "battle" and self.tense)then
-                --self.music:play("battle_tense.loop")
+                self.notes, self.bpm = MidiTimeline:loadMidiTimeline(Assets.getMidiPath("battle_tense_bg"), 2)
             else
                 self.battle_intro:play()
+                self.notes, self.bpm = MidiTimeline:loadMidiTimeline(Assets.getMidiPath(self.encounter.music .. "_lead"), 2)
+
                 if (Game.fft and self.using_fft) then
                     Game.fft:setSoundData(Assets.getMusicPath(self.encounter.music))
                 end

@@ -112,12 +112,14 @@ end
 
 function character:onTurnStart(battler)
     super.onTurnStart(self, battler)
-    if (battler.sing_level) then
-        battler.sing_level = 0
-    end
     if (not battler.was_hit_last) then
         self.notes = math.min(self.notes + 1, 3)
         Assets.playSound("bell_bounce_short")
+    else
+        if (battler.sing_level > 0) then
+            battler.sing_level = battler.sing_level - 1
+            if (battler.sing_level > 0) and battler:isActive() then battler.overlay_sprite:setAnimation("battle/sing_power_" .. battler.sing_level) ; battler:toggleOverlay(true) end
+        end
     end
     battler.was_hit_last = false
 end

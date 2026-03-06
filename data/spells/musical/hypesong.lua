@@ -36,14 +36,9 @@ function spell:onCast(user, target)
         end
     end
 
-    user.sing_level = user.chara.notes
+    user.sing_level = math.min(user.sing_level + user.chara.notes, 3)
     user.chara.notes = 0
-
-    local current_music = Game.battle.music.current
-    Game.battle.music_additional:setVolume(0)
-    Game.battle.music_additional:play(current_music.."/hypesong")
-    Game.battle.music_additional:seek(Game.battle.music:tell())
-    Game.battle.music_additional:fade(0.8, 0.5, nil)
+    user.songstrument = "clean"
 end
 
 function spell:hasWorldUsage(chara)

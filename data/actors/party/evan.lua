@@ -32,6 +32,7 @@ function actor:init()
 
         ["battle/attack"]       = {"battle/attack", 1/15, false},
         ["battle/act"]          = {"battle/act", 1/15, false},
+        ["battle/act_tense"]          = {"battle/act_tense", 1/15, false},
         ["battle/spell"]        = {"battle/spell", 1/15, false, next="battle/idle"},
         ["battle/item"]         = {"battle/item", 1/12, false, next="battle/idle"},
         ["battle/spare"]        = {"battle/act", 1/15, false, next="battle/idle"},
@@ -57,6 +58,7 @@ function actor:init()
 
     self.offsets = {
         ["battle/act"] = {-19, -11};
+        ["battle/act_tense"] = {-19, -11};
         ["battle/actend"] = {-19, -11};
         ["battle/actready"] = {-19, -11};
         ["battle/attack"] = {-19, -6};

@@ -27,7 +27,8 @@ function actor:init()
 
     self.animations = {
                 -- Battle animations
-        ["battle/idle"]         = {"walk/down", 1/6, true},
+        ["battle/idle"]         = {"battle/idle", 1/6, true},
+        ["battle/idle_tense"]   = {"battle/idle_tense", 1/6, true},
 
         ["battle/attack"]       = {"battle/attack", 1/15, false},
         ["battle/act"]          = {"battle/act", 1/15, false},
@@ -46,18 +47,27 @@ function actor:init()
         ["battle/hurt"]         = {"battle/hurt", 1/15, false, temp=true, duration=0.5},
         ["battle/defeat"]       = {"battle/defeat", 1/15, false},
 
-        ["battle/transition"]   = {"battle/battle_transition", 0.2, true},
+        ["battle/transition"]   = {"battle/battle_transition", 1/15, true},
         ["battle/intro"]        = {"battle/attack", 1/15, true},
         ["battle/victory"]      = {"battle/victory", 1/10, false},
+
+        ["dash"]   = {"dash", 1/15, true},
+        ["skid"] = {"skid", 0.15, false},
+        
+        ["battle/sing_power_1"] = {"battle/sing_power_1", 0.2, true},
+        ["battle/sing_power_2"] = {"battle/sing_power_2", 0.15, true},
+        ["battle/sing_power_3"] = {"battle/sing_power_3", 0.1, true},
     }
 
     self.offsets = {
                 -- Battle offsets
-        ["battle/idle"] = {-3, -1},
+        -- ["battle/idle"] = {-3, -1},
+        -- ["battle/idle_tense"] = {-3, -1},
 
         ["battle/attack"] = {-10, -6},
         ["battle/attackready"] = {-10, -6},
         ["battle/act"] = {-10, -6},
+        ["battle/act_tense"] = {-10, -6},
         ["battle/actend"] = {-10, -6},
         ["battle/actready"] = {-10, -6},
         ["battle/item"] = {-10, -6},
@@ -72,6 +82,10 @@ function actor:init()
 
         ["battle/intro"] = {-10, -9},
         ["battle/victory"] = {-3, 0},
+
+        ["dash"] = {-17, -3};
+        ["run"] = {-5, -2};
+        ["skid"] = { -5, -2};
     }
 
     -- Sound to play when this actor speaks (optional)
