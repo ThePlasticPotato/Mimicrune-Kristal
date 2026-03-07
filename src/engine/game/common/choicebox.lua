@@ -31,10 +31,10 @@ end
 
 function Choicebox:update()
     local old_choice = self.current_choice
-    if Input.pressed("left")  then self.current_choice = 1 end
+    if Input.pressed("left") then self.current_choice = 1 end
     if Input.pressed("right") then self.current_choice = 2 end
-    if Input.pressed("up")    then self.current_choice = 3 end
-    if Input.pressed("down")  then self.current_choice = 4 end
+    if Input.pressed("up") then self.current_choice = 3 end
+    if Input.pressed("down") then self.current_choice = 4 end
 
     if self.current_choice > #self.choices then
         self.current_choice = old_choice
@@ -129,25 +129,25 @@ end
 ---@param main? table   The main color to set for all choices, or a table of main colors for each individual choice. (Defaults to `COLORS.white`)
 ---@param hover? table  The hover color to set for all choices, or a table of hover colors for each individual choice. (Defaults to `COLORS.yellow`)
 function Choicebox:setColors(main, hover)
-    main = main or {1,1,1}
+    main = main or { 1, 1, 1 }
     if type(main[1]) == "number" then
         self.main_colors = {
-            {main[1], main[2], main[3], main[4] or 1},
-            {main[1], main[2], main[3], main[4] or 1},
-            {main[1], main[2], main[3], main[4] or 1},
-            {main[1], main[2], main[3], main[4] or 1},
+            { main[1], main[2], main[3], main[4] or 1 },
+            { main[1], main[2], main[3], main[4] or 1 },
+            { main[1], main[2], main[3], main[4] or 1 },
+            { main[1], main[2], main[3], main[4] or 1 },
         }
     else
         self.main_colors = TableUtils.copy(main)
     end
 
-    hover = hover or {1,1,0}
+    hover = hover or { 1, 1, 0 }
     if type(hover[1]) == "number" then
         self.hover_colors = {
-            {hover[1], hover[2], hover[3], hover[4] or 1},
-            {hover[1], hover[2], hover[3], hover[4] or 1},
-            {hover[1], hover[2], hover[3], hover[4] or 1},
-            {hover[1], hover[2], hover[3], hover[4] or 1},
+            { hover[1], hover[2], hover[3], hover[4] or 1 },
+            { hover[1], hover[2], hover[3], hover[4] or 1 },
+            { hover[1], hover[2], hover[3], hover[4] or 1 },
+            { hover[1], hover[2], hover[3], hover[4] or 1 },
         }
     else
         self.hover_colors = TableUtils.copy(hover)

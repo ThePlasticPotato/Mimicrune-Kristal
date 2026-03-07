@@ -64,7 +64,7 @@ function Soul:init(x, y, color)
     if color then
         self:setColor(color)
     else
-        self:setColor(1, 0, 0)
+        self:setColor(Game.battle.encounter:getSoulColor())
     end
 
     self.layer = BATTLE_LAYERS["soul"]
@@ -72,8 +72,8 @@ function Soul:init(x, y, color)
     self.graze_tp_factor   = 1
     self.graze_time_factor = 1
     self.graze_size_factor = 1
-    for _,party in ipairs(Game.party) do
-        self.graze_tp_factor   = math.min(3, self.graze_tp_factor   + party:getStat("graze_tp"))
+    for _, party in ipairs(Game.party) do
+        self.graze_tp_factor   = math.min(3, self.graze_tp_factor + party:getStat("graze_tp"))
         self.graze_time_factor = math.min(3, self.graze_time_factor + party:getStat("graze_time"))
         self.graze_size_factor = math.min(3, self.graze_size_factor + party:getStat("graze_size"))
     end
@@ -92,7 +92,7 @@ function Soul:init(x, y, color)
     self.width = self.sprite.width
     self.height = self.sprite.height
 
-    self.debug_rect = {-8, -8, 16, 16}
+    self.debug_rect = { -8, -8, 16, 16 }
 
     self.collider = CircleCollider(self, 0, 0, 8)
 
@@ -127,8 +127,8 @@ function Soul:init(x, y, color)
 
     self.transition_destroy = false
 
-    self.shard_x_table = {-2, 0, 2, 8, 10, 12}
-    self.shard_y_table = {0, 3, 6}
+    self.shard_x_table = { -2, 0, 2, 8, 10, 12 }
+    self.shard_y_table = { 0, 3, 6 }
 
     self.can_move = true
     self.allow_focus = true
@@ -182,7 +182,7 @@ function Soul:shatter(count)
         shard.physics.speed = 7
         shard.physics.gravity = 0.2
         shard.layer = self.layer
-        shard:play(5/30)
+        shard:play(5 / 30)
         table.insert(self.shards, shard)
         self.stage:addChild(shard)
     end
@@ -261,7 +261,7 @@ end
 ---@return boolean
 ---@return boolean?
 function Soul:moveX(amount, move_y)
-    local last_collided = self.last_collided_x and (Utils.sign(amount) == self.last_collided_x)
+    local last_collided = self.last_collided_x and (MathUtils.sign(amount) == self.last_collided_x)
 
     if amount == 0 then
         return not last_collided, true
@@ -286,7 +286,7 @@ end
 ---@return boolean
 ---@return boolean?
 function Soul:moveY(amount, move_x)
-    local last_collided = self.last_collided_y and (Utils.sign(amount) == self.last_collided_y)
+    local last_collided = self.last_collided_y and (MathUtils.sign(amount) == self.last_collided_y)
 
     if amount == 0 then
         return not last_collided, true
@@ -311,7 +311,7 @@ end
 ---@return boolean
 ---@return Arena|nil
 function Soul:moveXExact(amount, move_y)
-    local sign = Utils.sign(amount)
+    local sign = MathUtils.sign(amount)
     for i = sign, amount, sign do
         local last_x = self.x
         local last_y = self.y

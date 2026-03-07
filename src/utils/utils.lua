@@ -938,39 +938,72 @@ end
 --- @alias linefailure
 ---| "The lines are parallel."
 ---| "The lines don't intersect."
+---| "The lines are the same."
 
 -- TODO: Language server will complain about the second return value here
 
 ---
 --- Returns the point at which two lines intersect.
 ---
----@param l1p1x number          # The horizontal position of the first point for the first line.
----@param l1p1y number          # The vertical position of the first point for the first line.
----@param l1p2x number          # The horizontal position of the second point for the first line.
----@param l1p2y number          # The vertical position of the second point for the first line.
----@param l2p1x number          # The horizontal position of the first point for the second line.
----@param l2p1y number          # The vertical position of the first point for the second line.
----@param l2p2x number          # The horizontal position of the second point for the second line.
----@param l2p2y number          # The vertical position of the second point for the second line.
+---@param x1 number          # The horizontal position of the first point for the first line.
+---@param y1 number          # The vertical position of the first point for the first line.
+---@param x2 number          # The horizontal position of the second point for the first line.
+---@param y2 number          # The vertical position of the second point for the first line.
+---@param x3 number          # The horizontal position of the first point for the second line.
+---@param y3 number          # The vertical position of the first point for the second line.
+---@param x4 number          # The horizontal position of the second point for the second line.
+---@param y4 number          # The vertical position of the second point for the second line.
 ---@param seg1? boolean         # If true, the first line will be treated as a line segment instead of an infinite line.
 ---@param seg2? boolean         # If true, the second line will be treated as a line segment instead of an infinite line.
 ---@return number|boolean x     # If the lines intersected, this will be the horizontal position of the intersection; otherwise, this value will be `false`.
 ---@return number|linefailure y # If the lines intersected, this will be the vertical position of the intersection; otherwise, this will be a string describing why the lines did not intersect.
 ---
-function Utils.getLineIntersect(l1p1x, l1p1y, l1p2x, l1p2y, l2p1x, l2p1y, l2p2x, l2p2y, seg1, seg2)
-    local a1,b1,a2,b2 = l1p2y-l1p1y, l1p1x-l1p2x, l2p2y-l2p1y, l2p1x-l2p2x
-    local c1,c2 = a1*l1p1x+b1*l1p1y, a2*l2p1x+b2*l2p1y
-    local det = a1*b2 - a2*b1
-    if det==0 then return false, "The lines are parallel." end
-    local x,y = (b2*c1-b1*c2)/det, (a1*c2-a2*c1)/det
+function Utils.getLineIntersect(x1, y1, x2, y2, x3, y3, x4, y4, seg1, seg2)
+    -- Get the slopes of the lines
+    local m1 = (y1 - y2) / (x1 - x2)
+    local m2 = (y3 - y4) / (x3 - x4)
+
+    -- Get the offsets of the lines
+    local b1 = -(m1 * x1 - y1) or y1
+    local b2 = -(m2 * x3 - y3) or y3
+
+    -- Make x and y variables
+    local x = nil
+    local y = nil
+
+    -- Check whether any of the lines are vertical
+    if (x1 - x2) == 0 then
+        -- Find x and y
+        x = x1
+        y = m2 * x + b2
+    elseif (x3 - x4) == 0 then
+        -- Find x and y
+        x = x3
+        y = m1 * x + b1
+    else
+        -- Find x and y
+        x = (b2 - b1) / (m1 - m2)
+        y = m1 * x + b1
+    end
+
+    -- Check if the lines are parallel or the same
+    if m1 == m2 and b1 ~= b2 then
+        return false, "The lines are parallel."
+    elseif m1 == m2 and b1 == b2 then
+        return false, "The lines are the same."
+    end
+
+    -- Check if x and y are out of the segment bounds
     if seg1 or seg2 then
-        local min,max = math.min, math.max
-        if seg1 and not (min(l1p1x,l1p2x) <= x and x <= max(l1p1x,l1p2x) and min(l1p1y,l1p2y) <= y and y <= max(l1p1y,l1p2y)) or
-           seg2 and not (min(l2p1x,l2p2x) <= x and x <= max(l2p1x,l2p2x) and min(l2p1y,l2p2y) <= y and y <= max(l2p1y,l2p2y)) then
+        local min, max = math.min, math.max
+        if seg1 and (x < min(x1, x2) or x > max(x1, x2) or y < min(y1, y2) or y > max(y1, y2)) then
+            return false, "The lines don't intersect."
+        end
+        if seg2 and (x < min(x3, x4) or x > max(x3, x4) or y < min(y3, y4) or y > max(y3, y4)) then
             return false, "The lines don't intersect."
         end
     end
-    return x,y
+    return x, y
 end
 
 ---
@@ -997,15 +1030,15 @@ function Utils.getPolygonOffset(points, dist)
         local e1, e2 = edges[i], edges[(i % #edges) + 1]
 
         -- Offset the points of the edges by the given distance
-        local p1x, p1y = offsetPoint(e1[1][1], e1[1][2], e1.angle + sign * (math.pi/2), dist)
-        local p2x, p2y = offsetPoint(e1[2][1], e1[2][2], e1.angle + sign * (math.pi/2), dist)
-        local p3x, p3y = offsetPoint(e2[1][1], e2[1][2], e2.angle + sign * (math.pi/2), dist)
-        local p4x, p4y = offsetPoint(e2[2][1], e2[2][2], e2.angle + sign * (math.pi/2), dist)
+        local p1x, p1y = offsetPoint(e1[1][1], e1[1][2], e1.angle + sign * (math.pi / 2), dist)
+        local p2x, p2y = offsetPoint(e1[2][1], e1[2][2], e1.angle + sign * (math.pi / 2), dist)
+        local p3x, p3y = offsetPoint(e2[1][1], e2[1][2], e2.angle + sign * (math.pi / 2), dist)
+        local p4x, p4y = offsetPoint(e2[2][1], e2[2][2], e2.angle + sign * (math.pi / 2), dist)
 
         -- Add the intersection point of the two offset edges to the new polygon
-        local ix, iy = Utils.getLineIntersect(p1x,p1y, p2x,p2y, p3x,p3y, p4x,p4y)
+        local ix, iy = Utils.getLineIntersect(p1x, p1y, p2x, p2y, p3x, p3y, p4x, p4y)
         if ix then
-            table.insert(new_polygon, {ix, iy})
+            table.insert(new_polygon, { ix, iy })
         end
     end
 
@@ -1023,7 +1056,7 @@ end
 ---
 function Utils.unpackPolygon(points)
     local line = {}
-    for _,point in ipairs(points) do
+    for _, point in ipairs(points) do
         table.insert(line, point[1])
         table.insert(line, point[2])
     end
@@ -1042,7 +1075,7 @@ end
 ---
 function Utils.getPolygonBounds(points)
     local min_x, min_y, max_x, max_y
-    for _,point in ipairs(points) do
+    for _, point in ipairs(points) do
         min_x, min_y = math.min(min_x or point[1], point[1]), math.min(min_y or point[2], point[2])
         max_x, max_y = math.max(max_x or point[1], point[1]), math.max(max_y or point[2], point[2])
     end

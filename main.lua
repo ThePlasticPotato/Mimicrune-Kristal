@@ -422,7 +422,7 @@ function love.run()
     end
 
     -- Main loop time.
-    return function ()
+    return function()
         if error_result then
             local result = error_result()
             if result then

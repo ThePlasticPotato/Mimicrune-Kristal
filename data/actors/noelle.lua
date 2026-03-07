@@ -60,6 +60,7 @@ function actor:init()
 
         ["battle/transition"]   = {"battle/intro", 1/15, false},
         ["battle/victory"]      = {"battle/victory", 1/10, false},
+        ["battle/transition_out"] = {"battle/transition_out", 1/15, false},
 
         -- Cutscene animations
         ["laugh"]               = {"laugh", 4/30, true},
@@ -162,7 +163,7 @@ function actor:init()
         ["battle/attack"] = {-8, 0},
         ["battle/attackready"] = {0, 0},
         ["battle/act"] = {0, 0},
-        ["battle/actend"] = {0, 0},
+        ["battle/actend"] = {-3, 0},
         ["battle/actready"] = {0, 0},
         ["battle/spell"] = {-3, 0},
         ["battle/spellready"] = {0, 0},

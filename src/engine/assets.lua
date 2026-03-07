@@ -187,9 +187,9 @@ function Assets.parseData(data)
     ---@type {id:string,error:string}[]
     local errors = {}
     for key, shader_path in pairs(data.shader_paths) do
-        local ok, res = pcall(love.graphics.newShader, shader_path)
+        local ok, res = love.graphics.validateShader(true, shader_path)
         if ok then
-            self.data.shaders[key] = res
+            self.data.shaders[key] = love.graphics.newShader(shader_path)
         else
             errors[#errors + 1] = { id = key, error = res }
         end
@@ -376,6 +376,8 @@ function Assets.startSound(sound)
         self.sounds[sound]:stop()
         self.sounds[sound]:play()
         return self.sounds[sound]
+    else
+        Kristal.Console:warn("Sound not found: \"" .. sound .. "\"")
     end
     ---@diagnostic disable-next-line: return-type-mismatch
     return nil
@@ -429,6 +431,8 @@ function Assets.playSound(sound, volume, pitch)
             play(volume)
         end
         return src
+    else
+        Kristal.Console:warn("Sound not found: \"" .. sound .. "\"")
     end
     ---@diagnostic disable-next-line: return-type-mismatch
     return nil

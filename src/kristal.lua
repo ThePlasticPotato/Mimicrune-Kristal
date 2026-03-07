@@ -43,6 +43,8 @@ else
         waiting = 0,
         end_funcs = {}
     }
+
+    Kristal.LoadedModScripts = {}
 end
 
 function Kristal.fetch(url, options)
@@ -705,6 +707,15 @@ end
 ---@param trace_level integer?
 ---@return function|nil handler The error handler, called every frame instead of the main loop.
 function Kristal.errorHandler(msg, trace_level)
+    if Mod then
+        local status, err = pcall(function()
+            Kristal.callEvent(KRISTAL_EVENT.cleanup)
+        end)
+        if not status then
+            -- msg = err
+        end
+    end
+    
     Draw.reset()
 
     local copy_color = { 1, 1, 1, 1 }
@@ -1235,8 +1246,10 @@ function Kristal.clearModState()
     Object._clearCache()
     Draw._clearStacks()
     MOD_LOADING = false
+    Kristal.LoadedModScripts = {}
     -- End the current mod
     Kristal.callEvent(KRISTAL_EVENT.unload)
+    Kristal.callEvent(KRISTAL_EVENT.cleanup)
     Mod = nil
 
     Kristal.Mods.clear()
@@ -1474,6 +1487,8 @@ function Kristal.loadMod(id, save_id, save_name, after)
 
         -- Add the current library to the libs table (again, with the real final value)
         Mod.libs[lib_id] = lib
+        -- Cache the library to be accessible through modRequire/libRequire
+        Kristal.LoadedModScripts["libraries." .. lib_id .. ".lib"] = lib
     end
 
     Kristal.loadModAssets(mod.id, "all", "", after or function()
@@ -2105,11 +2120,22 @@ end
 ---@return any ...     The returned values from the script.
 ---@diagnostic disable-next-line: lowercase-global
 function modRequire(path, ...)
-    path = path:gsub("%.", "/")
-    local success, result = Kristal.executeModScript(path, ...)
-    if not success then
-        error("No script found: " .. path)
+    if Kristal.LoadedModScripts[path] ~= nil then
+        return Kristal.LoadedModScripts[path]
     end
+    local success, result
+    if StringUtils.startsWith(path, "libraries.") then
+        local _,_, lib_id, remaining_path = string.find(path, "libraries%.([^.]*)%.(.*)")
+        assert(lib_id and remaining_path, "Invalid library require syntax. Expected \"libraries.<lib ID>.<script>\"")
+        result = libRequire(lib_id, remaining_path)
+    else
+        local path_slashes = path:gsub("%.", "/")
+        success, result = Kristal.executeModScript(path_slashes, ...)
+        if not success then
+            error("No script found: " .. path_slashes)
+        end
+    end
+    Kristal.LoadedModScripts[path] = result
     return result
 end
 
@@ -2120,11 +2146,17 @@ end
 ---@return any ...     The returned values from the script.
 ---@diagnostic disable-next-line: lowercase-global
 function libRequire(lib, path, ...)
+    assert(Mod.info.libs[lib], string.format("Unknown library \"%s\".", lib))
+    local full_path = "libraries." .. lib .. "." ..path
+    if Kristal.LoadedModScripts[full_path] then
+        return Kristal.LoadedModScripts[full_path]
+    end
     path = path:gsub("%.", "/")
     local success, result = Kristal.executeLibScript(lib, path, ...)
     if not success then
         error("No script found: " .. path)
     end
+    Kristal.LoadedModScripts[full_path] = result
     return result
 end
 

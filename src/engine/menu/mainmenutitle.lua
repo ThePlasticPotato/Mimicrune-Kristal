@@ -34,28 +34,33 @@ function MainMenuTitle:onEnter(old_state)
 
     if TARGET_MOD then
         self.options = {
-            {"play",    self.has_target_saves and "Load game" or "Start game"},
-            {"options", "Options"},
-            {"credits", "Credits"},
-            {"quit",    "Quit"},
+            { "play", self.has_target_saves and "Load game" or "Start game" },
+            { "options", "Options" },
+            { "credits", "Credits" },
+            { "quit", "Quit" },
         }
     else
         self.options = {
-            {"play",      "Play a mod"},
-            {"modfolder", "Open mods folder"},
-            {"options",   "Options"},
-            {"credits",   "Credits"},
-            {"wiki",      "Open wiki"},
-            {"quit",      "Quit"},
+            { "play", "Play" },
+            { "modfolder", "Open folder" },
+            { "options", "Options" },
+            { "credits", "Credits" },
+            { "wiki", "Open wiki" },
+            { "quit", "Quit" },
         }
     end
 
     if not TARGET_MOD then
         self.menu.selected_mod = nil
         self.menu.selected_mod_button = nil
+    else
+        local mod = Kristal.Mods.getMod(TARGET_MOD)
+        if mod and mod.soulColor then
+            self.menu.heart:setColor(mod.soulColor)
+        end
     end
 
-    self.menu.heart_target_x = 196
+    self.menu.heart_target_x = 229
     self.menu.heart_target_y = 238 + 32 * (self.selected_option - 1)
 end
 
@@ -68,23 +73,24 @@ function MainMenuTitle:onKeyPressed(key, is_repeat)
         if option == "play" then
             if not TARGET_MOD then
                 self.menu:setState("MODSELECT")
-				if MainMenu.mod_list:getSelectedMod() and MainMenu.mod_list:getSelectedMod().soulColor then
-					MainMenu.heart.color = MainMenu.mod_list:getSelectedMod().soulColor
-				end
-            elseif self.has_target_saves then
-                self.menu:setState("FILESELECT")
             else
-                if not Kristal.loadMod(TARGET_MOD, 1) then
-                    error("Failed to load mod: " .. TARGET_MOD)
+                local mod = Kristal.Mods.getMod(TARGET_MOD)
+
+                if (mod["useSaves"] == true) or (mod["useSaves"] == nil and self.has_target_saves) then
+                    self.menu:setState("FILESELECT")
+                elseif (mod["useSaves"] == false) or (mod["useSaves"] == nil and not self.has_target_saves) then
+                    if not Kristal.loadMod(TARGET_MOD, 1) then
+                        error("Failed to load mod: " .. TARGET_MOD)
+                    end
                 end
             end
 
         elseif option == "modfolder" then
             -- FIXME: the game might freeze when using love.system.openURL to open a file directory
             if (love.system.getOS() == "Windows") then
-                os.execute('start /B \"\" \"'..love.filesystem.getSaveDirectory()..'/mods\"')
+                os.execute('start /B \"\" \"' .. love.filesystem.getSaveDirectory() .. '/mods\"')
             else
-                love.system.openURL("file://"..love.filesystem.getSaveDirectory().."/mods")
+                love.system.openURL("file://" .. love.filesystem.getSaveDirectory() .. "/mods")
             end
 
         elseif option == "options" then
@@ -104,29 +110,29 @@ function MainMenuTitle:onKeyPressed(key, is_repeat)
     end
 
     local old = self.selected_option
-    if Input.is("up"   , key)                              then self.selected_option = self.selected_option - 1 end
-    if Input.is("down" , key)                              then self.selected_option = self.selected_option + 1 end
-    if Input.is("left" , key) and not Input.usingGamepad() then self.selected_option = self.selected_option - 1 end
+    if Input.is("up", key) then self.selected_option = self.selected_option - 1 end
+    if Input.is("down", key) then self.selected_option = self.selected_option + 1 end
+    if Input.is("left", key) and not Input.usingGamepad() then self.selected_option = self.selected_option - 1 end
     if Input.is("right", key) and not Input.usingGamepad() then self.selected_option = self.selected_option + 1 end
     if self.selected_option > #self.options then self.selected_option = is_repeat and #self.options or 1 end
-    if self.selected_option < 1             then self.selected_option = is_repeat and 1 or #self.options end
+    if self.selected_option < 1 then self.selected_option = is_repeat and 1 or #self.options end
 
     if old ~= self.selected_option then
         Assets.stopAndPlaySound("ui_move")
     end
 
-    self.menu.heart_target_x = 196
+    self.menu.heart_target_x = 229
     self.menu.heart_target_y = 238 + (self.selected_option - 1) * 32
 end
 
 function MainMenuTitle:draw()
     local logo_img = self.menu.selected_mod and self.menu.selected_mod.logo or self.logo
 
-    Draw.draw(logo_img, SCREEN_WIDTH/2 - logo_img:getWidth()/2, 105 - logo_img:getHeight()/2)
+    Draw.draw(logo_img, SCREEN_WIDTH / 2 - logo_img:getWidth() / 2, 105 - logo_img:getHeight() / 2)
     --Draw.draw(self.selected_mod and self.selected_mod.logo or self.logo, 160, 70)
 
     for i, option in ipairs(self.options) do
-        Draw.printShadow(option[2], 215, 219 + 32 * (i - 1))
+        Draw.printShadow(option[2], 248, 219 + 32 * (i - 1))
     end
 end
 
@@ -139,7 +145,7 @@ function MainMenuTitle:selectOption(id)
         if options[1] == id then
             self.selected_option = i
 
-            self.menu.heart_target_x = 196
+            self.menu.heart_target_x = 229
             self.menu.heart_target_y = 238 + (self.selected_option - 1) * 32
 
             return true

@@ -126,7 +126,7 @@ function AttackBox:update()
             self.bolt.in_perfect_range = false
         end
 
-        self.afterimage_timer = self.afterimage_timer + DTMULT/2
+        self.afterimage_timer = self.afterimage_timer + DTMULT / 2
         while math.floor(self.afterimage_timer) > self.afterimage_count do
             self.afterimage_count = self.afterimage_count + 1
             local afterimg = AttackBar(0, 0, 6, 38, self.battler.chara:getAttackBar())
@@ -142,7 +142,7 @@ function AttackBox:update()
     if not Game.battle.cancel_attack and Input.pressed("confirm") then
         self.flash = 1
     else
-        self.flash = MathUtils.approach(self.flash, 0, DTMULT/5)
+        self.flash = MathUtils.approach(self.flash, 0, DTMULT / 5)
     end
 
     super.update(self)
