@@ -12,7 +12,7 @@ vec4 effect (vec4 color, Image tex, vec2 texture_coords, vec2 screen_coords) {
 	float v = texture_coords.y;
 	
 	float jitter = nrand(v, iTime) * 2.0 - 1.0;
-	jitter *= step(0, abs(jitter)) * scan_line_jitter;
+	jitter *= step(0., abs(jitter)) * scan_line_jitter;
 	float jump = mix(v, fract(v), 0.0);
 	float shake = (nrand(iTime,2.0) - 0.5) * horizontal_shake;
 	float drift = sin(jump) * color_drift;

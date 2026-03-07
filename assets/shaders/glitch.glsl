@@ -34,7 +34,7 @@ GlitchSeed glitchSeed(vec2 p, float speed) {
 	) / 100.;
 	seed += p;
 
-	float prob = 1;
+	float prob = 1.;
 
 	return GlitchSeed(seed, prob);
 }
@@ -123,24 +123,24 @@ void glitchSwap(inout vec2 p) {
 	float apply;
 		
 	groupSize = vec2(.6) * scale;
-	subGrid = vec2(2);
-	blockSize = vec2(1);
+	subGrid = vec2(2.);
+	blockSize = vec2(1.);
 
 	seed = glitchSeed(glitchCoord(p, groupSize), speed);
 	apply = shouldApply(seed);
 	swapBlocks(p, groupSize, subGrid, blockSize, seed.seed, apply);
 		
 	groupSize = vec2(.8) * scale;
-	subGrid = vec2(3);
-	blockSize = vec2(1);
+	subGrid = vec2(3.);
+	blockSize = vec2(1.);
 		
 	seed = glitchSeed(glitchCoord(p, groupSize), speed);
 	apply = shouldApply(seed);
 	swapBlocks(p, groupSize, subGrid, blockSize, seed.seed, apply);
 
 	groupSize = vec2(.2) * scale;
-	subGrid = vec2(6);
-	blockSize = vec2(1);
+	subGrid = vec2(6.);
+	blockSize = vec2(1.);
 		
 	seed = glitchSeed(glitchCoord(p, groupSize), speed);
 	float apply2 = shouldApply(seed);
@@ -151,8 +151,8 @@ void glitchSwap(inout vec2 p) {
 	swapBlocks(p, groupSize, subGrid, blockSize, (seed.seed + 5.), apply * apply2);
 	
 	groupSize = vec2(1.2, .2) * scale;
-	subGrid = vec2(9,2);
-	blockSize = vec2(3,1);
+	subGrid = vec2(9.,2.);
+	blockSize = vec2(3.,1.);
 	
 	seed = glitchSeed(glitchCoord(p, groupSize), speed);
 	apply = shouldApply(seed);
@@ -202,7 +202,7 @@ vec4 effect (vec4 color, Image tex, vec2 texture_coords, vec2 screen_coords) {
 	glitchTime(texture_coords, time);
 	glitchStatic(texture_coords);
 
-	GlitchSeed seed = glitchSeed(glitchCoord(texture_coords, vec2(.5, .25/2.) * glitchScale * 2), 5.);
+	GlitchSeed seed = glitchSeed(glitchCoord(texture_coords, vec2(.5, .25/2.) * glitchScale * 2.), 5.);
 	vec3 s = spectrum_offset(rand(seed.seed));
 	color.rgb = color.rgb * s;
 
