@@ -51,6 +51,7 @@ function actor:init()
         ["battle/transition"]   = {"battle/battle_transition", 1/15, false},
         ["battle/intro"]        = {"battle/intro", 1/15, true},
         ["battle/victory"]      = {"battle/victory", 1/10, false},
+        ["battle/transition_out"] = {"battle/transition_out", 1/15, false},
 
         ["dash"]   = {"dash", 1/15, true},
         ["skid"] = {"skid", 0.15, false},
