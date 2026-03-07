@@ -398,7 +398,11 @@ end
 ---@param path string
 ---@return love.ImageData
 function Assets.getTextureData(path)
-    return self.data.texture_data[path]
+    local identifier_split = StringUtils.split(path, "_")
+    local identifier, split_frame = SpriteAssetLoader.splitIdentifier(path)
+    local frames = self.get("sprite", identifier).data
+    local texture = frames[split_frame or 1] or error(string.format("Out-of-bounds frame %s on sprite '%s'", split_frame, identifier))
+    return texture
 end
 
 ---@param texture love.Image|string
@@ -442,7 +446,10 @@ end
 ---@param path string
 ---@return love.Image[]
 function Assets.getFramesOrTexture(path)
-    return self.tryGet("sprite", path) or Kristal.Console:error(string.format("Attempt to get missing sprite with ID '%s", path))
+    if not self.hasSprite(path) then
+        return Kristal.Console:error(string.format("Attempt to get missing sprite with ID '%s", path))
+    end
+    return self.get("sprite", path).textures
 end
 
 ---@param x number
