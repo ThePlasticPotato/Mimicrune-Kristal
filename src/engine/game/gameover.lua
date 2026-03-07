@@ -104,9 +104,9 @@ function GameOver:update()
     end
     if (self.timer >= 150) and (self.current_stage == 4) then
         if not Game:isLight() then
-            self:addFX(ShaderFX("vhs", {["iTime"] = function () return Kristal.getTime() end, ["texsize"] = {SCREEN_WIDTH, SCREEN_HEIGHT}, ["noiseTex"] = Assets.getTexture("static")}))
+            self:vhs()--self:addFX(ShaderFX("vhs", {["iTime"] = function () return Kristal.getTime() end, ["texsize"] = {SCREEN_WIDTH, SCREEN_HEIGHT}, ["noiseTex"] = Assets.getTexture("static")}))
         else
-            self:addFX(ShaderFX("crt", {["iTime"] = function () return Kristal.getTime() end, ["texsize"] = {SCREEN_WIDTH, SCREEN_HEIGHT}}))
+            self:crt()--self:addFX(ShaderFX("crt", {["iTime"] = function () return Kristal.getTime() end, ["texsize"] = {SCREEN_WIDTH, SCREEN_HEIGHT}}))
         end
         self.music:play(Game:isLight() and "determination" or Game:getConfig("oldGameOver") and "AUDIO_DRONE" or "AUDIO_DEFEAT")
         if not Game:getConfig("oldGameOver") or Game:isLight() then

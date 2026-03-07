@@ -1,6 +1,6 @@
 extern vec2   texsize;
-float warp = 0.75; // simulate curvature of CRT monitor
-float scan = 0.75; // simulate darkness between scanlines
+uniform float warp; // simulate curvature of CRT monitor
+uniform float scan; // simulate darkness between scanlines
 
 void mainImage(out vec4 fragColor,in vec2 fragCoord,in Image texture)
     {

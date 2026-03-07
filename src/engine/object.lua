@@ -1967,4 +1967,144 @@ function Object:canDeepCopyKey(key)
     return key ~= "parent"
 end
 
+---@alias GlitchOptions table
+---| "scan_line_jitter"
+---| "horizontal_shake"
+---| "color_drift"
+---@param options GlitchOptions
+---@overload fun()
+---@overload fun (options)
+function Object:glitch(options, time)
+    options = options or {
+        ["scan_line_jitter"] = (0.015 * (5 / 10));
+        ["horizontal_shake"] = (0.01 * (5 / 10));
+        ["color_drift"] = (0.03);
+    }
+    local jitter = options.scan_line_jitter and options.scan_line_jitter or (0.015 * (5 / 10))
+    local shake = options.horizontal_shake and options.horizontal_shake or (0.01 * (5 / 10))
+    local drift = options.color_drift and options.color_drift or (0.03)
+    self:addFX(ShaderFX("kinoglitch", { ["iTime"] = function () return Kristal.getTime() end, ["scan_line_jitter"] = jitter, ["horizontal_shake"] = shake, ["color_drift"] = drift }, false), "glitchy")
+    if time then
+        Game.stage.timer:after(time, function() self:stopGlitch() end)
+    end
+end
+
+---@param scale number|function
+---@overload fun()
+---@overload fun(scale)
+function Object:blockGlitch(scale, transformed)
+    scale = scale or 1.0
+    transformed = transformed or false
+    Game.world:addFX(ShaderFX("glitch", { ["iTime"] = function () return Kristal.getTime() end, ["glitchScale"] = scale}, transformed), "glitchy")
+end
+
+function Object:stopGlitch()
+    self:removeFX("glitchy")
+end
+
+---@alias VHSOptions table
+---| "noise_strength"   = 1.0;  // overall noise add strength
+---| "stripes_strength" = 1.0;  // how strongly stripes use noise
+---| "noise_color_mix"  = 1.0;  // 0=mono, 1=full color, between = partial
+---| "scroll_amp"   = 0.12; // overall strength of vertical roll (~0.4 bydefault)
+---| "scroll_speed" = 0.35; // how fast the roll progresses
+---| "wobble_amp"   = 0.015; // horizontal wiggle strength
+---| "stripes_speed" = 0.30; // motion of the stripe mask
+---| "sweep_speed"   = 0.25; // speed of the bright sweep band
+---| "sweep_amp"     = 0.35; // amplitude of the sweep band (brightness variation)
+---| "seam_feather" = 0.004; // feather amt, prevents edges from wrapping (sometimes lol)
+---@param texsize table<number, number>|function
+---@param static_tex string|love.Image
+---@param transformed boolean
+---@param options VHSOptions
+---@overload fun()
+---@overload fun(texsize)
+---@overload fun(texsize, static_tex)
+---@overload fun(texsize, static_tex, transformed)
+function Object:vhs(texsize, static_tex, transformed, options)
+    texsize = texsize or {SCREEN_WIDTH, SCREEN_HEIGHT}
+    static_tex = static_tex or "static"
+    transformed = transformed or false
+    options = options or {}
+    local fallback = {
+        ["noise_strength"]   = 1.0;
+        ["stripes_strength"] = 1.0;
+        ["noise_color_mix"]  = 1.0;
+        ["scroll_amp"]   = 0.12;
+        ["scroll_speed"] = 0.35;
+        ["wobble_amp"]   = 0.015;
+        ["stripes_speed"] = 0.30;
+        ["sweep_speed"]   = 0.25;
+        ["sweep_amp"]     = 0.35;
+        ["seam_feather"] = 0.004;
+    }
+
+    local noiseTex = ((type(static_tex) == "string") and Assets.getTexture(static_tex)) or static_tex
+
+    local passthrough = {
+        ["iTime"]            = function () return Kristal.getTime() end;
+        ["texsize"]          = texsize;
+        ["noiseTex"]         = noiseTex;
+        ["noise_strength"]   = options.noise_strength or fallback.noise_strength;
+        ["stripes_strength"] = options.stripes_strength or fallback.stripes_strength;
+        ["noise_color_mix"]  = options.noise_color_mix or fallback.noise_color_mix;
+        ["scroll_amp"]       = options.scroll_amp or fallback.scroll_amp;
+        ["scroll_speed"]     = options.scroll_speed or fallback.scroll_speed;
+        ["wobble_amp"]       = options.wobble_amp or fallback.wobble_amp;
+        ["stripes_speed"]    = options.stripes_speed or fallback.stripes_speed;
+        ["sweep_speed"]      = options.sweep_speed or fallback.sweep_speed;
+        ["sweep_amp"]        = options.sweep_amp or fallback.sweep_amp;
+        ["seam_feather"]     = options.seam_feather or fallback.seam_feather;
+    }
+
+    self:addFX(ShaderFX("vhs", passthrough, transformed), "vhsified")
+end
+
+function Object:stopVhs()
+    self:removeFX("vhsified")
+end
+
+---@alias CRTOptions table
+---| "vertJerkOpt"      = 1.0;
+---| "vertMovementOpt"  = 1.0;
+---| "bottomStaticOpt"  = 1.0;
+---| "scanlinesOpt"     = 1.0;
+---| "rgbOffsetOpt"     = 1.0;
+---| "horzFuzzOpt"      = 1.0;
+---@param texsize table<number, number>|function
+---@param transformed boolean
+---@param options CRTOptions
+---@overload fun()
+---@overload fun(texsize)
+---@overload fun(texsize, transformed)
+function Object:crt(texsize, transformed, options)
+    texsize = texsize or {SCREEN_WIDTH, SCREEN_HEIGHT}
+    transformed = transformed or false
+    options = options or {}
+    local fallback = {
+        ["vertJerkOpt"]   = 1.0;
+        ["vertMovementOpt"] = 1.0;
+        ["bottomStaticOpt"]  = 1.0;
+        ["scanlinesOpt"]   = 1.0;
+        ["rgbOffsetOpt"] = 1.0;
+        ["horzFuzzOpt"]   = 1.0;
+    }
+
+    local passthrough = {
+        ["iTime"]            = function () return Kristal.getTime() end;
+        ["texsize"]          = texsize;
+        ["vertJerkOpt"]      = options.vertJerkOpt or fallback.vertJerkOpt;
+        ["bottomStaticOpt"]  = options.bottomStaticOpt or fallback.bottomStaticOpt;
+        ["scanlinesOpt"]     = options.scanlinesOpt or fallback.scanlinesOpt;
+        ["rgbOffsetOpt"]     = options.rgbOffsetOpt or fallback.rgbOffsetOpt;
+        ["horzFuzzOpt"]      = options.horzFuzzOpt or fallback.horzFuzzOpt;
+    }
+
+    self:addFX(ShaderFX("crt", passthrough, transformed), "crtified")
+end
+
+function Object:stopCrt()
+    self:removeFX("crtified")
+end
+
 return Object

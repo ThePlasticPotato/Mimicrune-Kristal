@@ -42,14 +42,14 @@ end
 function TaintedFountainBase:shortGlitch(left)
     local wing = left and self.wing_left or self.wing_right
     local glitch_timer = 10
-    wing:addFX(ShaderFX("kinoglitch", { ["iTime"] = function () return Kristal.getTime() end, ["scan_line_jitter"] = function () return 0.015 * (glitch_timer / 10) end, ["horizontal_shake"] = function () return 0.01 * (glitch_timer / 10) end }, false), "glitchy")
+    wing:glitch({["scan_line_jitter"] = function () return 0.015 * (glitch_timer / 10) end, ["horizontal_shake"] = function () return 0.01 * (glitch_timer / 10) end })
     local timer = (Game.battle) and Game.battle.timer or Game.world.timer
     timer:doWhile(function ()
         return glitch_timer > 0
     end, function ()
         glitch_timer = glitch_timer - DTMULT
     end, function ()
-        wing:removeFX("glitchy")
+        wing:stopGlitch()
     end)
 end
 

@@ -1,15 +1,13 @@
 extern number iTime;
 extern vec2   texsize;
 
-// set these via shader:send if you want them dynamic:
-extern number vertJerkOpt      = 1.0;
-extern number vertMovementOpt  = 1.0;
-extern number bottomStaticOpt  = 1.0;
-extern number scalinesOpt      = 1.0;  // (typo kept to match your code)
-extern number rgbOffsetOpt     = 1.0;
-extern number horzFuzzOpt      = 1.0;
+uniform float vertJerkOpt;
+uniform float vertMovementOpt;
+uniform float bottomStaticOpt;
+uniform float scanlinesOpt;
+uniform float rgbOffsetOpt;
+uniform float horzFuzzOpt;
 
-// --- ashima snoise 2D ---
 vec3 mod289(vec3 x){ return x - floor(x*(1.0/289.0))*289.0; }
 vec2 mod289(vec2 x){ return x - floor(x*(1.0/289.0))*289.0; }
 vec3 permute(vec3 x){ return mod289(((x*34.0)+1.0)*x); }
@@ -82,7 +80,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord, in Image tex)
   vec3 color = vec3(red, green, blue);
 
   // optional scanlines; scale by screen height for consistency
-  float scanline = sin(uv.y * texsize.y * 0.8) * 0.04 * scalinesOpt;
+  float scanline = sin(uv.y * texsize.y * 0.8) * 0.04 * scanlinesOpt;
   color -= scanline;
 
   fragColor = vec4(color, 1.0);

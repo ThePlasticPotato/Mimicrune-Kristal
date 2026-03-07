@@ -2,16 +2,16 @@ extern number iTime;
 extern vec2   texsize;
 extern Image noiseTex;
 
-extern number noise_strength   = 1.0;  // overall noise add strength
-extern number stripes_strength = 1.0;  // how strongly stripes use noise
-extern number noise_color_mix  = 1.0;  // 0=mono, 1=full color, between = partial
-extern number scroll_amp   = 0.12; // overall strength of vertical roll (~0.4 bydefault)
-extern number scroll_speed = 0.35; // how fast the roll progresses
-extern number wobble_amp   = 0.015; // horizontal wiggle strength (was ~1/50 * big multiplier)
-extern number stripes_speed = 0.30; // motion of the stripe mask (lower = calmer)
-extern number sweep_speed   = 0.25; // speed of the bright sweep band
-extern number sweep_amp     = 0.35; // amplitude of the sweep band (brightness variation)
-extern number seam_feather = 0.004; // feather amt, prevents edges from wrapping weirdly (not really important if you dont have scroll or wobble)
+uniform float noise_strength;  // overall noise add strength
+uniform float stripes_strength;  // how strongly stripes use noise
+uniform float noise_color_mix;  // 0=mono, 1=full color, between = partial
+uniform float scroll_amp; // overall strength of vertical roll (~0.4 bydefault)
+uniform float scroll_speed; // how fast the roll progresses
+uniform float wobble_amp; // horizontal wiggle strength (was ~1/50 * big multiplier)
+uniform float stripes_speed; // motion of the stripe mask (lower = calmer)
+uniform float sweep_speed; // speed of the bright sweep band
+uniform float sweep_amp; // amplitude of the sweep band (brightness variation)
+uniform float seam_feather; // feather amt, prevents edges from wrapping weirdly (not really important if you dont have scroll or wobble)
 
 vec3 noiseRGB(vec2 p)
 {

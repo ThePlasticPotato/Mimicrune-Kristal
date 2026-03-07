@@ -1,5 +1,5 @@
 extern number iTime;
-extern number glitchScale;
+uniform float glitchScale;
 	
 float time;
 	

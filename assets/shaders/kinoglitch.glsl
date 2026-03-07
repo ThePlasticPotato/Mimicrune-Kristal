@@ -1,7 +1,7 @@
 extern number iTime;
-uniform float scan_line_jitter = 0.015;
-uniform float horizontal_shake = 0.01;
-uniform float color_drift = 0.03; 
+uniform float scan_line_jitter;
+uniform float horizontal_shake;
+uniform float color_drift;
 
 float nrand(float x, float y) {
 	return fract(sin(dot(vec2(x,y),vec2(12.9898, 78.233))) * 43758.5433);
