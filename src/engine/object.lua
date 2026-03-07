@@ -2012,7 +2012,7 @@ end
 ---| "stripes_speed" = 0.30; // motion of the stripe mask
 ---| "sweep_speed"   = 0.25; // speed of the bright sweep band
 ---| "sweep_amp"     = 0.35; // amplitude of the sweep band (brightness variation)
----| "seam_feather" = 0.004; // feather amt, prevents edges from wrapping (sometimes lol)
+---| "seam_feather" = 0.008; // feather amt, prevents edges from wrapping (sometimes lol)
 ---@param texsize table<number, number>|function
 ---@param static_tex string|love.Image
 ---@param transformed boolean
@@ -2036,7 +2036,7 @@ function Object:vhs(texsize, static_tex, transformed, options)
         ["stripes_speed"] = 0.30;
         ["sweep_speed"]   = 0.25;
         ["sweep_amp"]     = 0.35;
-        ["seam_feather"] = 0.004;
+        ["seam_feather"] = 0.008;
     }
 
     local noiseTex = ((type(static_tex) == "string") and Assets.getTexture(static_tex)) or static_tex
