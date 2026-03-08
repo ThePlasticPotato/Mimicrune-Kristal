@@ -719,6 +719,7 @@ end
 
 ---@param fade? boolean
 function Game:loadQuick(fade)
+    local has_fredbear = self.party[3]
     local save = self.quick_save
     if save then
         self:load(save, self.save_id, fade)
@@ -726,6 +727,21 @@ function Game:loadQuick(fade)
         Kristal.loadGame(self.save_id)
     end
     self.quick_save = save
+
+    if self:getFlag("playtest_mode", true) then
+        Game:addPartyMember("cassidy", 2)
+        if (has_fredbear) then Game:addPartyMember("fredbear", 3) end
+        Game.inventory:tryGiveItem("pepperoni_slice", true)
+        Game.inventory:tryGiveItem("plain_slice", true)
+        Game.inventory:tryGiveItem("plain_slice", true)
+        Game.inventory:tryGiveItem("fizzyfaz", true)
+        Game.inventory:tryGiveItem("fizzyfaz", true)
+        Game.inventory:tryGiveItem("fizzyfaz", true)
+        Game:setFlag("tonics", 4)
+        Game:setFlag("bandaids", 6)
+        Game:setFlag("purifiers", 3)
+        self:encounter("debugtwisted")
+    end
 end
 
 --- Starts a battle using the specified encounter file.
