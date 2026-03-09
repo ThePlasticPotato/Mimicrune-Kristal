@@ -124,8 +124,8 @@ function MainMenu:enter()
     end
 
     Kristal.setPresence({
-        state = "In the menu",
-        details = "Main menu",
+        state = "CONNECTION PENDING",
+        details = "main_menu",
         largeImageKey = "logo",
         largeImageText = "Kristal v" .. tostring(Kristal.Version),
         startTimestamp = os.time(),
