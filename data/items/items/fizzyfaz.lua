@@ -12,11 +12,11 @@ function item:init()
     self.type = "item"
 
     -- Battle description
-    self.effect = "FazEnt Soda. Always somehow tastes lukewarm... \nand painfully fizzy. Hurts 10HP, Boosts ATK"
+    self.effect = "Lukewarm and painfully fizzy.\nHurts 10HP, Boosts ATK"
     -- Shop description
     self.shop = ""
     -- Menu description
-    self.description = "FazEnt Soda. Always somehow tastes lukewarm... \nand painfully fizzy. Hurts 10HP, Boosts ATK"
+    self.description = "FazEnt Soda. Always somehow tastes lukewarm... and painfully fizzy. Hurts 10HP, Boosts ATK"
 
     -- Amount healed (HealItem variable)
     self.heal_amount = -10
