@@ -583,8 +583,8 @@ end
 ---@param midi string
 ---@return string
 function Assets.getMidiPath(midi)
-    Kristal.Console:log("Retrieved midi at " .. self.data.midi[midi])
-    return self.data.midi[midi]
+    --return self.data.midi[midi]
+    return self.get("midi", midi)
 end
 
 ---@param video string

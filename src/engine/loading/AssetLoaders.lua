@@ -30,6 +30,7 @@ function AssetLoaders.registerDefaults()
     AssetLoaders.register("video", PathAssetLoader({ "videos" }, { "ogg", "ogv" }))
     AssetLoaders.register("font", FontAssetLoader({ "fonts" }, { "png", "ttf", "json", "fnt" }))
     AssetLoaders.register("bubble", BubbleAssetLoader({ "bubbles" }, { "json" }))
+    AssetLoaders.register("midi", PathAssetLoader({ "midi" }, { "midi", "mid" }))
 end
 
 ---@return fun(): string, AssetLoader

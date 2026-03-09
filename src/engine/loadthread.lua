@@ -250,12 +250,6 @@ local loaders = {
     -- Asset Loaders
 
     -- ..they all use the new system now.
-    ["midi"] = { "assets/midi", function (base_dir, path, full_path)
-        local id = checkExtension(path, "mid", "midi")
-        if id then
-            data.assets.midi[id] = full_path
-        end
-    end },
 }
 
 function loadPath(baseDir, loader, path, pre)

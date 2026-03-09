@@ -59,7 +59,7 @@ function Loading:enter(from, dir)
     self.done_loading = false
     self.stage = Stage()
     self.dog = LoadingDog()
-    self.stage:addChild(self.dog)
+    --self.stage:addChild(self.dog)
 end
 
 function Loading:startIntro()
@@ -450,7 +450,7 @@ function Loading:draw()
 
     -- Reset the draw color
     Draw.setColor(1, 1, 1, 1)
-    self.stage:draw()
+    --self.stage:draw()
 end
 
 function Loading:onKeyPressed(key)
