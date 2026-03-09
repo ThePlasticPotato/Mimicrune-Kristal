@@ -273,6 +273,8 @@ function love.load(args)
         Kristal.HTTPS.thread:start()
     end
 
+    Assets.init()
+
     -- TARGET_MOD being already set -> mod developer has
     -- a preference for auto mod start. We particularly wouldn't
     -- want the user to overwrite this since it can break some mods
@@ -1422,6 +1424,19 @@ function Kristal.loadAssets(dir, loader, paths, after)
         paths = paths
     })
     Kristal.Loader.next_key = Kristal.Loader.next_key + 1
+    if loader == "mods" then
+        -- Empty because I absolutely DESPISE LOGIC!! :jellycruel:
+    elseif Assets.getBucket("engine").state == AssetBucket.State.UNLOADED then
+        local paths4real = (type(paths) == "string" and {paths} or paths) ---@as string[]?
+        for i = 1, #paths4real do
+            paths4real[i] = paths4real[i] .. "/assets"
+            if paths4real[i] == "/assets" then
+                paths4real[i] = "assets"
+            end
+        end
+        Assets.getBucket("engine"):startLoading(paths4real)
+    else
+    end
 end
 
 --- Initializes the specified mod and loads its assets. \
@@ -1532,11 +1547,15 @@ function Kristal.loadModAssets(id, asset_type, asset_paths, after)
         end
     end
 
+    local paths4real = {}
     -- Finally load all assets (libraries first)
     for _, lib_id in ipairs(mod.lib_order) do
+        table.insert(paths4real, mod.libs[lib_id].path .. "/assets")
         Kristal.loadAssets(mod.libs[lib_id].path, asset_type or "all", asset_paths or "", finishLoadStep)
     end
     Kristal.loadAssets(mod.path, asset_type or "all", asset_paths or "", finishLoadStep)
+    table.insert(paths4real, mod.path .. "/assets")
+    Assets.getBucket("project"):startLoading(paths4real)
 end
 
 local function shouldWindowUseModBranding()
