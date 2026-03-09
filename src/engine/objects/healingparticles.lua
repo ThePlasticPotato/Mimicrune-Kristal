@@ -1,3 +1,4 @@
+---@class HealingParticles : Object
 local HealingParticles, super = Class(Object)
 
 function HealingParticles:init(x, y)
@@ -14,11 +15,11 @@ function HealingParticles:update()
     -- code here gets called every frame, before any draws
     -- to only update while the mod is selected, check self.selected (or self.fade)
 
-    if (self.fade < 1 and self.fade_in) then
-        self.fade = math.min(1, self.fade + DT * 0.2)
+    if (self.fade < 1) and self.fade_in then
+        self.fade = MathUtils.approach(self.fade, 1, DTMULT * 0.02)
     end
-    if (self.fade > 0 and not self.fade_in) then
-        self.fade = math.max(0, self.fade - DT)
+    if (self.fade > 0) and not self.fade_in then
+        self.fade = MathUtils.approach(self.fade, 0, DTMULT * 0.1)
     end
 
     local to_remove = {}

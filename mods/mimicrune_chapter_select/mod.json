@@ -14,7 +14,7 @@
     // Due to questionable logic in kristal.lua shouldWindowUseModBranding, we have to set both.
     "setWindowTitle": false,
     "setWindowTitleAndIcon": false,
-    "party": ["kris"],
+    "party": ["evan"],
     "config": {
         "kristal": {},
         "obscurachapters": {

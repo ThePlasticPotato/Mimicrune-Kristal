@@ -2,7 +2,7 @@
 local MainMenu = {}
 
 function MainMenu:init()
-    MainMenu.BACKGROUND_SHADER = Assets.getShader("kristal/main_menu_background")
+    MainMenu.BACKGROUND_SHADER = Assets.getShader("vhs")
 end
 
 function MainMenu:enter()
@@ -22,6 +22,10 @@ function MainMenu:enter()
 
     -- Initialize variables for the menu
     self.stage = Stage()
+    self.bg_heal = HealingParticles()
+    self.stage:addChild(self.bg_heal)
+    self.bg_heal.fade_in = false
+    --self.stage:vhs({SCREEN_WIDTH, SCREEN_HEIGHT}, "static_gray")
 
     -- Initialize all states
     self.title_screen = MainMenuTitle(self)
@@ -53,15 +57,17 @@ function MainMenu:enter()
     self.state_manager:addState("CONTROLS", self.controls)
     self.state_manager:addState("DEADZONE", self.deadzone_config)
 
+    self.seen_intro = Kristal.checkPersistentVariable("plot/connection_log.txt")
+
     self.fader = Fader()
     self.fader.layer = 10000
     self.stage:addChild(self.fader)
 
-    self.heart = Sprite("player/heart_menu")
+    self.heart = Sprite("ui/flat_arrow_right")
     self.heart.visible = true
-    self.heart:setOrigin(0.5, 0.5)
+    self.heart:setOrigin(0.5, 0.6)
     self.heart:setScale(2, 2)
-    self.heart:setColor(Kristal.getSoulColor())
+    --self.heart:setColor(Kristal.getSoulColor())
     self.heart.layer = 100
     self.stage:addChild(self.heart)
 
@@ -80,6 +86,26 @@ function MainMenu:enter()
     self.background_fade = 1
 
     self.mod_list:buildModList()
+
+    local texsize = {SCREEN_WIDTH, SCREEN_HEIGHT}
+    local noiseTex = Assets.getTexture("static_gray")
+
+    self.shader_passthrough = {
+        ["iTime"]            = function () return Kristal.getTime() end;
+        ["texsize"]          = texsize;
+        ["noiseTex"]         = noiseTex;
+        ["noise_strength"]   = 1.0;
+        ["stripes_strength"] = 1.0;
+        ["noise_color_mix"]  = 1.0;
+        ["scroll_amp"]       = 0.12;
+        ["scroll_speed"]     = 0.35;
+        ["wobble_amp"]       = 0.015;
+        ["stripes_speed"]    = 0.30;
+        ["sweep_speed"]      = 0.25;
+        ["sweep_amp"]        = 0.35;
+        ["seam_feather"]     = 0.008;
+    }
+
 
     self.ver_string = "v" .. tostring(Kristal.Version)
     local trimmed_commit = GitFinder:fetchTrimmedCommit()
@@ -276,20 +302,24 @@ function MainMenu:update()
 
     -- Move the heart closer to the target
     if self.heart.visible then
-        if (math.abs((self.heart_target_x - self.heart.x)) <= 2) then
-            self.heart.x = self.heart_target_x
-        end
-        if (math.abs((self.heart_target_y - self.heart.y)) <= 2) then
-            self.heart.y = self.heart_target_y
-        end
-        self.heart.x = self.heart.x + ((self.heart_target_x - self.heart.x) / 2) * DTMULT
-        self.heart.y = self.heart.y + ((self.heart_target_y - self.heart.y) / 2) * DTMULT
+        -- if (math.abs((self.heart_target_x - self.heart.x)) <= 2) then
+        --     self.heart.x = self.heart_target_x
+        -- end
+        -- if (math.abs((self.heart_target_y - self.heart.y)) <= 2) then
+        --     self.heart.y = self.heart_target_y
+        -- end
+        -- self.heart.x = self.heart.x + ((self.heart_target_x - self.heart.x) / 2) * DTMULT
+        -- self.heart.y = self.heart.y + ((self.heart_target_y - self.heart.y) / 2) * DTMULT
+        self.heart.x = self.heart_target_x
+        self.heart.y = self.heart_target_y
     end
 end
 
 function MainMenu:draw()
     -- Draw the menu background
-    self:drawBackground()
+    local canvas = Draw.pushCanvas(SCREEN_WIDTH, SCREEN_HEIGHT, { clear = false })
+
+    --self:drawBackground()
 
     love.graphics.setFont(self.menu_font)
 
@@ -325,6 +355,14 @@ function MainMenu:draw()
 
     -- Reset the draw color
     Draw.setColor(1, 1, 1, 1)
+    Draw.popCanvas()
+
+    love.graphics.setShader(self.BACKGROUND_SHADER)
+    for key, uniform in pairs(self.shader_passthrough) do
+        self.BACKGROUND_SHADER:send(key, (type(uniform) == "function") and uniform() or uniform)
+    end
+    Draw.draw(canvas, 0, 0, 0, 1, 1)
+    love.graphics.setShader()
 end
 
 function MainMenu:drawBackground()
@@ -333,26 +371,30 @@ function MainMenu:drawBackground()
     local background_offset = 10 - background_mult
     local background_offset_inv = -10 - background_mult
 
+    --love.graphics.setShader(self.BACKGROUND_SHADER)
+
     if not (TARGET_MOD and self.selected_mod.preview) then
         -- We need to draw the background on a canvas
         local bg_canvas = Draw.pushCanvas(320, 240)
         love.graphics.clear(0, 0, 0, 1)
 
         -- Set the shader to use
-        love.graphics.setShader(self.BACKGROUND_SHADER)
-        self.BACKGROUND_SHADER:send("bg_sine", self.animation_sine)
-        self.BACKGROUND_SHADER:send("bg_mag", 6)
-        self.BACKGROUND_SHADER:send("wave_height", 240)
-        self.BACKGROUND_SHADER:send("texsize", { self.background_image_wave:getWidth(), self.background_image_wave:getHeight() })
+        --love.graphics.setShader(self.BACKGROUND_SHADER)
+        --self.BACKGROUND_SHADER:send("warp", 0.75)
+        --self.BACKGROUND_SHADER:send("scan", 0.75)
+        --self.BACKGROUND_SHADER:send("bg_sine", self.animation_sine)
+        --self.BACKGROUND_SHADER:send("bg_mag", 6)
+        --self.BACKGROUND_SHADER:send("wave_height", 240)
+        --self.BACKGROUND_SHADER:send("texsize", { self.background_image_wave:getWidth(), self.background_image_wave:getHeight() })
 
-        self.BACKGROUND_SHADER:send("sine_mul", 1)
+        --self.BACKGROUND_SHADER:send("sine_mul", 1)
         Draw.setColor(1, 1, 1, self.background_alpha * 0.8)
         Draw.draw(self.background_image_wave, 0, math.floor(background_offset_inv))
-        self.BACKGROUND_SHADER:send("sine_mul", -1)
+        --self.BACKGROUND_SHADER:send("sine_mul", -1)
         Draw.draw(self.background_image_wave, 0, math.floor(background_offset_inv))
         Draw.setColor(1, 1, 1, 1)
 
-        love.graphics.setShader()
+        --love.graphics.setShader()
 
         self:drawAnimStrip(self.background_image_animation, background_index, 0, background_offset + 240 - 70, (self.background_alpha * 0.46))
         self:drawAnimStrip(self.background_image_animation, background_index + 0.4, 0, background_offset + 240 - 70, (self.background_alpha * 0.56))

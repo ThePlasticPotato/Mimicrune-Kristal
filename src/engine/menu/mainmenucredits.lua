@@ -87,6 +87,33 @@ function MainMenuCredits:init(menu)
                 "",
                 ""
             }
+        },
+        {
+            "Mimicrune",
+            {
+                { "Lead Developers", COLORS.silver },
+                "Vesselbound",
+                { "Assets", COLORS.silver },
+                "Vesselbound",
+                "Karase020",
+                "Gamefan131",
+                "Toby Fox",
+                "Temmie Chang",
+                "DELTARUNE team",
+            },
+            {
+                { "GitHub Contributors", COLORS.silver },
+                "Hyperboid",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+            }
         }
     }
     self.selected_page = 1

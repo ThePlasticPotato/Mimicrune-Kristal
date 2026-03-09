@@ -1288,27 +1288,27 @@ end
 function Kristal.returnToMenu()
     local current_id = Mod and Mod.info.id or "crash"
 
-    if AUTO_MOD_START and TARGET_MOD then
-        -- Go to empty state
-        Kristal.setState("Empty")
+    -- if AUTO_MOD_START and TARGET_MOD then
+    --     -- Go to empty state
+    --     Kristal.setState("Empty")
 
-        -- Clear the mod
-        Kristal.clearModState()
+    --     -- Clear the mod
+    --     Kristal.clearModState()
 
-        if (current_id == "mimicrune_chapter_select" or current_id == "crash") then
-            love.event.quit(0)
-        else
-            Kristal.loadAssets("", "mods", "", function ()
-                Kristal.loadMod("mimicrune_chapter_select")
-            end)
-        end
-        Kristal.DebugSystem:refresh()
-        -- End input if it's open
-        if not Kristal.Console.is_open then
-            TextInput.endInput()
-        end
-        return
-    end
+    --     if (current_id == "mimicrune_chapter_select" or current_id == "crash") then
+    --         love.event.quit(0)
+    --     else
+    --         Kristal.loadAssets("", "mods", "", function ()
+    --             Kristal.loadMod("mimicrune_chapter_select")
+    --         end)
+    --     end
+    --     Kristal.DebugSystem:refresh()
+    --     -- End input if it's open
+    --     if not Kristal.Console.is_open then
+    --         TextInput.endInput()
+    --     end
+    --     return
+    -- end
     -- Go to empty state
     Kristal.setState("Empty")
 
@@ -1732,7 +1732,7 @@ function Kristal.processDynamicBorder()
     if Kristal.getState() == Game then
         return Game:getBorder()
     elseif Kristal.getState() == MainMenu then
-        return ImageBorder("castle")
+        return Kristal.getState().seen_intro and ImageBorder("DEVICE_BROKEN") or ImageBorder("DEVICE")
     end
 end
 
