@@ -9,7 +9,7 @@ function spell:init()
     self.cast_name = "Body Bash"
 
     -- Battle description
-    self.effect = "Self projectile"
+    self.effect = "Sometimes, your body IS the ammunition.\nDeals damage to user and target."
     
     -- Menu description
     self.description = "Sometimes, your body IS the ammunition."
@@ -27,10 +27,18 @@ function spell:init()
 end
 
 function spell:onCast(user, target)
-    local damage = (user.chara:getStat("magic") * 4) + (user.chara:getHealth() / 2)
-    local self_damage = math.min(-1 * (1 - user.chara:getHealth()), damage)
-    user:hurt(self_damage, true, COLORS.purple)
-    target:hurt(damage * math.max(user.chara.notes, 1), true, COLORS.purple)
+    local original_x = user.x
+    local original_y = user.y
+    user:slideTo(target.x - 5, target.y, 0.5, "in-expo", function()
+        user:flash()
+        target:flash()
+        Assets.playSound("metalhit")
+        user:slideTo(original_x, original_y, 1, "out-expo")
+        local damage = (user.chara:getStat("magic") * 4) + (user.chara:getHealth() / 2)
+        local self_damage = math.min(-1 * (1 - user.chara:getHealth()), damage)
+        user:hurt(self_damage, true, COLORS.purple)
+        target:hurt(damage * math.max(user.chara.notes, 1), user, nil, COLORS.purple)
+    end)
 end
 
 function spell:hasWorldUsage(chara)
