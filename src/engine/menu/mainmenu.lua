@@ -8,6 +8,7 @@ end
 function MainMenu:enter()
     -- Load menu music
     self.music = Music() -- "mod_menu", 1, 0.95
+    Kristal.setDesiredWindowTitleAndIcon()
 
     Kristal.showBorder(0.5)
 
