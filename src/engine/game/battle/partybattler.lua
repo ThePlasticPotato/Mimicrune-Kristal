@@ -71,6 +71,7 @@ function PartyBattler:init(chara, x, y)
     self.singing = false
     self.songstrument = "sax"
     self.next_note_idx = 1
+    self.last_music_time = 0
 
     self.last_pitch = 0
     self.note_ind = 0
@@ -647,7 +648,7 @@ function PartyBattler:getNoteShift(song)
 
         return (remainder > (67)) and "50" or "150"
     end
-    return "0"
+    return "50"
 end
 
 function PartyBattler:getNotePosition()
@@ -666,9 +667,23 @@ function PartyBattler:sing()
         return 2 ^ ((midiNote - baseMidiNote) / 12)
     end
     -- code here gets called every frame
+
+    local function lowerBoundByTime(notes, t)
+        local lo, hi = 1, #notes + 1
+        while lo < hi do
+            local mid = math.floor((lo + hi) / 2)
+            if notes[mid].t < t then
+                lo = mid + 1
+            else
+                hi = mid
+            end
+        end
+        return lo
+    end
+
     local LEAD = 0.045 -- 40 ms, tweak 0.02–0.08
     local now = Game.battle.music:tell()
-    local target = now + LEAD
+    local target = MathUtils.wrap(now + LEAD, 0, Game.battle.music.source:getDuration("seconds"))
     --Kristal.Console:log("Note Count: " .. #self.notes)
     while self.next_note_idx <= #Game.battle.notes and Game.battle.notes[self.next_note_idx].t <= target do
         local n = Game.battle.notes[self.next_note_idx]
@@ -696,6 +711,9 @@ function PartyBattler:sing()
             self.note_ind = new_bar
           end
       end
+    end
+    if (Game.battle.music and Game.battle.music:tell() < Game.battle.notes[self.next_note_idx-1].t) then
+        self.next_note_idx = lowerBoundByTime(Game.battle.notes, now)
     end
 end
 
