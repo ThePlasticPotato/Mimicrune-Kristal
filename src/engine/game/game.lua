@@ -127,7 +127,7 @@ function Game:enter(previous_state, save_id, save_name, fade)
             state = Kristal.callEvent(KRISTAL_EVENT.getPresenceState) or ("PARTICIPATING IN " .. (Kristal.getModOption("name") or "a mod")),
             details = Kristal.callEvent(KRISTAL_EVENT.getPresenceDetails),
             largeImageKey = Kristal.callEvent(KRISTAL_EVENT.getPresenceImage) or "logo",
-            largeImageText = "Kristal v" .. tostring(Kristal.Version),
+            largeImageText = "Mimicrune-Kristal v" .. tostring(Kristal.Version),
             startTimestamp = math.floor(os.time() - self.playtime),
             instance = 0
         })
