@@ -63,7 +63,7 @@ function DarkMenu:init()
     self.box_offset_x = 0
     self.box_offset_y = 0
 
-    self.objective = ObjectivePopup(0, 20, nil, nil, Game:getFlag("current_objective"), nil, "none", false, false, true)
+    self.objective = ObjectivePopup(0, -240, nil, nil, Game:getFlag("current_objective"), nil, "none", false, false, true)
     self.objective.layer = self.layer - 0.1
     Game.stage:addChild(self.objective)
 end
@@ -189,7 +189,7 @@ end
 
 function DarkMenu:onAdd(parent)
     super.onAdd(self, parent)
-    --Game.world:showHealthBars()
+    Game.world:showHealthBars()
     Kristal.callEvent(KRISTAL_EVENT.onDarkMenuOpen, self)
 end
 
@@ -199,6 +199,7 @@ function DarkMenu:transitionOut()
     end
     if (self.objective) then self.objective:close() end
     if (self.description_panel and not self.description_panel.closed) then self.description_panel:close() end
+    self.animate_out = true
     local could_open = Game.world.can_open_menu
     if self.box then self.box:remove() end
     Game.world.can_open_menu = false
@@ -296,12 +297,12 @@ function DarkMenu:onKeyPressed(key)
         end
         local old_selected = self.selected_party
         if self.party_select_mode == "SINGLE" then
-            if Input.is("left", key) then
+            if Input.is("up", key) then
                 self.selected_party = self.selected_party - 1
                 self.ui_move:stop()
                 self.ui_move:play()
             end
-            if Input.is("right", key) then
+            if Input.is("down", key) then
                 self.selected_party = self.selected_party + 1
                 self.ui_move:stop()
                 self.ui_move:play()
@@ -358,20 +359,20 @@ function DarkMenu:updateSelectedBoxes()
 end
 
 function DarkMenu:update()
-    self.animation_timer = self.animation_timer + DTMULT
+    if (self.panel_bg.operable) then self.animation_timer = self.animation_timer + DTMULT end
 
     local max_time = self.animate_out and 3 or 8
 
     self.description.visible = self.description_panel.operable
 
-    -- if self.animation_timer > max_time + 1 then
-    --     self.animation_done = true
-    --     self.animation_timer = max_time + 1
-    --     if self.animate_out then
-    --         self:remove()
-    --         return
-    --     end
-    -- end
+    if self.animation_timer > max_time + 1 then
+        self.animation_done = true
+        self.animation_timer = max_time + 1
+        -- if self.animate_out then
+        --     self:remove()
+        --     return
+        -- end
+    end
 
     -- if not self.animate_out then
     --     if self.y < 0 then
@@ -404,7 +405,8 @@ function DarkMenu:draw()
         return
     end
     if (self.state == "MAIN" and not self.box) then
-        Draw.setColor(1, 1, 1, 1)
+        local max_time = self.animate_out and 3 or 8            
+        Draw.setColor(1, 1, 1, self.animation_timer / max_time)
         Draw.draw(self.sprite, 0, 0)
         if self.buttons[self.selected_submenu].desc_sprite then
             Draw.draw(self.buttons[self.selected_submenu].desc_sprite, SCREEN_WIDTH/2, SCREEN_HEIGHT/2 + 38, 0, 2, 2, self.buttons[self.selected_submenu].desc_sprite:getPixelWidth()/2)

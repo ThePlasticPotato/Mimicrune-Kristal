@@ -15,6 +15,7 @@ function item:init()
     self.effect = "Lukewarm and painfully fizzy.\nHurts 10HP, Boosts ATK"
     -- Shop description
     self.shop = ""
+    self.menu_image = "fizzy_faz"
     -- Menu description
     self.description = "FazEnt Soda. Always somehow tastes lukewarm... and painfully fizzy. Hurts 10HP, Boosts ATK"
 

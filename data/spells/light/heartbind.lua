@@ -12,7 +12,7 @@ function spell:init()
     self.effect = "Bind vitality"
 
     -- Menu description
-    self.description = "Binds to an ally, splitting damage taken by one between two."
+    self.description = "Binds to an ally, splitting damage taken\nby one between two."
 
     -- TP cost
     self.cost = 32

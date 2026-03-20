@@ -2,27 +2,37 @@
 ---@overload fun(...) : OverworldActionBox
 local OverworldActionBox, super = Class(Object)
 
-function OverworldActionBox:init(x, y, index, chara)
+function OverworldActionBox:init(x, y, index, chara, partypanel_offset)
     super.init(self, x, y)
 
     self.index = index
+    ---@type PartyMember
     self.chara = chara
+    self.partypanel_offset = partypanel_offset
 
-    self.head_sprite = Sprite(chara:getHeadIcons() .. "/head", 13, 13)
+    self.head_offset_x, self.head_offset_y = chara:getHeadIconOffset()
+    self.head_sprite = Sprite(chara:getHeadIcons() .. "/head", 34 + self.head_offset_x, 11 + self.head_offset_y)
+    self.head_sprite:setOrigin(0.5, 0)
 
-    if chara:getNameSprite() then
-        self.name_sprite = Sprite(chara:getNameSprite(), 51, 16)
-        self:addChild(self.name_sprite)
-    end
+    self.selector_sprite = Sprite("ui/battle/selector", 3, self.partypanel_offset + 5)
+    self.selector_sprite:setLayer(5)
+    self.selector_sprite.visible = false
+    self.selector_sprite:play(1/2, true)
 
-    self.hp_sprite   = Sprite("ui/hp", 109, 24)
+    -- if chara:getNameSprite() then
+    --     self.name_sprite = Sprite(chara:getNameSprite(), 51, 16)
+    --     self:addChild(self.name_sprite)
+    -- end
 
-    local ox, oy = chara:getHeadIconOffset()
-    self.head_sprite.x = self.head_sprite.x + ox
-    self.head_sprite.y = self.head_sprite.y + oy
+    --self.hp_sprite   = Sprite("ui/hp", 109, 24)
+
+    -- local ox, oy = chara:getHeadIconOffset()
+    -- self.head_sprite.x = self.head_sprite.x + ox
+    -- self.head_sprite.y = self.head_sprite.y + oy
 
     self:addChild(self.head_sprite)
-    self:addChild(self.hp_sprite)
+    self:addChild(self.selector_sprite)
+    --self:addChild(self.hp_sprite)
 
     self.font = Assets.getFont("smallnumbers")
     self.main_font = Assets.getFont("main")
@@ -31,6 +41,7 @@ function OverworldActionBox:init(x, y, index, chara)
 
     self.reaction_text = ""
     self.reaction_alpha = 0
+    self.bubble = nil
 end
 
 function OverworldActionBox:setHeadIcon(icon)
@@ -40,87 +51,68 @@ end
 function OverworldActionBox:react(text, display_time)
     self.reaction_alpha = display_time and (display_time * 30) or 50
     self.reaction_text = text
+    self.bubble = SpeechBubble({"[speed:0.5]" .. self.reaction_text}, 50, 28 + self.partypanel_offset, {right = true, actor = self.chara:getActor(false), style = "cyber", after = function () Game.stage.timer:afterCond(function() return self.reaction_alpha <= 0 end, function() self.bubble:remove() end) end})
+    self.bubble:setAuto(false)
+    self.bubble:setSkippable(false)
+    self.bubble:setLayer(WORLD_LAYERS["top"])
+    self:addChild(self.bubble)
+    Game.stage.timer:afterCond(function() return self.reaction_alpha <= 0 end, function() self.bubble:advance() end)
 end
 
 function OverworldActionBox:update()
     self.reaction_alpha = self.reaction_alpha - DTMULT
+    self.head_sprite.y = 11 + self.head_offset_y + self.partypanel_offset
+    self.selector_sprite.visible = self.selected
     super.update(self)
 end
 
 function OverworldActionBox:draw()
-    -- Draw the line at the top
-    if self.selected then
-        Draw.setColor(self.chara:getColor())
-    else
-        Draw.setColor(PALETTE["action_strip"])
-    end
-
-    love.graphics.setLineWidth(2)
-    love.graphics.line(0, 1, 213, 1)
-    
-    if Game:getConfig("oldUIPositions") then
-        love.graphics.line(0, 2, 2, 2)
-        love.graphics.line(211, 2, 213, 2)
-    end
-
     -- Draw health
     Draw.setColor(PALETTE["action_health_bg"])
-    love.graphics.rectangle("fill", 128, 24, 76, 9)
+    love.graphics.rectangle("fill", 21, 39 - 0 + self.partypanel_offset, 27, 9)
 
-    local health = (self.chara:getHealth() / self.chara:getStat("health")) * 76
+    local health = (self.chara:getHealth() / self.chara:getStat("health")) * 27
 
     if health > 0 then
         Draw.setColor(self.chara:getColor())
-        love.graphics.rectangle("fill", 128, 24, math.ceil(health), 9)
+        love.graphics.rectangle("fill", 21, 39 - 0 + self.partypanel_offset, math.ceil(health), 9)
     end
 
-    local color = PALETTE["action_health_text"]
-    if health <= 0 then
-        color = PALETTE["action_health_text_down"]
-    elseif (self.chara:getHealth() <= (self.chara:getStat("health") / 4)) then
-        color = PALETTE["action_health_text_low"]
-    else
-        color = PALETTE["action_health_text"]
-    end
-
-    local health_offset = 0
-    health_offset = (#tostring(self.chara:getHealth()) - 1) * 8
-
-    Draw.setColor(color)
-    love.graphics.setFont(self.font)
-    love.graphics.print(self.chara:getHealth(), 152 - health_offset, 11)
-    Draw.setColor(PALETTE["action_health_text"])
-    love.graphics.print("/", 161, 11)
-    local string_width = self.font:getWidth(tostring(self.chara:getStat("health")))
-    Draw.setColor(color)
-    love.graphics.print(self.chara:getStat("health"), 205 - string_width, 11)
+    -- Draw.setColor(color)
+    -- love.graphics.setFont(self.font)
+    -- love.graphics.print(self.chara:getHealth(), 152 - health_offset, 11)
+    -- Draw.setColor(PALETTE["action_health_text"])
+    -- love.graphics.print("/", 161, 11)
+    -- local string_width = self.font:getWidth(tostring(self.chara:getStat("health")))
+    -- Draw.setColor(color)
+    -- love.graphics.print(self.chara:getStat("health"), 205 - string_width, 11)
 
     -- Draw name text if there's no sprite
-    if not self.name_sprite then
-        local font = Assets.getFont("name")
-        love.graphics.setFont(font)
-        Draw.setColor(1, 1, 1, 1)
+    -- if not self.name_sprite then
+    --     local font = Assets.getFont("name")
+    --     love.graphics.setFont(font)
+    --     Draw.setColor(1, 1, 1, 1)
 
-        local name = self.chara:getName():upper()
-        local spacing = 5 - StringUtils.len(name)
+    --     local name = self.chara:getName():upper()
+    --     local spacing = 5 - StringUtils.len(name)
 
-        local off = 0
-        for i = 1, StringUtils.len(name) do
-            local letter = StringUtils.sub(name, i, i)
-            love.graphics.print(letter, 51 + off, 16 - 1)
-            off = off + font:getWidth(letter) + spacing
-        end
-    end
+    --     local off = 0
+    --     for i = 1, StringUtils.len(name) do
+    --         local letter = StringUtils.sub(name, i, i)
+    --         love.graphics.print(letter, 51 + off, 16 - 1)
+    --         off = off + font:getWidth(letter) + spacing
+    --     end
+    -- end
 
-    local reaction_x = -1
+    -- local reaction_x = -1
 
-    if self.x == 0 then -- lazy check for leftmost party member
-        reaction_x = 3
-    end
+    -- if self.x == 0 then -- lazy check for leftmost party member
+    --     reaction_x = 3
+    -- end
 
-    love.graphics.setFont(self.main_font)
-    Draw.setColor(1, 1, 1, self.reaction_alpha / 6)
-    love.graphics.print(self.reaction_text, reaction_x, 43, 0, 0.5, 0.5)
+    --love.graphics.setFont(self.main_font)
+    --Draw.setColor(1, 1, 1, self.reaction_alpha / 6)
+    --love.graphics.print(self.reaction_text, reaction_x, 43, 0, 0.5, 0.5)
 
     super.draw(self)
 end

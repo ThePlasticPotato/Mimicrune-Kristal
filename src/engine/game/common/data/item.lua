@@ -15,6 +15,7 @@
 ---
 ---@field effect string
 ---@field shop string
+---@field menu_image string
 ---@field description string
 ---@field check string|string[]
 ---
@@ -71,6 +72,8 @@ function Item:init()
     self.effect = ""
     -- Shop description
     self.shop = ""
+    -- Menu Image (for the Dark World)
+    self.menu_image = "unknown"
     -- Menu description
     self.description = "Example description"
     -- Light world check text
@@ -287,6 +290,7 @@ end
 function Item:getUseName() return self.use_name or self:getName():upper() end
 function Item:getWorldMenuName() return self:getName() end
 
+function Item:getMenuImage() return self.menu_image end
 function Item:getDescription() return self.description end
 function Item:getBattleDescription() return self.effect end
 function Item:getCheck() return self.check end

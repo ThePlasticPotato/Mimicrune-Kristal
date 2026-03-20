@@ -18,6 +18,7 @@ function item:init()
     -- Shop description
     self.shop = ""
     -- Menu description
+    self.menu_image = "cell_phone"
     self.description = "It can be used to make calls."
 
     -- Default shop price (sell price is halved)

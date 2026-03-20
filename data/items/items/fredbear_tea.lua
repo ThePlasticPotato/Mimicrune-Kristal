@@ -1,10 +1,10 @@
-local item, super = Class(HealItem, "kris_tea")
+local item, super = Class(HealItem, "fredbear_tea")
 
 function item:init()
     super.init(self)
 
     -- Display name
-    self.name = "Kris Tea"
+    self.name = "Fredbear Tea"
     -- Name displayed when used in battle (optional)
     self.use_name = nil
 
@@ -14,11 +14,12 @@ function item:init()
     self.icon = nil
 
     -- Battle description
-    self.effect = "Healing\nvaries"
+    self.effect = "Healing varies."
     -- Shop description
     self.shop = ""
     -- Menu description
-    self.description = "It's own-flavored tea.\nThe flavor just says \"Fredbear.\""
+    self.menu_image = "tea"
+    self.description = "The flavor just says \"Fredbear.\""
 
     -- Amount healed (HealItem variable)
     self.heal_amount = 50

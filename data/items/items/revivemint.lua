@@ -18,6 +18,7 @@ function item:init()
     -- Shop description
     self.shop = ""
     -- Menu description
+    self.menu_image = "mint"
     self.description = "Heals a fallen ally to MAX HP.\nA minty green crystal."
 
     -- Default shop price (sell price is halved)
