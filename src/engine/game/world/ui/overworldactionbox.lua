@@ -49,6 +49,10 @@ function OverworldActionBox:setHeadIcon(icon)
 end
 
 function OverworldActionBox:react(text, display_time)
+    if (self.bubble) then
+        self.bubble:remove()
+        self.bubble = nil
+    end
     self.reaction_alpha = display_time and (display_time * 30) or 50
     self.reaction_text = text
     self.bubble = SpeechBubble({"[speed:0.5]" .. self.reaction_text}, 50, 28 + self.partypanel_offset, {right = true, actor = self.chara:getActor(false), style = "cyber", after = function () Game.stage.timer:afterCond(function() return self.reaction_alpha <= 0 end, function() self.bubble:remove() end) end})

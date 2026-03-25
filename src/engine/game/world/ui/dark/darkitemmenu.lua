@@ -36,6 +36,7 @@ function DarkItemMenu:init()
 
     self.small_font = Assets.getFont("small")
     self.small_numbers = Assets.getFont("smallnumbers")
+    self.earthbound_font = Assets.getFont("eb")
 
     --self.scroll = 0
 
@@ -125,6 +126,8 @@ function DarkItemMenu:useItem(item, party)
 end
 
 function DarkItemMenu:update()
+    self.alpha = 1 - Game.world.menu.flicker_dur
+
     if self.state == "MENU" then
         if Input.pressed("cancel") then
             self.ui_cancel_small:stop()
@@ -213,7 +216,7 @@ function DarkItemMenu:update()
                 Assets.playSound("item_trash_warning")
 
                 --Game.world.menu:setDescription("Really throw away the\n" .. item:getName() .. "?", true)
-                self.popup_text = "Are you sure you want to delete the\n" .. item:getName() .. "?"
+                self.popup_text = "Are you sure you want to delete the " .. item:getName() .. "?"
                 Game.world.menu:partySelect("ALL", function(success, party)
                     self.state = "SELECT"
                     if success then
@@ -270,18 +273,23 @@ function DarkItemMenu:update()
 end
 
 function DarkItemMenu:draw()
+    Draw.setColor(1,1,1,1)
+    love.graphics.stencil(function()
+            love.graphics.circle("fill", SCREEN_WIDTH/2 - self.x, SCREEN_HEIGHT/2 - self.y, 162)
+        end, "replace", 1)
+    love.graphics.setStencilTest("greater", 0)
     love.graphics.setFont(self.font)
 
     local headers = {"USE", "TRASH", "KEY"}
 
     for i,name in ipairs(headers) do
         if self.state == "MENU" then
-            Draw.setColor(PALETTE["world_header"])
-            if (self.item_header_selected == i) then Draw.setColor(PALETTE["world_text_hover"]) end
+            Draw.setColor(PALETTE["world_header"], self.alpha)
+            if (self.item_header_selected == i) then Draw.setColor(PALETTE["world_text_hover"], self.alpha) end
         elseif self.item_header_selected == i then
-            Draw.setColor(PALETTE["world_header_selected"])
+            Draw.setColor(PALETTE["world_header_selected"], self.alpha)
         else
-            Draw.setColor(PALETTE["world_gray"])
+            Draw.setColor(PALETTE["world_gray"], self.alpha)
         end
         local offset = (i == 1) and 0 or ((i == 2) and 62 or (62+78))
         local x = 140 + offset
@@ -317,21 +325,21 @@ function DarkItemMenu:draw()
     for i, item in ipairs(inventory) do
         if math.abs(i - self.selected_item) <= 2 then
             -- Draw the item shadow
-            Draw.setColor(PALETTE["world_text_shadow"])
+            Draw.setColor(PALETTE["world_text_shadow"], self.alpha)
             item_y = 3 + i - self.selected_item
             local name = item:getWorldMenuName()
             love.graphics.print(name, 94 + (item_x * 142) + 2, 20 + (item_y * 30) + 2)
 
             if self.state == "MENU" then
-                Draw.setColor(PALETTE["world_gray"])
+                Draw.setColor(PALETTE["world_gray"], self.alpha)
             else
                 if item.usable_in == "world" or item.usable_in == "all" then
-                    Draw.setColor(PALETTE["world_text"])
+                    Draw.setColor(PALETTE["world_text"], self.alpha)
                     if (i == self.selected_item) then
-                        Draw.setColor((self.item_header_selected == 2) and COLORS.red or PALETTE["world_text_hover"])
+                        Draw.setColor((self.item_header_selected == 2) and COLORS.red or PALETTE["world_text_hover"], self.alpha)
                     end
                 else
-                    Draw.setColor(PALETTE["world_text_unusable"])
+                    Draw.setColor(PALETTE["world_text_unusable"], self.alpha)
                 end
             end
             love.graphics.print(name, 94 + (item_x * 142), 20 + (item_y * 30))
@@ -343,24 +351,24 @@ function DarkItemMenu:draw()
         end
     end
 
-    Draw.setColor(PALETTE["world_gray"])
+    Draw.setColor(PALETTE["world_gray"], self.alpha)
     if (1 < (self.selected_item - 2)) then
-        Draw.setColor(1,1,1,1)
+        Draw.setColor(1,1,1, self.alpha)
     end
     Draw.draw(self.up_arrow_sprite, 72, 98)
 
-    Draw.setColor(PALETTE["world_gray"])
+    Draw.setColor(PALETTE["world_gray"], self.alpha)
     if (#inventory > (self.selected_item + 2)) then
-        Draw.setColor(1,1,1,1)
+        Draw.setColor(1,1,1, self.alpha)
     end
     Draw.draw(self.down_arrow_sprite, 72, 149)
 
-    Draw.setColor(1,1,1,1)
+    Draw.setColor(1,1,1, self.alpha)
     love.graphics.setFont(self.small_numbers)
     love.graphics.print(self.selected_item .. "\n-\n".. #inventory, 70, 116)
 
     if (self.state ~= "MENU") and (self.displayed_image) then
-        Draw.setColor(1,1,1,1)
+        Draw.setColor(1,1,1, self.alpha)
         love.graphics.setLineWidth(2)
         Draw.rectangle("line", 260-4 ,50-4 ,99, 99)
         Draw.draw(Assets.getTexture("items/" .. self.displayed_image) or Assets.getTexture("items/unknown"), 260, 50, 0, 1, 1)
@@ -369,10 +377,10 @@ function DarkItemMenu:draw()
         love.graphics.setFont(self.font)
         love.graphics.print(active_item_type, 260 + 35 - (#active_item_type) * 5.5, 145)
 
-        love.graphics.setFont(self.small_font)
-        local _, wrapped = self.small_font:getWrap(self.displayed_description, 140)
+        love.graphics.setFont(self.earthbound_font)
+        local _, wrapped = self.earthbound_font:getWrap(self.displayed_description, 140)
         for i, textline in ipairs(wrapped) do
-            love.graphics.print(textline, 240, 178 + (16 * (i-1)))
+            love.graphics.print(textline, 242, 178 + (16 * (i-1)))
             if (i > 3) then break end
         end
         
@@ -383,17 +391,24 @@ function DarkItemMenu:draw()
     --love.graphics.print("|\n|\n|\n|\n|\n|", SCREEN_WIDTH / 2.85, 38)
 
     for _, item in ipairs(inventory) do
-        Draw.setColor(1,1,1)
+        Draw.setColor(1,1,1, self.alpha)
         item:onMenuDraw(self.parent)
     end
 
+    self:drawPopup()
+
+    super.draw(self)
+    love.graphics.setStencilTest()
+end
+
+function DarkItemMenu:drawPopup()
     if (self.popup_text) then
-        Draw.setColor(1,1,1,1)
-        Draw.draw(self.popup_sprite, SCREEN_WIDTH / 4.5, 100)
-        Draw.setColor(0,0,0,1)
-        love.graphics.setFont(self.small_font)
-        local _, wrapped = self.small_font:getWrap(self.popup_text, 140)
-        local base_y = 120
+        Draw.setColor(1,1,1, self.alpha)
+        Draw.draw(self.popup_sprite, (SCREEN_WIDTH / 3.92) - 10, 86)
+        Draw.setColor(0,0,0, self.alpha)
+        love.graphics.setFont(self.earthbound_font)
+        local _, wrapped = self.earthbound_font:getWrap(self.popup_text, 150)
+        local base_y = 96
         if (#wrapped < 4) then
             base_y = base_y + (16 * (3.5 - #wrapped))
         end
@@ -404,8 +419,6 @@ function DarkItemMenu:draw()
         love.graphics.setFont(self.font)
         Draw.setColor(1,1,1,1)
     end
-
-    super.draw(self)
 end
 
 return DarkItemMenu

@@ -58,7 +58,8 @@ function character:init()
 
     -- Equipment (saved to the save file)
     self:setWeapon("classicmic")
-    self:setArmor(1, "faz_bowtie")
+    self:setArmor(1, "plastic_endo")
+    self:setTrinket(1, "faz_bowtie")
     --self:setArmor(2, "amber_card")
 
     -- Character color (for action box outline and hp bar)
@@ -93,6 +94,8 @@ function character:init()
 
     -- Message shown on gameover (optional)
     self.gameover_message = nil
+    
+    self.animatronic = true
 end
 
 function character:onAttackHit(enemy, damage)
@@ -133,6 +136,7 @@ function character:onLevelUp(level)
         self:increaseStat("attack", 1)
         self:increaseStat("magic", 1)
     end
+    self.level = self.level + 1
 end
 
 function character:getLightHeadIcon()

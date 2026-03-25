@@ -28,8 +28,8 @@
 ---@field talk_text                 string
 ---
 --- Defines the text shown when in each of the different SELL submenus. \
---- The keys `items`, `weapons`, `armors`, and `storage` can be defined for this table.
----@field sell_options_text         { items: string, weapons: string, armors: string, storage: string }
+--- The keys `items`, `weapons`, `armors`, `trinkets`, and `storage` can be defined for this table.
+---@field sell_options_text         { items: string, weapons: string, armors: string, trinkets: string, storage: string }
 ---
 --- Whether the shop should hide the text showing your remaining storage text (Defaults to `false`)
 ---@field hide_storage_text         boolean
@@ -142,6 +142,7 @@ function Shop:init()
     self.sell_options_text["items"]   = "Item text"
     self.sell_options_text["weapons"] = "Weapon\ntext"
     self.sell_options_text["armors"]  = "Armor text"
+    self.sell_options_text["trinkets"] = "Trinket\ntext"
     self.sell_options_text["storage"] = "Storage\ntext"
 
     self.hide_storage_text = false
@@ -163,13 +164,15 @@ function Shop:init()
             { "Sell Items", "items" },
             { "Sell Weapons", "weapons" },
             { "Sell Armor", "armors" },
+            { "Sell Trinkets", "trinkets" },
             { "Sell Pocket Items", "storage" }
         }
     else
         self.sell_options = {
             { "Sell Items", "items" },
             { "Sell Weapons", "weapons" },
-            { "Sell Armor", "armors" }
+            { "Sell Armor", "armors" },
+            { "Sell Trinkets", "trinkets" }
         }
     end
 
@@ -813,7 +816,7 @@ function Shop:draw()
             self.item_offset = 0
         end
 
-        -- Item type (item, key, weapon, armor)
+        -- Item type (item, key, weapon, armor, trinket)
         for i = 1 + self.item_offset, self.item_offset + math.max(4, math.min(5, #self.items)) do
             if i == math.max(4, #self.items) + 1 then break end
             local y = 220 + ((i - self.item_offset) * 40)
@@ -880,7 +883,7 @@ function Shop:draw()
             Draw.setColor(COLORS.white)
             love.graphics.print(current_item.options["description"], left + 32, top + 20)
 
-            if current_item.item.type == "armor" or current_item.item.type == "weapon" then
+            if current_item.item.type == "armor" or current_item.item.type == "weapon" or current_item.item.type == "trinket" then
                 for i = 1, #Game.party do
                     -- Turn the index into a 2 wide grid (0-indexed)
                     local transformed_x = (i - 1) % 2
@@ -928,6 +931,30 @@ function Shop:draw()
                                 offset_x + 470 + 21,
                                 offset_y + 147 + top
                             )
+                        elseif current_item.item.type == "trinket" then
+                            Draw.draw(self.stat_icons["defense_1"], offset_x + 470, offset_y + 127 + top)
+                            Draw.draw(self.stat_icons["attack"], offset_x + 470, offset_y + 147 + top)
+                            Draw.draw(self.stat_icons["magic"], offset_x + 470, offset_y + 167 + top)
+
+                            for j = 1, 3 do
+                                self:drawBonuses(party_member, party_member:getTrinket(j), current_item.options["bonuses"], "defense", offset_x + 470 + 21, offset_y + 127 + ((j - 1) * 20) + top)
+                                self:drawBonuses(
+                                    party_member,
+                                    party_member:getWeapon(),
+                                    current_item.options["bonuses"],
+                                    "attack",
+                                    offset_x + 470 + 21,
+                                    offset_y + 147 + top
+                                )
+                                self:drawBonuses(
+                                    party_member,
+                                    party_member:getWeapon(),
+                                    current_item.options["bonuses"],
+                                    "magic",
+                                    offset_x + 470 + 21,
+                                    offset_y + 167 + top
+                                )
+                            end
                         end
                     else
                         head_path = Assets.getTexture(party_member:getHeadIcons() .. "/head_error")

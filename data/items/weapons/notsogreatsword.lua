@@ -4,7 +4,7 @@ function item:init()
     super.init(self)
 
     -- Display name
-    self.name = "NotSoGrtswrd"
+    self.name = "Not-So-Greatsword"
     -- Name displayed when used in battle (optional)
     self.use_name = nil
 
@@ -14,13 +14,14 @@ function item:init()
     self.icon = "ui/menu/icon/greatsword"
     -- Whether this item is for the light world
     self.light = false
+    self.menu_image = "greatsword"
 
     -- Battle description
     self.effect = "...It's a sword.'"
     -- Shop description
     self.shop = "Kind of dull."
     -- Menu description
-    self.description = "A greatsword. Not bad for defense,\nbut its edge is kind of dull..."
+    self.description = "A greatsword made of My magic.\nNot bad for defense,\nbut its edge is kind of dull..."
     -- Light world check text
     self.check = "A gnarled tree branch."
 

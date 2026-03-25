@@ -20,6 +20,7 @@ function item:init()
     -- Shop description
     self.shop = "Grape-flavored."
     -- Menu description
+    self.menu_image = "pop_ring"
     self.description = "A candy ring. Holds some power,\nbut is mostly just a snack..."
     -- Light world check text
     self.check = "A popring candy."

@@ -94,6 +94,8 @@ function PartyBattler:init(chara, x, y)
         self:addChild(self.note_sprites[2])
         self:addChild(self.note_sprites[3])
     end
+
+    self.chara.notes = self.chara:getEquipmentBonus("starting_notes")
 end
 
 function PartyBattler:setOverheat(overheat)

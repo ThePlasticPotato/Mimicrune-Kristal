@@ -7,7 +7,7 @@ function item:init()
     self.name = "Waferguard"
 
     -- Item type (item, key, weapon, armor)
-    self.type = "armor"
+    self.type = "trinket"
     -- Item icon (for equipment)
     self.icon = "ui/menu/icon/armor"
 

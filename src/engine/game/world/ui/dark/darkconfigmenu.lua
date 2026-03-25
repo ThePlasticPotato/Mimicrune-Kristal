@@ -138,6 +138,7 @@ function DarkConfigMenu:onKeyPressed(key)
 end
 
 function DarkConfigMenu:update()
+    self.alpha = 1 - Game.world.menu.flicker_dur
     self.confirm_siner = self.confirm_siner + (DTMULT /8)
     self.reset_siner = self.reset_siner + (DTMULT /8)
     if self.state == "MAIN" then
@@ -220,56 +221,62 @@ function DarkConfigMenu:update()
 end
 
 function DarkConfigMenu:draw()
+    Draw.setColor(1,1,1,1)
+    love.graphics.stencil(function()
+            love.graphics.circle("fill", SCREEN_WIDTH/2 - self.x, SCREEN_HEIGHT/2 - self.y, 162)
+        end, "replace", 1)
+    love.graphics.setStencilTest("greater", 0)
     if Game.state == "EXIT" then
         super.draw(self)
+        love.graphics.setStencilTest()
         return
     end
     love.graphics.setFont(self.font)
-    Draw.setColor(PALETTE["world_text"])
+    Draw.setColor(PALETTE["world_text"], self.alpha)
     local x_offset = function (index)
         return (math.abs(index - (7/2))/3.5) * 30
     end
     if self.state ~= "CONTROLS" then
         love.graphics.print("CONFIG", 198, -12)
-        if (self.currently_selected == 1) then Draw.setColor(Game:getSoulColor()) end
+        if (self.currently_selected == 1) then Draw.setColor({Game:getSoulColor()}, self.alpha) end
         if self.state == "VOLUME" then
-            Draw.setColor(PALETTE["world_text_selected"])
+            Draw.setColor(PALETTE["world_text_selected"], self.alpha)
         end
         
         love.graphics.print("Master Volume", 88 + x_offset(0), 28 + (0 * 35))
-        Draw.setColor(PALETTE["world_text"])
-        if (self.currently_selected == 2) then Draw.setColor(PALETTE["world_text_hover"]) end
+        Draw.setColor(PALETTE["world_text"], self.alpha)
+        if (self.currently_selected == 2) then Draw.setColor(PALETTE["world_text_hover"], self.alpha) end
         love.graphics.print("Controls", 88 + x_offset(2), 28 + (1 * 35))
-        Draw.setColor(PALETTE["world_text"])
-        if (self.currently_selected == 3) then Draw.setColor(PALETTE["world_text_hover"]) end
+        Draw.setColor(PALETTE["world_text"], self.alpha)
+        if (self.currently_selected == 3) then Draw.setColor(PALETTE["world_text_hover"], self.alpha) end
         love.graphics.print("Simplify VFX", 88 + x_offset(3), 28 + (2 * 35))
-        Draw.setColor(PALETTE["world_text"])
-        if (self.currently_selected == 4) then Draw.setColor(PALETTE["world_text_hover"]) end
+        Draw.setColor(PALETTE["world_text"], self.alpha)
+        if (self.currently_selected == 4) then Draw.setColor(PALETTE["world_text_hover"], self.alpha) end
         love.graphics.print("Fullscreen", 88 + x_offset(4), 28 + (3 * 35))
-        Draw.setColor(PALETTE["world_text"])
-        if (self.currently_selected == 5) then Draw.setColor(PALETTE["world_text_hover"]) end
+        Draw.setColor(PALETTE["world_text"], self.alpha)
+        if (self.currently_selected == 5) then Draw.setColor(PALETTE["world_text_hover"], self.alpha) end
         love.graphics.print("Auto-Run", 88 + x_offset(5), 28 + (4 * 35))
-        Draw.setColor(PALETTE["world_text"])
-        if (self.currently_selected == 6) then Draw.setColor(PALETTE["world_text_hover"]) end
+        Draw.setColor(PALETTE["world_text"], self.alpha)
+        if (self.currently_selected == 6) then Draw.setColor(PALETTE["world_text_hover"], self.alpha) end
         love.graphics.print("Return to Title", SCREEN_WIDTH / 4.5, 28 + (5 * 35))
-        Draw.setColor(PALETTE["world_text"])
-        if (self.currently_selected == 7) then Draw.setColor(PALETTE["world_text_hover"]) end
+        Draw.setColor(PALETTE["world_text"], self.alpha)
+        if (self.currently_selected == 7) then Draw.setColor(PALETTE["world_text_hover"], self.alpha) end
         love.graphics.print("Back", SCREEN_WIDTH / 3, 28 + (6 * 35))
 
-        Draw.setColor(PALETTE["world_text"])
-        if (self.currently_selected == 1) then Draw.setColor(PALETTE["world_text_hover"]) end
+        Draw.setColor(PALETTE["world_text"], self.alpha)
+        if (self.currently_selected == 1) then Draw.setColor(PALETTE["world_text_hover"], self.alpha) end
         if self.state == "VOLUME" then
-            Draw.setColor(PALETTE["world_text_selected"])
+            Draw.setColor(PALETTE["world_text_selected"], self.alpha)
         end
         love.graphics.print(MathUtils.round(Kristal.getVolume() * 100) .. "%", 348-x_offset(0) - (math.max(0, (#tostring(Kristal.getVolume()*100)-2)) * 8), 28 + (0 * 32))
-        Draw.setColor(PALETTE["world_text"])
-        if (self.currently_selected == 3) then Draw.setColor(PALETTE["world_text_hover"]) end
+        Draw.setColor(PALETTE["world_text"], self.alpha)
+        if (self.currently_selected == 3) then Draw.setColor(PALETTE["world_text_hover"], self.alpha) end
         love.graphics.print(Kristal.Config["simplifyVFX"] and "ON" or "OFF", 348 - x_offset(3), 28 + (2 * 35))
-        Draw.setColor(PALETTE["world_text"])
-        if (self.currently_selected == 4) then Draw.setColor(PALETTE["world_text_hover"]) end
+        Draw.setColor(PALETTE["world_text"], self.alpha)
+        if (self.currently_selected == 4) then Draw.setColor(PALETTE["world_text_hover"], self.alpha) end
         love.graphics.print(Kristal.Config["fullscreen"] and "ON" or "OFF", 348 - x_offset(4), 28 + (3 * 35))
-        Draw.setColor(PALETTE["world_text"])
-        if (self.currently_selected == 5) then Draw.setColor(PALETTE["world_text_hover"]) end
+        Draw.setColor(PALETTE["world_text"], self.alpha)
+        if (self.currently_selected == 5) then Draw.setColor(PALETTE["world_text_hover"], self.alpha) end
         love.graphics.print(Kristal.Config["autoRun"] and "ON" or "OFF", 348 - x_offset(5), 28 + (4 * 35))
 
         --Draw.setColor(Game:getSoulColor())
@@ -292,12 +299,12 @@ function DarkConfigMenu:draw()
             if index > 9 then
                 break
             end
-            Draw.setColor(PALETTE["world_text"])
+            Draw.setColor(PALETTE["world_text"], self.alpha)
             if self.currently_selected == index then
                 if self.rebinding then
-                    Draw.setColor(PALETTE["world_text_rebind"])
+                    Draw.setColor(PALETTE["world_text_rebind"], self.alpha)
                 else
-                    Draw.setColor(PALETTE["world_text_hover"])
+                    Draw.setColor(PALETTE["world_text_hover"], self.alpha)
                 end
             end
 
@@ -322,7 +329,7 @@ function DarkConfigMenu:draw()
                 end
             end
 
-            Draw.setColor(1, 1, 1)
+            Draw.setColor(1, 1, 1, self.alpha)
 
             if Input.hasGamepad() then
                 local alias = Input.getBoundKeys(name, true)[1]
@@ -338,14 +345,14 @@ function DarkConfigMenu:draw()
             end
         end
 
-        Draw.setColor(COLORS.red)
+        Draw.setColor(COLORS.red, self.alpha)
         if self.currently_selected == 10 then
-            Draw.setColor(PALETTE["world_text_hover"])
+            Draw.setColor(PALETTE["world_text_hover"], self.alpha)
         end
 
         if (self.reset_flash_timer > 0) then
             Draw.setColor(Utils.mergeColor(PALETTE["world_text_hover"], PALETTE["world_text_selected"],
-                                           ((self.reset_flash_timer / 10) - 0.1)))
+                                           ((self.reset_flash_timer / 10) - 0.1)), self.alpha)
         end
 
         -- if dualshock then
@@ -356,9 +363,9 @@ function DarkConfigMenu:draw()
 
         Draw.draw(self.reset_sprite, 94 + math.cos(self.confirm_siner) * 2, 80 + math.sin(self.reset_siner) * 2, 0, 2, 2)
 
-        Draw.setColor(COLORS.lime)
+        Draw.setColor(COLORS.lime, self.alpha)
         if self.currently_selected == 11 then
-            Draw.setColor(PALETTE["world_text_hover"])
+            Draw.setColor(PALETTE["world_text_hover"], self.alpha)
         end
 
         Draw.draw(self.confirm_sprite, 94 + math.sin(self.reset_siner) * 2, 140 + math.cos(self.confirm_siner) * 2, 0, 2, 2)
@@ -383,6 +390,8 @@ function DarkConfigMenu:draw()
     end
 
     Draw.setColor(1, 1, 1, 1)
+
+    love.graphics.setStencilTest()
 
     super.draw(self)
 end

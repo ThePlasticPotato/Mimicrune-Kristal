@@ -20,6 +20,7 @@ function item:init()
     -- Shop description
     self.shop = "Represents a great promise."
     -- Menu description
+    self.menu_image = "promise_ring"
     self.description = "A ring, holding deep meaning.\nYou feel POWER coursing within..."
     -- Light world check text
     self.check = "It's a ring."

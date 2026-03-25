@@ -581,6 +581,12 @@ function Game:load(data, index, fade)
                     end
                 end
             end
+            local trinkets = equipped["trinkets"] or {}
+            for i = 1, 3 do
+                if trinkets[i] then
+                    self.party_data[id]:setTrinket(i, trinkets[i] ~= "" and trinkets[i] or nil)
+                end
+            end
         end
     end
 
@@ -728,7 +734,7 @@ function Game:loadQuick(fade)
     end
     self.quick_save = save
 
-    if self:getFlag("playtest_mode", true) then
+    if self:getFlag("playtest_mode", false) then
         Game:addPartyMember("cassidy", 2)
         if (has_fredbear) then Game:addPartyMember("fredbear", 3) end
         Game.inventory:tryGiveItem("pepperoni_slice", true)

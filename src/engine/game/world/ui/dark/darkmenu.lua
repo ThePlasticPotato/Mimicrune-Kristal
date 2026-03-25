@@ -38,6 +38,14 @@ function DarkMenu:init()
     self.ui_cancel_small = Assets.newSound("ui_cancel_small_camera")
     self.ui_cant_select = Assets.newSound("ui_error_camera")
 
+    self.hp_sprite = Assets.getTexture("ui/menu/panels/dark/main/max_health")
+    self.attack_sprite = Assets.getTexture("ui/menu/panels/dark/main/attack")
+    self.magic_sprite = Assets.getTexture("ui/menu/panels/dark/main/magic")
+    self.defense_sprite = Assets.getTexture("ui/menu/panels/dark/main/defense")
+
+    self.positive_arrow = Assets.getTexture("ui/status/type/up")
+    self.negative_arrow = Assets.getTexture("ui/status/type/down")
+
     self.font = Assets.getFont("main")
     self.small_font = Assets.getFont("smallnumbers")
     self.ui_interrupt = Assets.newSound("ui_interrupt_hand")
@@ -53,6 +61,12 @@ function DarkMenu:init()
     self.description.visible = false
     self.description_panel:addChild(self.description)
 
+    self.bag_sprite = Assets.getTexture("ui/menu/panels/dark/main/bag")
+    self.stat_sprite = Assets.getTexture("ui/menu/panels/dark/main/stat")
+
+    self.flicker_timer = 0
+    self.flicker_dur = 0
+
     self.buttons = {}
     self:addButtons()
     self.buttons = Kristal.callEvent(KRISTAL_EVENT.getDarkMenuButtons, self.buttons, self) or self.buttons
@@ -66,6 +80,11 @@ function DarkMenu:init()
     self.objective = ObjectivePopup(0, -240, nil, nil, Game:getFlag("current_objective"), nil, "none", false, false, true)
     self.objective.layer = self.layer - 0.1
     Game.stage:addChild(self.objective)
+
+    self.health_override = nil
+    self.attack_override = nil
+    self.magic_override = nil
+    self.defense_override = nil
 end
 
 function DarkMenu:getButtonSpacing()
@@ -209,11 +228,26 @@ function DarkMenu:transitionOut()
         end)
 end
 
+function DarkMenu:setOverrides(health, attack, magic, defense)
+    self.health_override = health
+    self.attack_override = attack
+    self.magic_override = magic
+    self.defense_override = defense
+end
+
+function DarkMenu:resetOverrides()
+    self.health_override = nil
+    self.attack_override = nil
+    self.magic_override = nil
+    self.defense_override = nil
+end
+
 function DarkMenu:closeBox(immediate)
     self.state = "MAIN"
+    self:resetOverrides()
     if (self.box) then
         if (self.description_panel and not self.description_panel.closed) then self.description_panel:close(immediate) end
-        if (self.box.panel_bg ~= nil) then 
+        if (self.box.panel_bg) then 
             self.box.panel_bg:close(immediate, function () self.box:remove() ; self.box = nil end)
         else
             self.box:remove()
@@ -374,6 +408,15 @@ function DarkMenu:update()
         -- end
     end
 
+    self.flicker_timer = self.flicker_timer + MathUtils.random(0, 11)
+    if (self.flicker_timer >= 200) then
+        self.flicker_timer = MathUtils.random(-200, 150)
+        self.flicker_dur = Kristal.Config["simplifyVFX"] and 0 or 0.25
+    end
+    if (self.flicker_dur > 0) then
+        self.flicker_dur = self.flicker_dur - (DTMULT / 8)
+    end
+
     -- if not self.animate_out then
     --     if self.y < 0 then
     --         if self.y > -40 then
@@ -404,35 +447,144 @@ function DarkMenu:draw()
     if (not self.panel_bg.operable) then
         return
     end
+    local max_time = self.animate_out and 3 or 8
+    local alpha = self.animation_timer / max_time
+    if (self.animation_timer > max_time) and self.flicker_dur > 0 then
+        alpha = 1 - self.flicker_dur
+    end
     if (self.state == "MAIN" and not self.box) then
-        local max_time = self.animate_out and 3 or 8            
-        Draw.setColor(1, 1, 1, self.animation_timer / max_time)
+        Draw.setColor(1, 1, 1, alpha)
         Draw.draw(self.sprite, 0, 0)
         if self.buttons[self.selected_submenu].desc_sprite then
             Draw.draw(self.buttons[self.selected_submenu].desc_sprite, SCREEN_WIDTH/2, SCREEN_HEIGHT/2 + 38, 0, 2, 2, self.buttons[self.selected_submenu].desc_sprite:getPixelWidth()/2)
         end
 
         for i = 1, #self.buttons do
-            self:drawButton(i, 0, 0)
+            self:drawButton(i, 0, 0, alpha )
         end
 
         for i, party in ipairs(Game.party) do
-            self:drawMenuHealthbar(i, party, #Game.party)
+            self:drawMenuHealthbar(i, party, #Game.party, alpha)
         end
 
         Draw.setColor(1, 1, 1)
     end
 
+    if self.box and (self.box:includes(DarkEquipMenu) or self.box:includes(DarkPowerMenu) or self.box:includes(DarkSpellMenu)) then
+        self:drawStat(alpha)
+    else
+        self:drawBag(alpha)
+    end
+end
+
+function DarkMenu:drawBag(alpha)
     love.graphics.setFont(self.small_font)
+    Draw.setColor(1,1,1, alpha)
+    Draw.draw(self.bag_sprite, 0, 0)
     local base_x = 514
     local base_y = 215
     local space = 26
     local offset = (Game.money > 999) and 4 or 0
+
+    local bandaids = Game:getFlag("bandaids", 0)
+    local tonics = Game:getFlag("tonics", 0)
+    local purifiers = Game:getFlag("purifiers", 0)
+
+    if (Game.money == 0) then Draw.setColor(PALETTE["world_text_unusable"], alpha) end
     love.graphics.print(Game.money, base_x - offset, base_y)
-    love.graphics.print(Game:getFlag("bandaids", 0), base_x, base_y + space)
-    love.graphics.print(Game:getFlag("tonics", 0), base_x, base_y + space*2)
-    love.graphics.print(Game:getFlag("purifiers", 0), base_x, base_y + space*3)
-    
+    Draw.setColor(1,1,1, alpha)
+    if (bandaids == 0) then Draw.setColor(PALETTE["world_text_unusable"], alpha) end
+    love.graphics.print(bandaids, base_x, base_y + space)
+    Draw.setColor(1,1,1, alpha)
+    if (tonics == 0) then Draw.setColor(PALETTE["world_text_unusable"], alpha) end
+    love.graphics.print(tonics, base_x, base_y + space*2)
+    Draw.setColor(1,1,1, alpha)
+    if (purifiers == 0) then Draw.setColor(PALETTE["world_text_unusable"], alpha) end
+    love.graphics.print(purifiers, base_x, base_y + space*3)
+end
+
+function DarkMenu:drawStat(alpha)
+    local chara = Game.party[self.box.party.selected_party]
+
+    if not (chara) then return end
+
+    Draw.setColor(1,1,1, alpha)
+    love.graphics.setFont(self.small_font)
+    Draw.draw(self.stat_sprite, 0, 0)
+    local base_x = 514
+    local base_y = 215
+    local space = 26
+
+    local max_health = self.health_override or chara:getStat("health")
+    local offset = (max_health > 999) and 4 or 0
+    local attack = self.attack_override or chara:getStat("attack")
+    local magic = self.magic_override or chara:getStat("magic")
+    local defense = self.defense_override or chara:getStat("defense")
+
+    Draw.setColor(1,1,1, alpha)
+    if (self.health_override) then
+        if (chara:getStat("health") > max_health) then
+            Draw.setColor(COLORS.red, alpha)
+            Draw.draw(self.negative_arrow, base_x - 20, base_y)
+        elseif (chara:getStat("health") < max_health) then
+            Draw.setColor(COLORS.lime, alpha)
+            Draw.draw(self.positive_arrow, base_x - 20, base_y)
+        else
+            Draw.draw(self.hp_sprite, 0, 0)
+        end
+    else
+        Draw.draw(self.hp_sprite, 0, 0)
+    end
+    love.graphics.print(max_health, base_x - offset, base_y)
+
+    Draw.setColor(1,1,1, alpha)
+    if (self.attack_override) then
+        if (chara:getStat("attack") > attack) then
+            Draw.setColor(COLORS.red, alpha)
+            Draw.draw(self.negative_arrow, base_x - 20, base_y + space)
+        elseif (chara:getStat("attack") < attack) then
+            Draw.setColor(COLORS.lime, alpha)
+            Draw.draw(self.positive_arrow, base_x - 20, base_y + space)
+        else
+            Draw.draw(self.attack_sprite, 0, 0)
+        end
+    else
+        Draw.draw(self.attack_sprite, 0, 0)
+    end
+    love.graphics.print(attack, base_x, base_y + space)
+
+    Draw.setColor(1,1,1, alpha)
+    if (self.magic_override) then
+        if (chara:getStat("magic") > magic) then
+            Draw.setColor(COLORS.red, alpha)
+            Draw.draw(self.negative_arrow, base_x - 20, base_y + space*2)
+        elseif (chara:getStat("magic") < magic) then
+            Draw.setColor(COLORS.lime, alpha)
+            Draw.draw(self.positive_arrow, base_x - 20, base_y + space*2)
+        else
+            Draw.draw(self.magic_sprite, 0, 0)
+        end
+    else
+        Draw.draw(self.magic_sprite, 0, 0)
+    end
+    love.graphics.print(magic, base_x, base_y + space*2)
+
+    Draw.setColor(1,1,1, alpha)
+    if (self.defense_override) then
+        if (chara:getStat("defense") > defense) then
+            Draw.setColor(COLORS.red, alpha)
+            Draw.draw(self.negative_arrow, base_x-20, base_y + space*3)
+        elseif (chara:getStat("defense") < defense) then
+            Draw.setColor(COLORS.lime, alpha)
+            Draw.draw(self.positive_arrow, base_x-20, base_y + space*3)
+        else
+            Draw.draw(self.defense_sprite, 0, 0)
+        end
+    else
+        Draw.draw(self.defense_sprite, 0, 0)
+    end
+    if (self.defense_override == 0) then Draw.setColor(PALETTE["world_text_hover"], alpha) end
+    love.graphics.print(defense, base_x, base_y + space*3)
 end
 
 ---comment
@@ -495,7 +647,7 @@ end
 ---@param index number Party member index
 ---@param member PartyMember member
 ---@param party_size number party size
-function DarkMenu:drawMenuHealthbar(index, member, party_size)
+function DarkMenu:drawMenuHealthbar(index, member, party_size, alpha)
     local start_x = SCREEN_WIDTH / 2
     local y = 332
     local x = start_x
@@ -513,42 +665,32 @@ function DarkMenu:drawMenuHealthbar(index, member, party_size)
         x = x + (42 * (index - (party_size+1)/2))
     end
 
-    Draw.setColor(1,1,1,1)
+    Draw.setColor(1,1,1, alpha)
 
     local head_sprite = Assets.getTexture(member:getHeadIcons() .. "/head")
     local width = head_sprite:getPixelWidth()
     Draw.draw(head_sprite, x - (width/2), y, 0)
 
 
-    Draw.setColor(PALETTE["action_health_bg"])
+    Draw.setColor(PALETTE["action_health_bg"], alpha)
     love.graphics.rectangle("fill", x - (97/8), y + 30, 97/4, 9)
 
     local health = (member:getHealth() / member:getStat("health")) * (97/4)
 
     if health > 0 then
-        Draw.setColor(member:getColor())
+        Draw.setColor({member:getColor()}, alpha)
         love.graphics.rectangle("fill", x - (97/8), y + 30, math.ceil(health), 9)
     end
-    local color = PALETTE["action_health_text"]
-    if health <= 0 then
-        color = PALETTE["action_health_text_down"]
-    elseif (member:getHealth() <= (member:getStat("health") / 4)) then
-        color = PALETTE["action_health_text_low"]
-    else
-        color = PALETTE["action_health_text"]
-    end
-    love.graphics.setFont(self.small_font)
-    --self:drawCurrentHealth(member, color, x, y + 28)
 end
 
-function DarkMenu:drawButton(index, x, y)
+function DarkMenu:drawButton(index, x, y, alpha)
     local button = self.buttons[index]
     local sprite = button.sprite
     if index == self.selected_submenu then
         sprite = button.hovered_sprite
     end
     if not sprite then return end
-    Draw.setColor(1, 1, 1)
+    Draw.setColor(1, 1, 1, alpha)
     Draw.draw(sprite, x, y, 0, 1, 1)
     -- if index == self.selected_submenu and self.state == "MAIN" then
     --     Draw.setColor(Game:getSoulColor())

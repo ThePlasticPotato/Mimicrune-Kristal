@@ -20,6 +20,7 @@ function item:init()
     -- Shop description
     self.shop = "Mostly Overalls."
     -- Menu description
+    self.menu_image = "overmosts"
     self.description = "A pair of kinda mostly overalls.\nSorta. More like robes..."
     -- Light world check text
     self.check = "Black-strap overalls."

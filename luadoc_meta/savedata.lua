@@ -60,5 +60,6 @@
 ---@field lw_health integer
 ---@field lw_stats {attack: integer, defense: integer, health: integer}
 ---@field spells string[]
----@field equipped {weapon: ItemSaveData, armor: [ItemSaveData, ItemSaveData]}
+---@field known_spells string[]
+---@field equipped {weapon: ItemSaveData, armor: [ItemSaveData, ItemSaveData], trinket: [ItemSaveData, ItemSaveData, ItemSaveData]}
 ---@field flags table<string, any>

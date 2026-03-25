@@ -16,6 +16,7 @@ function item:init()
     -- Shop description
     self.shop = ""
     -- Menu description
+    self.menu_image = "shadow_mantle"
     self.description = "Shadows slip off like water.\nGreatly protects against Dark and Star attacks."
 
     -- Default shop price (sell price is halved)
