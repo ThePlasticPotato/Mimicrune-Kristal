@@ -381,7 +381,7 @@ function World:showHealthBars()
         self.healthbar:transitionIn()
     else
         self.healthbar = HealthBar()
-        self.healthbar.layer = WORLD_LAYERS["ui"]
+        self.healthbar.layer = WORLD_LAYERS["ui"] + 1
         self:addChild(self.healthbar)
     end
 end

@@ -18,7 +18,8 @@ function item:init()
     -- Shop description
     self.shop = "Reheated\npizza\nheals 70HP"
     -- Menu description
-    self.description = "A slice of perfectly mediocre pizza.\nBoring, but filling. +70HP"
+    self.menu_image = "pizza_slice"
+    self.description = "A slice of perfectly mediocre pizza.\nBoring, but filling.\n+70HP"
 
     -- Amount healed (HealItem variable)
     self.heal_amount = 70

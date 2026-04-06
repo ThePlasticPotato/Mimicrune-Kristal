@@ -20,6 +20,7 @@ function item:init()
     -- Shop description
     self.shop = "Kind of dull."
     -- Menu description
+    self.menu_image = "microphone"
     self.description = "Fredbear's trusty microphone.\nWell used."
     -- Light world check text
     self.check = "A plastic microphone."

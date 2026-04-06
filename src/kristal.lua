@@ -273,6 +273,8 @@ function love.load(args)
         Kristal.HTTPS.thread:start()
     end
 
+    Assets.init()
+
     -- TARGET_MOD being already set -> mod developer has
     -- a preference for auto mod start. We particularly wouldn't
     -- want the user to overwrite this since it can break some mods
@@ -1275,6 +1277,7 @@ function Kristal.clearModState()
 
     -- Restore assets and registry
     Assets.restoreData()
+    Assets.getBucket("project"):unload()
     Registry.restoreData()
 
     -- force garbage collection
@@ -1285,27 +1288,27 @@ end
 function Kristal.returnToMenu()
     local current_id = Mod and Mod.info.id or "crash"
 
-    if AUTO_MOD_START and TARGET_MOD then
-        -- Go to empty state
-        Kristal.setState("Empty")
+    -- if AUTO_MOD_START and TARGET_MOD then
+    --     -- Go to empty state
+    --     Kristal.setState("Empty")
 
-        -- Clear the mod
-        Kristal.clearModState()
+    --     -- Clear the mod
+    --     Kristal.clearModState()
 
-        if (current_id == "mimicrune_chapter_select" or current_id == "crash") then
-            love.event.quit(0)
-        else
-            Kristal.loadAssets("", "mods", "", function ()
-                Kristal.loadMod("mimicrune_chapter_select")
-            end)
-        end
-        Kristal.DebugSystem:refresh()
-        -- End input if it's open
-        if not Kristal.Console.is_open then
-            TextInput.endInput()
-        end
-        return
-    end
+    --     if (current_id == "mimicrune_chapter_select" or current_id == "crash") then
+    --         love.event.quit(0)
+    --     else
+    --         Kristal.loadAssets("", "mods", "", function ()
+    --             Kristal.loadMod("mimicrune_chapter_select")
+    --         end)
+    --     end
+    --     Kristal.DebugSystem:refresh()
+    --     -- End input if it's open
+    --     if not Kristal.Console.is_open then
+    --         TextInput.endInput()
+    --     end
+    --     return
+    -- end
     -- Go to empty state
     Kristal.setState("Empty")
 
@@ -1422,6 +1425,19 @@ function Kristal.loadAssets(dir, loader, paths, after)
         paths = paths
     })
     Kristal.Loader.next_key = Kristal.Loader.next_key + 1
+    if loader == "mods" then
+        -- Empty because I absolutely DESPISE LOGIC!! :jellycruel:
+    elseif Assets.getBucket("engine").state == AssetBucket.State.UNLOADED then
+        local paths4real = (type(paths) == "string" and {paths} or paths) ---@as string[]?
+        for i = 1, #paths4real do
+            paths4real[i] = paths4real[i] .. "/assets"
+            if paths4real[i] == "/assets" then
+                paths4real[i] = "assets"
+            end
+        end
+        Assets.getBucket("engine"):startLoading(paths4real)
+    else
+    end
 end
 
 --- Initializes the specified mod and loads its assets. \
@@ -1532,11 +1548,15 @@ function Kristal.loadModAssets(id, asset_type, asset_paths, after)
         end
     end
 
+    local paths4real = {}
     -- Finally load all assets (libraries first)
     for _, lib_id in ipairs(mod.lib_order) do
+        table.insert(paths4real, mod.libs[lib_id].path .. "/assets")
         Kristal.loadAssets(mod.libs[lib_id].path, asset_type or "all", asset_paths or "", finishLoadStep)
     end
     Kristal.loadAssets(mod.path, asset_type or "all", asset_paths or "", finishLoadStep)
+    table.insert(paths4real, mod.path .. "/assets")
+    Assets.getBucket("project"):startLoading(paths4real)
 end
 
 local function shouldWindowUseModBranding()
@@ -1712,7 +1732,7 @@ function Kristal.processDynamicBorder()
     if Kristal.getState() == Game then
         return Game:getBorder()
     elseif Kristal.getState() == MainMenu then
-        return ImageBorder("castle")
+        return Kristal.getState().seen_intro and ImageBorder("DEVICE_BROKEN") or ImageBorder("DEVICE")
     end
 end
 

@@ -3,7 +3,7 @@
 local DarkMenu, super = Class(Object)
 
 function DarkMenu:init()
-    super.init(self, 0, -80)
+    super.init(self, 0, 0)
 
     self.layer = WORLD_LAYERS["ui"]
 
@@ -38,9 +38,21 @@ function DarkMenu:init()
     self.ui_cancel_small = Assets.newSound("ui_cancel_small_camera")
     self.ui_cant_select = Assets.newSound("ui_error_camera")
 
+    self.hp_sprite = Assets.getTexture("ui/menu/panels/dark/main/max_health")
+    self.attack_sprite = Assets.getTexture("ui/menu/panels/dark/main/attack")
+    self.magic_sprite = Assets.getTexture("ui/menu/panels/dark/main/magic")
+    self.defense_sprite = Assets.getTexture("ui/menu/panels/dark/main/defense")
+
+    self.positive_arrow = Assets.getTexture("ui/status/type/up")
+    self.negative_arrow = Assets.getTexture("ui/status/type/down")
+
     self.font = Assets.getFont("main")
+    self.small_font = Assets.getFont("smallnumbers")
     self.ui_interrupt = Assets.newSound("ui_interrupt_hand")
     self.ui_interrupt:setVolume(0.25)
+
+    self.panel_bg = PanelMenuBackground("ui/menu/panels/dark/main/menu", 0, 0, "hand_open", "hand_open", "ui_move_panel", "ui_select_hand", "ui_error_hand", "ui_cancel_small", "ui_static", 0, 0)
+    self:addChild(self.panel_bg)
 
     self.description_panel = PanelMenuBackground("ui/menu/panels/dark/hand/menu", 0, 0, "hand_open", "hand_open", "ui_move_panel", "ui_select_panel", "ui_error_panel", "ui_cancel_small_camera", nil, 0, 0, false)
     self.description_panel.layer = 10
@@ -49,15 +61,30 @@ function DarkMenu:init()
     self.description.visible = false
     self.description_panel:addChild(self.description)
 
+    self.bag_sprite = Assets.getTexture("ui/menu/panels/dark/main/bag")
+    self.stat_sprite = Assets.getTexture("ui/menu/panels/dark/main/stat")
+
+    self.flicker_timer = 0
+    self.flicker_dur = 0
+
     self.buttons = {}
     self:addButtons()
     self.buttons = Kristal.callEvent(KRISTAL_EVENT.getDarkMenuButtons, self.buttons, self) or self.buttons
 
-    self.sprite = Assets.getTexture("ui/menu/panels/dark/main/top")
+    self.sprite = Assets.getTexture("ui/menu/radialselect")
 
     self.box = nil
     self.box_offset_x = 0
     self.box_offset_y = 0
+
+    self.objective = ObjectivePopup(0, -240, nil, nil, Game:getFlag("current_objective"), nil, "none", false, false, true)
+    self.objective.layer = self.layer - 0.1
+    Game.stage:addChild(self.objective)
+
+    self.health_override = nil
+    self.attack_override = nil
+    self.magic_override = nil
+    self.defense_override = nil
 end
 
 function DarkMenu:getButtonSpacing()
@@ -75,11 +102,42 @@ function DarkMenu:addButton(button, index)
 end
 
 function DarkMenu:addButtons()
+    -- CONFIG
+    self:addButton({
+        ["state"]          = "CONFIGMENU",
+        ["sprite"]         = Assets.getTexture("ui/menu/radialbtn/settings"),
+        ["hovered_sprite"] = Assets.getTexture("ui/menu/radialbtn/settings_h"),
+        ["desc_sprite"]    = Assets.getTexture("ui/menu/desc/config"),
+        ["callback"]       = function()
+            self.box = DarkConfigMenu()
+            self.box.layer = -1
+            self:addChild(self.box)
+
+            self.ui_select:stop()
+            self.ui_select:play()
+        end
+    })
+    -- TALK
+    self:addButton({
+        ["state"]          = "TALK",
+        ["sprite"]         = Assets.getTexture("ui/menu/radialbtn/talk"),
+        ["hovered_sprite"] = Assets.getTexture("ui/menu/radialbtn/talk_h"),
+        ["desc_sprite"]    = Assets.getTexture("ui/menu/desc/talk"),
+        ["callback"]       = function()
+            Input.clear("confirm")
+            Game.world:closeMenu()
+
+            self.ui_select:stop()
+            self.ui_select:play()
+
+            Game.world:startCutscene("_talk")
+        end
+    })
     -- ITEM
     self:addButton({
         ["state"]          = "ITEMMENU",
-        ["sprite"]         = Assets.getTexture("ui/menu/btn/item"),
-        ["hovered_sprite"] = Assets.getTexture("ui/menu/btn/item_h"),
+        ["sprite"]         = Assets.getTexture("ui/menu/radialbtn/item"),
+        ["hovered_sprite"] = Assets.getTexture("ui/menu/radialbtn/item_h"),
         ["desc_sprite"]    = Assets.getTexture("ui/menu/desc/item"),
         ["callback"]       = function()
             self.box = DarkItemMenu()
@@ -94,8 +152,8 @@ function DarkMenu:addButtons()
     -- EQUIP
     self:addButton({
         ["state"]          = "EQUIPMENU",
-        ["sprite"]         = Assets.getTexture("ui/menu/btn/equip"),
-        ["hovered_sprite"] = Assets.getTexture("ui/menu/btn/equip_h"),
+        ["sprite"]         = Assets.getTexture("ui/menu/radialbtn/equip"),
+        ["hovered_sprite"] = Assets.getTexture("ui/menu/radialbtn/equip_h"),
         ["desc_sprite"]    = Assets.getTexture("ui/menu/desc/equip"),
         ["callback"]       = function()
             self.box = DarkEquipMenu()
@@ -110,8 +168,8 @@ function DarkMenu:addButtons()
     -- POWER
     self:addButton({
         ["state"]          = "POWERMENU",
-        ["sprite"]         = Assets.getTexture("ui/menu/btn/power"),
-        ["hovered_sprite"] = Assets.getTexture("ui/menu/btn/power_h"),
+        ["sprite"]         = Assets.getTexture("ui/menu/radialbtn/power"),
+        ["hovered_sprite"] = Assets.getTexture("ui/menu/radialbtn/power_h"),
         ["desc_sprite"]    = Assets.getTexture("ui/menu/desc/power"),
         ["callback"]       = function()
             self.box = DarkPowerMenu()
@@ -126,8 +184,8 @@ function DarkMenu:addButtons()
     -- SPELLS
     self:addButton({
         ["state"]          = "SPELLMENU",
-        ["sprite"]         = Assets.getTexture("ui/menu/btn/spells"),
-        ["hovered_sprite"] = Assets.getTexture("ui/menu/btn/spells_h"),
+        ["sprite"]         = Assets.getTexture("ui/menu/radialbtn/spells"),
+        ["hovered_sprite"] = Assets.getTexture("ui/menu/radialbtn/spells_h"),
         ["desc_sprite"]    = Assets.getTexture("ui/menu/desc/spells"),
         ["callback"]       = function()
             self.box = DarkSpellMenu()
@@ -138,39 +196,6 @@ function DarkMenu:addButtons()
             self.ui_select:play()
         end
     })
-
-    -- TALK
-    self:addButton({
-        ["state"]          = "TALK",
-        ["sprite"]         = Assets.getTexture("ui/menu/btn/talk"),
-        ["hovered_sprite"] = Assets.getTexture("ui/menu/btn/talk_h"),
-        ["desc_sprite"]    = Assets.getTexture("ui/menu/desc/talk"),
-        ["callback"]       = function()
-            Input.clear("confirm")
-            Game.world:closeMenu()
-
-            self.ui_select:stop()
-            self.ui_select:play()
-
-            Game.world:startCutscene("_talk")
-        end
-    })
-
-    -- CONFIG
-    -- self:addButton({
-    --     ["state"]          = "CONFIGMENU",
-    --     ["sprite"]         = Assets.getTexture("ui/menu/btn/config"),
-    --     ["hovered_sprite"] = Assets.getTexture("ui/menu/btn/config_h"),
-    --     ["desc_sprite"]    = Assets.getTexture("ui/menu/desc/config"),
-    --     ["callback"]       = function()
-    --         self.box = DarkConfigMenu()
-    --         self.box.layer = -1
-    --         self:addChild(self.box)
-
-    --         self.ui_select:stop()
-    --         self.ui_select:play()
-    --     end
-    -- })
 end
 
 function DarkMenu:getButton(id)
@@ -191,21 +216,43 @@ function DarkMenu:transitionOut()
     if Game.world.menu == self then
         Game.world.menu = nil
     end
+    if (self.objective) then self.objective:close() end
+    if (self.description_panel and not self.description_panel.closed) then self.description_panel:close() end
     self.animate_out = true
-    self.animation_timer = 0
-    self.animation_done = false
-
-    self.state = "MAIN"
-    if self.box then
-        self.box:remove()
-    end
+    local could_open = Game.world.can_open_menu
+    if self.box then self.box:remove() end
+    Game.world.can_open_menu = false
+    self.panel_bg:close(false, function ()
+        Game.world.can_open_menu = could_open
+        self:remove()
+        end)
 end
 
-function DarkMenu:closeBox()
+function DarkMenu:setOverrides(health, attack, magic, defense)
+    self.health_override = health
+    self.attack_override = attack
+    self.magic_override = magic
+    self.defense_override = defense
+end
+
+function DarkMenu:resetOverrides()
+    self.health_override = nil
+    self.attack_override = nil
+    self.magic_override = nil
+    self.defense_override = nil
+end
+
+function DarkMenu:closeBox(immediate)
     self.state = "MAIN"
-    if self.box then
-        self.box:remove()
-        self.box = nil
+    self:resetOverrides()
+    if (self.box) then
+        if (self.description_panel and not self.description_panel.closed) then self.description_panel:close(immediate) end
+        if (self.box.panel_bg) then 
+            self.box.panel_bg:close(immediate, function () self.box:remove() ; self.box = nil end)
+        else
+            self.box:remove()
+            self.box = nil
+        end
     end
 end
 
@@ -239,16 +286,21 @@ end
 function DarkMenu:onKeyPressed(key)
     if self.box then
         if self.box.onKeyPressed then
-            self.box:onKeyPressed(key)
+            if (self.box.panel_bg and not self.box.panel_bg.operable) then
+            else
+                self.box:onKeyPressed(key)
+            end
         end
     end
+
+    if not self.panel_bg.operable then return end
 
     if (Input.isMenu(key) or Input.isCancel(key)) and self.state == "MAIN" then
         Game.world:closeMenu()
         return
     end
 
-    if not self.animation_done then return end
+    --if not self.animation_done then return end
 
     if self.state == "MAIN" then
         local old_selected = self.selected_submenu
@@ -279,12 +331,12 @@ function DarkMenu:onKeyPressed(key)
         end
         local old_selected = self.selected_party
         if self.party_select_mode == "SINGLE" then
-            if Input.is("left", key) then
+            if Input.is("up", key) then
                 self.selected_party = self.selected_party - 1
                 self.ui_move:stop()
                 self.ui_move:play()
             end
-            if Input.is("right", key) then
+            if Input.is("down", key) then
                 self.selected_party = self.selected_party + 1
                 self.ui_move:stop()
                 self.ui_move:play()
@@ -341,7 +393,7 @@ function DarkMenu:updateSelectedBoxes()
 end
 
 function DarkMenu:update()
-    self.animation_timer = self.animation_timer + DTMULT
+    if (self.panel_bg.operable) then self.animation_timer = self.animation_timer + DTMULT end
 
     local max_time = self.animate_out and 3 or 8
 
@@ -350,68 +402,300 @@ function DarkMenu:update()
     if self.animation_timer > max_time + 1 then
         self.animation_done = true
         self.animation_timer = max_time + 1
-        if self.animate_out then
-            self:remove()
-            return
-        end
+        -- if self.animate_out then
+        --     self:remove()
+        --     return
+        -- end
     end
 
-    if not self.animate_out then
-        if self.y < 0 then
-            if self.y > -40 then
-                self.y = self.y + math.ceil(-self.y / 2.5) * DTMULT
-            else
-                self.y = self.y + 30 * DTMULT
-            end
-        else
-            self.y = 0
-        end
-    else
-        if self.y > -80 then
-            if self.y > 0 then
-                self.y = self.y - math.floor(self.y / 2.5) * DTMULT
-            else
-                self.y = self.y - 30 * DTMULT
-            end
-        else
-            self.y = -80
-        end
+    self.flicker_timer = self.flicker_timer + MathUtils.random(0, 11)
+    if (self.flicker_timer >= 200) then
+        self.flicker_timer = MathUtils.random(-200, 150)
+        self.flicker_dur = Kristal.Config["simplifyVFX"] and 0 or 0.25
     end
+    if (self.flicker_dur > 0) then
+        self.flicker_dur = self.flicker_dur - (DTMULT / 8)
+    end
+
+    -- if not self.animate_out then
+    --     if self.y < 0 then
+    --         if self.y > -40 then
+    --             self.y = self.y + math.ceil(-self.y / 2.5) * DTMULT
+    --         else
+    --             self.y = self.y + 30 * DTMULT
+    --         end
+    --     else
+    --         self.y = 0
+    --     end
+    -- else
+    --     if self.y > -80 then
+    --         if self.y > 0 then
+    --             self.y = self.y - math.floor(self.y / 2.5) * DTMULT
+    --         else
+    --             self.y = self.y - 30 * DTMULT
+    --         end
+    --     else
+    --         self.y = -80
+    --     end
+    -- end
 
     super.update(self)
 end
 
 function DarkMenu:draw()
-    Draw.draw(self.sprite, 0, 0)
-
-    Draw.setColor(1, 1, 1, 1)
-    if self.buttons[self.selected_submenu].desc_sprite then
-        Draw.draw(self.buttons[self.selected_submenu].desc_sprite, 20, 24, 0, 2, 2)
-    end
-
-    for i = 1, #self.buttons do
-        self:drawButton(i, 120 + ((i - 1) * self:getButtonSpacing()), 20)
-    end
-    Draw.setColor(1, 1, 1)
-
-    love.graphics.setFont(self.font)
-    love.graphics.print(Game:getConfig("darkCurrencyShort") .. " " .. Game.money, 520, 20)
-
     super.draw(self)
+    if (not self.panel_bg.operable) then
+        return
+    end
+    local max_time = self.animate_out and 3 or 8
+    local alpha = self.animation_timer / max_time
+    if (self.animation_timer > max_time) and self.flicker_dur > 0 then
+        alpha = 1 - self.flicker_dur
+    end
+    if (self.state == "MAIN" and not self.box) then
+        Draw.setColor(1, 1, 1, alpha)
+        Draw.draw(self.sprite, 0, 0)
+        if self.buttons[self.selected_submenu].desc_sprite then
+            Draw.draw(self.buttons[self.selected_submenu].desc_sprite, SCREEN_WIDTH/2, SCREEN_HEIGHT/2 + 38, 0, 2, 2, self.buttons[self.selected_submenu].desc_sprite:getPixelWidth()/2)
+        end
+
+        for i = 1, #self.buttons do
+            self:drawButton(i, 0, 0, alpha )
+        end
+
+        for i, party in ipairs(Game.party) do
+            self:drawMenuHealthbar(i, party, #Game.party, alpha)
+        end
+
+        Draw.setColor(1, 1, 1)
+    end
+
+    if self.box and (self.box:includes(DarkEquipMenu) or self.box:includes(DarkPowerMenu) or self.box:includes(DarkSpellMenu)) then
+        self:drawStat(alpha)
+    else
+        self:drawBag(alpha)
+    end
 end
 
-function DarkMenu:drawButton(index, x, y)
+function DarkMenu:drawBag(alpha)
+    love.graphics.setFont(self.small_font)
+    Draw.setColor(1,1,1, alpha)
+    Draw.draw(self.bag_sprite, 0, 0)
+    local base_x = 514
+    local base_y = 215
+    local space = 26
+    local offset = (Game.money > 999) and 4 or 0
+
+    local bandaids = Game:getFlag("bandaids", 0)
+    local tonics = Game:getFlag("tonics", 0)
+    local purifiers = Game:getFlag("purifiers", 0)
+
+    if (Game.money == 0) then Draw.setColor(PALETTE["world_text_unusable"], alpha) end
+    love.graphics.print(Game.money, base_x - offset, base_y)
+    Draw.setColor(1,1,1, alpha)
+    if (bandaids == 0) then Draw.setColor(PALETTE["world_text_unusable"], alpha) end
+    love.graphics.print(bandaids, base_x, base_y + space)
+    Draw.setColor(1,1,1, alpha)
+    if (tonics == 0) then Draw.setColor(PALETTE["world_text_unusable"], alpha) end
+    love.graphics.print(tonics, base_x, base_y + space*2)
+    Draw.setColor(1,1,1, alpha)
+    if (purifiers == 0) then Draw.setColor(PALETTE["world_text_unusable"], alpha) end
+    love.graphics.print(purifiers, base_x, base_y + space*3)
+end
+
+function DarkMenu:drawStat(alpha)
+    local chara = Game.party[self.box.party.selected_party]
+
+    if not (chara) then return end
+
+    Draw.setColor(1,1,1, alpha)
+    love.graphics.setFont(self.small_font)
+    Draw.draw(self.stat_sprite, 0, 0)
+    local base_x = 514
+    local base_y = 215
+    local space = 26
+
+    local max_health = self.health_override or chara:getStat("health")
+    local offset = (max_health > 999) and 4 or 0
+    local attack = self.attack_override or chara:getStat("attack")
+    local magic = self.magic_override or chara:getStat("magic")
+    local defense = self.defense_override or chara:getStat("defense")
+
+    Draw.setColor(1,1,1, alpha)
+    if (self.health_override) then
+        if (chara:getStat("health") > max_health) then
+            Draw.setColor(COLORS.red, alpha)
+            Draw.draw(self.negative_arrow, base_x - 20, base_y)
+        elseif (chara:getStat("health") < max_health) then
+            Draw.setColor(COLORS.lime, alpha)
+            Draw.draw(self.positive_arrow, base_x - 20, base_y)
+        else
+            Draw.draw(self.hp_sprite, 0, 0)
+        end
+    else
+        Draw.draw(self.hp_sprite, 0, 0)
+    end
+    love.graphics.print(max_health, base_x - offset, base_y)
+
+    Draw.setColor(1,1,1, alpha)
+    if (self.attack_override) then
+        if (chara:getStat("attack") > attack) then
+            Draw.setColor(COLORS.red, alpha)
+            Draw.draw(self.negative_arrow, base_x - 20, base_y + space)
+        elseif (chara:getStat("attack") < attack) then
+            Draw.setColor(COLORS.lime, alpha)
+            Draw.draw(self.positive_arrow, base_x - 20, base_y + space)
+        else
+            Draw.draw(self.attack_sprite, 0, 0)
+        end
+    else
+        Draw.draw(self.attack_sprite, 0, 0)
+    end
+    love.graphics.print(attack, base_x, base_y + space)
+
+    Draw.setColor(1,1,1, alpha)
+    if (self.magic_override) then
+        if (chara:getStat("magic") > magic) then
+            Draw.setColor(COLORS.red, alpha)
+            Draw.draw(self.negative_arrow, base_x - 20, base_y + space*2)
+        elseif (chara:getStat("magic") < magic) then
+            Draw.setColor(COLORS.lime, alpha)
+            Draw.draw(self.positive_arrow, base_x - 20, base_y + space*2)
+        else
+            Draw.draw(self.magic_sprite, 0, 0)
+        end
+    else
+        Draw.draw(self.magic_sprite, 0, 0)
+    end
+    love.graphics.print(magic, base_x, base_y + space*2)
+
+    Draw.setColor(1,1,1, alpha)
+    if (self.defense_override) then
+        if (chara:getStat("defense") > defense) then
+            Draw.setColor(COLORS.red, alpha)
+            Draw.draw(self.negative_arrow, base_x-20, base_y + space*3)
+        elseif (chara:getStat("defense") < defense) then
+            Draw.setColor(COLORS.lime, alpha)
+            Draw.draw(self.positive_arrow, base_x-20, base_y + space*3)
+        else
+            Draw.draw(self.defense_sprite, 0, 0)
+        end
+    else
+        Draw.draw(self.defense_sprite, 0, 0)
+    end
+    if (self.defense_override == 0) then Draw.setColor(PALETTE["world_text_hover"], alpha) end
+    love.graphics.print(defense, base_x, base_y + space*3)
+end
+
+---comment
+---@param battler PartyMember
+---@param color table
+---@param x number
+---@param y number
+function DarkMenu:drawCurrentHealth(battler, color, x, y)
+    local map = function (tbl, func)
+        local result = {}
+        for index, value in ipairs(tbl) do
+            result[index] = func(value, index)
+        end
+        return result
+    end
+
+    local getConfig = function (name)
+        return Kristal.getLibConfig("rolling-health", name)
+    end
+    local string_from = tostring(battler:getHealth())
+    local string_to = tostring(battler:getHealth())
+    local max_string_length = math.max(#string_from, #string_to)
+    for i = 1, max_string_length - #string_from do
+        string_from = ' ' .. string_from
+    end
+    for i = 1, max_string_length - #string_to do
+        string_to = ' ' .. string_to
+    end
+    local health_offset = (max_string_length - 1) * 8
+    x = x - health_offset
+    local roll_progress = 1
+    local rolling_down = false
+    for i = 1, max_string_length do
+        local number_from, number_to = string.sub(string_from, i, i+1) or '', string.sub(string_to, i, i+1) or ''
+        if number_from == number_to then
+            Draw.setColor(color)
+            love.graphics.print(number_from, x + (i - 1) * 8, y)
+            --Kristal.Console:log(string_from)
+        else
+            -- Looks horrible (but it works)
+            local function drawNumber(number, first, dark)
+                Draw.setColor(map(color, function(value, index)
+                    if index == 4 then return getConfig("change_alpha") and (first and roll_progress or (1 - roll_progress)) or value
+                    else return (dark and getConfig("darken_previous")) and value * 0.25 or value
+                    end
+                end))
+                love.graphics.print(number, x + (i - 1) * 8, y + (roll_progress - (first and 1 or 0)) * 12)
+            end
+            if rolling_down then
+                drawNumber(number_to, false, false)
+                drawNumber(number_from, true, true)
+            else
+                drawNumber(number_from, false, true)
+                drawNumber(number_to, true, false)
+            end
+        end
+    end
+end
+
+---@param index number Party member index
+---@param member PartyMember member
+---@param party_size number party size
+function DarkMenu:drawMenuHealthbar(index, member, party_size, alpha)
+    local start_x = SCREEN_WIDTH / 2
+    local y = 332
+    local x = start_x
+    if (party_size % 2 == 0) then
+        local offset = (index <= party_size / 2) and ((party_size/2) +1 - index) or (index - party_size/2)
+        if (index <= (party_size / 2)) then
+            x = x - 16 --* offset
+        else
+            x = x + 16 --* offset
+        end
+        if (math.abs(offset) > 1) then
+            x = x + (21 * (index - (party_size+1)/2))
+        end
+    elseif (party_size >= 3) then
+        x = x + (42 * (index - (party_size+1)/2))
+    end
+
+    Draw.setColor(1,1,1, alpha)
+
+    local head_sprite = Assets.getTexture(member:getHeadIcons() .. "/head")
+    local width = head_sprite:getPixelWidth()
+    Draw.draw(head_sprite, x - (width/2), y, 0)
+
+
+    Draw.setColor(PALETTE["action_health_bg"], alpha)
+    love.graphics.rectangle("fill", x - (97/8), y + 30, 97/4, 9)
+
+    local health = (member:getHealth() / member:getStat("health")) * (97/4)
+
+    if health > 0 then
+        Draw.setColor({member:getColor()}, alpha)
+        love.graphics.rectangle("fill", x - (97/8), y + 30, math.ceil(health), 9)
+    end
+end
+
+function DarkMenu:drawButton(index, x, y, alpha)
     local button = self.buttons[index]
     local sprite = button.sprite
     if index == self.selected_submenu then
         sprite = button.hovered_sprite
     end
-    Draw.setColor(1, 1, 1)
-    Draw.draw(sprite, x, y, 0, 2, 2)
-    if index == self.selected_submenu and self.state == "MAIN" then
-        Draw.setColor(Game:getSoulColor())
-        Draw.draw(self.heart_sprite, x + 15, y + 25, 0, 2, 2, self.heart_sprite:getWidth() / 2, self.heart_sprite:getHeight() / 2)
-    end
+    if not sprite then return end
+    Draw.setColor(1, 1, 1, alpha)
+    Draw.draw(sprite, x, y, 0, 1, 1)
+    -- if index == self.selected_submenu and self.state == "MAIN" then
+    --     Draw.setColor(Game:getSoulColor())
+    --     Draw.draw(self.heart_sprite, x + 15, y + 25, 0, 2, 2, self.heart_sprite:getWidth() / 2, self.heart_sprite:getHeight() / 2)
+    -- end
 end
 
 return DarkMenu

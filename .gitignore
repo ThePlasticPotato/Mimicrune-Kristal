@@ -15,3 +15,5 @@ output/
 *.tiled-session
 *.aseprite
 mods/_testmod/libraries/MoreParty.zip
+recolor.py
+.claude

@@ -36,7 +36,7 @@
 ---
 ---@field weapon_icon string
 ---
----@field equipped {weapon: Item?, armor: Item[]}
+---@field equipped {weapon: Item?, armor: Item[], trinket: Item[]}
 ---
 ---@field lw_weapon_default string
 ---@field lw_armor_default  string
@@ -168,7 +168,8 @@ function PartyMember:init()
     -- Equipment (saved to the save file)
     self.equipped = {
         weapon = nil,
-        armor = {}
+        armor = {},
+        trinket = {}
     }
 
     -- Default light world weapon item ID (saves current weapon)
@@ -240,10 +241,12 @@ function PartyMember:init()
         [19] = 50000,
         [20] = 99999
     }
+
+    self.animatronic = false
 end
 
 function PartyMember:update()
-    super.update(self)
+    --super.update(self)
     if (self:getFlag("max_spells_updated", false)) then
         local current_weight = self:getSpellWeight()
         local max_weight = self:getStat("max_weight", 6)
@@ -616,6 +619,9 @@ end
 --- @param spell string|Spell
 --- @param activate boolean
 function PartyMember:addKnownSpell(spell, activate)
+    if self:hasKnownSpell(spell) then
+        return
+    end
     if type(spell) == "string" then
         spell = Registry.createSpell(spell)
     end
@@ -694,6 +700,11 @@ function PartyMember:getEquipment()
             table.insert(result, self.equipped.armor[i])
         end
     end
+    for i = 1, 3 do
+        if self.equipped.trinket[i] then
+            table.insert(result, self.equipped.trinket[i])
+        end
+    end
     return result
 end
 
@@ -704,6 +715,11 @@ end
 ---@param i integer
 function PartyMember:getArmor(i)
     return self.equipped.armor[i]
+end
+
+---@param i integer
+function PartyMember:getTrinket(i)
+    return self.equipped.trinket[i]
 end
 
 ---@param item string|Item?
@@ -723,6 +739,15 @@ function PartyMember:setArmor(i, item)
     self.equipped.armor[i] = item
 end
 
+---@param i     integer
+---@param item  string|Item?
+function PartyMember:setTrinket(i, item)
+    if type(item) == "string" then
+        item = Registry.createItem(item)
+    end
+    self.equipped.trinket[i] = item
+end
+
 --- Checks whether this party member has the weapon with id `id` equipped
 ---@param id string
 ---@return boolean equipped
@@ -738,6 +763,21 @@ function PartyMember:checkArmor(id)
     local result, count = false, 0
     for i = 1, 2 do
         if self:getArmor(i) and self:getArmor(i).id == id then
+            result = true
+            count = count + 1
+        end
+    end
+    return result, count
+end
+
+--- Checks whether this party member has the trinket with id `id` equipped
+---@param id string
+---@return boolean equipped
+---@return integer count
+function PartyMember:checkTrinket(id)
+    local result, count = false, 0
+    for i = 1, 3 do
+        if self:getTrinket(i) and self:getTrinket(i).id == id then
             result = true
             count = count + 1
         end
@@ -839,8 +879,9 @@ end
 function PartyMember:convertToLight()
     local last_weapon = self:getWeapon()
     local last_armors = { self:getArmor(1), self:getArmor(2) }
+    -- we don't have trinkets in the light world, so...
 
-    self.equipped = { weapon = nil, armor = {} }
+    self.equipped = { weapon = nil, armor = {}, trinket = {} }
 
     if last_weapon then
         local result = last_weapon:convertToLightEquip(self)
@@ -889,7 +930,7 @@ function PartyMember:convertToDark()
     local last_weapon = self:getWeapon()
     local last_armor = self:getArmor(1)
 
-    self.equipped = { weapon = nil, armor = {} }
+    self.equipped = { weapon = nil, armor = {}, trinket = {} }
 
     if last_weapon then
         local result = last_weapon:convertToDarkEquip(self)
@@ -918,13 +959,18 @@ end
 -- Saving & Loading
 
 function PartyMember:saveEquipment()
-    local result = { weapon = nil, armor = {} }
+    local result = { weapon = nil, armor = {}, trinket = {} }
     if self.equipped.weapon then
         result.weapon = self.equipped.weapon:save()
     end
     for i = 1, 2 do
         if self.equipped.armor[i] then
             result.armor[tostring(i)] = self.equipped.armor[i]:save()
+        end
+    end
+    for i = 1, 3 do
+        if self.equipped.trinket[i] then
+            result.trinket[tostring(i)] = self.equipped.trinket[i]:save()
         end
     end
     return result
@@ -980,12 +1026,46 @@ function PartyMember:loadEquipment(data)
             end
         end
     end
+    for i = 1, 3 do
+        self:setTrinket(i, nil)
+    end
+    if data.trinket then
+        for k, v in pairs(data.trinket) do
+            if type(v) == "table" then
+                if Registry.getItem(v.id) then
+                    local trinket = Registry.createItem(v.id)
+                    if trinket then
+                        trinket:load(v)
+                        self:setTrinket(tonumber(k), trinket)
+                    else
+                        Kristal.Console:error("Could not load trinket \"" .. v.id .. "\"")
+                    end
+                else
+                    Kristal.Console:error("Could not load trinket \"" .. v.id .. "\"")
+                end
+            else
+                if Registry.getItem(v) then
+                    self:setTrinket(tonumber(k), v)
+                else
+                    Kristal.Console:error("Could not load trinket \"" .. (v or "nil") .. "\"")
+                end
+            end
+        end
+    end
 end
 
 ---@return string[] spells An array of the spell IDs this party member knows 
 function PartyMember:saveSpells()
     local result = {}
     for _, v in pairs(self.spells) do
+        table.insert(result, v.id)
+    end
+    return result
+end
+
+function PartyMember:saveKnownSpells()
+    local result = {}
+    for _, v in pairs(self.known_spells) do
         table.insert(result, v.id)
     end
     return result
@@ -1003,6 +1083,18 @@ function PartyMember:loadSpells(data)
     end
 end
 
+---@param data string[] An array of the spell IDs this party member knows
+function PartyMember:loadKnownSpells(data)
+    self.known_spells = {}
+    for _, v in ipairs(data) do
+        if Registry.getSpell(v) then
+            self:addKnownSpell(v, false)
+        else
+            Kristal.Console:error("Could not load known spell \"" .. (v or "nil") .. "\"")
+        end
+    end
+end
+
 ---@return PartyMemberSaveData
 function PartyMember:save()
     local data = {
@@ -1016,6 +1108,7 @@ function PartyMember:save()
         lw_health = self.lw_health,
         lw_stats = self.lw_stats,
         spells = self:saveSpells(),
+        known_spells = self:saveKnownSpells(),
         equipped = self:saveEquipment(),
         flags = self.flags
     }
@@ -1033,6 +1126,9 @@ function PartyMember:load(data)
     self.lw_stats = data.lw_stats or self.lw_stats
     if data.spells then
         self:loadSpells(data.spells)
+    end
+    if data.known_spells then
+        self:loadKnownSpells(data.known_spells)
     end
     if data.equipped then
         self:loadEquipment(data.equipped)

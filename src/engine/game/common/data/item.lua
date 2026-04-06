@@ -15,6 +15,7 @@
 ---
 ---@field effect string
 ---@field shop string
+---@field menu_image string
 ---@field description string
 ---@field check string|string[]
 ---
@@ -60,7 +61,7 @@ function Item:init()
     -- Name displayed when used in battle (optional)
     self.use_name = nil
 
-    -- Item type (`"item"`, `"key"`, `"weapon"`, `"armor"`)
+    -- Item type (`"item"`, `"key"`, `"weapon"`, `"armor"`, `"trinket"`)
     self.type = "item"
     -- Item icon filepath (for equipment)
     self.icon = nil
@@ -71,6 +72,8 @@ function Item:init()
     self.effect = ""
     -- Shop description
     self.shop = ""
+    -- Menu Image (for the Dark World)
+    self.menu_image = "unknown"
     -- Menu description
     self.description = "Example description"
     -- Light world check text
@@ -125,6 +128,8 @@ function Item:init()
     self.light_location = nil
 
     self.buffs = {}
+
+    self.animatronic_only = false
 end
 
 --[[ Callbacks ]]--
@@ -287,6 +292,7 @@ end
 function Item:getUseName() return self.use_name or self:getName():upper() end
 function Item:getWorldMenuName() return self:getName() end
 
+function Item:getMenuImage() return self.menu_image end
 function Item:getDescription() return self.description end
 function Item:getBattleDescription() return self.effect end
 function Item:getCheck() return self.check end
@@ -356,12 +362,14 @@ end
 
 --- Gets whether a particular character can equip an item
 ---@param character PartyMember The character to check equippability for
----@param slot_type string      The type of equipment slot, either `"weapon"` or `"armor"`
+---@param slot_type string      The type of equipment slot, either `"weapon"`, `"armor"`, or `"trinket"`
 ---@param slot_index number     The index of the slot the item is being equipped to
 ---@return boolean  can_equip
 function Item:canEquip(character, slot_type, slot_index)
-    if self.type == "armor" then
-        return self.can_equip[character.id] ~= false
+    if (self.type == "armor") then
+        return (self.can_equip[character.id] ~= false) and (self.animatronic_only == character.animatronic)
+    elseif (self.type == "trinket") then
+        return (self.can_equip[character.id] ~= false) and ((not self.animatronic_only) or (self.animatronic_only and character.animatronic))
     else
         return self.can_equip[character.id]
     end
@@ -396,6 +404,8 @@ function Item:getTypeName()
         return "WEAPON"
     elseif self.type == "armor" then
         return "ARMOR"
+    elseif self.type == "trinket" then
+        return "TRINKET"
     end
     return "UNKNOWN"
 end

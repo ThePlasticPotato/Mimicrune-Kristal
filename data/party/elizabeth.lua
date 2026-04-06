@@ -59,7 +59,7 @@ function character:init()
 
     -- Equipment (saved to the save file)
     self:setWeapon("cheerscarf")
-    self:setArmor(1, "pink_ribbon")
+    self:setTrinket(1, "pink_ribbon")
     --self:setArmor(2, "amber_card")
 
     -- Default light world equipment item IDs (saves current equipment)
@@ -107,6 +107,7 @@ function character:onLevelUp(level)
         self:increaseStat("attack", 1)
         self:increaseStat("magic", 2)
     end
+    self.level = self.level + 1
 end
 
 function character:getLightHeadIcon()

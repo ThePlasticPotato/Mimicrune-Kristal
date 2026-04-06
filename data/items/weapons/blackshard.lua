@@ -16,6 +16,7 @@ function item:init()
     -- Shop description
     self.shop = ""
     -- Menu description
+    self.menu_image = "black_shard"
     self.description = "A dagger-like shard of the Black Knife.\nStrikes the weakness of dark-element enemies."
 
     -- Default shop price (sell price is halved)

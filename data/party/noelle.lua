@@ -58,9 +58,9 @@ function character:init()
 
     -- Equipment (saved to the save file)
     self:setWeapon("snowring")
-    self:setArmor(1, "silver_watch")
+    self:setTrinket(1, "silver_watch")
     if Game.chapter >= 2 then
-        self:setArmor(2, "royalpin")
+        self:setTrinket(2, "royalpin")
     end
 
     -- Default light world equipment item IDs (saves current equipment)

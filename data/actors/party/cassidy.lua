@@ -74,7 +74,7 @@ function actor:init()
         ["battle/defend"] = {-4, -1};
         ["battle/defendready"] = {-4, -1};
         ["battle/hurt"] = {-15, -6};
-        ["battle/idle"] = {-6, 1};
+        ["battle/idle"] = {-10, 0};
         ["battle/idle_tense"] = {-6, 1};
         ["battle/item"] = {-15, -6};
         ["battle/itemend"] = {-15, -6};

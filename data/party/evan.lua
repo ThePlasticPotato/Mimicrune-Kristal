@@ -67,7 +67,8 @@ function character:init()
 
     -- Equipment (saved to the save file)
     self:setWeapon("notsogreatsword")
-    self:setArmor(1, "faz_bowtie")
+    self:setArmor(1, "dinner_plate")
+    self:setTrinket(1, "faz_bowtie")
     --self:setArmor(2, "amber_card")
 
     -- Default light world equipment item IDs (saves current equipment)
@@ -116,6 +117,7 @@ function character:onLevelUp(level)
         self:increaseStat("health", 1)
         self:increaseStat("magic", 1)
     end
+    self.level = self.level + 1
 end
 
 function character:getLightHeadIcon()

@@ -1,4 +1,8 @@
 ---@class PanelMenuBackground : Object
+---@field operable boolean
+---@field opening boolean
+---@field closing boolean
+---@field closed boolean
 local PanelMenuBackground, super = Class(Object)
 
 function PanelMenuBackground:init(sprite_location, x, y, open_sound, close_sound, move_sound, select_sound, error_sound, cancel_sound, ambience_sound, anim_x, anim_y, openimmediate)

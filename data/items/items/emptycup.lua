@@ -14,11 +14,12 @@ function item:init()
     self.icon = nil
 
     -- Battle description
-    self.effect = "All that's left of an already middling soda."
+    self.effect = "All that's left of an already poor soda."
     -- Shop description
     self.shop = ""
     -- Menu description
-    self.description = "All that's left of an already middling soda."
+    self.menu_image = "empty_cup"
+    self.description = "All that's left of an already poor soda."
 
     -- Default shop price (sell price is halved)
     self.price = 20

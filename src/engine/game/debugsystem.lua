@@ -356,7 +356,7 @@ function DebugSystem:refresh()
     self.exclusive_menus["OVERWORLD"] = { "encounter_select", "select_shop", "select_map", "cutscene_select", "legend_select" }
     self.exclusive_menus["LEGEND"] = { "legend_select" }
     self.exclusive_menus["BATTLE"] = { "wave_select", "wave_select_multiple" }
-    self:registerMenu("main", "~ KRISTAL DEBUG ~")
+    self:registerMenu("main", "~ DEBUG ~")
     self.current_menu = "main"
     self.menu_history = {}
     self:registerDefaults()
@@ -932,7 +932,7 @@ function DebugSystem:registerSubMenus()
         end
     )
 
-    for id, _ in pairs(Assets.sounds) do
+    for id in Assets.iterate("sound") do
         self:registerOption(
             "sound_test",
             id,
@@ -966,7 +966,7 @@ function DebugSystem:registerSubMenus()
         end
     )
 
-    for id, _ in pairs(Assets.data.music) do
+    for id in Assets.iterate("music") do
         self:registerOption(
             "music_test",
             id,
@@ -1910,7 +1910,7 @@ function DebugSystem:draw()
     local menu_canvas = Draw.pushCanvas(SCREEN_WIDTH, SCREEN_HEIGHT)
     love.graphics.clear()
 
-    local header_name = "UNKNOWN"
+    local header_name = ""
 
     if self.state == "MENU" or (self.old_state == "MENU" and self.state == "IDLE" and (menu_alpha > 0)) then
         Draw.setColor(0, 0, 0, 0.5)
@@ -1992,10 +1992,8 @@ function DebugSystem:draw()
         Draw.setColor(1, 1, 1, 1)
 
         local textures = {}
-        for _, id in pairs(Assets.texture_ids) do
-            if StringUtils.startsWith(id, "face/") then
-                table.insert(textures, id:sub(6))
-            end
+        for id in Assets.iterate("sprite", "face/") do
+            table.insert(textures, id:sub(6))
         end
 
         -- Sort textures alphabetically

@@ -18,6 +18,7 @@ function item:init()
     -- Shop description
     self.shop = ""
     -- Menu description
+    self.menu_image = "tea"
     self.description = "It's own-flavored tea.\nThe flavor just says \"Noelle.\""
 
     -- Amount healed (HealItem variable)

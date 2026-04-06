@@ -100,6 +100,7 @@ function character:onLevelUp(level)
         self:increaseStat("health", 1)
         self:increaseStat("magic", 1)
     end
+    self.level = self.level + 1
 end
 
 function character:getLightHeadIcon()

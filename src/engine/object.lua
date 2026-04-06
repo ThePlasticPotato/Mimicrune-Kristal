@@ -1437,6 +1437,27 @@ function Object:getFullScale()
     return sx, sy
 end
 
+--- Returns whether the object has been hovered by the mouse this frame.
+--- @return boolean success Whether the object was hovered.
+function Object:mouseHovered()
+    local x, y = Input.getCurrentCursorPosition()
+    if (not x) or not y then
+        return false
+    end
+    if self.collider then
+        local point = PointCollider(nil, x, y)
+        return self.collider:collidesWith(point)
+    else
+        -- roughly same code as DebugSystem:detectObject(x, y)
+        local mx, my = self:getFullTransform():inverseTransformPoint(x, y)
+        local rect = self:getDebugRectangle() or { 0, 0, self.width, self.height }
+        if mx >= rect[1] and mx < rect[1] + rect[3] and my >= rect[2] and my < rect[2] + rect[4] then
+            return true
+        end
+    end
+    return false
+end
+
 --- Returns whether the object has been clicked this frame.
 ---@param button? number The mouse button to check. If not provided, it will check all buttons available.
 ---@return boolean success Whether the object was clicked.
