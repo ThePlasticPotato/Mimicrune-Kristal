@@ -656,6 +656,8 @@ function Game:convertToLight()
 
     self.inventory = inventory:convertToLight()
 
+    self:removePartyMember("fredbear")
+
     for _, chara in pairs(self.party_data) do
         chara:convertToLight()
     end
@@ -664,11 +666,17 @@ end
 function Game:convertToDark()
     local inventory = self.inventory
     ---@cast inventory LightInventory
-
+    
+    local has_fredbear = self.inventory:getItemByID("fredbear_plush")
+    
     self.inventory = inventory:convertToDark()
 
     for _, chara in pairs(self.party_data) do
         chara:convertToDark()
+    end
+
+    if has_fredbear then
+        self:addPartyMember("fredbear", #Game.party + 1)
     end
 
     if self:getFlag("has_cell_phone", false) then

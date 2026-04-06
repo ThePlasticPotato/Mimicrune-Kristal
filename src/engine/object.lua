@@ -2128,4 +2128,51 @@ function Object:stopCrt()
     self:removeFX("crtified")
 end
 
+---@alias WindowRainOptions table
+---| "rainAmount"       = 12.8;
+---| "zoom"             = 1.0;
+---| "rainSpeed"        = 0.1;
+---| "rainDensity"      = 0.05;
+---| "glassFogginess"   = 5.0;
+---| "glassClarity"     = 1.5;
+---| "pixelSize"        = 3.0;
+---@param texsize table<number, number>|function
+---@param transformed boolean
+---@param options WindowRainOptions
+---@overload fun()
+---@overload fun(texsize)
+---@overload fun(texsize, transformed)
+function Object:windowRain(texsize, transformed, options)
+    texsize = texsize or {SCREEN_WIDTH, SCREEN_HEIGHT}
+    transformed = transformed or false
+    options = options or {}
+    local fallback = {
+        ["rainAmount"]       = 12.8;
+        ["zoom"]             = 1.0;
+        ["rainSpeed"]        = 0.1;
+        ["rainDensity"]      = 0.05;
+        ["glassFogginess"]   = 5.0;
+        ["glassClarity"]     = 1.5;
+        ["pixelSize"]        = 3.0;
+    }
+
+    local passthrough = {
+        ["iTime"]            = function () return Kristal.getTime() end;
+        ["texsize"]          = texsize;
+        ["rainAmount"]       = options.rainAmount or fallback.rainAmount;
+        ["zoom"]             = options.zoom or fallback.zoom;
+        ["rainSpeed"]        = options.rainSpeed or fallback.rainSpeed;
+        ["rainDensity"]      = options.rainDensity or fallback.rainDensity;
+        ["glassFogginess"]   = options.glassFogginess or fallback.glassFogginess;
+        ["glassClarity"]     = options.glassClarity or fallback.glassClarity;
+        ["pixelSize"]        = options.pixelSize or fallback.pixelSize;
+    }
+
+    self:addFX(ShaderFX("window_rain", passthrough, transformed), "window_rain")
+end
+
+function Object:stopWindowRain()
+    self:removeFX("window_rain")
+end
+
 return Object
