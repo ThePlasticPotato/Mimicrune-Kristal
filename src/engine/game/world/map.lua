@@ -423,6 +423,9 @@ end
 
 function Map:loadTiles(layer, depth)
     local tilelayer = TileLayer(self, layer)
+    if (tilelayer.name and tilelayer.name == "Leaves") then
+        tilelayer:addFX(ShaderFX("windy", {["iTime"] = function () return Kristal.getTime() end}))
+    end
     tilelayer:setPosition(layer.offsetx or 0, layer.offsety or 0)
     tilelayer.layer = depth
     self.world:addChild(tilelayer)

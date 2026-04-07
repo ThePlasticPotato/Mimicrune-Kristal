@@ -280,6 +280,9 @@ function Object:init(x, y, width, height)
 
     self.parent = nil
     self.children = {}
+
+    self.water = false
+    self.splashes = {}
 end
 
 --[[ Common overrides ]]
@@ -295,6 +298,10 @@ function Object:update()
 
     if self.camera then
         self.camera:update()
+    end
+
+    if self.water then
+        -- havent really gotten around to this yet
     end
 end
 
@@ -2173,6 +2180,26 @@ end
 
 function Object:stopWindowRain()
     self:removeFX("window_rain")
+end
+
+function Object:waterify()
+    self.water = true
+end
+
+function Object:stopWaterify()
+    self.water = false
+    self:removeFX("water")
+end
+
+function Object:spawnSplash(x, y, radius, strength, life)
+    table.insert(self.splashes, {
+        x = x,
+        y = y,
+        radius = radius or 8,
+        strength = strength or 1,
+        life = life or 0.4,
+        maxLife = life or 0.4
+    })
 end
 
 return Object
