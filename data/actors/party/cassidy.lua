@@ -53,8 +53,8 @@ function actor:init()
         ["battle/defeat"]       = {"battle/defeat", 1/15, true},
         ["battle/overheat"]     = {"battle/overheat", 0.1, true},
 
-        ["battle/transition"]   = {"battle/battle_transition", 1/15, false},
-        ["battle/intro"]        = {"battle/intro", 1/20, true},
+        ["battle/transition"]   = {"battle/battle_transition", 1/15, true},
+        ["battle/intro"]        = {"battle/intro", 1/15, false, next="battle/idle"},
         ["battle/victory"]      = {"battle/victory", 1/10, false},
         ["battle/transition_out"] = {"battle/transition_out", 1/15, false},
 
@@ -68,8 +68,8 @@ function actor:init()
         ["battle/actready"] = {-15, -6};
         ["battle/attack"] = {-15, -6};
         ["battle/attackready"] = {-15, -6};
-        ["battle/battle_transition"] = {-15, -6};
-        ["battle/intro"] = {-15, -6};
+        ["battle/battle_transition"] = {-12, -6};
+        ["battle/intro"] = {-10, 0};
         ["battle/defeat"] = {-17, -4};
         ["battle/defend"] = {-4, -1};
         ["battle/defendready"] = {-4, -1};
