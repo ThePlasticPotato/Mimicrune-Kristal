@@ -16,6 +16,7 @@ function loveFFT:init(fftSize) -- The number of samples used to calculate FFT, m
     self.threadFFT:start(fftSize)
     self.channelFFT = love.thread.getChannel("fft")
     self.channelToFFT = love.thread.getChannel("toFFT")
+    self.loaded_song = nil
 end
 
 function loveFFT:setFFTSize(fftSize) -- Usually, avoid setting FFTSize in run time to save you from chores

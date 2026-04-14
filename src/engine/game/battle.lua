@@ -680,10 +680,10 @@ function Battle:onActionSelectState()
                 self.battle_intro:play()
                 self.notes, self.bpm = MidiTimeline:loadMidiTimeline(Assets.getMidiPath(self.encounter.music .. "_lead"), 2)
 
-                if (Game.fft and self.using_fft) then
-                    --Game.fft:release()
-                    Game.fft:setSoundData(Assets.getMusicPath(self.encounter.music))
-                end
+                -- if (Game.fft and self.using_fft) then
+                --     --Game.fft:release()
+                --     Game.fft:setSoundData(Assets.getMusicPath(self.encounter.music))
+                -- end
                 self.timer:afterCond(function () return not self.battle_intro:isPlaying() end, function ()
                     Game.fft:setPlayPosition(0)
                     self.music:play(self.encounter.music)

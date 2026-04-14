@@ -401,6 +401,8 @@ function Game:load(data, index, fade)
 
     self.fft = LoveFFT
     self.fft:init(512)
+    --initialize battle by default
+    self.fft:setSoundData(Assets.getMusicPath("battle"))
 
     if fade then
         self.fader:fadeIn(nil, { alpha = 1, speed = 0.5 })
