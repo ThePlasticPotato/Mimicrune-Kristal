@@ -1109,6 +1109,54 @@ function World:transitionMusic(next, fade_out)
     end
 end
 
+--- Transitions the music from the current track to the `next` while keeping the same playback position
+---@overload fun(self: World, music: string)
+---@param music     string                                              The name of the file to play next
+---@param next      {music?: string, volume?: number, pitch?: number}   The filename, volume, and pitch of the next track
+---@param fade_out? boolean                                             Whether to fade out the currently playing track before playing the next track
+function World:transitionMusicTimed(next, fade_out)
+    -- Compatibility with older versions of transitionMusic which have "next" as the music
+    local music = ""
+    local volume = 1
+    local pitch = 1
+    if type(next) == "table" then
+        music = next[1]
+        volume = next[2]
+        pitch = next[3]
+    else
+        music = next
+    end
+    --
+    local playback_position = 0
+    if music and music ~= "" then
+        if self.music.current ~= music then
+            if self.music:isPlaying() and fade_out then
+                self.music:fade(0, 10 / 30, function() playback_position = self.music:tell(); self.music:stop(); self.music:play(music, volume, pitch); self.music:seek(playback_position) end)
+            elseif not fade_out then
+                playback_position = self.music:tell()
+                self.music:play(music, volume, pitch)
+                self.music:seek(playback_position)
+            end
+        else
+            if not self.music:isPlaying() then
+                if not fade_out then
+                    self.music:play(music, volume, pitch)
+                end
+            else
+                self.music:fade(volume)
+            end
+        end
+    else
+        if self.music:isPlaying() then
+            if fade_out then
+                self.music:fade(0, 10 / 30, function() self.music:stop() end)
+            else
+                self.music:stop()
+            end
+        end
+    end
+end
+
 --[[
     Possible argument formats:
         - Target table
