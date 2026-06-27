@@ -16,6 +16,7 @@ function item:init()
     -- Shop description
     self.shop = ""
     -- Menu description
+    self.menu_image = "sky_mantle"
     self.description = "A cape that shimmers fluorescently.\nProtects against Elec and Holy attacks."
 
     -- Default shop price (sell price is halved)

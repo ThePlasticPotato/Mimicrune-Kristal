@@ -95,8 +95,12 @@ Input.mouse_pressed = {}
 Input.mouse_released = {}
 
 Input.order = {
-    "down", "right", "up", "left", "confirm", "cancel", "menu", "console", "debug_menu", "object_selector",
-    "fast_forward", "mod_rebind"
+    -- Deltarune binds
+    "down", "right", "up", "left", "confirm", "cancel", "menu",
+    -- Mimicrune binds
+    "attack", "dash",
+    -- Kristal binds
+    "console", "debug_menu", "object_selector", "fast_forward", "mod_rebind"
 }
 
 Input.required_binds = {
@@ -211,32 +215,42 @@ function Input.resetBinds(gamepad, mod_id)
     -- Special id to reset only default Kristal keybinds
     if mod_id == "KRISTAL" then
         local key_bindings = {
-            ["up"] = { "up" },
-            ["down"] = { "down" },
-            ["left"] = { "left" },
-            ["right"] = { "right" },
-            ["confirm"] = { "z", "return" },
-            ["cancel"] = { "x", "shift" },
-            ["menu"] = { "c", "ctrl" },
-            ["console"] = { "`" },
-            ["debug_menu"] = { { "shift", "`" } },
-            ["object_selector"] = { { "ctrl", "o" } },
-            ["fast_forward"] = { { "ctrl", "g" } },
-            ["mod_rebind"] = { "/" },
+            ["up"] = {"up"},
+            ["down"] = {"down"},
+            ["left"] = {"left"},
+            ["right"] = {"right"},
+            ["confirm"] = {"z", "return"},
+            ["cancel"] = {"x", "shift"},
+            ["menu"] = {"c", "ctrl"},
+            ["attack"] = {"v", "alt"},
+            ["instant-heal"] = {"h", "1"},
+            ["instant-tonic"] = {"t", "2"},
+            ["instant-purify"] = {"p", "3"},
+            ["dash"] = {"e", "space"},
+            ["console"] = {"`"},
+            ["debug_menu"] = {{"shift", "`"}},
+            ["object_selector"] = {{"ctrl", "o"}},
+            ["fast_forward"] = {{"ctrl", "g"}},
+            ["mod_rebind"] = {"/"},
         }
         local gamepad_bindings = {
-            ["up"] = { "gamepad:dpup", "gamepad:lsup" },
-            ["down"] = { "gamepad:dpdown", "gamepad:lsdown" },
-            ["left"] = { "gamepad:dpleft", "gamepad:lsleft" },
-            ["right"] = { "gamepad:dpright", "gamepad:lsright" },
-            ["confirm"] = { "gamepad:a" },
-            ["cancel"] = { "gamepad:b" },
-            ["menu"] = { "gamepad:y" },
+            ["up"] = {"gamepad:lsup"},
+            ["down"] = {"gamepad:lsdown"},
+            ["left"] = {"gamepad:lsleft"},
+            ["right"] = {"gamepad:lsright"},
+            ["confirm"] = {"gamepad:a"},
+            ["cancel"] = {"gamepad:b"},
+            ["menu"] = {"gamepad:y"},
+            ["attack"] = {"gamepad:x"},
+            ["instant-heal"] = {"gamepad:dpleft"},
+            ["instant-tonic"] = {"gamepad:dpup"},
+            ["instant-purify"] = {"gamepad:dpright"},
+            ["dash"] = {"gamepad:leftstick"},
             ["console"] = {},
             ["debug_menu"] = {},
             ["object_selector"] = {},
             ["fast_forward"] = {},
-            ["mod_rebind"] = { "gamepad:x" },
+            ["mod_rebind"] = {},
         }
         if gamepad ~= true then TableUtils.merge(Input.key_bindings, key_bindings) end
         if gamepad ~= false then TableUtils.merge(Input.gamepad_bindings, gamepad_bindings) end
@@ -276,18 +290,23 @@ function Input.resetBinds(gamepad, mod_id)
         Input.mod_keybinds = {}
         Input.stray_key_bindings = {}
         Input.key_bindings = {
-            ["up"] = { "up" },
-            ["down"] = { "down" },
-            ["left"] = { "left" },
-            ["right"] = { "right" },
-            ["confirm"] = { "z", "return" },
-            ["cancel"] = { "x", "shift" },
-            ["menu"] = { "c", "ctrl" },
-            ["console"] = { "`" },
-            ["debug_menu"] = { { "shift", "`" } },
-            ["object_selector"] = { { "ctrl", "o" } },
-            ["fast_forward"] = { { "ctrl", "g" } },
-            ["mod_rebind"] = { "/" },
+            ["up"] = {"up"},
+            ["down"] = {"down"},
+            ["left"] = {"left"},
+            ["right"] = {"right"},
+            ["confirm"] = {"z", "return"},
+            ["cancel"] = {"x", "shift"},
+            ["menu"] = {"c", "ctrl"},
+            ["attack"] = {"v", "alt"},
+            ["instant-heal"] = {"h", "1"},
+            ["instant-tonic"] = {"t", "2"},
+            ["instant-purify"] = {"p", "3"},
+            ["dash"] = {"e", "space"},
+            ["console"] = {"`"},
+            ["debug_menu"] = {{"shift", "`"}},
+            ["object_selector"] = {{"ctrl", "o"}},
+            ["fast_forward"] = {{"ctrl", "g"}},
+            ["mod_rebind"] = {"/"},
         }
         for _, mod in ipairs(Kristal.Mods.getMods()) do
             if mod.keybinds then
@@ -322,18 +341,23 @@ function Input.resetBinds(gamepad, mod_id)
     if gamepad ~= false then
         Input.stray_gamepad_bindings = {}
         Input.gamepad_bindings = {
-            ["up"] = { "gamepad:dpup", "gamepad:lsup" },
-            ["down"] = { "gamepad:dpdown", "gamepad:lsdown" },
-            ["left"] = { "gamepad:dpleft", "gamepad:lsleft" },
-            ["right"] = { "gamepad:dpright", "gamepad:lsright" },
-            ["confirm"] = { "gamepad:a" },
-            ["cancel"] = { "gamepad:b" },
-            ["menu"] = { "gamepad:y" },
+            ["up"] = {"gamepad:lsup"},
+            ["down"] = {"gamepad:lsdown"},
+            ["left"] = {"gamepad:lsleft"},
+            ["right"] = {"gamepad:lsright"},
+            ["confirm"] = {"gamepad:a"},
+            ["cancel"] = {"gamepad:b"},
+            ["menu"] = {"gamepad:y"},
+            ["attack"] = {"gamepad:x"},
+            ["dash"] = {"gamepad:leftstick"},
+            ["instant-heal"] = {"gamepad:dpleft"},
+            ["instant-tonic"] = {"gamepad:dpup"},
+            ["instant-purify"] = {"gamepad:dpright"},
             ["console"] = {},
             ["debug_menu"] = {},
             ["object_selector"] = {},
             ["fast_forward"] = {},
-            ["mod_rebind"] = { "gamepad:x" },
+            ["mod_rebind"] = {},
         }
         for _, mod in ipairs(Kristal.Mods.getMods()) do
             if mod.keybinds then
@@ -370,7 +394,7 @@ function Input.loadBinds()
         for k, v in pairs(user_binds) do
             local key_bind = {}
             local gamepad_bind = {}
-            for _, key in ipairs(v) do
+            for _,key in ipairs(v) do
                 local split = StringUtils.split(key, "+")
                 if #split > 1 then
                     table.insert(key_bind, split)
@@ -418,16 +442,16 @@ end
 
 function Input.saveBinds()
     local all_binds = {}
-    for k, v in pairs(Input.key_bindings) do
+    for k,v in pairs(Input.key_bindings) do
         all_binds[k] = TableUtils.copy(v)
     end
-    for k, v in pairs(Input.stray_key_bindings) do
+    for k,v in pairs(Input.stray_key_bindings) do
         all_binds[k] = TableUtils.merge(all_binds[k] or {}, v)
     end
-    for k, v in pairs(Input.gamepad_bindings) do
+    for k,v in pairs(Input.gamepad_bindings) do
         all_binds[k] = TableUtils.merge(all_binds[k] or {}, v)
     end
-    for k, v in pairs(Input.stray_gamepad_bindings) do
+    for k,v in pairs(Input.stray_gamepad_bindings) do
         all_binds[k] = TableUtils.merge(all_binds[k] or {}, v)
     end
 
@@ -463,20 +487,10 @@ function Input.setBind(alias, index, key, gamepad)
         end
     end
 
-    if type(key) == "table" then
-        for _, k in ipairs(key) do
-            local is_gamepad_key = StringUtils.startsWith(k, "gamepad:")
-            if is_gamepad_key ~= (gamepad or false) then
-                -- Cannot assign gamepad button to key or vice versa
-                return false
-            end
-        end
-    else
-        local is_gamepad_button = StringUtils.startsWith(key, "gamepad:")
-        if is_gamepad_button ~= (gamepad or false) then
-            -- Cannot assign gamepad button to key or vice versa
-            return false
-        end
+    local is_gamepad_button = StringUtils.startsWith(key, "gamepad:")
+    if is_gamepad_button ~= gamepad or false then
+        -- Cannot assign gamepad button to key or vice versa
+        return false
     end
 
     if type(key) ~= "table" and self.group_for_key[key] then
@@ -1445,6 +1459,18 @@ end
 ---@return boolean
 function Input.isConfirm(key)
     return Input.is("confirm", key)
+end
+
+---@param key string
+---@return boolean
+function Input.isAttack(key)
+    return Input.is("attack", key)
+end
+
+---@param key string
+---@return boolean
+function Input.isDash(key)
+    return Input.is("dash", key)
 end
 
 ---@param key string

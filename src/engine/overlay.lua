@@ -101,12 +101,12 @@ function Overlay:draw()
 
     -- Draw the load text
     love.graphics.push()
-    love.graphics.translate(0, SCREEN_HEIGHT)
+    love.graphics.translate(SCREEN_WIDTH/2, SCREEN_HEIGHT * 5 / 6)
     love.graphics.scale(2)
     Draw.setColor(1, 1, 1, self.load_alpha)
     local load_frame = (math.floor(self.load_timer / 0.25) % #self.load_frames) + 1
     local load_texture = self.load_frames[load_frame]
-    Draw.draw(load_texture, 0, -load_texture:getHeight())
+    Draw.draw(load_texture, -load_texture:getWidth()/2, -load_texture:getHeight())
     love.graphics.pop()
 
     -- Draw the loader messages

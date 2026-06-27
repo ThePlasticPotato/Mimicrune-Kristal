@@ -41,6 +41,9 @@ function Character:init(actor, x, y)
     self.alert_timer = 0
     self.alert_icon = nil
     self.alert_callback = nil
+    self.humming = false
+    self.hum_note_timer = 0
+    self.next_hum_note = 1
 end
 
 function Character:getDebugInfo()
@@ -450,6 +453,10 @@ end
 
 --- Resets the character's to their default animation or sprite.
 function Character:resetSprite()
+    if (self.humming) then
+        self:setWalkSprite("walk_hum")
+        return
+    end
     self.sprite:resetSprite()
 end
 
@@ -744,6 +751,21 @@ function Character:update()
                 self.alert_callback = nil
             end
         end
+    end
+
+    if self.humming then
+        self.hum_note_timer = self.hum_note_timer + DT
+        if (self.hum_note_timer >= 2) then
+            self.hum_note_timer = 0
+            local note = HumNote(self.next_hum_note, self.x, self.y - (self.height) - 32)
+            note.layer = WORLD_LAYERS["below_soul"]
+            note:setScale(2)
+            self.next_hum_note = self.next_hum_note + 1
+            if (self.next_hum_note > 3) then self.next_hum_note = 1 end
+            Game.world:addChild(note)
+        end
+    else
+        self.hum_note_timer = 0
     end
 
     super.update(self)

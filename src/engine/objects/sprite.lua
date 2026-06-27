@@ -158,7 +158,7 @@ function Sprite:setSprite(texture, keep_anim)
     if type(texture) == "string" then
         texture = self:getPath(texture)
     end
-    if type(texture) == "table" or (type(texture) == "string" and Assets.getFrames(texture)) then
+    if type(texture) == "table" or (type(texture) == "string" and Assets.hasSprite(texture)) then
         self:setFrames(texture, keep_anim)
     else
         self:setTexture(texture, keep_anim)
@@ -180,15 +180,22 @@ end
 --- *(Called internally)* Sets the current sprite to a single texture. \
 --- **Note**: *Only for internal overrides. Use `Sprite:setSprite()` instead.*
 function Sprite:setTextureExact(texture)
+    local texture_in = texture
     if type(texture) == "string" then
-        self.texture = Assets.getTexture(texture)
+        if texture == "" then
+            self.texture = nil
+            self.texture_path = ""
+            return
+        else
+            self.texture = Assets.getTexture(texture)
+        end
     else
         self.texture = texture
     end
     if (not self.texture) and (texture ~= nil) then
         Kristal.Console:warn("Texture not found: " .. TableUtils.dump(texture))
     end
-    self.texture_path = Assets.getTextureID(texture)
+    self.texture_path = Assets.getTextureID(texture) or (type(texture_in) == "string" and texture_in)
     if self.use_texture_size then
         if self.texture then
             self.width = self.texture:getWidth()

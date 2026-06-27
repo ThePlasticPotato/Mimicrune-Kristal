@@ -16,6 +16,7 @@ function item:init()
     -- Shop description
     self.shop = ""
     -- Menu description
+    self.menu_image = "black_shard"
     self.description = "A dagger-like shard of the Black Knife.\nStrikes the weakness of dark-element enemies."
 
     -- Default shop price (sell price is halved)
@@ -46,12 +47,19 @@ function item:init()
     self.can_equip = {
         kris = true,
         noelle = true,
+        evan = true,
     }
 
     -- Character reactions
     self.reactions = {
         susie = "... how is this a weapon?",
         ralsei = "I... shouldn't use it.",
+        evan = {
+            evan = "It's slippery...?",
+            cassidy = "You look... cool with it."
+        },
+        cassidy = "It gives me the heebie-jeebies.",
+        fredbear = "I'm... I'll pass."
     }
 end
 

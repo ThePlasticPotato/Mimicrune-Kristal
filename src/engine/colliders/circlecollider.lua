@@ -54,8 +54,8 @@ function CircleCollider:collidesWith(other)
 end
 
 function CircleCollider:getShapeFor(other)
-    local cx, cy, crx, cry = other:getLocalPointsWith(self, self.x, self.y, self.x + self.radius, self.y)
-    return cx, cy, MathUtils.dist(cx, cy, crx, cry)
+    local cx,cy, crx,cry = other:getLocalPointsWith(self, self.x,self.y, self.x+self.radius,self.y)
+    return cx, cy, MathUtils.dist(cx,cy, crx,cry)
 end
 
 function CircleCollider:draw(r, g, b, a)

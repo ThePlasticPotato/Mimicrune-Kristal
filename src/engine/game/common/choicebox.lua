@@ -95,11 +95,11 @@ function Choicebox:draw()
     end
 
     local soul_positions = {
-        --[[ Center: ]] { 224, 38 },
-        --[[ Left:   ]] { 4,   34 },
-        --[[ Right:  ]] { 528 - self.font:getWidth(self.choices[2] or "") - 32, 34 },
-        --[[ Top:    ]] { 17 + MathUtils.round(self.width / 2) - MathUtils.round(self.font:getWidth(self.choices[3] or "") / 2) - 32, -8 + 6 },
-        --[[ Bottom: ]] { 17 + MathUtils.round(self.width / 2) - MathUtils.round(self.font:getWidth(self.choices[4] or "") / 2) - 32, 78 + 6 }
+        --[[ Center: ]] {224, 38},
+        --[[ Left:   ]] {4,   34},
+        --[[ Right:  ]] {528 - self.font:getWidth(self.choices[2] or "") - 32, 34},
+        --[[ Top:    ]] {17 + MathUtils.round(self.width / 2) - MathUtils.round(self.font:getWidth(self.choices[3] or "") / 2) - 32, -8 + 6},
+        --[[ Bottom: ]] {17 + MathUtils.round(self.width / 2) - MathUtils.round(self.font:getWidth(self.choices[4] or "") / 2) - 32, 78 + 6}
     }
 
     local heart_x = soul_positions[self.current_choice + 1][1]

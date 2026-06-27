@@ -24,6 +24,9 @@
 ---@field alert_icon Sprite?                    Internal variable used to store the battler's overhead alert icon.
 ---@field alert_callback fun()?                 Internal variable used to store a callback for after an alert, if set.
 ---
+---@field statuses          table<string, StatusEffect>               Table of status effects.
+---@field max_statuses      number              Max number of statuses. 0 is unlimited. Defaults to 4 for party members since that's all that fits on the UI.
+---
 ---@overload fun(x?:number, y?:number, width?:number, height?:number) : Battler
 local Battler, super = Class(Object)
 
@@ -57,6 +60,10 @@ function Battler:init(x, y, width, height)
     self.alert_timer = 0
     self.alert_icon = nil
     self.alert_callback = nil
+
+    self.statuses = {}
+    self.max_statuses = 0
+    self.ticked_statuses = {}
 end
 
 --- Sets the actor used for this battler.
@@ -326,6 +333,84 @@ function Battler:resetSprite()
         self.sprite:resetSprite()
     end
 end
+
+---@class BattlerStatusOptions
+---@field effect        string|Status # The effect, or ID of the effect.
+---@field duration      number? # The duration of the effect, in rounds.
+---@field stacks        number? # The amount of stacks the effect has initially.
+---@field source        Battler # The source of the effect.
+
+---@class StatusEffect
+---@field time_left number
+---@field stacks number
+---@field data BattlerStatusOptions
+
+---Attempts to add a status to this battler.
+---@param options BattlerStatusOptions
+---@param stack boolean Whether this should stack (true) with an existing instance of this status, or replace it (false).
+---@param force boolean Whether this should forcibly add this to the status table even if the status count is maxed and there are no disposable statuses. Dangerous!
+---@return boolean success Whether or not the status was successfully added.
+function Battler:addStatus(options, stack, force)
+    if type(options.effect) == "string" then
+        options.effect = Registry.createStatus(options.effect)
+    end
+    local id = options.effect.id
+    if (self.max_statuses > 0 and #self.statuses == self.max_statuses and ((not stack) or not self.statuses[id])) then
+        local candidate = nil
+        for index, status in pairs(self.statuses) do
+            if status.data.effect:isReplacable() or force then
+                candidate = index
+            end
+            if candidate then break end
+        end
+        if (candidate) then
+            self.statuses[candidate].data.effect:onEnd(self, self.statuses[candidate], "OVERFLOW")
+            self.statuses[candidate] = nil
+        else
+            return false
+        end
+    end
+    if (self.statuses[id]) then
+        if (stack) then
+            local old_stacks = self.statuses[id].stacks
+            self.statuses[id].stacks = math.min(self.statuses[id].stacks + options.stacks, (self.statuses[id].data.effect:getMaxStacking() > 0) and self.statuses[id].data.effect:getMaxStacking() or 99)
+            self.statuses[id].time_left = options.duration
+            if self.statuses[id].data.effect.onUpdate then
+                self.statuses[id].data.effect:onUpdate(self, self.statuses[id], old_stacks, options)
+            end
+        else
+            self.statuses[id] = { time_left = options.duration or options.effect:getDefaultDuration(), stacks = options.stacks or 1, data = options }
+            options.effect:onApply(self, self.statuses[id])
+        end
+    else
+        local new_status = {
+            [id] = { time_left = options.duration or options.effect:getDefaultDuration(), stacks = options.stacks or 1, data = options }
+        }
+        self.statuses = TableUtils.merge(self.statuses, new_status)
+        options.effect:onApply(self, self.statuses[id])
+    end
+    return true
+end
+
+---@param id string
+---@return StatusEffect? effect
+function Battler:getStatus(id)
+    return self.statuses[id]
+end
+
+---Attemps to remove a status from this battler.
+---@param id string
+---@param reason string The removal reason passed to [`Status:onEnd()`](lua://Status.onEnd)
+---@return boolean success Whether or not the status was successfully removed.
+function Battler:removeStatus(id, reason)
+    reason = reason or "TIMEOUT"
+    if self.statuses[id] then
+        self.statuses[id].data.effect:onEnd(self, self.statuses[id], reason)
+        self.statuses[id] = nil
+    end
+    return false
+end
+
 
 function Battler:update()
     if Game.battle:isHighlighted(self) then

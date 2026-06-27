@@ -18,6 +18,10 @@ function AbstractMenuItemComponent:init(x_sizing, y_sizing, callback, options)
 
     self.soul_offset_x = 0
     self.soul_offset_y = 0
+
+    self.clickable = false
+    self.draggable = false
+    self.dragged = false
 end
 
 function AbstractMenuItemComponent:onHovered(hovered, from_focused)
@@ -32,6 +36,10 @@ function AbstractMenuItemComponent:onSelected()
     if self.callback then
         self:callback()
     end
+end
+
+function AbstractMenuItemComponent:onGrab()
+    self.dragged = true
 end
 
 return AbstractMenuItemComponent

@@ -5,7 +5,7 @@ local HealthBar, super = Class(Object)
 function HealthBar:init()
     super.init(self, 0, -80)
 
-    self.layer = 1 -- TODO
+    self.layer = WORLD_LAYERS["above_ui"] -- TODO
 
     self.parallax_x = 0
     self.parallax_y = 0
@@ -17,28 +17,25 @@ function HealthBar:init()
 
     self.action_boxes = {}
 
-    for index, chara in ipairs(Game.party) do
-        local x_pos = (index - 1) * 213
+    self.sprite = Assets.getTexture("ui/battle/panels/partypanel")
 
-        if #Game.party == 2 then
-            if Game:getConfig("oldUIPositions") then
-                if index == 1 then
-                    x_pos = 105
-                else
-                    x_pos = 325
-                end
-            else
-                if index == 1 then
-                    x_pos = 108
-                else
-                    x_pos = 322
-                end
-            end
+    for index, chara in ipairs(Game.party) do
+        --local x_pos = (index - 1) * 213
+        local size_offset = 0
+        local box_gap = 0
+        if #Game.party == 3 then
+            size_offset = 0
+            box_gap = 3
+        elseif #Game.party == 2 then
+            size_offset = 24
+            box_gap = 10
         elseif #Game.party == 1 then
-            x_pos = 213
+            size_offset = 213 / 4
+            box_gap = 0
         end
 
-        local action_box = OverworldActionBox(x_pos, 0, index, chara)
+        local action_box = OverworldActionBox(6, 48, index, chara,  size_offset+ (index - 1) * (48 + box_gap))
+        action_box:setLayer(WORLD_LAYERS["above_ui"])
         self:addChild(action_box)
         table.insert(self.action_boxes, action_box)
         chara:onActionBox(action_box, true)
@@ -109,15 +106,14 @@ function HealthBar:update()
         end
     end
 
-    self.y = 480 - (self.animation_y + 63)
+    self.y = 480 - (self.animation_y + 63) * 3.5
 
     super.update(self)
 end
 
 function HealthBar:draw()
     -- Draw the black background
-    Draw.setColor(PALETTE["world_fill"])
-    love.graphics.rectangle("fill", 0, 2, 640, 62)
+    Draw.draw(self.sprite, 0, 0)
 
     super.draw(self)
 end

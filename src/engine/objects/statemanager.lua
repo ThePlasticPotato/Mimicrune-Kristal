@@ -177,7 +177,7 @@ function StateManager:setState(state, ...)
             self.routine_wait = time
             coroutine.yield()
         end
-        local args = { ... }
+        local args = {...}
         self.routine = coroutine.create(function() self:call("coroutine", wait, TableUtils.unpack(args)) end)
     else
         self.routine = nil
@@ -228,7 +228,7 @@ function StateManager:pushState(state, ...)
             self.routine_wait = time
             coroutine.yield()
         end
-        local args = { ... }
+        local args = {...}
         self.routine = coroutine.create(function() self:call("coroutine", wait, TableUtils.unpack(args)) end)
     end
 end

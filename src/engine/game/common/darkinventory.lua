@@ -11,12 +11,13 @@ function DarkInventory:init()
         ["key"]    = "key_items",
         ["weapon"] = "weapons",
         ["armor"]  = "armors",
+        ["trinket"] = "trinkets",
     }
 
     self.storage_enabled = Game.default_storage_slots > 0
 
     -- Order the storages are converted to the light world
-    self.convert_order = {"key_items", "weapons", "armors", "items", "storage"}
+    self.convert_order = {"key_items", "weapons", "armors", "trinkets", "items", "storage"}
 end
 
 function DarkInventory:clear()
@@ -27,6 +28,7 @@ function DarkInventory:clear()
         ["key_items"] = {id = "key_items", max = 12,                         sorted = true,  name = "KEY ITEMs",   fallback = nil      },
         ["weapons"]   = {id = "weapons",   max = Game.default_equip_slots,   sorted = false, name = "WEAPONs",     fallback = nil      },
         ["armors"]    = {id = "armors",    max = Game.default_equip_slots,   sorted = false, name = "ARMORs",      fallback = nil      },
+        ["trinkets"]  = {id = "trinkets",  max = Game.default_equip_slots,   sorted = false, name = "TRINKETs",    fallback = nil      },
         ["storage"]   = {id = "storage",   max = Game.default_storage_slots, sorted = false, name = "STORAGE",     fallback = nil      },
     }
 

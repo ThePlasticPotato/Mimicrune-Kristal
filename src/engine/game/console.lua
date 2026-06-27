@@ -113,7 +113,7 @@ function Console:onUpLimit()
     if #self.command_history == 0 then return end
     if self.history_index > 1 then
         self.history_index = self.history_index - 1
-        self.input = TableUtils.copy(self.command_history[self.history_index] or { "" })
+        self.input = TableUtils.copy(self.command_history[self.history_index] or {""})
         TextInput.updateInput(self.input)
         TextInput.selecting = false
         TextInput.sendCursorToEnd()
@@ -126,7 +126,7 @@ function Console:onDownLimit()
         -- Empty
     else
         self.history_index = self.history_index + 1
-        self.input = TableUtils.copy(self.command_history[self.history_index] or { "" })
+        self.input = TableUtils.copy(self.command_history[self.history_index] or {""})
         TextInput.updateInput(self.input)
         TextInput.selecting = false
         TextInput.sendCursorToEnd()
@@ -199,7 +199,7 @@ function Console:draw()
     self.color = { 1, 1, 1, 1 }
 
     for line = #self.history - self.height, #self.history do
-        --local lines = Utils.split(self.history[line] or "", "\n", false)
+        --local lines = StringUtils.split(self.history[line] or "", "\n", false)
         y_offset = y_offset - 1
     end
 

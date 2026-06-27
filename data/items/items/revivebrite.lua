@@ -18,6 +18,7 @@ function item:init()
     -- Shop description
     self.shop = ""
     -- Menu description
+    self.menu_image = "super_mint"
     self.description = "A breakable mint that revives all\nfallen party members to 100% HP."
 
     -- Default shop price (sell price is halved)

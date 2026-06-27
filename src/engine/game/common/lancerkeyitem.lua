@@ -79,11 +79,11 @@ function LancerKeyItem:update()
             self.con = 1
             self.contimer = 0
             self.contimermax = 30
-            self.flipchance = TableUtils.pick({ 0, 1, 2 })
+            self.flipchance = TableUtils.pick{0, 1, 2}
             if self.flipchance == 2 then
-                self.lancer:setAnimation(TableUtils.pick({ "walk/down", "up_flip" }))
-            end
-        end
+                self.lancer:setAnimation(TableUtils.pick{"walk/down", "up_flip"})
+			end
+		end
         if self.con == 1 then
             self.stop = 0
             self.contimer = self.contimer + DTMULT
@@ -101,7 +101,7 @@ function LancerKeyItem:update()
                 self:setPhysics({
                     speed_x = 0,
                 })
-                self.lancer:setAnimation(TableUtils.pick({ "walk/down", "up_flip" }))
+                self.lancer:setAnimation(TableUtils.pick{"walk/down", "up_flip"})
                 self.con = 2
             end
         end

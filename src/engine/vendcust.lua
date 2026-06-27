@@ -9,7 +9,7 @@
 ---
 --- Also set if command parameter `--mod <id>` is passed to the engine, though this value overrides that.
 ---@type string
-TARGET_MOD = nil
+TARGET_MOD = "mimicrune"
 
 --- Disables Kristal's built-in Main menu and
 --- immediately loads the target mod.

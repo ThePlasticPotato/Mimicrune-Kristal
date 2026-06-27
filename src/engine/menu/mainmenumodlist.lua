@@ -485,60 +485,65 @@ function MainMenuModList:buildModList()
     for _, mod in ipairs(self.mods) do
         -- Create the mod button
         local button = ModButton(mod.name or mod.id, 424, 62, mod)
-        self.list:addMod(button)
+        if button then
+            self.list:addMod(button)
 
-        -- Initialize the mod's fader (for background and music fading)
-        self.fades[mod.id] = 0
+            -- Initialize the mod's fader (for background and music fading)
+            self.fades[mod.id] = 0
 
-        -- Load the mod's preview script
-        if mod.preview_script_path then
-            local chunk = love.filesystem.load(mod.preview_script_path)
-            local success, result = pcall(chunk, mod.path)
-            if success then
-                self.scripts[mod.id] = result
-                button.preview_script = result
+            -- Load the mod's preview script
+            if mod.preview_script_path then
+                local chunk = love.filesystem.load(mod.preview_script_path)
+                local success, result = pcall(chunk, mod.path)
+                if success then
+                    self.scripts[mod.id] = result
+                    button.preview_script = result
 
-                result.fade = 0
-                result.selected = false
+                    result.fade = 0
+                    result.selected = false
 
-                if result.init then
-                    result:init(mod, button)
+                    if result.init then
+                        result:init(mod, button)
+                    end
+                else
+                    Kristal.Console:warn("preview.lua error in " .. mod.name .. ": " .. result)
                 end
+            end
+
+            -- Load the mod's preview music
+            if mod.preview_music_path then
+                self.music_options[mod.id] = {
+                    volume = mod["previewVolume"] or 1,
+                    sync   = mod["previewMusicSync"] or false,
+                    pause  = mod["previewMusicPause"] or false,
+                    loop   = mod["previewMusicLoop"] == nil and true or mod["previewMusicLoop"],
+                }
+
+                local music = Music()
+                music:playFile(mod.preview_music_path, 0, 1)
+                music:setLooping(self.music_options[mod.id].loop)
+                music:stop()
+
+                self.music[mod.id] = music
+            end
+
+            -- Get the engine versions this mod is compatible with
+            local engine_ver = mod and mod["engineVer"]
+            if type(engine_ver) == "table" then
+                local versions = {}
+                for _, ver in ipairs(engine_ver) do
+                    table.insert(versions, SemVer(ver))
+                end
+                self.engine_versions[mod.id] = versions
+            elseif type(engine_ver) == "string" then
+                self.engine_versions[mod.id] = { SemVer(engine_ver) }
             else
-                Kristal.Console:warn("preview.lua error in " .. mod.name .. ": " .. result)
+                self.engine_versions[mod.id] = { Kristal.Version }
             end
-        end
-
-        -- Load the mod's preview music
-        if mod.preview_music_path then
-            self.music_options[mod.id] = {
-                volume = mod["previewVolume"] or 1,
-                sync   = mod["previewMusicSync"] or false,
-                pause  = mod["previewMusicPause"] or false,
-                loop   = mod["previewMusicLoop"] == nil and true or mod["previewMusicLoop"],
-            }
-
-            local music = Music()
-            music:playFile(mod.preview_music_path, 0, 1)
-            music:setLooping(self.music_options[mod.id].loop)
-            music:stop()
-
-            self.music[mod.id] = music
-        end
-
-        -- Get the engine versions this mod is compatible with
-        local engine_ver = mod and mod["engineVer"]
-        if type(engine_ver) == "table" then
-            local versions = {}
-            for _, ver in ipairs(engine_ver) do
-                table.insert(versions, SemVer(ver))
-            end
-            self.engine_versions[mod.id] = versions
-        elseif type(engine_ver) == "string" then
-            self.engine_versions[mod.id] = { SemVer(engine_ver) }
         else
-            self.engine_versions[mod.id] = { Kristal.Version }
+            Kristal.Console:log("hey wtf, mod failed to load: " .. mod and mod.name or "UNKNOWN?")
         end
+
     end
 
     -- Add the mod create button

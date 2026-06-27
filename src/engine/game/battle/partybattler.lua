@@ -59,6 +59,56 @@ function PartyBattler:init(chara, x, y)
     self:addChild(self.target_sprite)
 
     self.targeted = false
+    self.protected = false
+
+    self.max_statuses = 4
+
+    self.used_instant = false
+
+    self.next_attack_bonus = 0
+    self.overheat = false
+    self.was_hit_last = true
+    self.sing_level = 0
+    self.singing = false
+    self.songstrument = "sax"
+    self.next_note_idx = 1
+    self.last_music_time = 0
+
+    self.last_pitch = 0
+    self.note_ind = 0
+
+    if (self.chara.is_musical) then
+        self.note_sprites = {
+            NoteSprite("effects/note", 8, 16, nil, nil, nil, 1, self),
+            NoteSprite("effects/note", 8, 16, nil, nil, nil, 2, self),
+            NoteSprite("effects/note", 8, 16, nil, nil, nil, 3, self)
+        }
+
+        --self.note_sprites[1].visible = false
+        --self.note_sprites[2].visible = false
+        --self.note_sprites[3].visible = false
+
+        self.note_sprites[1]:setLayer(self.sprite:getLayer())
+        self.note_sprites[2]:setLayer(self.sprite:getLayer())
+        self.note_sprites[3]:setLayer(self.sprite:getLayer())
+        self:addChild(self.note_sprites[1])
+        self:addChild(self.note_sprites[2])
+        self:addChild(self.note_sprites[3])
+    end
+
+    self.chara.notes = self.chara:getEquipmentBonus("starting_notes")
+end
+
+function PartyBattler:setOverheat(overheat)
+    self.overheat = overheat
+end
+
+function PartyBattler:buffNextAttack(amount, mult)
+    if (mult) then
+        self.next_attack_bonus = math.max(self.next_attack_bonus, 1) * amount
+    else
+        self.next_attack_bonus = self.next_attack_bonus + amount
+    end
 end
 
 --- *(Override)*
@@ -71,7 +121,14 @@ end
 ---@param amount number
 ---@return number
 function PartyBattler:calculateDamage(amount)
-    local def = self.chara:getStat("defense")
+    local effect_bonus = 0
+    for id, status in pairs(self.statuses) do
+        if status.data.effect:hasTag("defense") and status.data.effect:hasTag("modifier") then
+            local amt = status.data.effect:onHurt(self, status)
+            effect_bonus = effect_bonus + amt
+        end
+    end
+    local def = self.chara:getStat("defense") * effect_bonus
     local max_hp = self.chara:getStat("health")
 
     local threshold_a = (max_hp / 5)
@@ -133,16 +190,41 @@ end
 ---@param options?  table   A table defining additional properties to control the way damage is taken
 ---|"all"   # Whether the damage being taken comes from a strike targeting the whole party
 ---|"swoon" # Whether the damage should swoon the battler instead of downing them
+---|"heartbind"
 function PartyBattler:hurt(amount, exact, color, options)
     options = options or {}
 
     local swoon = options["swoon"]
 
+    local effect_bonus = 0
+    for id, status in pairs(self.statuses) do
+        if status.data.effect:hasTag("hiteffect") then
+            if (status.data.effect:hasTag("modifier")) then
+                if (options and TableUtils.contains(options, "heartbind") and StringUtils.contains(id, "heartbound")) then
+                    --skip applying thi
+                else
+                    local amt = status.data.effect:onHurt(self, status, amount)
+                    effect_bonus = effect_bonus + amt
+                end
+            else
+                local cancel = status.data.effect:onHurt(self, status, amount)
+                if (StringUtils.contains(id, "ward")) then
+                    self:statusMessage("msg", "warded")
+                    self:healEffect(0, 200/255, 11/255)
+                    Assets.playSound("metalhit")
+                end
+                if (cancel) then return end
+            end
+        end
+    end
+
+    amount = amount + effect_bonus
+
     if not options["all"] then
         Assets.playSound("hurt")
         if not exact then
             amount = self:calculateDamage(amount)
-            if self.defending then
+            if self.defending or self.protected then
                 amount = math.ceil((2 * amount) / 3)
             end
             -- we don't have elements right now
@@ -162,7 +244,7 @@ function PartyBattler:hurt(amount, exact, color, options)
             local element = 0
             amount = math.ceil((amount * self:getElementReduction(element)))
 
-            if self.defending then
+            if self.defending or self.protected then
                 amount = math.ceil((3 * amount) / 4) -- Slightly different than the above
             end
         end
@@ -181,6 +263,13 @@ function PartyBattler:hurt(amount, exact, color, options)
 
     self.hurt_timer = 0
     Game.battle:shakeCamera(4)
+
+    if (amount > 0) then
+        self.was_hit_last = true
+    end
+    if (self.chara.is_psychic) then
+        self.chara.heat = self.chara.heat + 5
+    end
 
     if (not self.defending) and (not self.is_down) then
         self.sleeping = false
@@ -206,7 +295,7 @@ end
 --- Removes health from the character and sets their downed HP value if necessary
 ---@param amount number
 ---@param swoon boolean? Whether to swoon rather than down
-function PartyBattler:removeHealth(amount, swoon)
+function PartyBattler:removeHealth(amount, swoon, immediate)
     if (self.chara:getHealth() <= 0) then
         amount = MathUtils.round(amount / 4)
         self.chara:setHealth(self.chara:getHealth() - amount)
@@ -286,7 +375,7 @@ end
 
 function PartyBattler:revive()
     self.is_down = false
-    self:toggleOverlay(false)
+    if (not self.overheat) then self:toggleOverlay(false) else self.overlay_sprite:setAnimation("battle/overheat") end
 end
 
 --- Makes the battler flash once.
@@ -361,7 +450,7 @@ end
 --- Whether the party member is in a state where they can take their turn (not sleeping or downed)
 ---@return boolean
 function PartyBattler:isActive()
-    return not self.is_down and not self.sleeping
+    return not self.is_down and not self.sleeping and not self.overheat
 end
 
 ---@return boolean
@@ -395,6 +484,10 @@ end
 function PartyBattler:resetSprite()
     super.resetSprite(self)
     if self.sprite then
+        if (Game.battle and Game.battle.tense) then
+            self:setAnimation("battle/idle_tense")
+            return
+        end
         self:setAnimation("battle/idle")
     end
 end
@@ -450,6 +543,32 @@ function PartyBattler:hideTarget()
     self.target_sprite.visible = false
 end
 
+function PartyBattler:normalizePitch(p)
+  if type(p) == "number" then
+    return { p }
+  elseif type(p) == "string" then
+    -- If LuaMidi returned note names, convert to MIDI number.
+    -- This function assumes format like C4, D#5, etc.
+    local noteMap = {
+      C=0, ["C#"]=1, Db=1, D=2, ["D#"]=3, Eb=3,
+      E=4, F=5, ["F#"]=6, Gb=6, G=7,
+      ["G#"]=8, Ab=8, A=9, ["A#"]=10, Bb=10, B=11
+    }
+
+    local name, octave = p:match("([A-G][#b]?)(%-?%d+)")
+    return { (tonumber(octave)+1)*12 + noteMap[name] }
+
+  elseif type(p) == "table" then
+    local out = {}
+    for i = 1, #p do
+      out[i] = self.normalizePitch(p[i])[1]
+    end
+    return out
+  end
+
+  return {}
+end
+
 function PartyBattler:update()
     if self.actor then
         self.actor:onBattleUpdate(self)
@@ -488,7 +607,131 @@ function PartyBattler:update()
 
     self.darken_fx.color = { 1 - (self.darken_timer / 30), 1 - (self.darken_timer / 30), 1 - (self.darken_timer / 30) }
 
+    if (self.sing_level > 0 and not self.singing) and self:isActive() then
+        self.overlay_sprite:setAnimation("battle/sing_power_"..tostring(self.sing_level))
+        self:toggleOverlay(true)
+        self.singing = true
+
+        local function lowerBoundByTime(notes, t)
+          local lo, hi = 1, #notes + 1
+          while lo < hi do
+              local mid = math.floor((lo + hi) / 2)
+              if notes[mid].t < t then
+                  lo = mid + 1
+              else
+                  hi = mid
+              end
+          end
+          return lo
+        end
+        local now = Game.battle.music:tell()
+        self.next_note_idx = lowerBoundByTime(Game.battle.notes, now)
+    end
+    if (self.sing_level == 0 and self.singing) and StringUtils.contains(self.overlay_sprite.sprite or "", "sing") then
+        self:toggleOverlay(false)
+        --Game.battle.music_additional:fade(0.0, nil, function () Game.battle.music_additional:stop() end)
+        self.singing = false
+    end
+
+    if (self.singing) then
+        self:sing()
+    end
+
+    if (self.chara.is_psychic) then
+        if (self.chara.heat >= self.chara:getStat("heat", 50) and not self.overheat) then
+            self:setOverheat(true)
+            self:toggleOverlay(true)
+            self.overlay_sprite:setAnimation("battle/overheat")
+            Assets.playSound("overheat")
+            self:flash()
+            self:statusMessage("msg", "overheat")
+        end
+        if (self.chara.heat < self.chara:getStat("heat", 50) and self.overheat) then
+            self:setOverheat(false)
+            if not self.is_down then self:toggleOverlay(false) end
+            self:flash()
+            Assets.playSound("power")
+            self:setAnimation("idle")
+        end
+    end
+
     super.update(self)
+end
+
+function PartyBattler:getNoteShift(song)
+    if (Game.battle and Game.battle.tense) then
+        local duration = Game.battle.music.source:getDuration("seconds")
+        local remainder = math.max(duration - Game.battle.music:tell(), 0)
+
+        return (remainder > (67)) and "50" or "150"
+    end
+    return "50"
+end
+
+function PartyBattler:getNotePosition()
+    if (self.sing_level < 2) then
+        return {self.x + (self.width / 2) + 4, self.y - (self.height) - 16}
+    elseif (self.sing_level < 3) then
+        --todo: diff positions bc of anim but i havent made them yet so like
+        return {self.x + (self.width / 2) + 4, self.y - (self.height) - 16}
+    end
+    return {self.x + (self.width / 2) + 4, self.y - (self.height) - 16}
+end
+
+function PartyBattler:sing()
+    local function midiToPitchMultiplier(midiNote, baseMidiNote)
+        baseMidiNote = baseMidiNote or 72 -- C4
+        return 2 ^ ((midiNote - baseMidiNote) / 12)
+    end
+    -- code here gets called every frame
+
+    local function lowerBoundByTime(notes, t)
+        local lo, hi = 1, #notes + 1
+        while lo < hi do
+            local mid = math.floor((lo + hi) / 2)
+            if notes[mid].t < t then
+                lo = mid + 1
+            else
+                hi = mid
+            end
+        end
+        return lo
+    end
+
+    local LEAD = 0.045 -- 40 ms, tweak 0.02–0.08
+    local now = Game.battle.music:tell()
+    local target = MathUtils.wrap(now + LEAD, 0, Game.battle.music.source:getDuration("seconds"))
+    --Kristal.Console:log("Note Count: " .. #self.notes)
+    while self.next_note_idx <= #Game.battle.notes and Game.battle.notes[self.next_note_idx].t <= target do
+        local n = Game.battle.notes[self.next_note_idx]
+        if (n) then
+          --Game.battle.soul:shake(0, 1, 0.25, 1/15)
+            --   local duration = Game.battle.music.source:getDuration("seconds")
+            --   local remainder = math.max(duration - Game.battle.music:tell(), 0)
+            --   local numericPitch = self:normalizePitch(n.pitch)[1]
+
+          self.next_note_idx = self.next_note_idx + 1
+          local midiNote = self:normalizePitch(n.pitch)[1]
+          local new_bar = (midiNote > self.last_pitch) and MathUtils.clamp(self.note_ind + 1, 0, 2) or (self.last_pitch > midiNote) and MathUtils.clamp(self.note_ind - 1, 0, 2) or self.note_ind
+          if midiNote then
+            --local shakeAmount = (remainder <= 10) and 3 or (remainder <= 35) and 2 or (remainder <= (66)) and 1 or 0
+            --local pitchBoost = (remainder <= (67)) and 0.0833 or 0 
+            Assets.stopAndPlaySound("singing/" .. self.songstrument .. "_" .. self:getNoteShift(Game.battle.encounter.music), 1.0, midiToPitchMultiplier(midiNote)) --+ pitchBoost)
+
+            local posit = self:getNotePosition()
+            local note = HumNote(new_bar+1, posit[1], posit[2], nil, nil, "effects/note_")
+            note.layer = BATTLE_LAYERS["above_battlers"]
+            note:setScale(1)
+
+            Game.battle:addChild(note)
+            self.last_pitch = midiNote
+            self.note_ind = new_bar
+          end
+      end
+    end
+    if (Game.battle.music and Game.battle.music:tell() < Game.battle.notes[self.next_note_idx-1].t) then
+        self.next_note_idx = lowerBoundByTime(Game.battle.notes, now)
+    end
 end
 
 function PartyBattler:draw()
@@ -496,6 +739,31 @@ function PartyBattler:draw()
     if self.actor then
         self.actor:onBattleDraw(self)
     end
+    self:drawStatuses()
+end
+
+function PartyBattler:drawStatuses()
+    local next_x = 28
+    local next_y = 60 + (-1 * self.chara.actor:getHeight()) - 8
+    local line_iterant = 0
+    local row_iterant = 0
+    for _,status in pairs(self.statuses) do
+        --todo: figure out how/when i want to use index ig
+        Draw.setColor(status.data.effect:getColor(1))
+        local icon = Assets.getTexture(status.data.effect:getIcon())
+        if icon then
+            Draw.draw(icon, next_x, next_y)
+        end
+        next_y = next_y + 12
+        line_iterant = line_iterant + 1
+        if (line_iterant > 1) then
+            next_x = next_x + 12
+            line_iterant = 0
+            row_iterant = row_iterant + 1
+            next_y = 60 + (-1 * self.chara.actor:getHeight()) - 8 + (8 * row_iterant)
+        end
+    end
+    Draw.setColor(1,1,1,1)
 end
 
 return PartyBattler

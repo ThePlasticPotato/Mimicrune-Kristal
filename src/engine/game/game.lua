@@ -15,6 +15,7 @@
 ---@field key_repeat        boolean
 ---@field started           boolean
 ---@field border            string|Border
+---@field fft               LoveFFT
 ---
 ---@field previous_state    string
 ---@field state             string
@@ -74,6 +75,7 @@ function Game:clear()
     self.key_repeat = false
     self.started = false
     self.border = "simple"
+    self.fft = nil
 end
 
 ---@overload fun(self: Game, previous_state: string, save_data: SaveData, save_id: number)
@@ -122,10 +124,10 @@ function Game:enter(previous_state, save_id, save_name, fade)
 
     if next(DISCORD_RPC_PRESENCE) == nil then
         Kristal.setPresence({
-            state = Kristal.callEvent(KRISTAL_EVENT.getPresenceState) or ("Playing " .. (Kristal.getModOption("name") or "a project")),
+            state = Kristal.callEvent(KRISTAL_EVENT.getPresenceState) or ("PARTICIPATING IN " .. (Kristal.getModOption("name") or "AN EXPERIMENT")),
             details = Kristal.callEvent(KRISTAL_EVENT.getPresenceDetails),
             largeImageKey = Kristal.callEvent(KRISTAL_EVENT.getPresenceImage) or "logo",
-            largeImageText = "Kristal v" .. tostring(Kristal.Version),
+            largeImageText = "Mimicrune-Kristal v" .. tostring(Kristal.Version),
             startTimestamp = math.floor(os.time() - self.playtime),
             instance = 0
         })
@@ -171,6 +173,7 @@ function Game:registerBuiltInEvents()
 
     registry:register("savepoint", function(data) return Savepoint(data.center_x, data.center_y, data.properties) end)
     registry:register("interactable", function(data) return Interactable(data.x, data.y, getShapeData(data), data.properties) end)
+    registry:register("attackable", function(data) return Attackable(data.x, data.y, getShapeData(data), data.properties) end)
     registry:register("script", function(data) return Script(data.x, data.y, getShapeData(data), data.properties) end)
     registry:register("transition", function(data) return Transition(data.x, data.y, getShapeData(data), data.properties) end)
     registry:register("npc", function(data) return NPC(data.properties["actor"], getCharaX(data), getCharaY(data), data.properties) end)
@@ -435,6 +438,11 @@ function Game:load(data, index, fade)
     self.fader.layer = 1000
     self.stage:addChild(self.fader)
 
+    self.fft = LoveFFT
+    self.fft:init(512)
+    --initialize battle by default
+    self.fft:setSoundData(Assets.getMusicPath("battle"))
+
     if fade then
         self.fader:fadeIn(nil, { alpha = 1, speed = 0.5 })
     end
@@ -614,6 +622,12 @@ function Game:load(data, index, fade)
                     end
                 end
             end
+            local trinkets = equipped["trinkets"] or {}
+            for i = 1, 3 do
+                if trinkets[i] then
+                    self.party_data[id]:setTrinket(i, trinkets[i] ~= "" and trinkets[i] or nil)
+                end
+            end
         end
     end
 
@@ -683,6 +697,8 @@ function Game:convertToLight()
 
     self.inventory = inventory:convertToLight()
 
+    self:removePartyMember("fredbear")
+
     for _, chara in pairs(self.party_data) do
         chara:convertToLight()
     end
@@ -691,11 +707,17 @@ end
 function Game:convertToDark()
     local inventory = self.inventory
     ---@cast inventory LightInventory
-
+    
+    local has_fredbear = self.inventory:getItemByID("fredbear_plush")
+    
     self.inventory = inventory:convertToDark()
 
     for _, chara in pairs(self.party_data) do
         chara:convertToDark()
+    end
+
+    if has_fredbear then
+        self:addPartyMember("fredbear", #Game.party + 1)
     end
 
     if self:getFlag("has_cell_phone", false) then
@@ -756,6 +778,7 @@ end
 
 ---@param fade? boolean
 function Game:loadQuick(fade)
+    local has_fredbear = self.party[3]
     local save = self.quick_save
     if save then
         self:load(save, self.save_id, fade)
@@ -763,6 +786,21 @@ function Game:loadQuick(fade)
         Kristal.loadGame(self.save_id)
     end
     self.quick_save = save
+
+    if self:getFlag("playtest_mode", false) then
+        Game:addPartyMember("cassidy", 2)
+        if (has_fredbear) then Game:addPartyMember("fredbear", 3) end
+        Game.inventory:tryGiveItem("pepperoni_slice", true)
+        Game.inventory:tryGiveItem("plain_slice", true)
+        Game.inventory:tryGiveItem("plain_slice", true)
+        Game.inventory:tryGiveItem("fizzyfaz", true)
+        Game.inventory:tryGiveItem("fizzyfaz", true)
+        Game.inventory:tryGiveItem("fizzyfaz", true)
+        Game:setFlag("tonics", 4)
+        Game:setFlag("bandaids", 6)
+        Game:setFlag("purifiers", 3)
+        self:encounter("debugtwisted")
+    end
 end
 
 --- Starts a battle using the specified encounter file.
@@ -1063,7 +1101,7 @@ function Game:getSoulColor()
         return r, g, b, a or 1
     end
 
-    return 1, 0, 0, 1
+    return 2/255, 1, 2/255, 1
 end
 
 ---@return PartyMember?

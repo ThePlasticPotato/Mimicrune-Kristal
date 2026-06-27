@@ -11,7 +11,7 @@ from pe_tools.version_info import parse_version_info, VersionInfo
 ver_str = "0.1.0"
 windows_ver = "0, 1, 0, 0"
 file_description = "Leading Brand DELTARUNE-type Software"
-is_standalone = False # Set this to true if you are building Kristal as a standalone fangame
+is_standalone = True # Set this to true if you are building Kristal as a standalone fangame
 
 # Contains code from https://github.com/avast/pe_tools/blob/master/pe_tools/peresed.py
 

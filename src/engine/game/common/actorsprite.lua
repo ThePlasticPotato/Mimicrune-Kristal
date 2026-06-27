@@ -358,10 +358,10 @@ end
 ---@return boolean? directional
 ---@return string? separator
 function ActorSprite:isDirectional(texture)
-    if not Assets.getTexture(texture) and not Assets.getFrames(texture) then
-        if Assets.getTexture(texture .. "_left") or Assets.getFrames(texture .. "_left") then
+    if not Assets.hasSprite(texture) then
+        if Assets.hasSprite(texture .. "_left") then
             return true, "_"
-        elseif Assets.getTexture(texture .. "/left") or Assets.getFrames(texture .. "/left") then
+        elseif Assets.hasSprite(texture .. "/left") then
             return true, "/"
         end
     end
@@ -457,8 +457,8 @@ function ActorSprite:update()
                 self:setFrame(floored_frame)
 
                 -- If we've changed frames into a "step" frame, call the footstep callback
-                if ((old_frame ~= floored_frame) or (self.walking and not self.was_walking)) and (self.on_footstep ~= nil) and (self.frame % 2 == 0) then
-                    self.on_footstep(self, ((math.floor(floored_frame / 2) - 1) % 2) + 1)
+                if (old_frame ~= floored_frame) and (self.on_footstep ~= nil) and ((self.frame % 2 == 0) or (self.walk_override and StringUtils.contains(self.anim, "run") and self.frame % 3 == 0) ) then
+                    self.on_footstep(self, math.floor(floored_frame / ((self.walk_override and StringUtils.contains(self.anim, "run")) and 3 or 2)))
                 end
             elseif self.frames then
                 -- We should NOT do the walking animation right now, despite having a walking sprite, so reset.

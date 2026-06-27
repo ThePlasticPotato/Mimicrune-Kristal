@@ -1,0 +1,3 @@
+[submodule "mimicrune-ch1"]
+    path = mods/mimicrune-ch1
+    url = https://github.com/ThePlasticPotato/Mimicrune.git

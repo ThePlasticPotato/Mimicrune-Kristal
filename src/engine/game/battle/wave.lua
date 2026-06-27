@@ -81,6 +81,8 @@ function Wave:init()
     -- Contains everything added via spawn functions (automatically cleared)
     self.objects = {}
 
+    self.solo = false
+
     -- Timer for convenience
     self.timer = Timer()
     self:addChild(self.timer)

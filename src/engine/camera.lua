@@ -528,11 +528,11 @@ function Camera:moveTo(x, y)
                 target_x, target_y,
                 MathUtils.clamp(self.lerper.timer / self.lerper.time, 0, 1))
         elseif approach_x then
-            self.x = MathUtils.lerp(self.lerper.start_x, target_x, MathUtils.clamp(self.lerper.timer / self.lerper.time, 0, 1))
+            self.x = MathUtils.lerp(self.lerper.start_x, target_x, self.lerper.timer / self.lerper.time)
             self.y = target_y
         elseif approach_y then
             self.x = target_x
-            self.y = MathUtils.lerp(self.lerper.start_y, target_y, MathUtils.clamp(self.lerper.timer / self.lerper.time, 0, 1))
+            self.y = MathUtils.lerp(self.lerper.start_y, target_y, self.lerper.timer / self.lerper.time)
         else
             self.x = target_x
             self.y = target_y

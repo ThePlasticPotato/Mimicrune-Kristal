@@ -356,7 +356,7 @@ function DebugSystem:refresh()
     self.exclusive_menus["OVERWORLD"] = { "encounter_select", "select_shop", "select_map", "cutscene_select", "legend_select" }
     self.exclusive_menus["LEGEND"] = { "legend_select" }
     self.exclusive_menus["BATTLE"] = { "wave_select", "wave_select_multiple" }
-    self:registerMenu("main", "~ KRISTAL DEBUG ~")
+    self:registerMenu("main", "~ DEBUG ~")
     self.current_menu = "main"
     self.menu_history = {}
     self:registerDefaults()
@@ -940,7 +940,7 @@ function DebugSystem:registerSubMenus()
         end
     )
 
-    for id, _ in pairs(Assets.sounds) do
+    for id in Assets.iterate("sound") do
         self:registerOption(
             "sound_test",
             id,
@@ -980,7 +980,7 @@ function DebugSystem:registerSubMenus()
         end
     )
 
-    for id, _ in pairs(Assets.data.music) do
+    for id in Assets.iterate("music") do
         self:registerOption(
             "music_test",
             id,
@@ -1077,9 +1077,9 @@ function DebugSystem:registerSubMenus()
 
     local borders = FileSystemUtils.getFilesRecursive("assets/sprites/borders", ".png")
     if Mod then
-        TableUtils.merge(borders, FileSystemUtils.getFilesRecursive(Mod.info.path .. "/assets/sprites/borders", ".png"))
-        for _, mod_lib in pairs(Mod.libs) do
-            TableUtils.merge(borders, FileSystemUtils.getFilesRecursive(mod_lib.info.path .. "/assets/sprites/borders", ".png"))
+        TableUtils.merge(borders, FileSystemUtils.getFilesRecursive(Mod.info.path.."/assets/sprites/borders", ".png"))
+        for _,mod_lib in pairs(Mod.libs) do
+            TableUtils.merge(borders, FileSystemUtils.getFilesRecursive(mod_lib.info.path.."/assets/sprites/borders", ".png"))
         end
     end
 
@@ -1087,7 +1087,7 @@ function DebugSystem:registerSubMenus()
         table.insert(borders, key)
     end
 
-    for _, border in ipairs(TableUtils.removeDuplicates(borders)) do
+    for _,border in ipairs(TableUtils.removeDuplicates(borders)) do
         self:registerOption("border_menu", border, "Switch to the border \"" .. border .. "\".", function() Game:setBorder(border) end)
     end
 end
@@ -1508,25 +1508,19 @@ function DebugSystem:onStateChange(old, new)
         if Game.flags then
             local flags = TableUtils.getKeys(Game.flags)
             if self.flag_type ~= "any" then
-                flags = TableUtils.filter(
-                    flags,
-                    function(v)
-                        return type(Game:getFlag(v)) == self.flag_type
-                    end
-                )
+                flags = TableUtils.filter(flags, function (v)
+                    return type(Game:getFlag(v)) == self.flag_type
+                end)
             end
             if self.flag_query and self.flag_query[1] ~= "" then
                 local invert, mode = StringUtils.startsWith(self.flag_filter_mode, "invert_")
                 if mode == "pattern" then
-                    flags = TableUtils.filter(
-                        flags,
-                        function(v)
-                            local cond = string.match(v, self.flag_query[1])
-                            return invert and not cond or cond and not invert
-                        end
-                    )
+                    flags = TableUtils.filter(flags, function (v)
+                        local cond = string.match(v, self.flag_query[1])
+                        return invert and not cond or cond and not invert
+                    end)
                 elseif mode == "startsWith" then
-                    flags = TableUtils.filter(flags, function(v)
+                    flags = TableUtils.filter(flags, function (v)
                         local cond = StringUtils.startsWith(v, self.flag_query[1])
                         return invert and not cond or cond and not invert
                     end)
@@ -1942,7 +1936,7 @@ function DebugSystem:draw()
     local menu_canvas = Draw.pushCanvas(SCREEN_WIDTH, SCREEN_HEIGHT)
     love.graphics.clear()
 
-    local header_name = "UNKNOWN"
+    local header_name = ""
 
     if self.state == "MENU" or (self.old_state == "MENU" and self.state == "IDLE" and (menu_alpha > 0)) then
         Draw.setColor(0, 0, 0, 0.5)
@@ -2024,10 +2018,8 @@ function DebugSystem:draw()
         Draw.setColor(1, 1, 1, 1)
 
         local textures = {}
-        for _, id in pairs(Assets.texture_ids) do
-            if StringUtils.startsWith(id, "face/") then
-                table.insert(textures, id:sub(6))
-            end
+        for id in Assets.iterate("sprite", "face/") do
+            table.insert(textures, id:sub(6))
         end
 
         -- Sort textures alphabetically

@@ -118,12 +118,12 @@ local palette_data = {
     ["action_health_text"] = { 1, 1, 1, 1 },
     ["action_health"] = { 0, 1, 0, 1 },
 
-    ["tension_back"] = { 128 / 255, 0, 0, 1 },
-    ["tension_decrease"] = { 1, 0, 0, 1 },
-    ["tension_fill"] = { 255 / 255, 160 / 255, 64 / 255, 1 },
-    ["tension_max"] = { 255 / 255, 208 / 255, 32 / 255, 1 },
+    ["tension_back"] = { 0, 64 / 255, 0, 1 },
+    ["tension_decrease"] = { 0, 0.5, 0.25, 1 },
+    ["tension_fill"] = { 2 / 255, 1, 2 / 255, 1 },
+    ["tension_max"] = { 2 / 255, 1, 111 / 255, 1 },
     ["tension_maxtext"] = { 1, 1, 0, 1 },
-    ["tension_desc"] = { 255 / 255, 160 / 255, 64 / 255, 1 },
+    ["tension_desc"] = { 2 / 255, 182 / 255, 64 / 255, 1 },
 
     ["tension_back_reduced"] = { 0, 0, 128 / 255, 1 },
     ["tension_decrease_reduced"] = { 0, 0, 1, 1 },
@@ -158,7 +158,8 @@ COLORS = {
     silver = { 0.75, 0.75, 0.75, 1 },
     teal = { 0, 0.5, 0.5, 1 },
     white = { 1, 1, 1, 1 },
-    yellow = { 1, 1, 0, 1 }
+    yellow = { 1, 1, 0, 1 },
+    time = {2/255, 1, 2/255, 1}
 }
 for _, v in pairs(COLORS) do
     setmetatable(v, { __call = function(c, a) return { c[1], c[2], c[3], a or 1 } end })
@@ -283,6 +284,7 @@ KRISTAL_EVENT = {
     onRegisterDrawFX = "onRegisterDrawFX", -- DrawFX scripts finished registering / in: Registry.initDrawFX() / passes: NONE / returns: NONE
     onRegisterItems = "onRegisterItems", -- item scripts finished registering / in: Registry.initItems() / passes: NONE / returns: NONE
     onRegisterSpells = "onRegisterSpells", -- spell scripts finished registering / in: Registry.initSpells() / passes: NONE / returns: NONE
+    onRegisterStatuses = "onRegisterStatuses", -- status scripts finished registering / in: Registry.initStatuses() / passes: NONE / returns: NONE
     onRegisterPartyMembers = "onRegisterPartyMembers", -- party member scripts finished registering / in: Registry.initPartyMembers() / passes: NONE / returns: NONE
     onRegisterRecruits = "onRegisterRecruits", -- recruit scripts finished registering / in: Registry.initRecruits() / passes: NONE / returns: NONE
     onRegisterEncounters = "onRegisterEncounters", -- encounter scripts finished registering / in: Registry.initEncounters() / passes: NONE / returns: NONE

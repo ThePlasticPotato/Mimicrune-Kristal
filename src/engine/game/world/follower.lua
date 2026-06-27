@@ -13,7 +13,9 @@ function Follower:init(chara, x, y, target)
 
     self.state_manager = StateManager("WALK", self, true)
     self.state_manager:addState("WALK")
-    self.state_manager:addState("SLIDE", { enter = self.beginSlide, leave = self.endSlide })
+    self.state_manager:addState("RUN", {enter = self.beginRun, leave = self.endRun})
+    self.state_manager:addState("DASH", { update = self.updateDash, enter = self.beginDash, leave = self.endDash })
+    self.state_manager:addState("SLIDE", {enter = self.beginSlide, leave = self.endSlide})
 
     self.history_time = 0
     self.history = {}
@@ -22,6 +24,9 @@ function Follower:init(chara, x, y, target)
     self.follow_delay = FOLLOW_DELAY
     self.returning = false
     self.return_speed = 6
+
+    self.dash_timer = 0
+    self.dash_afterimages = 0
 
     self.blush_timer = 0
 
@@ -55,6 +60,21 @@ function Follower:updateIndex()
     end
 end
 
+function Follower:runSkidDust(above)
+    for i = 1, 3, 1 do
+        local dust = Sprite("effects/slide_dust")
+        dust:play(1 / 15, false, function () dust:remove() end)
+        dust:setOrigin(0.5, 0.5)
+        local scale_offset = MathUtils.random(-0.35, 0.35)
+        dust:setScale(1 + scale_offset, 1 + scale_offset)
+        dust:setPosition(self.x + MathUtils.random(-0.5, 0.5), self.y + 8)
+        dust.layer = self.layer - (above and 0.01 or -0.01)
+        dust.physics.speed_y = -4 + MathUtils.random(-1, 1)
+        dust.physics.speed_x = MathUtils.random(-1, 1) + (Game.world.player and Game.world.player.run_momentum[1])
+        self.world:addChild(dust)
+    end
+end
+
 --- Gets the delay in seconds this follower will follow its target's position,
 --- taking into account the delay of followers in front of itself.
 function Follower:getFollowDelay()
@@ -79,8 +99,37 @@ function Follower:returnToFollowing(speed)
     end
 end
 
+function Follower:beginDash(prev_state)
+    self:setAnimation("dash")
+end
+
+function Follower:endDash(new_state)
+    self:resetSprite()
+    self.dash_afterimages = 0
+    self.dash_timer = 0
+end
+
+function Follower:updateDash()
+    self.dash_timer = self.dash_timer + (1 * DTMULT)
+
+    while self.dash_afterimages < math.floor(self.dash_timer) + 4 do
+        local afterimage = AbsoluteAfterImage(self, 0.5)
+        Game.world:addChild(afterimage)
+
+        self.dash_afterimages = self.dash_afterimages + 1
+    end
+end
+
 function Follower:getTarget()
     return self.target or self.world.player
+end
+
+function Follower:beginRun()
+    self:setWalkSprite(self.actor:getRunSprite())
+end
+
+function Follower:endRun(new_state)
+    if (new_state) == "WALK" then self:resetSprite() end
 end
 
 function Follower:getTargetPosition()

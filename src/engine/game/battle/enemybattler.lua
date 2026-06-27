@@ -66,6 +66,8 @@
 ---@field target_y                  number?
 ---@field encounter                 Encounter?
 ---
+---@field twisted           boolean
+---
 ---@overload fun(actor?:Actor|string, use_overlay?:boolean) : EnemyBattler
 local EnemyBattler, super = Class(Battler)
 
@@ -148,6 +150,8 @@ function EnemyBattler:init(actor, use_overlay)
 
     self.temporary_mercy = 0
     self.temporary_mercy_percent = nil
+
+    self.twisted = false
 
     self.graze_tension = 1.6 -- (1/10 of a defend, or cheap spell)
 end
@@ -858,10 +862,27 @@ end
 ---@param points    number          The points of the hit, based on closeness to the target box when attacking, maximum value is `150`
 ---@return number
 function EnemyBattler:getAttackDamage(damage, battler, points)
-    if damage > 0 then
-        return damage
+    local bonus = 1
+    for _, status in pairs(battler.statuses) do
+        if (status.data.effect:hasTag("modifier") and status.data.effect:hasTag("attack")) then
+            bonus = bonus + status.data.effect:onAttack(battler, status)
+        end
+        if (battler.chara.is_psychic and status.data.effect:hasTag("modifier") and status.data.effect:hasTag("magic")) then
+            bonus = bonus + (status.data.effect:onAttack(battler, status) / 2)
+        end
     end
-    return ((battler.chara:getStat("attack") * points) / 20) - (self.defense * 3)
+    battler.next_attack_bonus = 0
+    local magic_attack = 0
+    --incredibly named
+    local attack_attack = (battler.chara:getStat("attack"))
+    if (battler.chara.is_psychic) then
+        attack_attack = attack_attack / 4
+        magic_attack = battler.chara:getStat("magic") / 2
+    end
+    if damage > 0 then
+        return damage * bonus
+    end
+    return (((attack_attack + magic_attack) * points) / 20) * bonus - (self.defense * 3)
 end
 
 --- Gets the name of the damage sound used when this enemy is hit (defaults to `"damage"`)
@@ -906,6 +927,7 @@ function EnemyBattler:onDefeat(damage, battler)
         self:onDefeatRun(damage, battler)
     elseif self.sprite then
         self.sprite:setAnimation("defeat")
+        self:onDefeatBreakdown(damage, battler)
     end
 end
 
@@ -954,6 +976,61 @@ function EnemyBattler:onDefeatFatal(damage, battler)
     death:setColor(sprite:getDrawColor())
     death:setScale(sprite:getScale())
     self:addChild(death)
+
+    self:defeat("KILLED", true)
+end
+
+---@param damage?    number
+---@param battler?   PartyBattler
+function EnemyBattler:onDefeatBreakdown(damage, battler)
+    self.hurt_timer = -1
+
+    local addition = self.twisted and "_twisted" or ""
+    Assets.playSound("breakdownnoise"..addition)
+
+    local sprite = self:getActiveSprite()
+
+    if (self.twisted) then
+        local sweat = Sprite("effects/defeat/agony")
+        sweat:setOrigin(0.5, 0.5)
+        sweat:play(5/30, true)
+        sweat.layer = 100
+        self:addChild(sweat)
+    else
+        local sweat = Sprite("effects/defeat/steam")
+        sweat:setOrigin(0.5, 0.5)
+        sweat:play(5/30, true)
+        sweat.layer = 100
+        self:addChild(sweat)
+    end
+
+    local gear = Sprite("effects/defeat/gear")
+    local bolt = Sprite("effects/defeat/bolt")
+    local screw = Sprite("effects/defeat/screw")
+
+    gear:setSpeed(MathUtils.random(-8, 8), MathUtils.random(-8, 8))
+    bolt:setSpeed(MathUtils.random(-8, 8), MathUtils.random(-8, 8))
+    screw:setSpeed(MathUtils.random(-8, 8), MathUtils.random(-8, 8))
+    gear.layer = 100
+    bolt.layer = 100
+    screw.layer = 100
+    gear:setOrigin(0.5, 0.5)
+    bolt:setOrigin(0.5, 0.5)
+    screw:setOrigin(0.5, 0.5)
+    gear.physics.match_rotation = false
+    bolt.physics.match_rotation = false
+    screw.physics.match_rotation = false
+    self:addChild(gear)
+    self:addChild(bolt)
+    self:addChild(screw)
+    Game.stage.timer:doWhile(function () return gear.scale_x > 0 end, function () gear.rotation = gear.rotation + DTMULT ; gear.scale_x = gear.scale_x - DTMULT ; gear.scale_y = gear.scale_x end, function() gear:remove() end)
+    Game.stage.timer:doWhile(function () return bolt.scale_x > 0 end, function () bolt.rotation = bolt.rotation - DTMULT ; bolt.scale_x = bolt.scale_x - DTMULT ; bolt.scale_y = bolt.scale_x end, function() bolt:remove() end)
+    Game.stage.timer:doWhile(function () return screw.scale_x > 0 end, function () screw.rotation = screw.rotation + DTMULT ; screw.scale_x = screw.scale_x - DTMULT ; screw.scale_y = screw.scale_x end, function() screw:remove() end)
+
+    self:recruitMessage("mortal")
+
+    sprite:stopShake()
+    self:setColor(0.5, 0.5, 0.5, 1)
 
     self:defeat("KILLED", true)
 end
@@ -1142,6 +1219,33 @@ end
 ---@return number new_value
 function EnemyBattler:addFlag(flag, amount)
     return Game:addFlag("enemy#" .. self.id .. ":" .. flag, amount)
+end
+
+function EnemyBattler:draw()
+    super.draw(self)
+    self:drawStatuses()
+end
+
+function EnemyBattler:drawStatuses()
+    local next_x = -16
+    local next_y = (-1 * self.actor:getHeight()) - 8
+    local line_iterant = 0
+    for _,status in pairs(self.statuses) do
+        --todo: figure out how/when i want to use index ig
+        Draw.setColor(status.data.effect:getColor(1))
+        local icon = Assets.getTexture(status.data.effect:getIcon())
+        if icon then
+            Draw.draw(icon, next_x, next_y)
+        end
+        next_y = next_y + 12
+        line_iterant = line_iterant + 1
+        if (line_iterant > 1) then
+            next_x = next_x - 12
+            line_iterant = 0
+            next_y = (-1 * self.actor:getHeight()) - 8
+        end
+    end
+    Draw.setColor(1,1,1,1)
 end
 
 return EnemyBattler

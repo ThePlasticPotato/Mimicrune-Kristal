@@ -13,6 +13,7 @@
 ---@field actors table<string, Actor>
 ---@field items table<string, Item>
 ---@field spells table<string, Spell>
+---@field statuses table<string, Status>
 ---@field party_members table<string, PartyMember>
 ---@field recruits table<string, Recruit>
 ---@field encounters table<string, Encounter>
@@ -47,6 +48,7 @@ Registry.paths = {
     ["drawfx"]           = "drawfx",
     ["items"]            = "data/items",
     ["spells"]           = "data/spells",
+    ["statuses"]         = "data/statuses",
     ["party_members"]    = "data/party",
     ["recruits"]         = "data/recruits",
     ["encounters"]       = "battle/encounters",
@@ -74,9 +76,9 @@ function Registry.initialize(preload)
         local chapter = Kristal.getModOption("chapter") or 2
         Game.chapter = chapter
 
-        for _, path in ipairs(FileSystemUtils.getFilesRecursive("data", ".lua")) do
-            local chunk = love.filesystem.load("data/" .. path .. ".lua")
-            self.base_scripts["data/" .. path] = chunk
+        for _,path in ipairs(FileSystemUtils.getFilesRecursive("data", ".lua")) do
+            local chunk = love.filesystem.load("data/"..path..".lua")
+            self.base_scripts["data/"..path] = chunk
         end
 
         Registry.initActors()
@@ -87,6 +89,7 @@ function Registry.initialize(preload)
         Registry.initDrawFX()
         Registry.initItems()
         Registry.initSpells()
+        Registry.initStatuses()
         Registry.initPartyMembers()
         Registry.initRecruits()
         Registry.initEncounters()
@@ -225,7 +228,24 @@ function Registry.createSpell(id, ...)
 end
 
 ---@param id string
----@return PartyMember?
+---@return Status|nil
+function Registry.getStatus(id)
+    return self.statuses[id]
+end
+
+---@param id string
+---@param ... any
+---@return Status
+function Registry.createStatus(id, ...)
+    if self.statuses[id] then
+        return self.statuses[id](...)
+    else
+        error("Attempt to create non existent status effect \"" .. tostring(id) .. "\"")
+    end
+end
+
+---@param id string
+---@return PartyMember|nil
 function Registry.getPartyMember(id)
     return self.party_members[id]
 end
@@ -495,9 +515,8 @@ function Registry.createBorder(id, ...)
     if self.borders[id] then
         return self.borders[id](...)
     else
-        local texture = Assets.getTexture("borders/" .. id)
-        if texture then
-            return ImageBorder(texture, id)
+        if Assets.hasSprite("borders/" .. id) then
+            return ImageBorder(Assets.getTexture("borders/" .. id), id)
         end
         local border = Border()
         border.id = id
@@ -553,6 +572,12 @@ end
 ---@param class Spell
 function Registry.registerSpell(id, class)
     self.spells[id] = class
+end
+
+---@param id string
+---@param class Status
+function Registry.registerStatus(id, class)
+    self.statuses[id] = class
 end
 
 ---@param id string
@@ -759,6 +784,18 @@ function Registry.initSpells()
     Kristal.callEvent(KRISTAL_EVENT.onRegisterSpells)
 end
 
+function Registry.initStatuses()
+    self.statuses = {}
+
+    for _,path,status in self.iterScripts(Registry.paths["statuses"]) do
+        assert(status ~= nil, '"statuses/'..path..'.lua" does not return value')
+        status.id = status.id or path
+        self.registerStatus(status.id, status)
+    end
+
+    Kristal.callEvent(KRISTAL_EVENT.onRegisterStatuses)
+end
+
 function Registry.initEncounters()
     self.encounters = {}
 
@@ -862,7 +899,7 @@ function Registry.initMaps()
     self.maps = {}
     self.map_data = {}
 
-    for full_path, path, data in self.iterScripts(Registry.paths["maps"]) do
+    for full_path,path,data in self.iterScripts(Registry.paths["maps"]) do
         local split_path = StringUtils.split(path, "/", true)
         if isClass(data) then
             if split_path[#split_path] == "map" then

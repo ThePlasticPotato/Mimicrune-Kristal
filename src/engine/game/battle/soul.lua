@@ -134,6 +134,22 @@ function Soul:init(x, y, color)
     self.allow_focus = true
 
     self.target_alpha = nil
+
+    self.parry_timer = 0
+    self.parry_cd = 0
+    self.parry_draw_timer = 0
+
+    self.parry_sprite = Sprite("player/parry")
+    self.parry_sprite:setOrigin(0.5, 0.5)
+    self.parry_sprite.inherit_color = false
+    self.parry_sprite.visible = false
+    self:addChild(self.parry_sprite)
+    
+    self.parry_glow = Sprite("player/heart_outline_outer")
+    self.parry_glow:setOrigin(0.5, 0.5)
+    self.parry_glow.visible = false
+    self.parry_sprite.inherit_color = false
+    self:addChild(self.parry_glow)
 end
 
 ---@param parent Object
@@ -455,15 +471,34 @@ function Soul:doMovement()
             self.moving_y = 0
         end
     end
+
+    if Input.down("parry") and self.parry_cd == 0 and self.inv_timer == 0 then
+        self.parry_timer = 0.1
+        self.parry_cd = 2
+    end
 end
 
 function Soul:update()
+    if self.parry_cd > 0 then
+        self.parry_cd = MathUtils.approach(self.parry_cd, 0, DT)
+    end
+    if self.parry_timer > 0 then
+        self.parry_timer = MathUtils.approach(self.parry_timer, 0, DT)
+    end
+    if self.parry_draw_timer > 0 then
+        self.parry_draw_timer = MathUtils.approach(self.parry_draw_timer, 0, DT)
+    end
+
     if self.transitioning then
         if self.timer >= 7 then
             Input.clear("cancel")
             self.timer = 0
             if self.transition_destroy then
-                Game.battle:addChild(HeartBurst(self.target_x, self.target_y, { Game:getSoulColor() }))
+                if not Game.battle.tense then 
+                    Game.battle:addChild(HeartBurst(self.target_x, self.target_y, {Game:getSoulColor()}))
+                else
+                    Game.battle.display_soul:flipVisible()
+                end
                 self:remove()
             else
                 self.transitioning = false
@@ -547,7 +582,10 @@ function Soul:update()
 end
 
 function Soul:draw()
+    self.parry_glow.visible = self.parry_timer > 0
     super.draw(self)
+    self.parry_sprite.visible = self.parry_draw_timer > 0
+    self.parry_sprite:setColor(1.0, 1.0, 1.0, self.parry_draw_timer/1.0)
 
     if DEBUG_RENDER then
         self.collider:draw(0, 1, 0)

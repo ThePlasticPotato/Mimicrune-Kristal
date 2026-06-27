@@ -22,6 +22,11 @@ function AbstractMenuComponent:init(x_sizing, y_sizing, options)
     self.close_sound = "ui_move"
 
     self.close_callback = nil
+
+    self.clickable = false
+    self.draggable = false
+    self.grabbed_item = nil
+    self.hovered_item = nil
 end
 
 function AbstractMenuComponent:setScrollType(type)
@@ -31,7 +36,31 @@ end
 function AbstractMenuComponent:update()
     super.update(self)
 
+    if (self.clickable) then
+        self:checkMouseHover(not self.grabbed_item, self.draggable and not self.grabbed_item)
+    end
     self:keepSelectedOnScreen()
+end
+
+function AbstractMenuComponent:checkMouseHover(can_click, can_grab)
+    ---@type AbstractMenuItemComponent?
+    local tem = nil
+    for i, item in ipairs(self:getMenuItems()) do
+        
+        if (item.mouseHovered and item:mouseHovered()) then
+            self.hovered_item = item
+            tem = item
+            self:setSelected(i)
+            break
+        end
+    end
+    if (tem and tem.clicked and tem:clicked() and can_click) then
+        tem:onSelected()
+        if can_grab and tem.draggable then
+            tem:onGrab()
+            self.grabbed_item = tem
+        end
+    end
 end
 
 function AbstractMenuComponent:setSelected(item)

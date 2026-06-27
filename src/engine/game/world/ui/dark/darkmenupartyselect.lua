@@ -14,6 +14,8 @@ function DarkMenuPartySelect:init(x, y)
     self.heart_siner = 0
 
     self.highlight_party = true
+
+    self.vertical = true
 end
 
 function DarkMenuPartySelect:getSelected()
@@ -29,10 +31,9 @@ function DarkMenuPartySelect:update()
 
     if self.focused then
         local old_selected = self.selected_party
-        if Input.pressed("left") then
+        if Input.pressed(self.vertical and "up" or "left") then
             self.selected_party = self.selected_party - 1
-            Assets.stopAndPlaySound("ui_move")
-        elseif Input.pressed("right") then
+        elseif Input.pressed(self.vertical and "down" or "right") then
             self.selected_party = self.selected_party + 1
             Assets.stopAndPlaySound("ui_move")
         end
@@ -58,6 +59,10 @@ function DarkMenuPartySelect:update()
 end
 
 function DarkMenuPartySelect:draw()
+    if (self.vertical) then
+        super.draw(self)
+        return
+    end
     for i,party in ipairs(Game.party) do
         if self.selected_party ~= i then
             Draw.setColor(1, 1, 1, 0.4)

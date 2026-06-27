@@ -16,6 +16,7 @@ function item:init()
     -- Shop description
     self.shop = "Tea made\nof chants,\nheals 115HP"
     -- Menu description
+    self.menu_image = "tea"
     self.description = "A smooth, silvery drink. It sounds like\nwhispered singing as it's poured. +115 HP."
 
     -- Amount healed (HealItem variable)

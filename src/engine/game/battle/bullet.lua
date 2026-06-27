@@ -62,6 +62,8 @@ function Bullet:init(x, y, texture)
 
     -- Whether to remove this bullet when it goes offscreen (Defaults to `true`)
     self.remove_offscreen = true
+
+    self.parry = false
 end
 
 --- Get the graze tension for this bullet.
@@ -118,11 +120,31 @@ function Bullet:onDamage(soul)
     return {}
 end
 
+--- *(Override)* Called when the bullet is successfully parried, before invulnerability checks.
+---@param soul Soul
+function Bullet:onParry(soul) end
+
+function Bullet:canParry()
+    local evan = TableUtils.filter(Game.battle.party, function (battler) return battler.chara.name == "Evan" end)[1]
+    local evan_down = evan.is_down
+    return self.parry and evan and not evan_down
+end
+
 --- *(Override)* Called when the bullet collides with the player's soul, before invulnerability checks.
 ---@param soul Soul
 function Bullet:onCollide(soul)
-    if soul.inv_timer == 0 then
-        self:onDamage(soul)
+    if soul.parry_timer > 0 and self:canParry() then
+        Assets.playSound("metalhit", 1.5, 1.5)
+        Game:giveTension(8)
+        soul.parry_timer = 0
+        soul.parry_cd = math.min(soul.parry_cd, 0.75)
+        soul.parry_draw_timer = 1.0
+        soul.inv_timer = self.inv_timer/2.0
+        self:onParry(soul)
+    else
+        if soul.inv_timer == 0 then
+            self:onDamage(soul)
+        end
     end
 
     if self.destroy_on_hit then

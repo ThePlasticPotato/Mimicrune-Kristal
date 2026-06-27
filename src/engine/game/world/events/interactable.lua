@@ -83,7 +83,6 @@ function Interactable:onInteract(player, dir)
             ---@type string|string[]
             local text = self.text
             local text_index = MathUtils.clamp(self.interact_count, 1, #text)
-
             if type(text[text_index]) == "table" then
                 text = text[text_index]
             end

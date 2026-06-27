@@ -152,7 +152,7 @@ function Cutscene:update()
                 table.insert(to_remove, func)
             end
         end
-        for _, v in ipairs(to_remove) do
+        for _,v in ipairs(to_remove) do
             TableUtils.removeValue(self.during_stack, v)
         end
     end

@@ -83,6 +83,87 @@ function Kristal.verifySoundSystem()
     end
 end
 
+---Checks the pv folder for persitent variables. Returns the variable if it exists, or false if it doesn't.
+---@param path string The path to the variable
+---@return string|boolean
+function Kristal.checkPersistentVariable(path)
+    local full_path = "pv/" .. path
+    if love.filesystem.getInfo(full_path) then
+        if (StringUtils.contains(path, "json")) then
+            return JSON.decode(love.filesystem.read(full_path))
+        else
+            return love.filesystem.read(full_path)
+        end
+    end
+    return false
+end
+
+function Kristal.emplacePersistentVariable(path, value)
+    local full_path = "pv/" .. path
+    local isJson = StringUtils.contains(path, "json")
+    if (isJson) then
+        love.filesystem.write(full_path, JSON.encode(value))
+    else
+        love.filesystem.write(full_path, value)
+    end
+    
+end
+
+function Kristal.verifyCoreFiles()
+    -- prognosticus core
+        if (not Kristal.checkPersistentVariable("device/prognosticus.core")) then
+            Kristal.emplacePersistentVariable("device/prognosticus.core", [[
+LIGHT and DARKNESS
+SHINE and SHADOW
+BALANCE held since
+So long ago
+
+Two WORLDS kept in HARMONY
+But nothing is eternal
+
+One day far or now at hand
+Shall come a threat to all that stands
+
+WRATH and ANGER
+HATE and LOSS that
+A GO NY that's festered, and
+
+then the WORLDs shall both crack with hate
+CALAMITY from a poisoned fate
+
+and
+then the EARTH shall near EXPIRE
+through the BLACKEND CLAWS of the SMILING LIAR
+
+BUT, BEFORE ALL MEETS ITS END
+OH, LO ON HOPE ARE THREE THEY SEND
+
+ARRIVING AT WORLD'S DARKEST HOUR
+TO WIELD THEIR BLADES AND HEARTS AND POWER
+
+[THE BOY, WIELDING HOPE BRIGHT IN HIS HAND]
+
+[THE GIRL, AS HER HOURGLASS RUNS OUT OF SAND]
+
+[THE FRIEND, HELD WITHIN THEIR SHINING HEARTS]
+
+[AND THE LIGHT THAT SHALL LEAD THEM THROUGH THE DARK]
+
+And when the night turns to day at the edge of
+Dawn where the memories fade
+
+The promise made by the one with the blade shall
+Weather whatever they’ll face…
+
+∴⍑ᒷリ  ℸ ̣ ⍑ᒷ  ↸ᔑ∷ꖌリᒷᓭᓭ  ᓭℸ ̣ ᔑ∷ℸ ̣ ᓭ  ℸ ̣ 𝙹  ᓵ⚍ℸ ̣   ℸ ̣ 𝙹𝙹  ↸ᒷᒷ!¡,  ∴ᒷ’ꖎꖎ  ⎓╎リ↸  ℸ ̣ ⍑ᒷ  ↸ᔑ||
+ℸ ̣ ⍑ᒷ∷ᒷ’ᓭ  リ𝙹ℸ ̣ ⍑╎リ⊣  ℸ ̣ ⍑ᔑℸ ̣   ᓵ𝙹⚍ꖎ↸  ᒷ⍊ᒷ∷  ᓭℸ ̣ ᔑリ↸  ╎リ  𝙹⚍∷  ∴ᔑ||
+
+ᔑリ↸  ╎  ꖌリ𝙹∴  ℸ ̣ ⍑ᔑℸ ̣   ∴ᒷ’ꖎꖎ  ᒲᔑꖌᒷ  ╎ℸ ̣   ℸ ̣ ⍑∷𝙹⚍⊣⍑…
+ᓵᔑ⚍ᓭᒷ  ╎’ᒲ  ∴╎ℸ ̣ ⍑  ||𝙹⚍  ╎リ  ℸ ̣ ⍑ᒷ  ↸ᔑ∷ꖌ.
+        ]])
+    end
+end
+
 function love.load(args)
     --[[
         Launch args:
@@ -115,7 +196,7 @@ function love.load(args)
     -- Save the defaults so if we do setWindowTitle for a project we're able to revert it
     -- Unfortunate variable names
     Kristal.icon = love.window.getIcon()
-    Kristal.game_default_name = love.window.getTitle()
+    Kristal.game_default_name = "MIMICRUNE"
 
     -- pixel scaling (the good one)
     -- the second nearest isn't needed, but the love2d extension marks the second argument as required for some reason
@@ -152,6 +233,13 @@ function love.load(args)
     -- setup structure
     love.filesystem.createDirectory("mods")
     love.filesystem.createDirectory("saves")
+    love.filesystem.createDirectory("pv")
+    love.filesystem.createDirectory("pv/vessel")
+    love.filesystem.createDirectory("pv/plot")
+    love.filesystem.createDirectory("pv/device")
+
+    -- ensure corefiles exist
+    Kristal.verifyCoreFiles()
 
     -- default registry
     Registry.initialize()
@@ -197,7 +285,9 @@ function love.load(args)
         Kristal.HTTPS.thread:start()
     end
 
-    -- TARGET_MOD being already set -> project developer has
+    Assets.init()
+
+    -- TARGET_MOD being already set -> mod developer has
     -- a preference for auto mod start. We particularly wouldn't
     -- want the user to overwrite this since it can break some projects
     if not TARGET_MOD and Kristal.Args["auto-mod-start"] then
@@ -393,16 +483,9 @@ function love.update(dt)
         local thumb_x, thumb_y = Input.getLeftThumbstick()
         Input.gamepad_cursor_x = Input.gamepad_cursor_x + thumb_x * cursor_speed
         Input.gamepad_cursor_y = Input.gamepad_cursor_y + thumb_y * cursor_speed
-        Input.gamepad_cursor_x = MathUtils.clamp(
-            Input.gamepad_cursor_x,
-            0,
-            love.graphics.getWidth() / Kristal.getGameScale()
-        )
-        Input.gamepad_cursor_y = MathUtils.clamp(
-            Input.gamepad_cursor_y,
-            0,
-            love.graphics.getHeight() / Kristal.getGameScale()
-        )
+        Input.gamepad_cursor_x = MathUtils.clamp(Input.gamepad_cursor_x, 0, love.graphics.getWidth() / Kristal.getGameScale())
+        Input.gamepad_cursor_y = MathUtils.clamp(Input.gamepad_cursor_y, 0,
+                                             love.graphics.getHeight() / Kristal.getGameScale())
     end
 
     LibTimer.update()
@@ -837,7 +920,8 @@ function Kristal.errorHandler(msg, trace_level)
     local w = 0
     local h = 18
     if Mod then
-        mod_string = "Mod: " .. Mod.info.id .. " " .. (Mod.info.version or "v?.?.?")
+        local chapter = (Mod.info.id == "mimicrune") and 1 or (Mod.info.id == "mimicrune_chapter_select") and "Select" or StringUtils.sub(Mod.info.chapter)
+        mod_string = "Mimicrune: Chapter " .. chapter .. " " .. (Mod.info.version or "v?.?.?")
         if TableUtils.getKeyCount(Mod.libs) > 0 then
             lib_string = "Libraries:"
             for _, lib in Kristal.iterLibraries() do
@@ -970,7 +1054,7 @@ function Kristal.errorHandler(msg, trace_level)
             love.graphics.print("Press ESC to restart the game", 8, window_height - (critical and 20 or 40))
         else
             Draw.setColor(1, 1, 1, 1)
-            love.graphics.print("Press ESC to return to mod menu", 8, window_height - (critical and 20 or 40))
+            love.graphics.print("Press ESC to exit", 8, window_height - (critical and 20 or 40))
         end
         if not critical then
             Draw.setColor(copy_color)
@@ -1283,6 +1367,7 @@ function Kristal.clearModState()
 
     -- Restore assets and registry
     Assets.restoreData()
+    Assets.getBucket("project"):unload()
     Registry.restoreData()
 
     -- force garbage collection
@@ -1291,6 +1376,29 @@ end
 
 --- Exits the current project and returns to the Kristal menu.
 function Kristal.returnToMenu()
+    local current_id = Mod and Mod.info.id or "crash"
+
+    -- if AUTO_MOD_START and TARGET_MOD then
+    --     -- Go to empty state
+    --     Kristal.setState("Empty")
+
+    --     -- Clear the mod
+    --     Kristal.clearModState()
+
+    --     if (current_id == "mimicrune_chapter_select" or current_id == "crash") then
+    --         love.event.quit(0)
+    --     else
+    --         Kristal.loadAssets("", "mods", "", function ()
+    --             Kristal.loadMod("mimicrune_chapter_select")
+    --         end)
+    --     end
+    --     Kristal.DebugSystem:refresh()
+    --     -- End input if it's open
+    --     if not Kristal.Console.is_open then
+    --         TextInput.endInput()
+    --     end
+    --     return
+    -- end
     -- Go to empty state
     Kristal.setState("Empty")
 
@@ -1298,10 +1406,7 @@ function Kristal.returnToMenu()
     Kristal.clearModState()
 
     -- Quit the game if the menu is disabled
-    if AUTO_MOD_START and TARGET_MOD then
-        love.event.quit(0)
-        return
-    end
+    
 
     -- Reload projects and return to memu
     Kristal.loadAssets("", "mods", "", function()
@@ -1416,6 +1521,19 @@ function Kristal.loadAssets(dir, loader, paths, after)
         paths = paths
     })
     Kristal.Loader.next_key = Kristal.Loader.next_key + 1
+    if loader == "mods" then
+        -- Empty because I absolutely DESPISE LOGIC!! :jellycruel:
+    elseif Assets.getBucket("engine").state == AssetBucket.State.UNLOADED then
+        local paths4real = (type(paths) == "string" and {paths} or paths) ---@as string[]?
+        for i = 1, #paths4real do
+            paths4real[i] = paths4real[i] .. "/assets"
+            if paths4real[i] == "/assets" then
+                paths4real[i] = "assets"
+            end
+        end
+        Assets.getBucket("engine"):startLoading(paths4real)
+    else
+    end
 end
 
 --- Initializes the specified project and loads its assets. \
@@ -1532,11 +1650,15 @@ function Kristal.loadModAssets(id, asset_type, asset_paths, after)
         end
     end
 
+    local paths4real = {}
     -- Finally load all assets (libraries first)
     for _, lib_id in ipairs(mod.lib_order) do
+        table.insert(paths4real, mod.libs[lib_id].path .. "/assets")
         Kristal.loadAssets(mod.libs[lib_id].path, asset_type or "all", asset_paths or "", finishLoadStep)
     end
     Kristal.loadAssets(mod.path, asset_type or "all", asset_paths or "", finishLoadStep)
+    table.insert(paths4real, mod.path .. "/assets")
+    Assets.getBucket("project"):startLoading(paths4real)
 end
 
 local function shouldWindowUseModBranding()
@@ -1742,7 +1864,7 @@ function Kristal.processDynamicBorder()
     if Kristal.getState() == Game then
         return Game:getBorder()
     elseif Kristal.getState() == MainMenu then
-        return ImageBorder("castle")
+        return Kristal.getState().seen_intro and ImageBorder("DEVICE_BROKEN") or ImageBorder("DEVICE")
     end
 end
 
@@ -1823,7 +1945,7 @@ function Kristal.getSoulColor()
     if Kristal.getState() == Game then
         return Game:getSoulColor()
     end
-    return 1, 0, 0, 1
+    return COLORS.time[1], COLORS.time[2], COLORS.time[3], COLORS.time[4]
 end
 
 --- Called internally. Returns the default config.
@@ -1845,7 +1967,7 @@ function Kristal.getDefaultConfig()
         systemCursor = false,
         alwaysShowCursor = false,
         objectSelectionSlowdown = true,
-        borders = "off",
+        borders = "dynamic",
         leftStickDeadzone = 0.2,
         rightStickDeadzone = 0.2,
         defaultName = "",
@@ -2021,7 +2143,7 @@ function Kristal.callEvent(f, ...)
     local lib_result = { Kristal.libCall(nil, f, ...) }
     local mod_result = { Kristal.modCall(f, ...) }
     --print("EVENT: "..tostring(f), #mod_result, #lib_result)
-    if (#mod_result > 0) then
+    if(#mod_result > 0) then
         return TableUtils.unpack(mod_result)
     else
         return TableUtils.unpack(lib_result)

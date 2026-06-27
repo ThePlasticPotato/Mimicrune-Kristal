@@ -7,6 +7,7 @@
 ---@field state_manager     StateManager                    An object that manages the state of this `World`
 ---
 ---@field music             Music                           The `Music` instance that controls audio playback for this `World`
+---@field additional_music  Music                           The `Music` instance that controls overlay audio playback for this `World`, like Cassidy's Humming
 ---
 ---@field map               Map                             The currently loaded map instance
 ---
@@ -46,6 +47,8 @@
 ---
 ---@field healthbar         HealthBar
 ---
+---@field limited_interaction boolean
+---
 ---@overload fun(map?: string) : World
 local World, super = Class(Object)
 
@@ -61,6 +64,7 @@ function World:init(map)
     self.state_manager:addState("MENU")
 
     self.music = Music()
+    self.additional_music = Music()
 
     self.map = Map(self)
 
@@ -112,6 +116,12 @@ function World:init(map)
     self.calls = {}
 
     self.door_delay = 0
+
+    self.limited_interaction = false
+
+    self.humming = false
+    self.should_hum = false
+    self.hum_timer = 0
 
     if map then
         self:loadMap(map)
@@ -347,6 +357,31 @@ function World:replaceCall(name, index, scene)
     self.calls[index] = { name, scene }
 end
 
+function World:startHumming()
+    local cassidy = Game:hasPartyMember("cassidy")
+    if cassidy then
+        local worldcassidy = self:getPartyCharacterInParty("cassidy")
+        if not worldcassidy then return end
+        if not (self.humming and self.map.keep_music) then
+            self.additional_music:stop()
+            self.additional_music.volume = 0
+            self.additional_music:play(self.map.data.properties.hum_track)
+            self.humming = true
+            if worldcassidy.state_manager.state == "WALK" then worldcassidy:setWalkSprite("walk_hum") end
+            worldcassidy.humming = true
+            self.additional_music:seek(self.music:tell())
+            self.additional_music:setLooping(true)
+            self.additional_music:fade(1.2, 0.5)
+        else
+            if worldcassidy and (self.humming and not worldcassidy.humming) then
+                if worldcassidy.state_manager.state == "WALK" then worldcassidy:setWalkSprite("walk_hum") end
+                worldcassidy.humming = true
+            end
+        end
+        
+    end
+end
+
 --- Shows party member health bars
 function World:showHealthBars()
     if Game:isLight() then return end
@@ -355,7 +390,7 @@ function World:showHealthBars()
         self.healthbar:transitionIn()
     else
         self.healthbar = HealthBar()
-        self.healthbar.layer = WORLD_LAYERS["ui"]
+        self.healthbar.layer = WORLD_LAYERS["ui"] + 1
         self:addChild(self.healthbar)
     end
 end
@@ -377,7 +412,7 @@ function World:canInteract()
         return false
     end
 
-    if self:hasCutscene() then
+    if self:hasCutscene() and not self.limited_interaction then
         return false
     end
 
@@ -415,6 +450,12 @@ end
 ---@param old string
 ---@param new string
 function World:onStateChange(old, new)
+end
+
+---Todo: actually implement this but im lazy
+---@return boolean
+function World:hasTalkCutscene()
+    return true or self.map and self.map.data and self.map.data.properties and self.map.data.properties["has_talk"]
 end
 
 ---@param key string
@@ -465,7 +506,16 @@ function World:onKeyPressed(key)
             if self.player:interact() then
                 Input.clear("confirm")
             end
-        elseif Input.isMenu(key) and self:canOpenMenu() then
+        elseif Input.isAttack(key) and self:canInteract() then
+            if (self.player:attack()) then
+                Input.clear("attack")
+            end
+        elseif Input.isDash(key) and self:canInteract() then
+            if (self.player:canDash()) then
+                self.player:setState("DASH")
+                Input.clear("dash")
+            end
+        elseif Input.isMenu(key) and not self:canOpenMenu() then
             self:openMenu(nil, WORLD_LAYERS["ui"] + 1)
             Input.clear("menu")
         end
@@ -1033,6 +1083,11 @@ function World:setupMap(map, ...)
 
     if not self.map.keep_music then
         self:transitionMusic(Kristal.callEvent(KRISTAL_EVENT.onMapMusic, self.map, self.map.music) or self.map.music)
+        self.additional_music:stop()
+
+        if (self.map.can_hum) then
+            self.hum_timer = self.map.data.properties.hum_delay * 60
+        end
     end
 end
 
@@ -1147,6 +1202,54 @@ function World:transitionMusic(next, fade_out)
     end
 end
 
+--- Transitions the music from the current track to the `next` while keeping the same playback position
+---@overload fun(self: World, music: string)
+---@param music     string                                              The name of the file to play next
+---@param next      {music?: string, volume?: number, pitch?: number}   The filename, volume, and pitch of the next track
+---@param fade_out? boolean                                             Whether to fade out the currently playing track before playing the next track
+function World:transitionMusicTimed(next, fade_out)
+    -- Compatibility with older versions of transitionMusic which have "next" as the music
+    local music = ""
+    local volume = 1
+    local pitch = 1
+    if type(next) == "table" then
+        music = next[1]
+        volume = next[2]
+        pitch = next[3]
+    else
+        music = next
+    end
+    --
+    local playback_position = 0
+    if music and music ~= "" then
+        if self.music.current ~= music then
+            if self.music:isPlaying() and fade_out then
+                self.music:fade(0, 10 / 30, function() playback_position = self.music:tell(); self.music:stop(); self.music:play(music, volume, pitch); self.music:seek(playback_position) end)
+            elseif not fade_out then
+                playback_position = self.music:tell()
+                self.music:play(music, volume, pitch)
+                self.music:seek(playback_position)
+            end
+        else
+            if not self.music:isPlaying() then
+                if not fade_out then
+                    self.music:play(music, volume, pitch)
+                end
+            else
+                self.music:fade(volume)
+            end
+        end
+    else
+        if self.music:isPlaying() then
+            if fade_out then
+                self.music:fade(0, 10 / 30, function() self.music:stop() end)
+            else
+                self.music:stop()
+            end
+        end
+    end
+end
+
 --[[
     Possible argument formats:
         - Target table
@@ -1202,6 +1305,7 @@ function World:mapTransition(...)
         local map = Registry.createMap(map)
         if not map.keep_music then
             self:transitionMusic(Kristal.callEvent(KRISTAL_EVENT.onMapMusic, self.map, self.map.music) or map.music, true)
+            self.additional_music:stop()
         end
         local dark_transition = map.light ~= Game:isLight()
         local map_border = map:getBorder(dark_transition)
@@ -1360,6 +1464,13 @@ function World:update()
                 v[1]:onExit(v[2])
             end
             v[1].current_colliding[v[2]] = nil
+        end
+
+        if (self.hum_timer > 0) then
+            self.hum_timer = MathUtils.approach(self.hum_timer, 0, DT)
+            if (self.hum_timer == 0) then
+                self:startHumming()
+            end
         end
     end
 

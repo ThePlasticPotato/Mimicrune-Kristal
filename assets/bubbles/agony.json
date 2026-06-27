@@ -1,0 +1,21 @@
+{
+    "auto": true,
+    "sprites": {
+        "left": "twisted_left",
+        "right": "twisted_right",
+        "top": "twisted_top",
+        "bottom": "twisted_bottom",
+        "top_left": "twisted_top_left",
+        "top_right": "twisted_top_right",
+        "bottom_left": "twisted_bottom_left",
+        "bottom_right": "twisted_bottom_right",
+        "tail": "twisted_tail",
+        "fill": "twisted_fill"
+    },
+    "text_padding": {
+        "left":   6,
+        "top":    5,
+        "right":  5,
+        "bottom": 5
+    }
+}

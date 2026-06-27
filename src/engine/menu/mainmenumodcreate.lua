@@ -249,7 +249,7 @@ function MainMenuModCreate:onStateChange(old_state, state)
     elseif state == "ID" then
         self.menu.heart_target_x = 45 + 167
         self:openInput("id", function(letter)
-            local disallowed = { "/", "\\", "*", ".", "?", ":", "\"", "<", ">", "|" }
+            local disallowed = {"/", "\\", "*", ".", "?", ":", "\"", "<", ">", "|"}
             if TableUtils.contains(disallowed, letter) then
                 return false
             end
@@ -286,7 +286,7 @@ end
 
 function MainMenuModCreate:disallowWindowsFolders(str, auto)
     -- Check if STR is a disallowed file name in windows (e.g. "CON")
-    if TableUtils.contains({ "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9" }, str:upper()) then
+    if TableUtils.contains({"CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"}, str:upper()) then
         if not auto then Assets.playSound("locker") end
         str = "disallowed_id"
     end
@@ -301,7 +301,7 @@ function MainMenuModCreate:adjustCreateID()
     local newstr = ""
     for i = 1, utf8.len(str) do
         local char = StringUtils.sub(str, i, i)
-        local disallowed = { "/", "\\", "*", ".", "?", ":", "\"", "<", ">", "|" }
+        local disallowed = {"/", "\\", "*", ".", "?", ":", "\"", "<", ">", "|"}
         if TableUtils.contains(disallowed, char) then
             char = ""
         end

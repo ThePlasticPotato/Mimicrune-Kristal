@@ -241,7 +241,7 @@ function FileNamer:update()
             self.name_zoom = MathUtils.approach(self.name_zoom, 100, 2 * DTMULT)
         end
 
-        self.name_preview:setScale(1 + self.name_zoom / 100, 1 + self.name_zoom / 100)
+        self.name_preview:setScale(1 + self.name_zoom/100, 1 + self.name_zoom/100)
         self.name_preview.rotation = -math.rad(1 + MathUtils.random(4))
         self.name_preview.y = 80 + self.name_zoom
     end

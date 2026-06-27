@@ -15,6 +15,8 @@ function Player:init(chara, x, y)
 
     self.state_manager = StateManager("WALK", self, true)
     self.state_manager:addState("WALK", { update = self.updateWalk, drawDebug = self.drawDebug })
+    self.state_manager:addState("RUN", { update = self.updateRun, enter = self.beginRun, leave = self.endRun } )
+    self.state_manager:addState("DASH", { update = self.updateDash, enter = self.beginDash, leave = self.endDash })
     self.state_manager:addState("SLIDE", { update = self.updateSlide, enter = self.beginSlide, leave = self.endSlide, remove = self.removeSlide })
     self.state_manager:addState("CLIMB_MOUNT", { postJump = self.postJumpClimbMount, enter = self.beginClimbMount })
     self.state_manager:addState("CLIMB", self.climb_state)
@@ -37,19 +39,40 @@ function Player:init(chara, x, y)
 
     self.moving_x = 0
     self.moving_y = 0
+    --self.walk_speed = (Game:isLight() and 6 or 6) + Game.party[1].walk_speed_bonus
+    self.run_momentum = { 0, 0 }
+    self.temp_boost_x = 0
+    self.temp_boost_y = 0
+
+    self.dash_cd = 0
+    self.dash_timer = 0
+    self.dash_momentum = { 0, 0 }
+    self.dash_magnitude = { 0, 0 }
+    self.dash_afterimages = 0
 
     self.last_move_x = self.x
     self.last_move_y = self.y
+
+    self.idle_timer = 0
 
     self.history_time = 0
     self.history = {}
 
     self.interact_buffer = 0
+    self.attack_buffer = 0
+
+    self.time_since_attack = 0
+    self.attacking = false
+    self.attack_stage = 0
 
     self.battle_alpha = 0
 
     self.persistent = true
     self.noclip = false
+
+    local was_running = false
+
+    self.splatted = false
 
     local outlinefx = BattleOutlineFX()
     outlinefx:setAlpha(self.battle_alpha)
@@ -71,16 +94,15 @@ function Player:init(chara, x, y)
     self.climb_exit_timer = 0
 
     self.follower_tweens = {}
-end
 
-function Player:getBaseWalkSpeed()
-    return Game:isLight() and 6 or 4
+    self.should_sit = true
 end
 
 function Player:getCurrentSpeed(running)
     local speed = self:getBaseWalkSpeed()
     if running then
-        if self.run_timer > 60 then
+        if self.run_timer > 30 then
+            if (self.state ~= "RUN") then self:setState("RUN") end
             speed = speed + (Game:isLight() and 6 or 5)
         elseif self.run_timer > 10 then
             speed = speed + 4
@@ -89,6 +111,10 @@ function Player:getCurrentSpeed(running)
         end
     end
     return speed
+end
+
+function Player:getBaseWalkSpeed()
+    return 6 + Game.party[1].walk_speed_bonus
 end
 
 function Player:getDebugInfo()
@@ -188,6 +214,13 @@ function Player:setActor(actor)
         ["up"] = Hitbox(self, hx, hy - 19, hw, hh / 2 + 19),
         ["down"] = Hitbox(self, hx, hy + hh / 2, hw, hh / 2 + 14)
     }
+
+    self.attack_collider = {
+        ["left"] = Hitbox(self, hx - 26, hy, hw / 2 + 26, hh),
+        ["right"] = Hitbox(self, hx + hw / 2, hy, hw / 2 + 26, hh),
+        ["up"] = Hitbox(self, hx, hy - 38, hw, hh / 2 + 38),
+        ["down"] = Hitbox(self, hx, hy + hh / 2, hw, hh / 2 + 28)
+    }
 end
 
 function Player:interact()
@@ -216,6 +249,294 @@ function Player:interact()
     end
 
     return false
+end
+
+function Player:canDash()
+    return self:isMovementEnabled() and self.dash_cd == 0 and not Game:isLight() and self.state_manager.state ~= "SLIDE" and self.state_manager.state ~= "DASH"
+end
+
+function Player:beginDash(prev_state)
+    self:setAnimation("dash")
+    Assets.playSound("bigcut", 0.8)
+    local walk_x = 0
+    local walk_y = 0
+
+    if     Input.down("left")  then walk_x = walk_x - 1
+    elseif Input.down("right") then walk_x = walk_x + 1 end
+    if     Input.down("up")    then walk_y = walk_y - 1
+    elseif Input.down("down")  then walk_y = walk_y + 1 end
+
+    local joy_x, joy_y = Input.getThumbstick("left")
+    if (joy_x ~= 0 or joy_y ~= 0) then
+        walk_x = joy_x
+        walk_y = joy_y
+    end
+
+    if (walk_x == 0 and walk_y == 0) then
+        walk_x, walk_y = Utils.getFacingVector(self.facing)
+    end
+    if (prev_state == "RUN") then
+        self.was_running = true
+        self.dash_momentum = {walk_x + self.run_momentum[1] * 2, walk_y + self.run_momentum[2] * 2}
+    else
+        self.dash_momentum = {walk_x, walk_y}
+    end
+
+    self.idle_timer = 0
+
+    self.dash_magnitude = {self.dash_momentum[1], self.dash_momentum[2]}
+    -- for index, value in ipairs(Game.world.followers) do
+    --     if (value.following) then
+    --         value.state_manager:setState("DASH")
+    --     end
+    -- end
+end
+
+function Player:endDash(new_state)
+    self:resetSprite()
+    -- for index, value in ipairs(Game.world.followers) do
+    --     if (value.following) then
+    --         value.state_manager:setState(new_state)
+    --     end
+    -- end
+    if (new_state == "WALK") then
+    else
+        self.run_momentum = self.dash_momentum
+    end
+    self.was_running = false
+    self.dash_momentum = {0, 0}
+    self.dash_magnitude = {0, 0}
+    self.dash_cd = 10
+    self.dash_timer = 0
+    self.dash_afterimages = 0
+end
+
+function Player:updateDash()
+    local sign = function (number)
+        return number > 0 and 1 or (number == 0 and 0 or -1)
+    end
+    self.dash_timer = self.dash_timer + (1 * DTMULT)
+    if (self.dash_timer >= 20 or Input.pressed("attack")) then
+        if (Input.down("cancel")) then
+            self.was_running = true
+        end
+        self:setState(self.was_running and "RUN" or "WALK")
+    end
+
+    local walk_x = 0
+    local walk_y = 0
+
+    if     Input.down("left")  then walk_x = walk_x - 1
+    elseif Input.down("right") then walk_x = walk_x + 1 end
+    if     Input.down("up")    then walk_y = walk_y - 1
+    elseif Input.down("down")  then walk_y = walk_y + 1 end
+
+    local joy_x, joy_y = Input.getThumbstick("left")
+    if (joy_x ~= 0 or joy_y ~= 0) then
+        walk_x = joy_x
+        walk_y = joy_y
+    end
+
+    local target_x = (math.abs(walk_x) > 0) and (sign(walk_x) * math.abs(self.dash_magnitude[1])) or self.dash_momentum[1]
+    local target_y = (math.abs(walk_y) > 0) and (sign(walk_y) * math.abs(self.dash_magnitude[2])) or self.dash_momentum[2]
+    self.dash_momentum[1] = MathUtils.approach(self.dash_momentum[1], target_x, DTMULT / 2)
+    self.dash_momentum[2] = MathUtils.approach(self.dash_momentum[2], target_y, DTMULT / 2)
+
+    while self.dash_afterimages < math.floor(self.dash_timer) + 4 do
+        local afterimage = AbsoluteAfterImage(self, 0.5)
+        Game.world:addChild(afterimage)
+
+        self.dash_afterimages = self.dash_afterimages + 1
+    end
+
+    self:move(self.dash_momentum[1], self.dash_momentum[2], 14 * DTMULT)
+end
+
+function Player:beginRun(old_state)
+    self:setWalkSprite(self.actor:getRunSprite())
+    self.temp_boost_x = 0
+    self.temp_boost_y = 0
+    if (old_state ~= "DASH") then
+        self.run_momentum[1] = 0
+        self.run_momentum[2] = 0
+    end
+    self.idle_timer = 0
+
+    -- for index, value in ipairs(Game.world.followers) do
+    --     if (value.following) then
+    --         value.state_manager:setState("RUN")
+    --     end
+    -- end
+end
+
+function Player:endRun(new_state)
+    if (new_state) == "WALK" then
+        self:resetSprite()
+        self.temp_boost_x = 0
+        self.temp_boost_y = 0
+        self.run_momentum[1] = 0
+        self.run_momentum[2] = 0
+
+        for index, value in ipairs(Game.world.followers) do
+            if (value.following) then
+                value.state_manager:setState("WALK")
+            end
+        end
+    end
+end
+
+function Player:updateRun()
+    if (Game:getFlag("simple_run", false)) then
+        self:updateWalk()
+    else
+        if self:isMovementEnabled() then
+            self:handleMomentumMovement()
+        end
+    end
+end
+
+function Player:handleMomentumMovement()
+
+    local sign = function (number)
+        return number > 0 and 1 or (number == 0 and 0 or -1)
+    end
+
+    local walk_x = 0
+    local walk_y = 0
+
+    if     Input.down("left")  then walk_x = walk_x - 1
+    elseif Input.down("right") then walk_x = walk_x + 1 end
+    if     Input.down("up")    then walk_y = walk_y - 1
+    elseif Input.down("down")  then walk_y = walk_y + 1 end
+
+    local joy_x, joy_y = Input.getThumbstick("left")
+    if (joy_x ~= 0 or joy_y ~= 0) then
+        walk_x = joy_x
+        walk_y = joy_y
+    end
+
+    self.moving_x = walk_x
+    self.moving_y = walk_y
+
+    self.temp_boost_x = MathUtils.approach(self.temp_boost_x, 0, DT)
+    self.temp_boost_y = MathUtils.approach(self.temp_boost_y, 0, DT)
+
+    local running = (Input.down("cancel") or self.force_run) and not self.force_walk
+    if Kristal.Config["autoRun"] and not self.force_run and not self.force_walk then
+        running = not running
+    end
+
+    if self.force_run and not self.force_walk then
+        self.run_timer = 200
+    end
+    if self.run_timer == 0 then
+        self.run_momentum[1] = MathUtils.approach(self.run_momentum[1], 0, DT * 2)
+        self.run_momentum[2] = MathUtils.approach(self.run_momentum[2], 0, DT * 2)
+
+        if (math.abs(self.run_momentum[1]) < 0.05 and math.abs(self.run_momentum[2]) < 0.05) then
+            self:setState("WALK")
+        end
+    else
+        local mult_x, mult_y = 1, 1
+        if math.abs(walk_x) > 0 and (sign(walk_x) ~= sign(self.run_momentum[1])) and math.abs(self.run_momentum[1]) > 0.5 then mult_x = 3 end
+        if math.abs(walk_y) > 0 and (sign(walk_y) ~= sign(self.run_momentum[2])) and math.abs(self.run_momentum[2]) > 0.5 then mult_y = 3 end
+        if ((mult_x > 1) or (mult_y > 1)) and (math.abs(walk_x) > 0 or math.abs(walk_y) > 0) and not self.sprite:isSprite("skid") then
+            local facingangle = math.atan2(walk_y, walk_x)
+            local facingfromangle = Utils.facingFromAngle(facingangle)
+            self:setFacing(facingfromangle)
+            self:setAnimation("skid", function () self:setWalkSprite(self.actor:getRunSprite()) end)
+            
+            Assets.playSound("run_skid", 0.75, 1)
+            self:runSkidDust(walk_y > 0 and mult_y > 1)
+            for index, value in ipairs(Game.world.followers) do
+                value:setFacing(facingfromangle)
+                value:runSkidDust(walk_y > 0 and mult_y > 1)
+                value:setAnimation({"skid/"..facingfromangle, 0.15, false}, function () value:setWalkSprite(value.actor:getRunSprite()) end)
+            end
+            if ((mult_x > 1) and (walk_y ~= 0) and (mult_y == 1)) and self.temp_boost_x == 0 then
+                self.temp_boost_y = math.min(self.temp_boost_y + 0.5, 2)
+                Assets.playSound("bell_bounce_short")
+                self:flash()
+            end
+            if ((mult_y > 1) and (walk_x ~= 0) and (mult_x == 1)) and self.temp_boost_y == 0 then
+                self.temp_boost_x = math.min(self.temp_boost_x + 0.5, 2)
+                Assets.playSound("bell_bounce_short")
+                self:flash()
+            end
+        end
+        self.run_momentum[1] = MathUtils.approach(self.run_momentum[1], walk_x + (walk_x * self.temp_boost_x), DT * mult_x)
+        self.run_momentum[2] = MathUtils.approach(self.run_momentum[2], walk_y + (walk_y * self.temp_boost_y), DT * mult_y)
+    end
+
+    local speed = self:getBaseWalkSpeed() + (Game:isLight() and 4 or 4)
+    
+    self:move(walk_x + self.run_momentum[1], walk_y + self.run_momentum[2], speed * DTMULT)
+
+    if not running or self.last_collided_x or self.last_collided_y then
+        self.run_timer = 0
+        if ((self.last_collided_x and math.abs(self.run_momentum[1]) > 0.85) or (self.last_collided_y and math.abs(self.run_momentum[2]) > 0.85)) then
+            local slide_position = {self.last_collided_x and -self.run_momentum[1] * 8 or 0, self.last_collided_y and -self.run_momentum[2] * 8 or 0}
+            self:setState("WALK")
+            self.splatted = true
+            Game.world.timer:after(2, function ()
+                self.splatted = false
+                self:resetSprite()
+            end)
+            Assets.playSound("splat")
+            self:setAnimation("splat")
+            self:slideTo(self.x + slide_position[1], self.y + slide_position[2], 0.5, "out-cubic")
+        end
+    elseif running then
+        if walk_x ~= 0 or walk_y ~= 0 then
+            self.run_timer = self.run_timer + DTMULT
+            self.run_timer_grace = 0
+        else
+            -- Dont reset running until 2 frames after you release the movement keys
+            if self.run_timer_grace >= 2 then
+                self.run_timer = 0
+            end
+            self.run_timer_grace = self.run_timer_grace + DTMULT
+        end
+    end
+end
+
+function Player:attack()
+    if ((not Game:getFlag("can_attack", false)) or self.state_manager.state == "SLIDE") then
+        return true
+    end
+    if (self.attack_buffer > 0) then
+        return true
+    end
+    self.time_since_attack = 0
+    self.attack_stage = self.attack_stage + 1
+    if (self.attack_stage > 3) then self.attack_stage = 1 end
+    self.attack_buffer = Game.party[1].overworld_attack_cd
+    self.attacking = true
+
+    local attack_dist = Game.party[1].attack_distance
+    local dx, dy = Utils.getFacingVector(self.facing)
+    if (attack_dist > 0) then self:updateSlideDust() end
+    self.slide_dust_timer = 0
+    self:move(self.x + (dx * attack_dist), self.y + (dy * attack_dist), 0.15)
+
+    self:setAnimation("attack"..self.attack_stage, function () self.attacking = false end)
+    Assets.playSound(Game.party[1].attack_sound or (Game:isLight() and "swipe") or "laz_c", 1.0, Game.party[1].attack_pitch or 1)
+
+    local hit_anything = false
+    local col = self.attack_collider[self.facing]
+    local attackables = {}
+    for _, obj in ipairs(self.world.children) do
+        if obj.onHit and obj:collidesWith(col) then
+            local rx, ry = obj:getRelativePos(obj.width / 2, obj.height / 2, self.parent)
+            table.insert(attackables, { obj = obj, dist = Utils.dist(self.x, self.y, rx, ry) })
+        end
+    end
+    table.sort(attackables, function (a, b) return a.dist < b.dist end)
+    for _, v in ipairs(attackables) do
+        hit_anything = v.obj:onHit(self, self.facing) or hit_anything
+    end
+
+    return hit_anything
 end
 
 function Player:setState(state, ...)
@@ -303,6 +624,8 @@ function Player:isMovementEnabled()
         and self.world.state == "GAMEPLAY"
         and self.hurt_timer == 0
         and Game.world.door_delay == 0
+        and not self.attacking
+        and not self.splatted
 end
 
 function Player:handleMovement()
@@ -319,6 +642,12 @@ function Player:handleMovement()
         walk_y = walk_y - 1
     elseif Input.down("down") then
         walk_y = walk_y + 1
+    end
+
+    local joy_x, joy_y = Input.getThumbstick("left")
+    if (joy_x ~= 0 or joy_y ~= 0) then
+        walk_x = joy_x
+        walk_y = joy_y
     end
 
     self.moving_x = walk_x
@@ -356,6 +685,11 @@ end
 function Player:updateWalk()
     if self:isMovementEnabled() then
         self:handleMovement()
+    end
+    if (self.moving_x == 0 and self.moving_y == 0) then
+        self.idle_timer = self.idle_timer + DT
+    else
+        self.idle_timer = 0
     end
 end
 
@@ -408,6 +742,21 @@ function Player:updateSlideDust()
         dust.physics.speed_y = -6
         dust.physics.speed_x = MathUtils.random(-1, 1)
         dust.debug_select = false
+        self.world:addChild(dust)
+    end
+end
+
+function Player:runSkidDust(above)
+    for i = 1, 3, 1 do
+        local dust = Sprite("effects/slide_dust")
+        dust:play(1 / 15, false, function () dust:remove() end)
+        dust:setOrigin(0.5, 0.5)
+        local scale_offset = MathUtils.random(-0.35, 0.35)
+        dust:setScale(1 + scale_offset, 1 + scale_offset)
+        dust:setPosition(self.x + MathUtils.random(-0.5, 0.5), self.y + 8)
+        dust.layer = self.layer - (above and 0.01 or -0.01)
+        dust.physics.speed_y = -4 + MathUtils.random(-1, 1)
+        dust.physics.speed_x = MathUtils.random(-1, 1) + self.run_momentum[1]
         self.world:addChild(dust)
     end
 end
@@ -798,8 +1147,27 @@ function Player:processJump()
 end
 
 function Player:update()
+    if (self.sprite:isSprite("run") and self.state_manager.state ~= "RUN" and not self.force_run) then
+        self:resetSprite()
+    end
+
+    if (self.idle_timer) >= 20 and Game.world.humming and not Game.world.hum_boosted then
+        Game.world.hum_boosted = true
+        Game.world.additional_music:fade(1.75)
+    end
+    if (self.idle_timer < 20) and Game.world.humming and Game.world.hum_boosted then
+        Game.world.hum_boosted = false
+        Game.world.additional_music:fade(1.2)
+    end
     if self.hurt_timer > 0 then
         self.hurt_timer = MathUtils.approach(self.hurt_timer, 0, DTMULT)
+    end
+
+    if (self.dash_cd > 0) then
+        self.dash_cd = MathUtils.approach(self.dash_cd, 0, DT * 4)
+        if self.dash_cd <= 0 then
+            self:flash()
+        end
     end
 
     if self.slide_land_timer > 0 and self.state_manager.state ~= "SLIDE" then
@@ -817,6 +1185,11 @@ function Player:update()
 
     if not Game.world.cutscene and not Game.world.menu then
         self.interact_buffer = MathUtils.approach(self.interact_buffer, 0, DT)
+        self.attack_buffer = MathUtils.approach(self.attack_buffer, 0, DT)
+        self.time_since_attack = MathUtils.approach(self.time_since_attack, 3, DT)
+        if (self.time_since_attack >= 2.99 and self.attack_stage > 0) then
+            self.attack_stage = 0
+        end
     end
 
     self.world.in_battle_area = false

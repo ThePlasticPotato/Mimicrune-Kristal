@@ -156,13 +156,13 @@ function Mods.getAndLoadMod(id)
     end
 
     if not mod.loaded_scripts then
-        for _, path in ipairs(FileSystemUtils.getFilesRecursive(mod.path, ".lua")) do
-            mod.script_chunks[path] = love.filesystem.load(mod.path .. "/" .. path .. ".lua")
+        for _,path in ipairs(FileSystemUtils.getFilesRecursive(mod.path, ".lua")) do
+            mod.script_chunks[path] = love.filesystem.load(mod.path.."/"..path..".lua")
         end
 
-        for _, lib in pairs(mod.libs) do
-            for _, path in ipairs(FileSystemUtils.getFilesRecursive(lib.path, ".lua")) do
-                lib.script_chunks[path] = love.filesystem.load(lib.path .. "/" .. path .. ".lua")
+        for _,lib in pairs(mod.libs) do
+            for _,path in ipairs(FileSystemUtils.getFilesRecursive(lib.path, ".lua")) do
+                lib.script_chunks[path] = love.filesystem.load(lib.path.."/"..path..".lua")
             end
         end
 

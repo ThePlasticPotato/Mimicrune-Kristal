@@ -16,6 +16,7 @@ function item:init()
     -- Shop description
     self.shop = ""
     -- Menu description
+    self.menu_image = "chain_mail"
     self.description = "Chain-armor. Send it to 10 others\nor it'll lose its defensive rating"
 
     -- Default shop price (sell price is halved)

@@ -61,6 +61,8 @@
 ---@field resume_world_music        boolean                         *(only set during `postInit()`)*
 ---@field transitioned              boolean                         Whether the battle opened with a transition *(only set during `postInit()`)*
 ---
+---@field tense                     boolean                         Whether the battle is Tense (use different music, different transition animation, different party anims)
+---@field tense_intro               love.Source                     Intro for tense battle music.
 ---@overload fun(...) : Battle
 local Battle, super = Class(Object)
 
@@ -99,8 +101,8 @@ function Battle:init()
 
     self.used_violence = false
 
-    self.ui_move = Assets.newSound("ui_move")
-    self.ui_select = Assets.newSound("ui_select")
+    self.ui_move = Assets.newSound("ui_move_panel")
+    self.ui_select = Assets.newSound("ui_select_panel")
     self.spare_sound = Assets.newSound("spare")
 
     self.party_beginning_positions = {}
@@ -215,6 +217,147 @@ function Battle:init()
     self.on_finish_action = nil
 
     self.defending_begin_timer = 0
+
+    self.darkify = false
+
+    self.ui_interrupt = Assets.newSound("ui_interrupt_hand")
+    self.ui_interrupt:setVolume(0.25)
+    self.description_panel = PanelMenuBackground("ui/menu/panels/dark/hand/menu", 0, 0, "hand_open", "hand_open", "ui_move_panel", "ui_select_panel", "ui_error_panel", "ui_cancel_small_camera", nil, 0, 0, false)
+    self.description_panel.layer = BATTLE_LAYERS["above_ui"]
+    self:addChild(self.description_panel)
+    self.description = Text("", 20, 5, 540, 80 - 16, {align = "center"})
+    self.cost_description = Text("", 20, 30, 540, 80-36, {align = "center"})
+    self.note_display = Text("", 20, 48, 540, 80 - 54, {align = "center"})
+    self.description.visible = false
+    self.cost_description.visible = false
+    self.note_display.visible = false
+    self.description_panel:addChild(self.description)
+    self.description_panel:addChild(self.cost_description)
+    self.description_panel:addChild(self.note_display)
+
+    self.tense = false
+    self.tense_intro = Assets.newSound("battle_tense_intro")
+    self.tense_intro:setVolume(0.0)
+
+    self.tense_timer = Text("[shake:0.5]00:00", 288, 48, 100, 100, {color = COLORS.red})
+    self:addChild(self.tense_timer)
+    self.tense_timer:setLayer(BATTLE_LAYERS["ui"])
+    self.tense_timer.visible = false
+
+    self.battle_intro = Assets.newSound("battle_intro")
+    self.battle_intro:setVolume(0.6)
+
+    self.display_soul = self:addChild(DisplaySoul(160, 160))
+    self.display_soul:setLayer(BATTLE_LAYERS["below_soul"])
+    self.tension_timer = 5
+    self.surface_siner = 0
+
+    self.using_fft = true
+    self.fft_array = {}
+
+    self.old_border = nil
+
+    self.should_prioritize_fredbear = false
+
+    self.glow_siner = 0
+
+    self.spotlights = {}
+    self.bars = {}
+
+    self.bg_primary = {0.85, 0.85, 0.85}
+    self.bg_secondary = {1, 1, 1}
+    self.bg_primaries = {
+        none = {0.85, 0.85, 0.85},
+        violence = {66/255, 0, 11/255},
+        enemy = {66 / 255, 0, 33 / 255},
+        evan = {0, 66 / 255, 33 / 255},
+        cassidy = {211/255/2, 130/255/2, 75/255/2},
+        fredbear = {66 / 255, 0, 66 / 255},
+    }
+    self.bg_secondaries = {
+        none = {1,1,1},
+        violence = {0.5, 0, 11/255},
+        enemy = {0.5, 0, 33 / 255},
+        evan = {0, 0.5, 11/255},
+        cassidy = {0.8, 200/255, 43/255},
+        fredbear = {0.5, 0, 0.5},
+    }
+
+    self.purified = 0
+    
+    self.notes = nil
+    self.bpm = 0
+
+end
+
+function Battle:getBattleBGColor()
+    local primary = self.bg_primaries.none
+    local secondary = self.bg_secondaries.none
+    if self.state == "DEFENDING" or self.state == "DEFENDINGBEGIN" or self.state == "DEFENDINGEND" or self.state == "ENEMYSELECT" or self.state == "ACTIONSDONE" or (self.state == "ENEMYDIALOGUE" and #self:getActiveEnemies() > 0) then
+        primary = self.bg_primaries.enemy
+        secondary = self.bg_secondaries.enemy
+    elseif self.state == "ACTIONSELECT" then
+        local member = Game.party[self.current_selecting]
+        local selecting = member and member.id or "evan"
+        primary = self.bg_primaries[selecting] or self.bg_primaries.evan
+        secondary = self.bg_secondaries[selecting] or self.bg_secondaries.evan
+    elseif self.state == "ACTIONS" or self.state == "BATTLETEXT" then
+        local actioning = self:getCurrentAction() and self:getCurrentAction().character_id or "evan"
+        primary = self.bg_primaries[actioning] or self.bg_primaries.evan
+        secondary = self.bg_secondaries[actioning] or self.bg_secondaries.evan
+    elseif self.state == "MENUSELECT" or self.state == "PARTYSELECT" then
+        local highlighted = "evan"
+        for _,member in ipairs(self.party) do
+            if (self:isHighlighted(member)) then
+                local id = member.chara.id
+                highlighted = id
+                break
+            end
+        end
+        primary = self.bg_primaries[highlighted] or self.bg_primaries.evan
+        secondary = self.bg_secondaries[highlighted] or self.bg_secondaries.evan
+    elseif self.state == "ATTACKING" then
+        primary = self.bg_primaries.violence
+        secondary = self.bg_secondaries.violence
+    elseif self.state == "VICTORY" or self.state == "TRANSITIONOUT" or (self.state == "ENEMYDIALOGUE" and #self:getActiveEnemies() == 0) then
+        primary = self.bg_primaries.evan
+        secondary = self.bg_primaries.evan
+    end
+    self.bg_primary = Utils.mergeColor(self.bg_primary, primary, 0.12 * DTMULT)
+    self.bg_secondary = Utils.mergeColor(self.bg_secondary, secondary, 0.12 * DTMULT)
+    return Utils.mergeColor(self.bg_primary, {1,1,1}, math.sin(self.glow_siner) / 8), Utils.mergeColor(self.bg_secondary, {1,1,1}, math.sin(self.glow_siner) / 8)
+end
+
+---@param battler PartyBattler
+function Battle:shouldHaveSpotlight(battler)
+    local party = Game:getPartyMember(battler.chara.id)
+    return self:isHighlighted(battler) or (party and self.current_selecting == Game:getPartyIndex(battler.chara.id)) or (party and self:getCurrentAction() and self:getCurrentAction().character_id == battler.chara.id) --or ((not party) and self.state == "DEFENDING")
+end
+
+function Battle:setDescription(text, cost_text, visible, notes)
+    local wasVisible = self.description_panel.operable
+    local oldText = self.description.text
+    local oldCostText = self.cost_description.text
+    local oldNotes = self.note_display.text
+    self.description:setText(text or oldText)
+    self.cost_description:setText(cost_text or oldCostText)
+    if (StringUtils.contains(self.cost_description.text, "%[font%:smallnumbers%]")) then
+        self.cost_description.y = 48
+    else
+        self.cost_description.y = 30
+    end
+    self.note_display:setText(notes or oldNotes)
+    if (wasVisible and visible ~= false and oldText ~= self.description.text) then self.ui_interrupt:stop() ; self.ui_interrupt:play() end
+    if visible ~= nil then
+        if (visible ~= wasVisible) then
+            if (visible) then
+                if (not self.description_panel.opening) then self.description_panel:open(false, function () end) end
+            else
+                self.description.visible = false
+                if (not self.description_panel.closing) then self.description_panel:close(false, nil, false) end
+            end
+        end
+    end
 end
 
 function Battle:createPartyBattlers()
@@ -258,6 +401,11 @@ function Battle:createPartyBattlers()
                 table.insert(self.party_beginning_positions, { chara_battler.x, chara_battler.y })
             end
         end
+
+        if not self.spotlights then
+            self.spotlights = {}
+        end
+        table.insert(self.spotlights, i, {width = 0, visible = false, offset = 0})
     end
 end
 
@@ -272,11 +420,29 @@ function Battle:postInit(state, encounter)
         self.encounter = encounter
     end
 
-    self.background = self.encounter:createBackground()
+    --todo: move mimicrune's battle background into the bg object
+    --self.background = self.encounter:createBackground()
 
-    if Game.world.music:isPlaying() and self.encounter.music then
+    if self.encounter and self.encounter.tense then
+        self.tense = true
+        Game.fader:fadeOut({speed = 0, blocky = true, music = false})
+        self.using_fft = false
+        self.fountain = TaintedFountainBase({x = SCREEN_WIDTH/2, y = (-373), properties = {}}, true)
+        self.fountain.layer = BATTLE_LAYERS["bottom"] - 1
+        self.fountain.wing_left:setParent(self)
+        self.fountain.wing_left.visible = false
+        self.fountain.wing_right:setParent(self)
+        self.fountain.wing_right.visible = false
+        self.tense_timer.visible = true
+        self:addChild(self.fountain)
+    end
+
+    if Game.world.music:isPlaying() and (self.encounter.music or self.tense) then
         self.resume_world_music = true
         Game.world.music:pause()
+        if (Game.world.additional_music:isPlaying()) then
+            Game.world.additional_music:pause()
+        end
     end
 
     if self.encounter.queued_enemy_spawns then
@@ -450,7 +616,7 @@ function Battle:checkEndWaves(old, new, reason)
 
     local should_end = true
     if TableUtils.contains(remove_arena, new) then
-        for _, wave in ipairs(self.waves) do
+        for _,wave in ipairs(self.waves) do
             if wave:beforeEnd() then
                 should_end = false
             end
@@ -493,6 +659,7 @@ function Battle:onActionSelectState()
     self:undarken()
     self:hideTargets()
 
+    self.battle_ui:showMainPanel()
     if self.current_selecting < 1 or self.current_selecting > #self.party then
         self:nextTurn()
         if self.state ~= "ACTIONSELECT" then
@@ -504,6 +671,7 @@ function Battle:onActionSelectState()
         self:setEncounterText(self.battle_ui.current_encounter_text, true)
     end
 
+    local had_started = self.started
     if not self.started then
         self.started = true
 
@@ -516,8 +684,22 @@ function Battle:onActionSelectState()
             enemy.init_y = enemy.target_y
         end
 
-        if self.encounter.music then
-            self.music:play(self.encounter.music)
+        if self.encounter.music or self.tense then
+            if not self.encounter.music or (self.encounter.music == "battle" and self.tense)then
+                self.notes, self.bpm = MidiTimeline:loadMidiTimeline(Assets.getMidiPath("battle_tense_bg"), 2)
+            else
+                self.battle_intro:play()
+                self.notes, self.bpm = MidiTimeline:loadMidiTimeline(Assets.getMidiPath(self.encounter.music .. "_lead"), 2)
+
+                -- if (Game.fft and self.using_fft) then
+                --     --Game.fft:release()
+                --     Game.fft:setSoundData(Assets.getMusicPath(self.encounter.music))
+                -- end
+                self.timer:afterCond(function () return not self.battle_intro:isPlaying() end, function ()
+                    Game.fft:setPlayPosition(0)
+                    self.music:play(self.encounter.music)
+                end)
+            end
         end
     end
 
@@ -526,6 +708,9 @@ function Battle:onActionSelectState()
     local party = self.party[self.current_selecting]
     party.chara:onActionSelect(party, false)
     self.encounter:onCharacterTurn(party, false)
+    for _, status in pairs(party.statuses) do
+        if status.data.effect.onTurnStart then status.data.effect:onTurnStart(party, status) end
+    end
 end
 
 --- Called when the [`BattleState`](lua://BattleState) is changed to ACTIONS.
@@ -674,6 +859,7 @@ function Battle:onDefendingState()
 
     self.wave_length = 0
     self.wave_timer = 0
+    self.battle_ui:hideMainPanel()
 
     for _, wave in ipairs(self.waves) do
         wave.encounter = self.encounter
@@ -698,6 +884,12 @@ function Battle:onVictory()
         self.tension_bar:hide()
     end
 
+    if (self.tense) then
+        if (self.old_border) then Game:setBorder(self.old_border, 0.125)
+        else Game:setBorder("simple") end
+    end
+
+
     self:endWaves()
 
     for _, battler in ipairs(self.party) do
@@ -709,8 +901,9 @@ function Battle:onVictory()
 
         if battler.chara:getHealth() <= 0 then
             battler:revive()
-            battler.chara:setHealth(battler.chara:autoHealAmount())
+            battler.health_rolling_to = battler.chara:autoHealAmount()
         end
+        battler.chara:setHealth(battler.health_rolling_to)
 
         battler:setAnimation("battle/victory")
 
@@ -773,6 +966,26 @@ function Battle:onVictory()
 
     win_text = self.encounter:getVictoryText(win_text, self.money, self.xp) or win_text
 
+    if (self.display_soul) then
+        local position_x, position_y
+        local main_chara = Game:getSoulPartyMember()
+
+        if main_chara and main_chara:getSoulPriority() >= 0 then
+            local battler = Game.battle.party[Game.battle:getPartyIndex(main_chara.id)]
+
+            if battler then
+                if main_chara:getActor():getSoulOffset() then
+                    position_x, position_y = battler:localToScreenPos(main_chara:getActor():getSoulOffset())
+                else
+                    position_x, position_y = battler:localToScreenPos((battler.sprite.width / 2) - 4.5, battler.sprite.height / 2)
+                end
+            end
+        end
+        self.display_soul:slideTo(position_x or 0, position_y or 0, 0.25, "out-expo")
+        self.display_soul:fadeOutAndRemove(0.5)
+        self.display_soul.soul_glow:hide()
+    end
+
     if self.encounter.no_end_message then
         self:setState("TRANSITIONOUT")
         self.encounter:onBattleEnd()
@@ -792,6 +1005,7 @@ function Battle:onTransitionOutState()
     self:hideTargets()
 
     self.current_selecting = 0
+    self.battle_ui:hideMainPanel()
 
     if self.tension_bar and self.tension_bar.shown then
         self.tension_bar:hide()
@@ -799,6 +1013,7 @@ function Battle:onTransitionOutState()
 
     self.battle_ui:transitionOut()
     self.music:fade(0, 20 / 30)
+
     for _, battler in ipairs(self.party) do
         local index = self:getPartyIndex(battler.chara.id)
         if index then
@@ -815,6 +1030,7 @@ end
 --- Called when the [`BattleState`](lua://BattleState) is changed to DEFENDINGBEGIN.
 ---@private
 function Battle:onDefendingBeginState()
+    self.battle_ui:hideMainPanel()
     if self.state_reason == "CUTSCENE" then
         self:setState("DEFENDING")
         return
@@ -1025,8 +1241,10 @@ end
 ---@param y? number
 function Battle:spawnSoul(x, y)
     local bx, by = self:getSoulLocation()
-    local color = { self.encounter:getSoulColor() }
-    self:addChild(HeartBurst(bx - 2, by + 1, color))
+    local color = {self.encounter:getSoulColor()}
+    if not self.tense then self:addChild(HeartBurst(bx, by, color)) else
+        self.display_soul:flipVisible(false)
+    end
     if not self.soul then
         self.soul = self.encounter:createSoul(bx, by, color)
         self.soul:transitionTo(x or SCREEN_WIDTH / 2, y or SCREEN_HEIGHT / 2)
@@ -1321,7 +1539,7 @@ function Battle:processAction(action)
             for i = 1, 3 do
                 local sx, sy = battler:getRelativePos(battler.width, 0)
                 local sparkle = Sprite("effects/criticalswing/sparkle", sx + MathUtils.random(50), sy + 30 + MathUtils.random(30))
-                sparkle:play(4 / 30, true)
+                sparkle:play(4/30, true)
                 sparkle:setScale(2)
                 sparkle.layer = BATTLE_LAYERS["above_battlers"]
                 sparkle.physics.speed_x = MathUtils.random(2, 6)
@@ -1586,7 +1804,7 @@ function Battle:finishAction(action, keep_animation)
     local all_processed = self:allActionsDone()
 
     if all_processed then
-        for _, iaction in ipairs(TableUtils.copy(self.current_actions)) do
+        for _,iaction in ipairs(TableUtils.copy(self.current_actions)) do
             local ibattler = self.party[iaction.character_id]
 
             local party_num = 1
@@ -1814,21 +2032,16 @@ function Battle:commitAction(battler, action_type, target, data, extra)
         end
     end
 
-    self:commitSingleAction(
-        TableUtils.merge(
-            {
-                ["character_id"] = party_id,
-                ["action"] = action_type:upper(),
-                ["party"] = data.party,
-                ["name"] = data.name,
-                ["target"] = target,
-                ["data"] = data.data,
-                ["tp"] = tp_diff,
-                ["cancellable"] = data.cancellable,
-            },
-            extra
-        )
-    )
+    self:commitSingleAction(TableUtils.merge({
+        ["character_id"] = party_id,
+        ["action"] = action_type:upper(),
+        ["party"] = data.party,
+        ["name"] = data.name,
+        ["target"] = target,
+        ["data"] = data.data,
+        ["tp"] = tp_diff,
+        ["cancellable"] = data.cancellable,
+    }, extra))
 
     if data.party then
         for _, v in ipairs(data.party) do
@@ -1844,21 +2057,16 @@ function Battle:commitAction(battler, action_type, target, data, extra)
                     end
                 end
 
-                self:commitSingleAction(
-                    TableUtils.merge(
-                        {
-                            ["character_id"] = index,
-                            ["action"] = "SKIP",
-                            ["reason"] = action_type:upper(),
-                            ["name"] = data.name,
-                            ["target"] = target,
-                            ["data"] = data.data,
-                            ["act_parent"] = party_id,
-                            ["cancellable"] = data.cancellable,
-                        },
-                        extra
-                    )
-                )
+                self:commitSingleAction(TableUtils.merge({
+                    ["character_id"] = index,
+                    ["action"] = "SKIP",
+                    ["reason"] = action_type:upper(),
+                    ["name"] = data.name,
+                    ["target"] = target,
+                    ["data"] = data.data,
+                    ["act_parent"] = party_id,
+                    ["cancellable"] = data.cancellable,
+                }, extra))
             end
         end
     end
@@ -2168,7 +2376,7 @@ function Battle:getPartyFromTarget(target)
         return { target }
     elseif type(target) == "string" then
         if target == "ANY" then
-            return { TableUtils.pick(self.party) }
+            return {TableUtils.pick(self.party)}
         elseif target == "ALL" then
             return TableUtils.copy(self.party)
         else
@@ -2255,7 +2463,7 @@ function Battle:hurt(amount, exact, target, swoon)
     if target == "ALL" then
         Assets.playSound("hurt")
         local alive_battlers = TableUtils.filter(self.party, function(battler) return not battler.is_down end)
-        for _, battler in ipairs(alive_battlers) do
+        for _,battler in ipairs(alive_battlers) do
             battler:hurt(amount, exact, nil, { all = true, swoon = self.encounter:canSwoon(battler) and swoon })
         end
         -- Return the battlers who aren't down, aka the ones we hit.
@@ -2276,6 +2484,7 @@ function Battle:setWaves(waves, allow_duplicates)
     self.waves = {}
     self.finished_waves = false
     local added_wave = {}
+    local solo_wave = nil
     for _, wave in ipairs(waves) do
         local exists = (type(wave) == "string" and added_wave[wave]) or (isClass(wave) and added_wave[wave.id])
         if allow_duplicates or not exists then
@@ -2289,7 +2498,15 @@ function Battle:setWaves(waves, allow_duplicates)
 
             -- Keep wave inactive until it's time to start
             wave.active = false
+            if (wave.solo) then
+                solo_wave = wave
+                break
+            end
         end
+    end
+    
+    if (solo_wave) then
+        self.waves = TableUtils.filter(self.waves, function(wave) return wave == solo_wave end)
     end
     return self.waves
 end
@@ -2465,6 +2682,20 @@ function Battle:nextTurn()
         end
     end
 
+    for _,pb in ipairs(self.party) do
+        for _, status in pairs(pb.statuses) do
+            if status.data.effect.onDefendEnd then status.data.effect:onDefendEnd(pb, status) end
+        end
+        pb.protected = false
+        pb.used_instant = false
+    end
+    for _,eb in ipairs(self.enemies) do
+        for _, status in pairs(eb.statuses) do
+            if status.data.effect.onDefendEnd then status.data.effect:onDefendEnd(eb, status) end
+            if status.data.effect.onTurnEnd then status.data.effect:onTurnEnd(eb, status) end
+        end
+    end
+
     if self.current_selecting ~= 0 and self.state ~= "ACTIONSELECT" then
         self:setState("ACTIONSELECT")
     end
@@ -2508,7 +2739,7 @@ function Battle:returnToWorld()
     local all_enemies = {}
     TableUtils.merge(all_enemies, self.defeated_enemies)
     TableUtils.merge(all_enemies, self.enemies)
-    for _, enemy in ipairs(all_enemies) do
+    for _,enemy in ipairs(all_enemies) do
         local world_chara = self.enemy_world_characters[enemy]
         if world_chara then
             world_chara.visible = true
@@ -2527,6 +2758,9 @@ function Battle:returnToWorld()
     self.music:stop()
     if self.resume_world_music then
         Game.world.music:resume()
+        if (Game.world.humming) then
+            Game.world.additional_music:resume()
+        end
     end
     self:remove()
     self.encounter.defeated_enemies = self.defeated_enemies
@@ -2701,15 +2935,29 @@ end
 
 function Battle:updateDefendingBegin()
     self.defending_begin_timer = self.defending_begin_timer + DTMULT
+        for _,pb in ipairs(self.party) do
+            for index, status in pairs(pb.statuses) do
+                if status.data.effect.onDefendStart then status.data.effect:onDefendStart(pb, status) end
+            end
+        end
+        for _,eb in ipairs(self.enemies) do
+            for index, status in pairs(eb.statuses) do
+                if status.data.effect.onDefendStart then status.data.effect:onDefendStart(eb, status) end
+            end
+        end
     if self.defending_begin_timer >= 15 then
         self:setState("DEFENDING")
     end
+    
 end
 
 function Battle:update()
-    for _, enemy in ipairs(self.enemies_to_remove) do
+    self.description.visible = self.description_panel.operable
+    self.cost_description.visible = self.description_panel.operable
+    self.note_display.visible = self.description_panel.operable
+    for _,enemy in ipairs(self.enemies_to_remove) do
         TableUtils.removeValue(self.enemies, enemy)
-        local enemy_y = TableUtils.getKey(self.enemies_index, enemy)
+        local enemy_y = Utils.getKey(self.enemies_index, enemy)
         if enemy_y then
             self.enemies_index[enemy_y] = false
         end
@@ -2724,6 +2972,33 @@ function Battle:update()
         end
     end
     if Game.battle == nil then return end -- cutscene ended the battle
+
+    if (self.music:isPlaying() and self.using_fft and Game.fft and Game.fft:getSoundData() and self.music:tell() >= 0.05 and self.music:tell() <= (Game.fft:getSoundData():getDuration()-0.05)) then
+        local duration = Game.fft:getSoundData():getDuration()
+        Game.fft:updatePlayTime(math.max(math.min(self.music:tell(), duration-0.5), 0.05))
+    end
+
+    if (self.tense and self.music.source) then
+        local duration = self.music.source:getDuration("seconds")
+        local remainder = math.max(duration - self.music:tell(), 0)
+        local shakeAmount = (remainder <= 10) and 3 or (remainder <= 35) and 2 or (remainder <= (66)) and 1 or 0
+        local seconds = math.floor(remainder % 60)
+        local addition = (seconds >=10) and "" or "0"
+        local minutes = math.floor(remainder/60)
+        self.tense_timer:setText("[shake:".. tostring(shakeAmount) .. "]0" .. tostring(minutes)..":"..addition..tostring(seconds))
+        if seconds == 0 and minutes == 0 then
+            self.music:stop()
+            if self:getState() == "DEFENDING" then
+                for _, wave in ipairs(self.waves) do
+                    wave:onEnd(true)
+                end
+            end
+            if self.encounter:onGameOver() then
+                return
+            end
+            Game:gameOver(self:getSoulLocation())
+        end
+    end
 
     if self.state == "TRANSITION" then
         self:updateTransition()
@@ -2756,7 +3031,37 @@ function Battle:update()
         end
     end
 
+    self.offset = self.offset + 1 * DTMULT
+    self.surface_siner = self.surface_siner + 2 * DTMULT
+    self.glow_siner = self.glow_siner + DT
+
+    if self.offset > 100 then
+        self.offset = self.offset - 100
+    end
+
     self.pacify_glow_timer = self.pacify_glow_timer + DTMULT
+    
+    --todo: do i need this?
+
+    -- if (self.state == "ENEMYDIALOGUE") or (self.state == "DEFENDINGBEGIN") or (self.state == "DEFENDING") then
+    --     self.background_fade_alpha = math.min(self.background_fade_alpha + (0.05 * DTMULT), 0.75)
+    --     if not self.darkify then
+    --         self.darkify = true
+    --         for _, battler in ipairs(self.party) do
+    --             battler.should_darken = true
+    --         end
+    --     end
+    -- end
+
+    -- if TableUtils.contains({"DEFENDINGEND", "ACTIONSELECT", "ACTIONS", "VICTORY", "TRANSITIONOUT", "BATTLETEXT"}, self.state) then
+    --     self.background_fade_alpha = math.max(self.background_fade_alpha - (0.05 * DTMULT), 0)
+    --     if self.darkify then
+    --         self.darkify = false
+    --         for _, battler in ipairs(self.party) do
+    --             battler.should_darken = false
+    --         end
+    --     end
+    -- end
 
     -- Always sort
     --self.update_child_list = true
@@ -2786,8 +3091,8 @@ end
 function Battle:updateIntro()
     self.intro_timer = self.intro_timer + 1 * DTMULT
     if self.intro_timer >= 13 then
-        for _, v in ipairs(self.party) do
-            v:setAnimation("battle/idle")
+        for _,v in ipairs(self.party) do
+            v:resetSprite()
         end
         self:setState("ACTIONSELECT", "INTRO")
         --self:nextTurn()
@@ -2795,6 +3100,46 @@ function Battle:updateIntro()
 end
 
 function Battle:updateTransition()
+    if (self.tense) then
+        if (not self.tense_intro:isPlaying() and self.transition_timer < 10) then
+            self.display_soul:setParent(Game.stage)
+            self.display_soul.soul_glow:setParent(Game.stage)
+            self.display_soul.soul_glow:setPosition(self.display_soul.x, self.display_soul.y)
+            self.display_soul:setLayer(1003)
+            self.display_soul.soul_glow:setLayer(1002)
+            self.display_soul.x = SCREEN_WIDTH/2
+            self.display_soul.y = SCREEN_HEIGHT/2
+            self.display_soul.sprite.visible = true
+            self.display_soul.soul_glow.visible = true
+            self.tense_intro:play()
+            self.timer:after(0.25, function ()
+                self.music:play("battle_tense")
+            --     Game.stage:blockGlitch(0.6)--Game.stage:addFX(ShaderFX("glitch", { ["iTime"] = function () return Kristal.getTime() end, ["glitchScale"] = 0.6}, false), "glitchy")
+            --     self.timer:after(1, function() Game.stage:stopGlitch() end)
+            --     self.timer:after(3, function ()
+            --     Game.stage:blockGlitch(0.6)
+            --     self.timer:after(1, function() Game.stage:stopGlitch() end)
+            -- end)
+            end)
+            self.timer:afterCond(function () return not self.tense_intro:isPlaying() end, function()
+                self.display_soul:setParent(self)
+                self.display_soul:slideTo(160, 160, 0.25, "in-out-cubic")
+                Game.fader:fadeOut(function () Game.fader:fadeIn({speed = 0.5, music = false}) end, {speed = 0.5, music = false, color = COLORS.white})
+                self.display_soul.soul_glow:setParent(self)
+                self:setState("INTRO")
+            end)
+        end
+        if (self.tense_intro:isPlaying() and self.tense_intro:tell() > 6 and not self.display_soul.soul_visible) then
+            self.display_soul.soul_glow:show(true)
+            self.display_soul.soul_visible = true
+            self.twisted_darkness = TwistedDarknessController(nil, true, true)
+            self:addChild(self.twisted_darkness)
+            local burst = Game.stage:addChild(HeartBurst(self.display_soul.x, self.display_soul.y, Kristal.getSoulColor()))
+            burst:setLayer(1005)
+            self.old_border = Game:getBorder()
+            Game:setBorder("tense", 0.25)
+        end
+    end
     while self.afterimage_count < math.floor(self.transition_timer) do
         for index, battler in ipairs(self.party) do
             local target_x, target_y = unpack(self.battler_targets[index])
@@ -2818,7 +3163,7 @@ function Battle:updateTransition()
 
     if self.transition_timer >= 10 then
         self.transition_timer = 10
-        self:setState("INTRO")
+        if not self.tense then self:setState("INTRO") end
     end
 
     for index, battler in ipairs(self.party) do
@@ -2908,10 +3253,14 @@ function Battle:updateAttacking()
         end
 
         local all_done = true
-        for _, attack in ipairs(self.battle_ui.attack_boxes) do
+        local perfects = 0
+        for _,attack in ipairs(self.battle_ui.attack_boxes) do
+            if (attack.perfect) then
+                perfects = perfects + 1
+            end
             if not attack.attacked and attack.fade_rect.alpha < 1 then
                 local close = attack:getClose()
-                if close <= -2 then
+                if (close <= -2) or (attack.bolt.scale_x == 0) then
                     attack:miss()
 
                     local action = self:getActionBy(attack.battler, true)
@@ -2931,6 +3280,10 @@ function Battle:updateAttacking()
         end
 
         if all_done then
+            if (perfects >= #Game.party) then
+                Assets.playSound("violence/unbeatable")
+                Game:giveTension(10)
+            end
             self.attack_done = true
         end
     else
@@ -2951,6 +3304,16 @@ function Battle:updateActionsDone()
     end
     if self.actions_done_timer == 0 and not any_hurt then
         self:resetAttackers()
+        for _,pb in ipairs(self.party) do
+            for _, status in pairs(pb.statuses) do
+                if status.data.effect.onTurnEnd then status.data.effect:onTurnEnd(pb, status) end
+            end
+        end
+        for _,eb in ipairs(self.enemies) do
+            for _, status in pairs(eb.statuses) do
+                if status.data.effect.onTurnStart then status.data.effect:onTurnStart(eb, status) end
+            end
+        end
         if not self.encounter:onActionsEnd() then
             self:setState("ENEMYDIALOGUE")
         end
@@ -2977,6 +3340,14 @@ function Battle:updateWaves()
     if all_done and not self.finished_waves then
         self.finished_waves = true
         self:endWaves()
+    end
+
+    if (self.tense) then
+        self.tension_timer = self.tension_timer - DTMULT
+        if (self.tension_timer <= 0) then
+            Game:giveTension(1)
+            self.tension_timer = 30
+        end
     end
 end
 
@@ -3032,12 +3403,165 @@ function Battle:drawDebug()
 end
 
 function Battle:draw()
+    --todo: background object
+    if self.encounter.background then
+        self:drawBackground()
+    end
+
+    self.encounter:drawBackground(self.transition_timer / 10)
+
+    Draw.setColor(0, 0, 0, self.background_fade_alpha)
+    love.graphics.rectangle("fill", -20, -20, SCREEN_WIDTH + 40, SCREEN_HEIGHT + 40)
+
+    if not (self.tense) then
+        self:drawSpotlights()
+    end
+
     super.draw(self)
 
     self.encounter:draw(self.transition_timer / 10)
 
     if DEBUG_RENDER then
         self:drawDebug()
+    end
+end
+
+--todo: background object
+function Battle:drawSpotlights()
+    for index, battler in ipairs(self.party) do
+        if not self.spotlights[index] then
+            self.spotlights[index] = {width = 0, visible = false, offset = 0}
+        end
+        if self:shouldHaveSpotlight(battler) then
+           self.spotlights[index].width = MathUtils.approach(self.spotlights[index].width, 32, DTMULT * 4)
+        else
+            self.spotlights[index].width = MathUtils.approach(self.spotlights[index].width, 0, DTMULT * 8)
+        end
+        self.spotlights[index].visible = self.spotlights[index].width > 0
+
+        if self.spotlights[index].visible then
+            self.spotlights[index].offset = self.spotlights[index].offset + (DT * 2)
+            Draw.setColor(Utils.mergeColor(self.bg_secondaries[battler.chara.id], {1,1,1, 0.75}, 0.5) or self.bg_secondaries.none, 0.75)
+            love.graphics.polygon("fill",
+                battler.x - 125, battler.y - 175,
+                battler.x + battler.width/2 - self.spotlights[index].width + math.sin(self.spotlights[index].offset) * 4, battler.y,
+                battler.x + battler.width / 2 + self.spotlights[index].width-4 + math.sin(self.spotlights[index].offset) * 8, battler.y,
+                battler.x + battler.width / 2 + self.spotlights[index].width + math.sin(self.spotlights[index].offset) * 8, battler.y - 4
+            )
+            Draw.setColor(Utils.mergeColor(self.bg_secondaries[battler.chara.id], {1,1,1, 0.75}, 0.75) or self.bg_secondaries.none, 0.75)
+            love.graphics.polygon("fill",
+                battler.x - 125, battler.y - 175,
+                battler.x + battler.width/2 - self.spotlights[index].width/1.5 + math.sin(self.spotlights[index].offset) * 4, battler.y,
+                battler.x + battler.width / 2 + self.spotlights[index].width/1.5 + math.sin(self.spotlights[index].offset) * 8, battler.y
+            )
+        end
+    end
+    Draw.setColor(1,1,1,1)
+end
+
+function Battle.floorStencil()
+    love.graphics.rectangle("fill", -8, 80, SCREEN_WIDTH+16, 380-128)
+end
+
+function Battle:drawBackground()
+    Draw.setColor(0, 0, 0, self.transition_timer / 10)
+    love.graphics.rectangle("fill", -8, -8, SCREEN_WIDTH+16, SCREEN_HEIGHT+16)
+    local primary, secondary = self:getBattleBGColor()
+
+    -- love.graphics.setLineStyle("rough")
+    -- love.graphics.setLineWidth(1)
+
+    -- for i = 2, 16 do
+    --     Draw.setColor(0, 66 / 255, 33 / 255, (self.transition_timer / 10) / 2)
+    --     love.graphics.line(0, -210 + (i * 50) + math.floor(self.offset / 2), 640, -210 + (i * 50) + math.floor(self.offset / 2))
+    --     love.graphics.line(-200 + (i * 50) + math.floor(self.offset / 2), 0, -200 + (i * 50) + math.floor(self.offset / 2), 480)
+    -- end
+
+    -- for i = 3, 16 do
+    --     Draw.setColor(0, 66 / 255, 33 / 255, self.transition_timer / 10)
+    --     love.graphics.line(0, -100 + (i * 50) - math.floor(self.offset), 640, -100 + (i * 50) - math.floor(self.offset))
+    --     love.graphics.line(-100 + (i * 50) - math.floor(self.offset), 0, -100 + (i * 50) - math.floor(self.offset), 480)
+    -- end
+    local fade = self.transition_timer / 10
+    for i = 0, 11 do
+        local siner = self.surface_siner + (i * (10 * math.pi))
+
+        love.graphics.setLineWidth(2)
+        Draw.setColor(primary, fade * math.sin(siner / 60))
+        if math.cos(siner / 60) < 0 then
+            love.graphics.line(0, 360 - (math.sin(siner / 60) * 60) + 30, SCREEN_WIDTH, 360 - (math.sin(siner / 60) * 60) + 30)
+            --love.graphics.line(0, 211 + (math.sin(siner / 60) * 30) - 30, SCREEN_WIDTH, 211 + (math.sin(siner / 60) * 30) - 30)
+        end
+    end
+
+    if (self.using_fft and self.music:isPlaying() and Game.fft and Game.fft:getSoundData()) then
+        self:drawVisualizer(fade, secondary, primary)
+    end
+
+    love.graphics.stencil(self.floorStencil, "replace", 1)
+    love.graphics.setStencilTest("greater", 0)
+    Draw.setColor(0, 0, 0, fade)
+    love.graphics.rectangle("fill", -8, 80, SCREEN_WIDTH+16, 380-128)
+
+    love.graphics.setLineStyle("rough")
+    love.graphics.setLineWidth(1)
+
+    for i = -2, 20 do
+        Draw.setColor(primary, (fade) / 2)
+        love.graphics.line(0, -210 + (i * 50) + math.floor(self.offset / 2), 640, 210 + (i * 50) + math.floor(self.offset / 2))
+        love.graphics.line(-200 + (i * 50) + math.floor(self.offset / 2), 0, 200 + (i * 50) + math.floor(self.offset / 2), 480)
+    end
+
+    for i = 0, 20 do
+        Draw.setColor(primary, fade)
+        love.graphics.line(0, -100 + (i * 50) - math.floor(self.offset), 640, 100 + (i * 50) - math.floor(self.offset))
+        love.graphics.line(-100 + (i * 50) - math.floor(self.offset), 0, 100 + (i * 50) - math.floor(self.offset), 480)
+    end
+    love.graphics.setStencilTest()
+    Draw.setColor(secondary)
+    love.graphics.setLineWidth(2)
+    love.graphics.line(0, 330, SCREEN_WIDTH, 330)
+    love.graphics.line(0, 80, SCREEN_WIDTH, 80)
+
+    -- if (self.using_fft and self.music:isPlaying() and Game.fft and Game.fft:getSoundData()) then
+    --     self:drawVisualizer(fade, secondary)
+    -- end
+end
+
+function Battle:drawVisualizer(fade, color, secondary)
+    self.fft_array = Game.fft:get() -- This operation takes almost no time
+    local barWidth = SCREEN_WIDTH / 512 * 8 -- We only take care of the lowest 1/8 of the frequencies because it is where most energy resides
+    Draw.setColor(color, (fade) / 2)
+    local dark = true
+    local displayed = math.max(2, math.floor(32 * (Game:getTension() / Game:getMaxTension())))
+    for i = 1, 32 do
+        local disabled = i > displayed
+        if (dark) then
+            dark = false
+            Draw.setColor(color, (fade) / (disabled and 4 or MathUtils.lerp(3, 1, Game:getTension() / Game:getMaxTension())))
+        else
+            dark = true
+            Draw.setColor(secondary, (fade) / (disabled and 4 or MathUtils.lerp(3, 1, Game:getTension() / Game:getMaxTension())))
+        end
+        if (not self.bars[i]) then
+            self.bars[i] = {height = 0, max_height = 0, max_height_timer = 0}
+        end
+        local barHeight = self.fft_array[i] * 450 -- H is window height
+        if (disabled) then barHeight = -10 end
+        self.bars[i].height = MathUtils.approach(self.bars[i].height, barHeight, DTMULT * 4)
+        if (self.bars[i].max_height < self.bars[i].height) then
+            self.bars[i].max_height = self.bars[i].height
+            self.bars[i].max_height_timer = 15
+        end
+        self.bars[i].max_height_timer = MathUtils.approach(self.bars[i].max_height_timer, 0, DTMULT * (2 / math.max(1, self.bars[i].max_height_timer)))
+        if (self.bars[i].max_height_timer == 0) then
+            self.bars[i].max_height = barHeight
+        end
+        love.graphics.rectangle("fill", (i - 1) * barWidth * 2 + 4, -self.bars[i].height + 69, barWidth, math.max(11 + self.bars[i].height, 0))
+        love.graphics.rectangle("fill", (i - 1) * barWidth * 2 + 4, -self.bars[i].height + 59 + (disabled and 11 or 0), barWidth, 4)
+        --love.graphics.rectangle("line", (i - 1) * barWidth * 2 + 4, 59 + (disabled and 11 or 0) - math.max(self.bars[i].max_height * (math.min(10, self.bars[i].max_height_timer) / 10), self.bars[i].height), barWidth, 4)
+        love.graphics.rectangle("line", (i - 1) * barWidth * 2 + 4, 59 + (disabled and 11 or 0) - math.max(Ease.inCubic(math.max(0, 10 - self.bars[i].max_height_timer), self.bars[i].max_height, -self.bars[i].max_height, 10), self.bars[i].height), barWidth, 4)
+
     end
 end
 
@@ -3169,7 +3693,7 @@ function Battle:advanceBoxes()
         end
     end
     -- Remove leftover dialogue
-    for _, dialogue in ipairs(to_remove) do
+    for _,dialogue in ipairs(to_remove) do
         TableUtils.removeValue(self.enemy_dialogue, dialogue)
     end
     -- If all dialogue is done, go to DIALOGUEEND state
@@ -3533,6 +4057,7 @@ end
 
 ---@param key string
 function Battle:handleActionSelectInput(key)
+    ---@type ActionBox
     local actbox = self.battle_ui.action_boxes[self.current_selecting]
     local old_selected_button = actbox.selected_button
 
@@ -3554,10 +4079,74 @@ function Battle:handleActionSelectInput(key)
             self.battle_ui.action_boxes[self.current_selecting]:unselect()
         end
         return
-    elseif Input.is("left", key) then
+    elseif Input.is("up", key) then
         actbox.selected_button = actbox.selected_button - 1
-    elseif Input.is("right", key) then
+    elseif Input.is("down", key) then
         actbox.selected_button = actbox.selected_button + 1
+    elseif Input.is("instant-heal", key) then
+        local bandaids = Game:getFlag("bandaids", 0)
+        if (bandaids > 0 and not actbox.battler.used_instant) then
+            local battler = actbox.battler
+            if (battler:isHealthRolling()) then
+                battler:healEffect(unpack(COLORS.lime))
+                Assets.playSound("power")
+                battler.health_rolling_to = battler.chara:getHealth()
+                battler.used_instant = true
+                Game:setFlag("bandaids", bandaids - 1)
+            else
+                Assets.playSound("bump")
+            end
+        end
+    elseif Input.is("instant-tonic", key) then
+        local tonics = Game:getFlag("tonics", 0)
+        if (tonics > 0 and not actbox.battler.used_instant) then
+            local battler = actbox.battler
+            local fail = false
+            if (battler.chara.is_psychic and battler.chara.neural_power < 100) then
+                battler.chara.neural_power = math.min(100, battler.chara.neural_power + 75)
+            elseif (battler.chara.is_musical and battler.chara.notes < 3) then
+                battler.chara.notes = 3
+            elseif (Game:getTension() < Game:getMaxTension()) then
+                Game:giveTension(50)
+            else
+                fail = true
+            end
+            if not fail then
+                battler:healEffect(1.0, 210/255, 53/255)
+                Assets.playSound("boost")
+                battler.used_instant = true
+                Game:setFlag("tonics", tonics - 1)
+            else
+                Assets.playSound("bump")
+            end
+        end
+    elseif Input.is("instant-purify", key) then
+        local purifiers = Game:getFlag("purifiers", 0)
+        if (purifiers > 0 and not actbox.battler.used_instant) then
+            local battler = actbox.battler
+            local fail = Utils.tableLength(battler.statuses) == 0
+            if (not fail) then
+                local found = nil
+                for id, status in pairs(battler.statuses) do
+                    if (status.data.effect:isCurable() and not status.data.effect:isPositive()) then
+                        found = id
+                    end
+                end
+                fail = not found
+                if (found) then
+                    battler:removeStatus(found, "CURE")
+                end
+            end
+
+            if (not fail) then
+                battler:healEffect(unpack(COLORS.purple))
+                Assets.playSound("cd_bagel/"..battler.chara.name:lower())
+                battler.used_instant = true
+                Game:setFlag("purifiers", purifiers - 1)
+            else
+                Assets.playSound("bump")
+            end
+        end
     end
 
     if actbox.selected_button < 1 then

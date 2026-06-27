@@ -68,6 +68,11 @@ function Hitbox:draw(r,g,b,a)
     love.graphics.rectangle("line", self.x, self.y, MathUtils.absClamp(self.width, 1, math.huge), MathUtils.absClamp(self.height, 1, math.huge))
     Draw.setColor(1, 1, 1, 1)
 end
+function Hitbox:drawFill(r,g,b,a)
+    Draw.setColor(r,g,b,a)
+    love.graphics.rectangle("fill", self.x, self.y, MathUtils.absClamp(self.width, 1, math.huge), MathUtils.absClamp(self.height, 1, math.huge))
+    Draw.setColor(1, 1, 1, 1)
+end
 
 function Hitbox:drawFill(r,g,b,a)
     Draw.setColor(r,g,b,a)

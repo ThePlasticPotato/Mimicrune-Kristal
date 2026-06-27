@@ -4,6 +4,38 @@
 ---@overload fun(...) : Map
 local Map = Class()
 
+local function getWeatherLeafSway()
+    if Game.stage and Game.stage.weather_leaf_sway then
+        return Game.stage.weather_leaf_sway.amount or 0
+    end
+
+    return 0
+end
+
+local function getWeatherLeafWindSpeed()
+    return 0.8 + (getWeatherLeafSway() * 0.45)
+end
+
+local function getWeatherLeafWindPhaseOffset()
+    if not Game.stage then
+        return 0
+    end
+
+    local now = Kristal.getTime()
+    local speed = getWeatherLeafWindSpeed()
+    local phase = Game.stage.weather_leaf_wind_phase
+
+    if not phase then
+        phase = {offset = 0, speed = speed}
+        Game.stage.weather_leaf_wind_phase = phase
+    elseif phase.speed ~= speed then
+        phase.offset = phase.offset + (now * (phase.speed - speed))
+        phase.speed = speed
+    end
+
+    return phase.offset
+end
+
 function Map:init(world, data)
     self.world = world or Game.world
 
@@ -25,6 +57,8 @@ function Map:init(world, data)
 
     self.music = data and data.properties and data.properties["music"]
     self.keep_music = data and data.properties and data.properties["keepmusic"]
+
+    self.can_hum = data and data.properties and data.properties["can_hum"] or false
 
     self.light = data and data.properties and data.properties["light"] or false
 
@@ -272,7 +306,7 @@ end
 
 function Map:getShapes(layer_prefix)
     local result = {}
-    for k, v in pairs(self.shape_layers) do
+    for k,v in pairs(self.shape_layers) do
         if not layer_prefix or StringUtils.startsWith(k:lower(), layer_prefix) then
             TableUtils.merge(result, v.objects)
         end
@@ -475,6 +509,14 @@ end
 
 function Map:loadTiles(layer, depth)
     local tilelayer = TileLayer(self, layer)
+    if (tilelayer.name and tilelayer.name == "Leaves") then
+        tilelayer:addFX(ShaderFX("windy", {
+            ["iTime"] = function () return Kristal.getTime() end,
+            ["weatherSway"] = getWeatherLeafSway,
+            ["wind_speed"] = getWeatherLeafWindSpeed,
+            ["windPhaseOffset"] = getWeatherLeafWindPhaseOffset
+        }))
+    end
     tilelayer:setPosition(layer.offsetx or 0, layer.offsety or 0)
     tilelayer.layer = depth
     self.world:addChild(tilelayer)
