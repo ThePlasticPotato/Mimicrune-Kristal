@@ -5,6 +5,7 @@ uniform float dissolve_mix;
 uniform float dissolve_noise_scale;
 uniform vec2 dissolve_origin;
 uniform vec2 dissolve_size;
+uniform float dissolve_use_screen_coords;
 
 uniform Image dissolve_gradient;
 
@@ -45,7 +46,7 @@ vec4 effect(vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords)
 {
     vec4 main_texture = Texel(texture, texture_coords);
 
-    vec2 canvas_pos = texture_coords * texsize;
+    vec2 canvas_pos = mix(texture_coords * texsize, screen_coords, dissolve_use_screen_coords);
     vec2 local_uv = (canvas_pos - dissolve_origin) / dissolve_size;
     vec2 uv = local_uv - vec2(0.5);
     uv.x *= dissolve_size.x / dissolve_size.y;

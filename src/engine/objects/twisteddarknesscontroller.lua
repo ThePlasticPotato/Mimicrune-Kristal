@@ -256,6 +256,7 @@ function TwistedDarknessController:drawDissolvingFume(x, y, radius, time, rotati
     shader:send("dissolve_noise_scale", 3.0)
     shader:send("dissolve_origin", {0, 0})
     shader:send("dissolve_size", {size, size})
+    shader:send("dissolve_use_screen_coords", 0)
     shader:send("dissolve_gradient", Assets.getTexture("misc/bwgradient"))
 
     love.graphics.setShader(shader)

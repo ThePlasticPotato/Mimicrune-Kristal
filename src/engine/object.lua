@@ -2249,6 +2249,7 @@ function Object:dissolve(texsize, transformed, options)
         ["dissolve_value"]   = function () return progress end;
         ["dissolve_mix"]     = options.mix or fallback.mix;
         ["dissolve_noise_scale"] = options.noise_scale or fallback.noise_scale;
+        ["dissolve_use_screen_coords"] = 0;
         ["dissolve_origin"]  = function ()
             if transformed then
                 return {
