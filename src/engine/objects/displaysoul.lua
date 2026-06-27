@@ -4,7 +4,7 @@ local DisplaySoul, super = Class(Object)
 
 function DisplaySoul:init(x, y)
     super.init(self, x, y, 16, 16)
-    self.sprite = self:addChild(Sprite("player/heart_dodge", 0, 0))
+    self.sprite = self:addChild(Sprite("player/heart", 0, 0))
     self.sprite:setOrigin(0.5, 0.5)
     self.sprite:setColor(Kristal.getSoulColor())
     self.pos_offset = 0

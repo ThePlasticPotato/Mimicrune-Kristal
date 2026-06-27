@@ -3034,7 +3034,8 @@ function Battle:updateTransition()
             self.timer:afterCond(function () return not self.tense_intro:isPlaying() end, function()
                 self.display_soul:setParent(self)
                 self.display_soul:slideTo(160, 160, 0.25, "in-out-cubic")
-                Game.fader:fadeOut(function () self.timer:after(0.25, function () Game.fader:fadeIn({speed = 0.5, music = false}) end) end, {speed = 1.0, music = false, color = COLORS.white})
+                
+                self.timer:after(0.25, function () Game.fader:fadeIn({speed = 0.5, music = false}) end)
                 self.display_soul.soul_glow:setParent(self)
                 self:setState("INTRO")
             end)
@@ -3044,6 +3045,7 @@ function Battle:updateTransition()
             self.display_soul.soul_visible = true
             if self.tense_intro_darkness then
                 self.tense_intro_darkness:banish()
+                Game.fader:fadeOut(function ()  end, {speed = 2.0, music = false, color = COLORS.white})
                 self.tense_intro_darkness = nil
             end
             self.twisted_darkness = TwistedDarknessController(nil, true, true)
