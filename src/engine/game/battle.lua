@@ -3010,23 +3010,24 @@ function Battle:updateTransition()
     if (self.tense) then
         if (not self.tense_intro:isPlaying() and self.transition_timer < 10) then
             self.display_soul:setParent(Game.stage)
+            self.display_soul.x = SCREEN_WIDTH/2
+            self.display_soul.y = SCREEN_HEIGHT/2
             self.display_soul.soul_glow:setParent(Game.stage)
             self.display_soul.soul_glow:setPosition(self.display_soul.x, self.display_soul.y)
             self.display_soul:setLayer(1003)
             self.display_soul.soul_glow:setLayer(1002)
-            self.display_soul.x = SCREEN_WIDTH/2
-            self.display_soul.y = SCREEN_HEIGHT/2
             self.display_soul.sprite.visible = true
-            self.display_soul.soul_glow.visible = true
+            --self.display_soul.soul_glow:hide(true)
             self.tense_intro:play()
             self.timer:after(0.25, function ()
                 self.music:play("battle_tense")
-            --     Game.stage:blockGlitch(0.6)--Game.stage:addFX(ShaderFX("glitch", { ["iTime"] = function () return Kristal.getTime() end, ["glitchScale"] = 0.6}, false), "glitchy")
-            --     self.timer:after(1, function() Game.stage:stopGlitch() end)
-            --     self.timer:after(3, function ()
-            --     Game.stage:blockGlitch(0.6)
-            --     self.timer:after(1, function() Game.stage:stopGlitch() end)
-            -- end)
+                self.display_soul:glitch({}, 1, true)--Game.stage:addFX(ShaderFX("glitch", { ["iTime"] = function () return Kristal.getTime() end, ["glitchScale"] = 0.6}, false), "glitchy")
+                self.timer:after(3, function ()
+                    self.display_soul:glitch({}, 1, true)
+                    self.timer:after(1.2, function ()
+                        self.display_soul:stopGlitch()
+                    end)
+                end)
             end)
             self.timer:afterCond(function () return not self.tense_intro:isPlaying() end, function()
                 self.display_soul:setParent(self)
@@ -3042,6 +3043,7 @@ function Battle:updateTransition()
             self.twisted_darkness = TwistedDarknessController(nil, true, true)
             self.twisted_darkness:setLayer(BATTLE_LAYERS["below_battlers"])
             self:addChild(self.twisted_darkness)
+            self.twisted_darkness.disintegrate_regions = {self.display_soul.soul_glow}
             local burst = Game.stage:addChild(HeartBurst(self.display_soul.x, self.display_soul.y, Kristal.getSoulColor()))
             burst:setLayer(1005)
             self.old_border = Game:getBorder()

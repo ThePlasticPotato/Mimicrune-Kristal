@@ -2005,8 +2005,9 @@ end
 ---| "color_drift"
 ---@param options GlitchOptions
 ---@overload fun()
----@overload fun (options)
-function Object:glitch(options, time)
+---@overload fun(options)
+---@overload fun(options, time)
+function Object:glitch(options, time, transformed)
     options = options or {
         ["scan_line_jitter"] = (0.015 * (5 / 10));
         ["horizontal_shake"] = (0.01 * (5 / 10));
@@ -2015,7 +2016,8 @@ function Object:glitch(options, time)
     local jitter = options.scan_line_jitter and options.scan_line_jitter or (0.015 * (5 / 10))
     local shake = options.horizontal_shake and options.horizontal_shake or (0.01 * (5 / 10))
     local drift = options.color_drift and options.color_drift or (0.03)
-    self:addFX(ShaderFX("kinoglitch", { ["iTime"] = function () return Kristal.getTime() end, ["scan_line_jitter"] = jitter, ["horizontal_shake"] = shake, ["color_drift"] = drift }, false), "glitchy")
+    transformed = transformed or false
+    self:addFX(ShaderFX("kinoglitch", { ["iTime"] = function () return Kristal.getTime() end, ["scan_line_jitter"] = jitter, ["horizontal_shake"] = shake, ["color_drift"] = drift }, transformed), "glitchy")
     if time then
         Game.stage.timer:after(time, function() self:stopGlitch() end)
     end
@@ -2204,6 +2206,64 @@ function Object:spawnSplash(x, y, radius, strength, life)
         life = life or 0.4,
         maxLife = life or 0.4
     })
+end
+
+---@alias DissolveOptions table
+---| "time"
+---| "gradient_texture"
+---| "mix"
+---| "noise_scale"
+---| "invert"
+---| "remove_after"
+---@param texsize table<number, number>|function
+---@param transformed boolean
+---@param options DissolveOptions
+---@overload fun()
+---@overload fun(texsize)
+---@overload fun(texsize, transformed)
+function Object:dissolve(texsize, transformed, options)
+    texsize = {SCREEN_WIDTH, SCREEN_HEIGHT}
+    transformed = transformed or false
+    options = options or {}
+    local fallback = {
+        ["time"]             = 1.0;
+        ["gradient_texture"] = Assets.getTexture("misc/bwgradient");
+        ["mix"]              = 0.38;
+        ["noise_scale"]      = 3.0;
+        ["invert"]           = false;
+        ["remove_after"]     = true;
+    }
+
+    local invert = options.invert or false
+    local progress = invert and 0 or 1
+
+    local dis_time = options.time or fallback.time
+    local remove_after = options.remove_after ~= false
+    local width = math.max(self.width, 1)
+    local height = math.max(self.height, 1)
+
+    Game.stage.timer:approach(dis_time, invert and 0 or 1, invert and 1 or 0, function(val) progress = val; Kristal.Console:log(progress) end, "linear", function () if remove_after then self:removeFX("dissolve") end end)
+
+    local passthrough = {
+        ["texsize"]          = texsize;
+        ["dissolve_value"]   = function () return progress end;
+        ["dissolve_mix"]     = options.mix or fallback.mix;
+        ["dissolve_noise_scale"] = options.noise_scale or fallback.noise_scale;
+        ["dissolve_origin"]  = function ()
+            if transformed then
+                return {
+                    math.floor(SCREEN_WIDTH / 2 - width / 2),
+                    math.floor(SCREEN_HEIGHT / 2 - height / 2)
+                }
+            else
+                return { self:localToScreenPos(0, 0) }
+            end
+        end;
+        ["dissolve_size"]    = { width, height };
+        ["dissolve_gradient"]= options.gradient_texture or fallback.gradient_texture;
+    }
+
+    self:addFX(ShaderFX("dissolve", passthrough, transformed), "dissolve")
 end
 
 return Object

@@ -11,6 +11,10 @@ local TwistedDarknessController, super = Class(Object)
 -----@field acceleration number
 -----@field shrink boolean
 -----@field tail boolean
+-----@field disintegration number
+-----@field halt_x number
+-----@field halt_y number
+-----@field halt_rotation number
 
 function TwistedDarknessController:init(layer, shrink, tails)
     super.init(self, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
@@ -25,6 +29,9 @@ function TwistedDarknessController:init(layer, shrink, tails)
     self.fumes = {}
     self.streaks = {}
     self.full_alpha = 1
+
+    self.disintegrate_regions = {}
+
     self:addFX(ShaderFX('pixelize', {
         size = {SCREEN_WIDTH, SCREEN_HEIGHT},
         factor = 2
@@ -82,6 +89,19 @@ function TwistedDarknessController:init(layer, shrink, tails)
     -- end
 end
 
+---@return boolean
+function TwistedDarknessController:isInDisintegrationRegion(x, y)
+    for _, region in ipairs(self.disintegrate_regions) do
+        local relative_pos = (region.getRelativePosFor and region.parent and {region:getRelativePosFor(self)}) or {region.x, region.y}
+        local dist = MathUtils.dist(relative_pos[1], relative_pos[2], x, y)
+        if (math.abs(dist) <= region.radius) then
+            --Kristal.Console:log("disintegrating fume at " .. x .. ", " .. y)
+            return true
+        end
+    end
+    return false
+end
+
 function TwistedDarknessController:update()
     super.update(self)
     self.timer = self.timer + DTMULT
@@ -104,8 +124,19 @@ function TwistedDarknessController:update()
     local to_remove = {}
     local to_remove_streaks = {}
     for index, fume in ipairs(self.fumes) do
-        local x, y, radius = self:getFumeInformation(index)
-        if x < -(radius + 30) or radius < 0 then table.insert(to_remove, fume) end
+        local x, y, radius, _, rotation = self:getFumeInformation(index)
+        local disintegration = fume[10] or -1
+        if self:isInDisintegrationRegion(x, y) and disintegration < 0 then
+            disintegration = 0
+            fume[11] = x
+            fume[12] = y
+            fume[13] = rotation
+        end
+        if disintegration >= 0 then
+            disintegration = disintegration + 0.025 * DTMULT
+            fume[10] = disintegration
+        end
+        if x < -(radius + 30) or radius < 0 or disintegration >= 1 then table.insert(to_remove, fume) end
     end
 
     for index,streak in ipairs(self.streaks) do
@@ -122,7 +153,7 @@ function TwistedDarknessController:update()
 end
 
 function TwistedDarknessController:getFumeInformation(index)
-    local x, y, radius, time, rotation, rotdir, acceleration, shrink, tail, disintegration = TableUtils.unpack(self.fumes[index])
+    local x, y, radius, time, rotation, rotdir, acceleration, shrink, tail, disintegration, halt_x, halt_y, halt_rotation = TableUtils.unpack(self.fumes[index])
     time = self.timer - time
     if (rotdir == 0) then rotdir = 1 end
     if (shrink) then 
@@ -132,10 +163,18 @@ function TwistedDarknessController:getFumeInformation(index)
     else
         y = y + math.sin(time/4) * 8
     end
-    if (disintegration > -1) then
-        disintegration = disintegration + 0.025
-    end
     rotation = rotation + ((time / 4) * rotdir)
+    if (disintegration and disintegration >= 0) then
+        halt_x = halt_x or x
+        halt_y = halt_y or y
+        halt_rotation = halt_rotation or rotation
+
+        local halt_amount = MathUtils.clamp(disintegration, 0, 1)
+        halt_amount = 1 - ((1 - halt_amount) * (1 - halt_amount) * (1 - halt_amount))
+        x = MathUtils.lerp(x, halt_x, halt_amount)
+        y = MathUtils.lerp(y, halt_y, halt_amount)
+        rotation = MathUtils.lerp(rotation, halt_rotation, halt_amount)
+    end
     if (self.shrink and shrink) then radius = radius - time * 0.25 end
     return x, y, radius, time, rotation, tail
 end
@@ -173,23 +212,83 @@ function TwistedDarknessController:drawStreaks()
     Draw.setColor(1,1,1,1)
 end
 
-function TwistedDarknessController:drawBlobs()
+function TwistedDarknessController:drawFumePieces(x, y, radius, time, rotation, tail, red_alpha, black_alpha)
+    Draw.setColor(1, 0, 0, red_alpha)
+    if (self.tails and tail) then
+        self:drawRotatedRectangle("line", x+(1.5 * radius), y-(math.sin(time / 4) * 8), radius/4, radius/4, rotation)
+        self:drawRotatedRectangle("line", x+(1 * radius), y-(math.sin(time / 4) * 2), radius/2, radius/2, rotation)
+    end
+    self:drawRotatedRectangle("line", x, y, radius, radius, rotation)
+
+    Draw.setColor(0, 0, 0, black_alpha)
+    if (self.tails and tail) then
+        self:drawRotatedRectangle("fill", x+(1.5 * radius), y-(math.sin(time / 4) * 8), (radius/4)-2, (radius/4)-2, rotation)
+        self:drawRotatedRectangle("fill", x+(1 * radius), y-(math.sin(time / 4) * 2), (radius/2)-2, (radius/2)-2, rotation)
+    end
+    self:drawRotatedRectangle("fill", x, y, radius-2, radius-2, rotation)
+end
+
+function TwistedDarknessController:drawDissolvingFume(x, y, radius, time, rotation, tail, disintegration)
+    local size = math.ceil((radius * 4) + 16)
+    local center = (size / 2) - (radius * 0.5)
+    local canvas = Draw.pushCanvas(size, size)
+
+    self:drawFumePieces(
+        center,
+        center,
+        radius,
+        time,
+        rotation,
+        tail,
+        math.min(Game.battle.transition_timer / 10, self.full_alpha),
+        Game.battle.transition_timer / 10
+    )
+
+    Draw.popCanvas(true)
+
+    local shader = Assets.getShader("dissolve")
+    local last_shader = love.graphics.getShader()
+
+    shader:send("texsize", {size, size})
+    local dissolve_progress = math.sqrt(MathUtils.clamp(disintegration, 0, 1))
+    shader:send("dissolve_value", 1 - dissolve_progress)
+    shader:send("dissolve_mix", 0.38)
+    shader:send("dissolve_noise_scale", 3.0)
+    shader:send("dissolve_origin", {0, 0})
+    shader:send("dissolve_size", {size, size})
+    shader:send("dissolve_gradient", Assets.getTexture("misc/bwgradient"))
+
+    love.graphics.setShader(shader)
+    Draw.setColor(1, 1, 1, 1)
+    Draw.drawCanvas(canvas, x - center, y - center)
+    love.graphics.setShader(last_shader)
+    Draw.unlockCanvas(canvas)
+end
+
+function TwistedDarknessController:drawFumes()
     local iterated = {}
-    Draw.setColor(1,0,0, math.min(Game.battle.transition_timer / 10, self.full_alpha))
+    local red_alpha = math.min(Game.battle.transition_timer / 10, self.full_alpha)
+    local black_alpha = Game.battle.transition_timer / 10
+    Draw.setColor(1,0,0, red_alpha)
 
     for index, _ in ipairs(self.fumes) do
         local x, y, radius, time, rotation, tail = self:getFumeInformation(index)
+        local disintegration = self.fumes[index][10] or -1
+        if disintegration >= 0 then
+            self:drawDissolvingFume(x, y, radius, time, rotation, tail, disintegration)
+        else
         --tails
-        table.insert(iterated, {x, y, radius, time, rotation})
-        if (self.tails and tail) then
-            self:drawRotatedRectangle("line", x+(1.5 * radius), y-(math.sin(time / 4) * 8), radius/4, radius/4, rotation)
-            self:drawRotatedRectangle("line", x+(1 * radius), y-(math.sin(time / 4) * 2), radius/2, radius/2, rotation)
+            Draw.setColor(1,0,0, red_alpha)
+            table.insert(iterated, {x, y, radius, time, rotation, tail})
+            if (self.tails and tail) then
+                self:drawRotatedRectangle("line", x+(1.5 * radius), y-(math.sin(time / 4) * 8), radius/4, radius/4, rotation)
+                self:drawRotatedRectangle("line", x+(1 * radius), y-(math.sin(time / 4) * 2), radius/2, radius/2, rotation)
+            end
+            self:drawRotatedRectangle("line", x, y, radius, radius, rotation)
         end
-        self:drawRotatedRectangle("line", x, y, radius, radius, rotation)
-        
     end
 
-    Draw.setColor(0,0,0,Game.battle.transition_timer / 10)
+    Draw.setColor(0,0,0, black_alpha)
     for index, value in ipairs(iterated) do
         local x, y, radius, time, rotation, tail = TableUtils.unpack(value)
         if (self.tails and tail) then
@@ -209,7 +308,7 @@ function TwistedDarknessController:draw()
 
     super.draw(self)
 
-    self:drawBlobs()
+    self:drawFumes()
 end
 
 return TwistedDarknessController
