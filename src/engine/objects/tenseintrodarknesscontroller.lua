@@ -19,6 +19,10 @@ function TenseIntroDarknessController:init(target)
     self.mass_settle_radius = 230
     self.mass_squeeze_radius = 150
     self.mass_radius = self.mass_start_radius
+    self.light_burst_timer = 0
+    self.light_burst_duration = 1.25
+    self.light_burst_radius = 0
+    self.light_burst_max_radius = MathUtils.dist(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, 0, 0) + 220
 
     self:addFX(ShaderFX('pixelize', {
         size = {SCREEN_WIDTH, SCREEN_HEIGHT},
@@ -139,6 +143,8 @@ function TenseIntroDarknessController:banish()
 
     self.banishing = true
     self.banish_timer = 0
+    self.light_burst_timer = 0
+    self.light_burst_radius = 0
 
     for _, fume in ipairs(self.fumes) do
         fume.banish_start_distance = fume.distance
@@ -154,7 +160,6 @@ function TenseIntroDarknessController:banish()
         fume.dissolve_x = fume.x
         fume.dissolve_y = fume.y
         fume.dissolve_rotation = fume.rotation
-        fume.disintegration = 0
     end
 end
 
@@ -166,6 +171,9 @@ function TenseIntroDarknessController:update()
 
     if self.banishing then
         self.banish_timer = MathUtils.approach(self.banish_timer, 1, 0.035 * DTMULT)
+        self.light_burst_timer = self.light_burst_timer + DT
+        local burst_amount = MathUtils.clamp(self.light_burst_timer / self.light_burst_duration, 0, 1)
+        self.light_burst_radius = Utils.ease(0, self.light_burst_max_radius, burst_amount, "in-quint")
         self.remove_timer = self.remove_timer + DTMULT
     end
 
@@ -180,7 +188,7 @@ function TenseIntroDarknessController:update()
     end
 
     if self.banishing then
-        self.mass_radius = MathUtils.approach(self.mass_radius, self.mass_radius + 18, 0.5 * DTMULT)
+        self.mass_radius = math.max(self.mass_radius, self.light_burst_radius)
     else
         self.mass_radius = MathUtils.approach(self.mass_radius, target_mass_radius, 2.5 * DTMULT)
     end
@@ -213,8 +221,7 @@ function TenseIntroDarknessController:update()
         local radius = self.mass_radius + wobble
 
         if self.banishing then
-            fume.disintegration = MathUtils.approach(fume.disintegration, 1, 0.018 * DTMULT)
-            radius = radius + (self.banish_timer * 24)
+            radius = math.max(radius, self.light_burst_radius + wobble)
         else
             fume.angle = fume.angle + fume.spin * DTMULT
         end
@@ -226,7 +233,12 @@ function TenseIntroDarknessController:update()
         fume.y = target_y + math.sin(fume.angle) * radius
     end
 
-    if self.banishing and self.remove_timer > 64 then
+    if self.banishing and self.light_burst_timer >= self.light_burst_duration then
+        if Game and Game.fader then
+            Game.fader.fade_color = COLORS.white
+            Game.fader.alpha = 1
+            Game.fader.state = "NONE"
+        end
         self:remove()
     end
 end
@@ -278,10 +290,9 @@ function TenseIntroDarknessController:drawSolidMass(radius, alpha)
     love.graphics.setStencilTest()
 end
 
-function TenseIntroDarknessController:drawDissolvingFumes(fumes, disintegration, mass_radius, mass_alpha)
+function TenseIntroDarknessController:drawDissolvingFumes(fumes, disintegration)
     local canvas = Draw.pushCanvas(SCREEN_WIDTH, SCREEN_HEIGHT)
 
-    self:drawSolidMass(mass_radius, mass_alpha)
     self:drawFumeBatch(fumes)
 
     Draw.popCanvas(true)
@@ -305,35 +316,38 @@ function TenseIntroDarknessController:drawDissolvingFumes(fumes, disintegration,
     Draw.unlockCanvas(canvas)
 end
 
+function TenseIntroDarknessController:drawLightBurst()
+    if not self.banishing or self.light_burst_radius <= 0 then
+        return
+    end
+
+    local target_x, target_y = self:getTargetPosition()
+
+    Draw.setColor(220/255, 1, 220/255, 0.25)
+    love.graphics.circle("fill", target_x, target_y, self.light_burst_radius * 1.6)
+    Draw.setColor(250/255, 1, 250/255, 0.5)
+    love.graphics.circle("fill", target_x, target_y, self.light_burst_radius *1.2)
+    Draw.setColor(1, 1, 1, 1)
+    love.graphics.circle("fill", target_x, target_y, self.light_burst_radius, 128)
+end
+
 function TenseIntroDarknessController:draw()
     super.draw(self)
 
     local banish_alpha = self.banishing and MathUtils.clamp(1 - (self.banish_timer * 0.35), 0, 1) or 1
-    local mass_alpha = self.full_alpha * banish_alpha
+    local mass_alpha = self.full_alpha
     local fumes = {}
     local dissolving_fumes = {}
     local disintegration = 0
 
     for _, fume in ipairs(self.rim_fumes) do
-        local alpha = self.full_alpha * banish_alpha
-        if fume.disintegration and fume.disintegration >= 0 then
-            table.insert(dissolving_fumes, {
-                x = MathUtils.lerp(fume.dissolve_x, fume.x, 0.2),
-                y = MathUtils.lerp(fume.dissolve_y, fume.y, 0.2),
-                radius = fume.radius,
-                rotation = MathUtils.lerp(fume.dissolve_rotation, fume.rotation, 0.2),
-                alpha = alpha
-            })
-            disintegration = math.max(disintegration, fume.disintegration)
-        else
-            table.insert(fumes, {
-                x = fume.x,
-                y = fume.y,
-                radius = fume.radius,
-                rotation = fume.rotation,
-                alpha = alpha
-            })
-        end
+        table.insert(fumes, {
+            x = fume.x,
+            y = fume.y,
+            radius = fume.radius,
+            rotation = fume.rotation,
+            alpha = self.full_alpha
+        })
     end
 
     for _, fume in ipairs(self.fumes) do
@@ -360,13 +374,15 @@ function TenseIntroDarknessController:draw()
         end
     end
 
+    self:drawLightBurst()
+
     self:drawFumeBatch(fumes)
 
     if #dissolving_fumes > 0 then
-        self:drawDissolvingFumes(dissolving_fumes, disintegration, self.mass_radius, mass_alpha)
+        self:drawDissolvingFumes(dissolving_fumes, disintegration)
     end
 
-    if (disintegration < 0.8) then
+    if not self.banishing or self.light_burst_radius < self.light_burst_max_radius then
         self:drawSolidMass(self.mass_radius, mass_alpha)
     end
 
