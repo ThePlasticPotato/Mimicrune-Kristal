@@ -3017,6 +3017,8 @@ function Battle:updateTransition()
             self.display_soul:setLayer(1003)
             self.display_soul.soul_glow:setLayer(1002)
             self.display_soul.sprite.visible = true
+            self.tense_intro_darkness = Game.stage:addChild(TenseIntroDarknessController(self.display_soul))
+            self.tense_intro_darkness:setLayer(1001)
             --self.display_soul.soul_glow:hide(true)
             self.tense_intro:play()
             self.timer:after(0.25, function ()
@@ -3032,7 +3034,7 @@ function Battle:updateTransition()
             self.timer:afterCond(function () return not self.tense_intro:isPlaying() end, function()
                 self.display_soul:setParent(self)
                 self.display_soul:slideTo(160, 160, 0.25, "in-out-cubic")
-                Game.fader:fadeOut(function () Game.fader:fadeIn({speed = 0.5, music = false}) end, {speed = 0.5, music = false, color = COLORS.white})
+                Game.fader:fadeOut(function () self.timer:after(0.25, function () Game.fader:fadeIn({speed = 0.5, music = false}) end) end, {speed = 1.0, music = false, color = COLORS.white})
                 self.display_soul.soul_glow:setParent(self)
                 self:setState("INTRO")
             end)
@@ -3040,6 +3042,10 @@ function Battle:updateTransition()
         if (self.tense_intro:isPlaying() and self.tense_intro:tell() > 6 and not self.display_soul.soul_visible) then
             self.display_soul.soul_glow:show(true)
             self.display_soul.soul_visible = true
+            if self.tense_intro_darkness then
+                self.tense_intro_darkness:banish()
+                self.tense_intro_darkness = nil
+            end
             self.twisted_darkness = TwistedDarknessController(nil, true, true)
             self.twisted_darkness:setLayer(BATTLE_LAYERS["below_battlers"])
             self:addChild(self.twisted_darkness)
