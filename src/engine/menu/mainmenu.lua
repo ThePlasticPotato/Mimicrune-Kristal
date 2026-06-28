@@ -321,7 +321,7 @@ end
 
 function MainMenu:draw()
     -- Draw the menu background
-    local canvas = Draw.pushCanvas(SCREEN_WIDTH, SCREEN_HEIGHT, { clear = false })
+    local canvas = Draw.pushCanvas(SCREEN_WIDTH, SCREEN_HEIGHT)
 
     --self:drawBackground()
 
