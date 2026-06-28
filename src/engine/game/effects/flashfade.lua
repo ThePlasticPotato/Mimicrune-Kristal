@@ -2,7 +2,7 @@
 ---@overload fun(...) : FlashFade
 local FlashFade, super = Class(Sprite)
 
-function FlashFade:init(texture, x, y)
+function FlashFade:init(texture, x, y, color)
     super.init(self, texture, x, y)
 
     self.flash_speed = 1
@@ -11,7 +11,8 @@ function FlashFade:init(texture, x, y)
 
     self.alpha = 0
 
-    self.color_mask = self:addFX(ColorMaskFX())
+    self.color = color or { 1, 1, 1 }
+    self.color_mask = self:addFX(ColorMaskFX(self.color))
 end
 
 function FlashFade:update()

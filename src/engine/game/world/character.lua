@@ -425,7 +425,8 @@ end
 function Character:alert(duration, options)
     options = options or {}
     if options["play_sound"] == nil or options["play_sound"] then
-        Assets.stopAndPlaySound("alert")
+        local sound_to_use = options["sound"] or "alert"
+        Assets.stopAndPlaySound(sound_to_use)
     end
     local sprite_to_use = options["sprite"] or "effects/alert"
     self.alert_timer = duration and duration * 30 or 20
@@ -519,42 +520,48 @@ function Character:processJump()
 
         self.jump_false_end_x = self.jump_dest_x
         self.jump_false_end_y = self.jump_dest_y
+
         if (self.jump_use_sprites) then
-            self.sprite:set(self.land_sprite)
+            if self.land_sprite == nil then
+                self.sprite:set(self.jump_sprite)
+                self.jump_progress = 2
+            else
+                self.sprite:set(self.land_sprite)
 
-            -- TODO: theres a bunch of offsets here.
+                -- TODO: theres a bunch of offsets here.
 
-            --[[
-            if (landsprite == spr_kris_dw_landed) -- If it's the Kris kneeling one,
-                {
-                    self.x = self.x - 4
-                    self.y = self.y + 2
-                    self.jump_false_end_x  = self.jump_false_end_x  - 8
-                    self.jump_start_x = self.jump_start_x - 8
-                    self.jump_start_y = self.jump_start_y - 8
-                }
-                if (landsprite == spr_susie_dw_landed)
-                {
-                    self.x = self.x - 8
-                    self.jump_false_end_x = self.jump_false_end_x - 8
-                    self.jump_start_x = self.jump_start_x + 12
-                    self.jump_start_y = self.jump_start_y - 12
-                }
-                if (landsprite == spr_teacup_ralsei_land)
-                {
-                    self.y = self.y + 4
-                    self.jump_start_y = self.jump_start_y + 8
-                    self.jump_start_x = self.jump_start_x -  12
-                    self.jump_false_end_x = self.jump_false_end_x - 6
-                    self.jump_false_end_y = self.jump_false_end_y + 4
-                }
-                if (jumpsprite == spr_ralsei_jump)
-                {
-                    shadowoffx = shadowoffx - 10
-                    shadowoffy = shadowoffy - 4
-                }
-            }]]
-            self.jump_progress = 1
+                --[[
+                if (landsprite == spr_kris_dw_landed) -- If it's the Kris kneeling one,
+                    {
+                        self.x = self.x - 4
+                        self.y = self.y + 2
+                        self.jump_false_end_x  = self.jump_false_end_x  - 8
+                        self.jump_start_x = self.jump_start_x - 8
+                        self.jump_start_y = self.jump_start_y - 8
+                    }
+                    if (landsprite == spr_susie_dw_landed)
+                    {
+                        self.x = self.x - 8
+                        self.jump_false_end_x = self.jump_false_end_x - 8
+                        self.jump_start_x = self.jump_start_x + 12
+                        self.jump_start_y = self.jump_start_y - 12
+                    }
+                    if (landsprite == spr_teacup_ralsei_land)
+                    {
+                        self.y = self.y + 4
+                        self.jump_start_y = self.jump_start_y + 8
+                        self.jump_start_x = self.jump_start_x -  12
+                        self.jump_false_end_x = self.jump_false_end_x - 6
+                        self.jump_false_end_y = self.jump_false_end_y + 4
+                    }
+                    if (jumpsprite == spr_ralsei_jump)
+                    {
+                        shadowoffx = shadowoffx - 10
+                        shadowoffy = shadowoffy - 4
+                    }
+                }]]
+                self.jump_progress = 1
+            end
         else
             self.jump_progress = 2
         end
@@ -584,7 +591,9 @@ function Character:processJump()
         end
     end
     if (self.jump_progress == 3) then
-        if (self.jump_use_sprites) then
+        if self.land_sprite == nil then
+            self.jump_sprite_timer = 10 / 30
+        elseif (self.jump_use_sprites) then
             self.sprite:set(self.land_sprite)
             self.jump_sprite_timer = self.jump_sprite_timer + DT
         else

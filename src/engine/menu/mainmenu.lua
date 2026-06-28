@@ -133,19 +133,22 @@ function MainMenu:enter()
         instance = 1
     })
 
-    GitFinder:fetchLatestCommit(function(status, body, headers)
-        if status == nil then return end -- request failed somehow (no SSL?)
-        if status < 200 or status >= 300 then return end -- non-success status code
+    if not RELEASE_MODE then
+        -- We're in an interm build, so check updates
+        GitFinder:fetchLatestCommit(function(status, body, headers)
+            if status == nil then return end -- request failed somehow (no SSL?)
+            if status < 200 or status >= 300 then return end -- non-success status code
 
-        local current_commit = GitFinder:fetchCurrentCommit()
-        if current_commit ~= body then
-            self.ver_string = "v" .. tostring(Kristal.Version)
-            if trimmed_commit then
-                self.ver_string = self.ver_string .. " (" .. trimmed_commit .. ")"
+            local current_commit = GitFinder:fetchCurrentCommit()
+            if current_commit ~= body then
+                self.ver_string = "v" .. tostring(Kristal.Version)
+                if trimmed_commit then
+                    self.ver_string = self.ver_string .. " (" .. trimmed_commit .. ")"
+                end
+                self.ver_string = self.ver_string .. " (outdated!)"
             end
-            self.ver_string = self.ver_string .. " (outdated!)"
-        end
-    end)
+        end)
+    end
 
     if TARGET_MOD then
         self.selected_mod = self.mod_list:getSelectedMod()
@@ -318,7 +321,7 @@ end
 
 function MainMenu:draw()
     -- Draw the menu background
-    local canvas = Draw.pushCanvas(SCREEN_WIDTH, SCREEN_HEIGHT, { clear = false })
+    local canvas = Draw.pushCanvas(SCREEN_WIDTH, SCREEN_HEIGHT)
 
     --self:drawBackground()
 

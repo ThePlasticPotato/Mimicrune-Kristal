@@ -145,6 +145,27 @@ function DarkConfigMenu:update()
         if Input.pressed("confirm") then
             Assets.stopAndPlaySound("ui_select")
 
+            if Kristal.isForcedFullscreen() then
+                if self.currently_selected == 4 then
+                    Kristal.Config["autoRun"] = not Kristal.Config["autoRun"]
+                    return
+                end
+
+                if self.currently_selected == 5 then
+                    self.state = "BORDERS"
+                    return
+                end
+            else
+                if self.currently_selected == 4 then
+                    Kristal.Config["fullscreen"] = not Kristal.Config["fullscreen"]
+                    love.window.setFullscreen(Kristal.Config["fullscreen"])
+                    return
+                elseif self.currently_selected == 5 then
+                    Kristal.Config["autoRun"] = not Kristal.Config["autoRun"]
+                    return
+                end
+            end
+
             if self.currently_selected == 1 then
                 self.state = "VOLUME"
                 self.noise_timer = 0
@@ -153,11 +174,6 @@ function DarkConfigMenu:update()
                 self.currently_selected = 1
             elseif self.currently_selected == 3 then
                 Kristal.Config["simplifyVFX"] = not Kristal.Config["simplifyVFX"]
-            elseif self.currently_selected == 4 then
-                Kristal.Config["fullscreen"] = not Kristal.Config["fullscreen"]
-                love.window.setFullscreen(Kristal.Config["fullscreen"])
-            elseif self.currently_selected == 5 then
-                Kristal.Config["autoRun"] = not Kristal.Config["autoRun"]
             elseif self.currently_selected == 6 then
                 Game:returnToMenu()
             elseif self.currently_selected == 7 then
@@ -212,6 +228,41 @@ function DarkConfigMenu:update()
         end
         if (not Input.down("right")) and (not Input.down("left")) then
             self.noise_timer = 3
+        end
+    elseif self.state == "BORDERS" then
+        if Input.pressed("cancel") or Input.pressed("confirm") then
+            self.state = "MAIN"
+            return
+        end
+
+        local types = Kristal.getBorderTypes()
+
+        local border_index = -1
+        for current_index, border in ipairs(types) do
+            if border[1] == Kristal.Config["borders"] then
+                border_index = current_index
+            end
+        end
+        if border_index == -1 then
+            border_index = 1
+        end
+
+        local old_index = border_index
+        if Input.pressed("left") then
+            border_index = math.max(border_index - 1, 1)
+        end
+        if Input.pressed("right") then
+            border_index = math.min(border_index + 1, #types)
+        end
+
+        if old_index ~= border_index then
+            Kristal.Config["borders"] = types[border_index][1]
+
+            if types[border_index][1] == "off" then
+                Kristal.resetWindow()
+            elseif types[old_index][1] == "off" then
+                Kristal.resetWindow()
+            end
         end
     end
 
@@ -351,7 +402,7 @@ function DarkConfigMenu:draw()
         end
 
         if (self.reset_flash_timer > 0) then
-            Draw.setColor(Utils.mergeColor(PALETTE["world_text_hover"], PALETTE["world_text_selected"],
+            Draw.setColor(ColorUtils.mergeColor(PALETTE["world_text_hover"], PALETTE["world_text_selected"],
                                            ((self.reset_flash_timer / 10) - 0.1)), self.alpha)
         end
 

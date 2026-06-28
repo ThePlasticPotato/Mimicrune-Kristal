@@ -1,5 +1,5 @@
 --- `EnemyBattler`s are a type of `Battler` that represent enemies, defining all their properties and behaviours. \
---- Every enemy defined in a mod should be located in its own file in `scripts/battle/enemies/`, and should extend this class. \
+--- Every enemy defined in a project should be located in its own file in `scripts/battle/enemies/`, and should extend this class. \
 --- Each enemy is assigned an id that defaults to their filepath starting from `scripts/battle/enemies`, unless an id is specified as an argument to `Class()`. \
 --- Enemies are added to battles in the encounter, with [`Encounter:addEnemy(enemy, x, y, ...)`](lua://Encounter.addEnemy), where `enemy` is their unique id, and all enemies for the current battle reside in [`Game.battle.enemies`](lua://Battle.enemies)
 ---
@@ -56,11 +56,11 @@
 ---@field acts              table<table>        *(Used internally)* Stores the data of all ACTs available on this enemy
 ---
 ---@field hurt_timer        number              How long this enemy's hurt sprite should be displayed for when hit
----@field comment           string              The text displayed next to this enemy's name in menu's (such as "(Tired)" in DELTARUNE) 
+---@field comment           string              The text displayed next to this enemy's name in menu's (such as "(Tired)" in DELTARUNE)
 ---@field defeated          boolean             Whether this enemy has been defeated
 ---
 ---@field temporary_mercy           number              The current amount of temporary mercy
----@field temporary_mercy_percent   DamageNumber|nil    The DamageNumber object, used to update the mercy display
+---@field temporary_mercy_percent   DamageNumber?    The DamageNumber object, used to update the mercy display
 ---
 ---@field target_x                  number?
 ---@field target_y                  number?
@@ -174,6 +174,12 @@ function EnemyBattler:getMercyDisplay()
     return math.ceil(self.mercy) .. "%"
 end
 
+--- *(Override)* Get what color this enemy's MERCY should use in the enemy select menu.
+---@return Color
+function EnemyBattler:getMercyColor()
+    return PALETTE["battle_mercy_text"]
+end
+
 --- *(Override)* Get the default graze tension for this enemy.
 --- Any bullets which don't specify graze tension will use this value.
 ---@return number tension The tension to gain when bullets spawned by this enemy are grazed.
@@ -182,7 +188,7 @@ function EnemyBattler:getGrazeTension()
 end
 
 ---@param bool          boolean New tired state
----@param hide_message? boolean Hides the "TIRED" or "AWAKE" message (if it would otherwise have been shown) if set to `true`. 
+---@param hide_message? boolean Hides the "TIRED" or "AWAKE" message (if it would otherwise have been shown) if set to `true`.
 function EnemyBattler:setTired(bool, hide_message)
     local old_tired = self.tired
     self.tired = bool
@@ -190,7 +196,7 @@ function EnemyBattler:setTired(bool, hide_message)
         self.comment = "(Tired)"
         if Game:getConfig("tiredMessages") and not old_tired and not hide_message then
             -- Enemies can't spawn TIRED messages safely until fully initialised and parented.
-            -- To keep this function safe to use in `init()`, we must therefore check `self.parent` exists before trying to spawn the message. 
+            -- To keep this function safe to use in `init()`, we must therefore check `self.parent` exists before trying to spawn the message.
             if self.parent then
                 self:statusMessage("msg", "tired")
                 Assets.playSound("spellcast", 0.5, 0.9)
@@ -210,15 +216,21 @@ end
 ---@param description?  string          The short description of the act that appears in the menu
 ---@param party?        string[]|string A list of party member ids required to use this act. Alternatively, the keyword `"all"` can be used to insert the entire current party
 ---@param tp?           number          An amount of TP required to use this act
----@param highlight?    Battler[]       A list of battlers that will be highlighted when the act is used, overriding default highlighting logic             
+---@param highlight?    Battler[]       A list of battlers that will be highlighted when the act is used, overriding default highlighting logic
 ---@param icons?        string[]        A list of texture paths to icons that will display next to the name of this act (party member heads are drawn automatically as required)
 ---@return table act    The data of the act, also added to the `acts` table
 function EnemyBattler:registerAct(name, description, party, tp, highlight, icons)
     if type(party) == "string" then
         if party == "all" then
             party = {}
-            for _, battler in ipairs(Game.battle.party) do
-                table.insert(party, battler.chara.id)
+            if Game.battle ~= nil then
+                for _, battler in ipairs(Game.battle.party) do
+                    table.insert(party, battler.chara.id)
+                end
+            else
+                for _, chara in ipairs(Game.party) do
+                    table.insert(party, chara.id)
+                end
             end
         else
             party = { party }
@@ -244,15 +256,21 @@ end
 ---@param description?  string          The short description of the act that appears in the menu
 ---@param party?        string[]|string A list of party member ids required to use this act. Alternatively, the keyword `"all"` can be used to insert the entire current party
 ---@param tp?           number          An amount of TP required to use this act
----@param highlight?    Battler[]       A list of battlers that will be highlighted when the act is used, overriding default highlighting logic             
+---@param highlight?    Battler[]       A list of battlers that will be highlighted when the act is used, overriding default highlighting logic
 ---@param icons?        string[]        A list of texture paths to icons that will display next to the name of this act (party member heads are drawn automatically as required)
 ---@return table act    The data of the act, also added to the `acts` table
 function EnemyBattler:registerShortAct(name, description, party, tp, highlight, icons)
     if type(party) == "string" then
         if party == "all" then
             party = {}
-            for _, battler in ipairs(Game.battle.party) do
-                table.insert(party, battler.chara.id)
+            if Game.battle ~= nil then
+                for _, battler in ipairs(Game.battle.party) do
+                    table.insert(party, battler.chara.id)
+                end
+            else
+                for _, chara in ipairs(Game.party) do
+                    table.insert(party, chara.id)
+                end
             end
         else
             party = { party }
@@ -279,14 +297,20 @@ end
 ---@param description?  string          The short description of the act that appears in the menu
 ---@param party?        string[]|string A list of party member ids required to use this act. Alternatively, the keyword `"all"` can be used to insert the entire current party
 ---@param tp?           number          An amount of TP required to use this act
----@param highlight?    Battler[]       A list of battlers that will be highlighted when the act is used, overriding default highlighting logic             
+---@param highlight?    Battler[]       A list of battlers that will be highlighted when the act is used, overriding default highlighting logic
 ---@param icons?        string[]        A list of texture paths to icons that will display next to the name of this act (party member heads are drawn automatically as required)
 function EnemyBattler:registerActFor(char, name, description, party, tp, highlight, icons)
     if type(party) == "string" then
         if party == "all" then
             party = {}
-            for _, battler in ipairs(Game.battle.party) do
-                table.insert(party, battler.chara.id)
+            if Game.battle ~= nil then
+                for _, battler in ipairs(Game.battle.party) do
+                    table.insert(party, battler.chara.id)
+                end
+            else
+                for _, chara in ipairs(Game.party) do
+                    table.insert(party, chara.id)
+                end
             end
         else
             party = { party }
@@ -312,14 +336,20 @@ end
 ---@param description?  string          The short description of the act that appears in the menu
 ---@param party?        string[]|string A list of party member ids required to use this act. Alternatively, the keyword `"all"` can be used to insert the entire current party
 ---@param tp?           number          An amount of TP required to use this act
----@param highlight?    Battler[]       A list of battlers that will be highlighted when the act is used, overriding default highlighting logic             
+---@param highlight?    Battler[]       A list of battlers that will be highlighted when the act is used, overriding default highlighting logic
 ---@param icons?        string[]        A list of texture paths to icons that will display next to the name of this act (party member heads are drawn automatically as required)
 function EnemyBattler:registerShortActFor(char, name, description, party, tp, highlight, icons)
     if type(party) == "string" then
         if party == "all" then
             party = {}
-            for _, battler in ipairs(Game.battle.party) do
-                table.insert(party, battler.id)
+            if Game.battle ~= nil then
+                for _, battler in ipairs(Game.battle.party) do
+                    table.insert(party, battler.chara.id)
+                end
+            else
+                for _, chara in ipairs(Game.party) do
+                    table.insert(party, chara.id)
+                end
             end
         else
             party = { party }
@@ -443,14 +473,8 @@ function EnemyBattler:onSpareable()
 end
 
 --- Adds (or removes) mercy from this enemy
----@param amount number
+---@param amount number The amount of mercy being added (or removed, if set to negative)
 function EnemyBattler:addMercy(amount)
-    if (amount >= 0 and self.mercy >= 100) or (amount < 0 and self.mercy <= 0) then
-        -- We're already at full mercy and trying to add more; do nothing.
-        -- Also do nothing if trying to remove from an empty mercy bar.
-        return
-    end
-
     self.mercy = self.mercy + amount
     if self.mercy < 0 then
         self.mercy = 0
@@ -555,7 +579,7 @@ function EnemyBattler:onMercy(battler)
 end
 
 --- Creates the particular flash effect used when a party member uses mercy on the enemy, but the spare fails
----@param color? table The color the enemy should flash (defaults to yellow)
+---@param color? Color The color the enemy should flash (defaults to yellow)
 function EnemyBattler:mercyFlash(color)
     color = color or { 1, 1, 0 }
 
@@ -599,7 +623,7 @@ function EnemyBattler:getNameColors()
                 end
             end
             if can_pacify then
-                tiredcol = Utils.mergeColor(tiredcol, COLORS.white, 0.5 + math.sin(Game.battle.pacify_glow_timer / 4) * 0.5)
+                tiredcol = ColorUtils.mergeColor(tiredcol, COLORS.white, 0.5 + math.sin(Game.battle.pacify_glow_timer / 4) * 0.5)
             end
         end
         table.insert(result, tiredcol)
@@ -763,7 +787,7 @@ end
 ---@param amount        number                                  The amount of damage the enemy should take
 ---@param battler?      PartyBattler                            The party member dealing this damage
 ---@param on_defeat?    fun(EnemyBattler, number, PartyBattler) A callback to run if the enmy is defeated by this hit
----@param color?        table                                   The color of the damage, overriding the default damage color of the attacker
+---@param color?        Color                                   The color of the damage, overriding the default damage color of the attacker
 ---@param show_status?  boolean                                 Whether to show the damage numbers from this hit
 ---@param attacked?     boolean
 function EnemyBattler:hurt(amount, battler, on_defeat, color, show_status, attacked)
@@ -1104,7 +1128,7 @@ function EnemyBattler:defeat(reason, violent)
             self:setRecruitStatus(false)
         end
     end
-    
+
     if self:isRecruitable() and type(self:getRecruitStatus()) == "number" and (self.done_state == "PACIFIED" or self.done_state == "SPARED") then
         self:setRecruitStatus(self:getRecruitStatus() + 1)
         if Game:getConfig("enableRecruits") then
@@ -1117,7 +1141,7 @@ function EnemyBattler:defeat(reason, violent)
             self:setRecruitStatus(true)
         end
     end
-    
+
     Game.battle.money = Game.battle.money + self.money
     Game.battle.xp = Game.battle.xp + self.experience
 

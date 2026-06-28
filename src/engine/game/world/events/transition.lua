@@ -14,19 +14,19 @@
 --- This object is used to create transitions in the Overworld to shops or other maps. \
 --- `Transition` is an [`Event`](lua://Event.init) - Naming an object `transition` on an `objects` layer in a map creates this object. \
 --- See this object's Fields for the configurable properties on this object.
---- 
+---
 ---@class Transition : Event
 ---
 --- The target of this transition: \
 --- *[Property `map`]* The name of the map to send the player to \
---- OR *[Property `shop`]* The name of the shop to send the player to 
+--- OR *[Property `shop`]* The name of the shop to send the player to
 ---
 --- *[Property `x`]* The x co-ordinate the player should appear at in the new map \
 --- AND *[Property `y`]* The y-co-ordinate the player should appear at in the new map \
 --- OR *[Property `marker`]* The name of the marker to spawn the player at in the new map
---- 
---- *[Property `facing`]* The direction the player and party should face when they spawn in the new map 
----@field target {map: string, shop: string, x: number, y: number, marker: string, facing: string} 
+---
+--- *[Property `facing`]* The direction the player and party should face when they spawn in the new map
+---@field target {map: string, shop: string, x: number, y: number, marker: string, facing: string}
 ---
 ---@field sound string? *[Property `sound`]* An optional sound to play when the player activates this transition
 ---@field pitch number  *[Property `pitch`]* The pitch the entry sound should play at
@@ -66,13 +66,18 @@ function Transition:getDebugInfo()
     if self.target.shop then table.insert(info, "Shop: " .. self.target.shop) end
     if self.target.x then table.insert(info, "X: " .. self.target.x) end
     if self.target.y then table.insert(info, "Y: " .. self.target.y) end
-    if self.target.marker then table.insert(info, "Marker: " .. self.target.marker) end
+    if self.target.marker and type(self.target.marker) == "string" then table.insert(info, "Marker: " .. self.target.marker) end
     if self.target.facing then table.insert(info, "Facing: " .. self.target.facing) end
     return info
 end
 
 function Transition:onEnter(chara)
     if chara.is_player then
+        if chara:isClimbing() then
+            -- TODO: this is some kludge to update the normal direction with the climb direction. maybe find a better way
+            chara:setFacing(chara.climb_state.direction)
+        end
+
         local x, y = self.target.x, self.target.y
         local facing = self.target.facing
         local marker = self.target.marker

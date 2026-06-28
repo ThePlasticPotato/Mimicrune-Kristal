@@ -55,6 +55,7 @@ function PartyBattler:init(chara, x, y)
 
     self.target_sprite = Sprite("ui/battle/chartarget")
     self.target_sprite:play(10 / 30)
+    self.target_sprite.visible = false
     self:addChild(self.target_sprite)
 
     self.targeted = false
@@ -185,7 +186,7 @@ end
 
 ---@param amount    number  The damage of the incoming hit
 ---@param exact?    boolean Whether the damage should be treated as exact damage instead of applying defense and element modifiers
----@param color?    table   The color of the damage number
+---@param color?    Color   The color of the damage number
 ---@param options?  table   A table defining additional properties to control the way damage is taken
 ---|"all"   # Whether the damage being taken comes from a strike targeting the whole party
 ---|"swoon" # Whether the damage should swoon the battler instead of downing them
@@ -230,6 +231,9 @@ function PartyBattler:hurt(amount, exact, color, options)
             local element = 0
             amount = math.ceil((amount * self:getElementReduction(element)))
         end
+        for _, item in ipairs(self.chara:getEquipment()) do
+            amount = item:onBattleDamage(amount, swoon, false) or amount
+        end
 
         self:removeHealth(amount, swoon)
     else
@@ -243,6 +247,9 @@ function PartyBattler:hurt(amount, exact, color, options)
             if self.defending or self.protected then
                 amount = math.ceil((3 * amount) / 4) -- Slightly different than the above
             end
+        end
+        for _, item in ipairs(self.chara:getEquipment()) do
+            amount = item:onBattleDamage(amount, swoon, true) or amount
         end
 
         self:removeHealthBroken(amount, swoon) -- Use a separate function for cleanliness
@@ -376,27 +383,26 @@ end
 ---@param offset_x? number
 ---@param offset_y? number
 ---@param layer?    number
+---@param color?    Color   The color used to draw the flash, defaulting to white
 ---@return FlashFade
-function PartyBattler:flash(sprite, offset_x, offset_y, layer)
-    return super.flash(self, sprite or self.overlay_sprite.visible and self.overlay_sprite or self.sprite, offset_x, offset_y, layer)
+function PartyBattler:flash(sprite, offset_x, offset_y, layer, color)
+    return super.flash(self, sprite or self.overlay_sprite.visible and self.overlay_sprite or self.sprite, offset_x, offset_y, layer, color)
 end
 
 --- Heals the Battler by `amount` health and does healing effects
 ---@param amount            number  The amount of health to restore
 ---@param sparkle_color?    table   The color of the heal sparkles (defaults to the standard green) or false to not show sparkles
 ---@param show_up?          boolean Whether the "UP" status message should show if the battler is revived by the heal
-function PartyBattler:heal(amount, sparkle_color, show_up)
-    Assets.stopAndPlaySound("power")
-
+---@param playsound?        boolean Whether to play a sound when healed
+function PartyBattler:heal(amount, sparkle_color, show_up, playsound)
     amount = math.floor(amount)
 
-    self.chara:setHealth(self.chara:getHealth() + amount)
+    local max_hp = self.chara:heal(amount, playsound)
 
     local was_down = self.is_down
     self:checkHealth(false)
 
-    if self.chara:getHealth() >= self.chara:getStat("health") then
-        self.chara:setHealth(self.chara:getStat("health"))
+    if max_hp then
         self:statusMessage("msg", "max", nil, nil, 8)
     else
         if show_up and was_down ~= self.is_down then
@@ -525,6 +531,18 @@ function PartyBattler:setSprite(sprite, speed, loop, after)
     super.setSprite(self, sprite, speed, loop, after)
 end
 
+--- Show the battler's target sprite to indicate they're being targeted (as long as the target system is enabled.) This is not needed to be called manually in most cases!
+function PartyBattler:showTarget()
+    if (Game:getConfig("targetSystem")) then
+        self.target_sprite.visible = true
+    end
+end
+
+--- Hide the battler's target sprite.
+function PartyBattler:hideTarget()
+    self.target_sprite.visible = false
+end
+
 function PartyBattler:normalizePitch(p)
   if type(p) == "number" then
     return { p }
@@ -573,19 +591,16 @@ function PartyBattler:update()
         self.sprite.x = 0
     end
 
-    self.target_sprite.visible = false
-    if self:isTargeted() then
-        if (Game:getConfig("targetSystem")) and (Game.battle.state == "ENEMYDIALOGUE") then
-            self.target_sprite.visible = true
-        end
-    elseif self.should_darken then
-        if self.darken_timer < 15 then
-            self.darken_timer = self.darken_timer + DTMULT
-        end
-    else
-        if not self.should_darken then
-            if self.darken_timer > 0 then
-                self.darken_timer = self.darken_timer - (3 * DTMULT)
+    if not self:isTargeted() then
+        if self.should_darken then
+            if self.darken_timer < 15 then
+                self.darken_timer = self.darken_timer + DTMULT
+            end
+        else
+            if not self.should_darken then
+                if self.darken_timer > 0 then
+                    self.darken_timer = self.darken_timer - (3 * DTMULT)
+                end
             end
         end
     end

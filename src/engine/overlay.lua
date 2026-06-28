@@ -48,36 +48,36 @@ function Overlay:update()
         self.load_timer = 0
     end
 
-    if love.keyboard.isDown("escape") and not self.quit_release then
-		if Kristal.Config and Kristal.Config["instantQuit"] then
-			if Mod ~= nil then
-				self.quit_release = true
-				if Kristal.getModOption("hardReset") then
-					love.event.quit("restart")
-				else
-					Kristal.returnToMenu()
-				end
-			else
-				love.event.quit()
-			end
-		else
-			if self.quit_alpha < 1 then
-				self.quit_alpha = math.min(1, self.quit_alpha + DT / 0.75)
-			end
-			self.quit_timer = self.quit_timer + DT
-			if self.quit_timer > 1.2 then
-				if Mod ~= nil then
-					self.quit_release = true
-					if Kristal.getModOption("hardReset") then
-						love.event.quit("restart")
-					else
-						Kristal.returnToMenu()
-					end
-				else
-					love.event.quit()
-				end
-			end
-		end
+    if Input.keyDown("escape") and not self.quit_release then
+        if Kristal.Config and Kristal.Config["instantQuit"] then
+            if Mod ~= nil then
+                self.quit_release = true
+                if Kristal.getModOption("hardReset") then
+                    love.event.quit("restart")
+                else
+                    Kristal.returnToMenu()
+                end
+            else
+                love.event.quit()
+            end
+        else
+            if self.quit_alpha < 1 then
+                self.quit_alpha = math.min(1, self.quit_alpha + DT / 0.75)
+            end
+            self.quit_timer = self.quit_timer + DT
+            if self.quit_timer > 1.2 then
+                if Mod ~= nil then
+                    self.quit_release = true
+                    if Kristal.getModOption("hardReset") then
+                        love.event.quit("restart")
+                    else
+                        Kristal.returnToMenu()
+                    end
+                else
+                    love.event.quit()
+                end
+            end
+        end
     else
         self.quit_timer = 0
         if self.quit_alpha > 0 then
@@ -85,7 +85,7 @@ function Overlay:update()
         end
     end
 
-    if self.quit_release and not love.keyboard.isDown("escape") then
+    if self.quit_release and not Input.keyDown("escape") then
         self.quit_release = false
     end
 end

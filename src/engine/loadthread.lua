@@ -44,6 +44,7 @@ function resetData()
             font_settings = {},
             sounds = {},
             sound_data = {},
+            sound_settings = {},
             music = {},
             videos = {},
             shaders = {},

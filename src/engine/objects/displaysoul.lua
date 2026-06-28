@@ -4,7 +4,7 @@ local DisplaySoul, super = Class(Object)
 
 function DisplaySoul:init(x, y)
     super.init(self, x, y, 16, 16)
-    self.sprite = self:addChild(Sprite("player/heart_dodge", 0, 0))
+    self.sprite = self:addChild(Sprite("player/heart", 0, 0))
     self.sprite:setOrigin(0.5, 0.5)
     self.sprite:setColor(Kristal.getSoulColor())
     self.pos_offset = 0
@@ -18,12 +18,14 @@ end
 
 function DisplaySoul:onAdd(parent)
     super.onAdd(self, parent)
-    parent:addChild(self.soul_glow)
+    self.soul_glow:setParent(parent)
 end
 
 function DisplaySoul:onRemove(parent)
     super.onRemove(self, parent)
-    self.soul_glow:remove()
+    if not self.parent then
+        self.soul_glow:remove()
+    end
 end
 
 function DisplaySoul:flipVisible(sound)

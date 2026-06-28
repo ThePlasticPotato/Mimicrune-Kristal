@@ -53,7 +53,7 @@
 ---
 ---@field component_stack Component[]
 ---
----@field button_sprites table<string, string|{switch:string|nil, ps4:string|nil, xbox:string|nil}>
+---@field button_sprites table<string, string|{switch:string?, ps4:string?, xbox:string?}>
 ---
 local Input = {}
 local self = Input
@@ -184,7 +184,7 @@ end
 
 ---@param key string
 ---@param gamepad? boolean
----@return (string|string[])[]|nil
+---@return (string|string[])[]?
 function Input.getBoundKeys(key, gamepad)
     if gamepad == nil then
         local key_bindings = Input.key_bindings[key]
@@ -522,7 +522,7 @@ end
 
 ---@param alias string
 ---@param gamepad? boolean
----@return string|string[]|nil
+---@return string|string[]?
 function Input.getPrimaryBind(alias, gamepad)
     if gamepad == nil then
         gamepad = Input.usingGamepad()
@@ -533,7 +533,7 @@ end
 
 ---@param key? string
 ---@param clear_down? boolean
----@return boolean|nil
+---@return boolean?
 function Input.clear(key, clear_down)
     if key then
         local bindings = Input.getBoundKeys(key)
@@ -1058,19 +1058,50 @@ function Input.getTexture(alias, gamepad)
     return Assets.getTexture("kristal/buttons/unknown")
 end
 
----@return "switch"|"ps4"|"xbox"|nil
+--- Returns the type of the current gamepad, or nil if none connected.
+---
+--- Defaults to "xbox" if no gamepad is connected, or if the type cannot be determined.
+---@return "switch"|"ps4"|"xbox"?
 function Input.getControllerType()
-    if not Input.connected_gamepad then return nil end
+    local gamepad = Input.connected_gamepad
 
-    local name = Input.connected_gamepad:getName():lower()
+    if gamepad == nil then
+        return nil
+    end
 
-    local con = function(str) return StringUtils.contains(name, str) end
+    local major, _, _, _ = love.getVersion()
+
+    if major >= 12 then
+        -- Simple optimization for LÖVE 12+
+
+        ---@diagnostic disable-next-line: undefined-field
+        local type = gamepad:getGamepadType()
+
+        if type == "switchpro" or type == "joyconleft" or type == "joyconright" or type == "joyconpair" then
+            return "switch"
+        end
+
+        if type == "ps3" or type == "ps4" or type == "ps5" then
+            return "ps4"
+        end
+
+        return "xbox" -- unknown, xbox360, xboxone, amazonluna, stadia, virtual, shield
+    end
+
+    -- We're on 11.5 unfortunately... gotta do it the hard way
+
+    local name = gamepad:getName():lower()
+
+    local con = function(str) return string.find(name, str, 1) ~= nil end
+
     if con("nintendo") or con("switch") or con("joy-con") or con("wii") or con("gamecube") or con("nso") or con("nes") then
         return "switch"
     end
+
     if con("sony") or con("playstation") or con("%f[%a]ps") or con("dualshock") or con("dualsense") or con("dualforce") then
         return "ps4"
     end
+
     return "xbox"
 end
 

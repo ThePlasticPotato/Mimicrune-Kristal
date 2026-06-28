@@ -22,7 +22,7 @@ function item:init()
     -- Default shop price (sell price is halved)
     self.price = 0
     -- Whether the item can be sold
-    self.can_sell = true
+    self.can_sell = false
 
     -- Consumable target mode (ally, party, enemy, enemies, or none)
     self.target = "none"
@@ -64,6 +64,10 @@ function item:init()
 end
 
 function item:convertToLightEquip(chara)
+    return "light/blackshard"
+end
+
+function item:convertToLight(inventory)
     return "light/blackshard"
 end
 

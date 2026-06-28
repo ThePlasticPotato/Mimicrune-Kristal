@@ -20,8 +20,10 @@ function character:init()
         self.title = "Dark Prince\nDark-World being.\nHas friends now."
     elseif Game.chapter == 3 then
         self.title = "Dark Prince\nDark-World being.\nHas friends."
-    else
+    elseif Game.chapter == 4 then
         self.title = "Dark Hero\nRecords and faces\nthe fate."
+    elseif Game.chapter >= 5 then
+        self.title = "Artemisia\nGoes well with tea."
     end
 
     -- Determines which character the soul comes from (higher number = higher priority)
@@ -49,8 +51,10 @@ function character:init()
         self.health = 100
     elseif Game.chapter == 3 then
         self.health = 140
-    else
+    elseif Game.chapter == 4 then
         self.health = 180
+    elseif Game.chapter >= 5 then
+        self.health = 210
     end
 
     -- Base stats (saved to the save file)
@@ -66,21 +70,28 @@ function character:init()
             health = 100,
             attack = 10,
             defense = 2,
-            magic = 9,
+            magic = 9
         }
     elseif Game.chapter == 3 then
         self.stats = {
             health = 140,
             attack = 12,
             defense = 2,
-            magic = 11,
+            magic = 11
         }
-    else
+    elseif Game.chapter == 4 then
         self.stats = {
             health = 180,
             attack = 15,
             defense = 2,
-            magic = 14,
+            magic = 14
+        }
+    elseif Game.chapter >= 5 then
+        self.stats = {
+            health = 210,
+            attack = 15,
+            defense = 2,
+            magic = 14
         }
     end
     -- Max stats from level-ups
@@ -94,14 +105,24 @@ function character:init()
         }
     elseif Game.chapter == 3 then
         self.max_stats = {
-            health = 180
+            health = 180,
+            attack = 14,
+            magic = 13
         }
-    else
+    elseif Game.chapter == 4 then
         self.max_stats = {
-            health = 210
+            health = 210,
+            attack = 17,
+            magic = 16
+        }
+    elseif Game.chapter >= 5 then
+        self.max_stats = {
+            health = 210,
+            attack = 17,
+            magic = 16
         }
     end
-    
+
     -- Party members which will also get stronger when this character gets stronger, even if they're not in the party
     self.stronger_absent = {"kris","susie","ralsei"}
 
@@ -119,10 +140,14 @@ function character:init()
         self:setWeapon("fiberscarf")
         self:setArmor(1, "amber_card")
         self:setArmor(2, "glowwrist")
-    elseif Game.chapter >= 4 then
+    elseif Game.chapter == 4 then
         self:setWeapon("flexscarf")
         self:setArmor(1, "gingerguard")
         self:setArmor(2, "glowwrist")
+    elseif Game.chapter >= 5 then
+        self:setWeapon("flexscarf")
+        self:setArmor(1, "gingerguard")
+        self:setArmor(2, "gingerguard")
     end
 
     -- Default light world equipment item IDs (saves current equipment)
@@ -192,7 +217,7 @@ function character:onLevelUp(level)
 end
 
 function character:onPowerSelect(menu)
-    if MathUtils.random() <= 0.03 then
+    if MathUtils.random() < 0.02 then
         menu.ralsei_dog = true
     else
         menu.ralsei_dog = false
@@ -231,7 +256,7 @@ function character:drawPowerStat(index, x, y, menu)
 
         Draw.draw(icon, x+130, y+6, 0, 2, 2)
         -- Ralsei loses bonus fluffiness in Chapter 3
-        if Game.chapter == 2 then
+        if (Game.chapter == 1 and self:checkWeapon("daintyscarf")) or Game.chapter == 2 then
             Draw.draw(icon, x+150, y+6, 0, 2, 2)
         end
         return true

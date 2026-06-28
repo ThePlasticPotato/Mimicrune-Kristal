@@ -4,8 +4,8 @@
 ---@class WorldCutscene : Cutscene
 ---
 ---@field textbox           Textbox     The current Textbox object, if it is active.
----@field textbox_actor     Actor       The current speaker in the cutscene. 
----@field textbox_speaker   ActorSprite The ActorSprite of the current speaker.  
+---@field textbox_actor     Actor       The current speaker in the cutscene.
+---@field textbox_speaker   ActorSprite The ActorSprite of the current speaker.
 ---@field textbox_top       boolean     Whether the textbox should display at the top of the screen instead of the bottom.
 ---
 ---@field choicebox Choicebox   The current choicer object, if it is active.
@@ -114,14 +114,14 @@ end
 --- Gets a specific character currently present in the world.
 ---@param id        string  The actor id of the character to search for.
 ---@param index?    number  The character's index, if they have multiple instances in the world. (Defaults to 1)
----@return Character|nil chara The character instance, or `nil` if it was not found.
+---@return Character? chara The character instance, or `nil` if it was not found.
 function WorldCutscene:getCharacter(id, index)
     return self.world:getCharacter(id, index)
 end
 
 --- Gets a specific event present in the current map.
 ---@param id string|number  The unique numerical id of an event OR the text id of an event type to get the first instance of.
----@return Event event The event instnace, or `nil` if it was not found. 
+---@return Event event The event instance, or `nil` if it was not found.
 function WorldCutscene:getEvent(id)
     return self.world.map:getEvent(id)
 end
@@ -190,7 +190,7 @@ function WorldCutscene:alignFollowers(facing, x, y, dist)
 end
 
 --- Adds all followers' current positions to their movement history. \
---- If followers are added or moved by the cutscene, call this at the end to prevent them from warping. 
+--- If followers are added or moved by the cutscene, call this at the end to prevent them from warping.
 function WorldCutscene:interpolateFollowers()
     self.world.player:interpolateFollowers()
 end
@@ -324,7 +324,7 @@ function WorldCutscene:setSprite(chara, sprite, speed)
     end
 end
 
---- Sets the animation of a particular character. 
+--- Sets the animation of a particular character.
 ---@param chara string|Character        The Character or character id to change the animation of.
 ---@param anim? string                  The name of the animation to be set.
 ---@return fun() : boolean finished A function that returns `true` once the animation has finished.
@@ -412,7 +412,7 @@ end
 --- Slides an object along a path.
 ---@param obj       Object|string   The object instance or id of a character to slide.
 ---@param path      string|table    The name of a path in the current map file, or a table defining several points (as additional tables) that constitute a path.
----@param options?  table           A table defining additional properties that the slide should use.
+---@param options   table?          A table defining additional properties that the slide should use.
 ---| "time" # The amount of time, in seconds, that the object should take to travel along the full path.
 ---| "speed" # The speed at which the object should travel along the path, in pixels per frame at 30FPS.
 ---| "ease" # The ease type to use when travelling along the path. Unused if `speed` is specified instead of `time`. (Defaults to "linear")
@@ -460,11 +460,11 @@ function WorldCutscene:jumpTo(chara, ...)
 end
 
 --- Shakes a character by the specified `x`, `y`.
----@param chara     string|Character    The character being shaken. Accepts either a Character instance or the id of a character.
----@param x?        number              The amount of shake in the `x` direction. (Defaults to `4`)
----@param y?        number              The amount of shake in the `y` direction. (Defaults to `0`)
----@param friction? number              The amount that the shake should decrease by, per frame at 30FPS. (Defaults to `1`)
----@param delay?    number              The time it takes for the object to invert its shake direction, in seconds. (Defaults to `1/30`)
+---@param chara    string|Character    The character being shaken. Accepts either a Character instance or the id of a character.
+---@param x        number?             The amount of shake in the `x` direction. (Defaults to `4`)
+---@param y        number?             The amount of shake in the `y` direction. (Defaults to `0`)
+---@param friction number?             The amount that the shake should decrease by, per frame at 30FPS. (Defaults to `1`)
+---@param delay    number?             The time it takes for the object to invert its shake direction, in seconds. (Defaults to `1/30`)
 ---@return fun() : boolean finished A function that returns `true` once the shake value has returned to 0.
 function WorldCutscene:shakeCharacter(chara, x, y, friction, delay)
     if type(chara) == "string" then
@@ -475,9 +475,9 @@ function WorldCutscene:shakeCharacter(chara, x, y, friction, delay)
 end
 
 --- Shakes the camera by the specified `x`, `y`.
----@param x?        number      The amount of shake in the `x` direction. (Defaults to `4`)
----@param y?        number      The amount of shake in the `y` direction. (Defaults to `4`)
----@param friction? number      The amount that the shake should decrease by, per frame at 30FPS. (Defaults to `1`)
+---@param x        number?      The amount of shake in the `x` direction. (Defaults to `4`)
+---@param y        number?      The amount of shake in the `y` direction. (Defaults to `4`)
+---@param friction number?      The amount that the shake should decrease by, per frame at 30FPS. (Defaults to `1`)
 ---@return fun() : boolean finished    A function that returns `true` once the shake value has returned to `0`.
 function WorldCutscene:shakeCamera(x, y, friction)
     self.world.camera:shake(x, y, friction)
@@ -487,15 +487,15 @@ end
 --- Creates an alert bubble above a character.
 ---@param chara     string|Character    The character or character id to trigger an alert bubble for.
 ---@param ...       unknown             Arguments to be passed to Character:alert().
+---@return fun()    finished            A function that returns `true` once the alert icon has disappeared.
 ---@return Sprite   alert_icon          The result alert icon created above the character's head.
----@return fun()    finished            A function that returns `true` once the alert icon has disappeared. \
 ---@see Character.alert for details on the arguments to pass to this function.
 function WorldCutscene:alert(chara, ...)
     if type(chara) == "string" then
         chara = self:getCharacter(chara)
     end
     local function waitForAlertRemoval() return chara.alert_icon == nil or chara.alert_timer == 0 end
-    return chara:alert(...), waitForAlertRemoval
+    return waitForAlertRemoval, chara:alert(...)
 end
 
 --- Detaches the camera from the player character.
@@ -518,8 +518,8 @@ function WorldCutscene:attachCameraImmediate()
 end
 
 --- Sets the current speaker for dialogue boxes in this cutscene.
----@param actor?    Actor|Character|string    The Character instance or character id to set as the speaker.
----@param talk?     boolean             If `false`, the actor of the textbox will be set, but not the speaking character in the world for talking animations.
+---@param actor    Actor|Character|string?    The Character instance or character id to set as the speaker.
+---@param talk     boolean?             If `false`, the actor of the textbox will be set, but not the speaking character in the world for talking animations.
 function WorldCutscene:setSpeaker(actor, talk)
     if isClass(actor) and actor:includes(Character) then
         if talk ~= false then
@@ -647,14 +647,14 @@ function WorldCutscene:mapTransition(...)
 end
 
 --- Loads into a new map file.
----@overload fun(self: WorldCutscene, map: string, x: number, y: number, facing?: string, callback?: string, ...: any)
----@overload fun(self: WorldCutscene, map: string, marker?: string, facing?: string, callback?: string, ...: any)
+---@overload fun(self: WorldCutscene, map: string, x: number, y: number, facing: string?, callback: string?, ...: any)
+---@overload fun(self: WorldCutscene, map: string, marker: string?, facing: string?, callback: string?, ...: any)
 ---@param map       string      The name of the map file to load.
 ---@param x         number      The x-coordinate the player will spawn at in the new map.
 ---@param y         number      The y-coordinate the player will spawn at in the new map.
----@param marker?   string      The name of the marker the player will spawn at in the new map. Defaults to `"spawn"`
----@param facing?   string      The direction the party should be facing when they spawn in the new map.
----@param callback? fun()       A callback to run once the map has finished loading (Post Map:onEnter())
+---@param marker    string?      The name of the marker the player will spawn at in the new map. Defaults to `"spawn"`
+---@param facing    string?      The direction the party should be facing when they spawn in the new map.
+---@param callback  fun()?       A callback to run once the map has finished loading (Post Map:onEnter())
 ---@param ... unknown           Additional arguments that will be passed forward into Map:onEnter().
 function WorldCutscene:loadMap(...)
     self.world:loadMap(...)
@@ -712,7 +712,7 @@ end
 
 -- DOC Note: WorldCutscene:text() is a chunky function (for good reason) but
 -- there's two optional properties - "functions" and "reactions", that are
--- woefully large (and honestly i just copied and tweaked the GitHub wiki 
+-- woefully large (and honestly i just copied and tweaked the GitHub wiki
 -- descriptions) and they don't just appear here (see BattleCutscene:text())
 -- we could do with somewhere dedicated to these two because it REALLY feels like
 -- they aren't done justice here. Seeing their relation with text - it'd be nice
@@ -722,13 +722,13 @@ end
 local function waitForTextbox(self) return not self.textbox or self.textbox:isDone() end
 --- Creates a new textbox and starts typing the given `text` into it. \
 --- Will pause the cutscene until the textbox is closed, unless otherwise specified via `options`.
----@overload fun(self: WorldCutscene, text: string|string[], options?: table) : (finished:(fun():boolean), textbox: Textbox?)
----@overload fun(self: WorldCutscene, text: string|string[], portrait?: string, options?: table) : (finished:(fun():boolean), textbox: Textbox?)
----@param text      string|string[]             The text to be typed.
----@param portrait? string|nil                  The name of the character portrait to use for this textbox.
----@param actor?    Character|Actor|string|nil  The Character/Actor to be used for voice bytes and portraits, overriding the active cutscene speaker.
----@param options?  table                       A table definining additional properties to control the textbox.
----|"talk"      # If a `Character` instance is attached to the textbox, whether they should use their talk sprite in world. 
+---@overload fun(self: WorldCutscene, text: string|string[], options: table?) : (finished:(fun():boolean), textbox: Textbox?)
+---@overload fun(self: WorldCutscene, text: string|string[], portrait: string?, options: table?) : (finished:(fun():boolean), textbox: Textbox?)
+---@param text      string|string[]         The text to be typed.
+---@param portrait string?                  The name of the character portrait to use for this textbox.
+---@param actor    Character|Actor|string?  The Character/Actor to be used for voice bytes and portraits, overriding the active cutscene speaker.
+---@param options  table?                   A table definining additional properties to control the textbox.
+---|"talk"      # If a `Character` instance is attached to the textbox, whether they should use their talk sprite in world.
 ---|"top"       # Override for the default textbox position, defining whether the textbox should appear at the top of the screen.
 ---|"x"         # The x-offset of the dialgoue portrait.
 ---|"y"         # The y-offset of the dialogue portrait.
@@ -873,7 +873,7 @@ local function waitForChoicer(self) return self.choicebox.done, self.choicebox.s
 ---|"highlight" # The color to highlight the selected choice in, or a table of colors to highlight different choices in when selected. (Defaults to `COLORS.yellow`)
 ---|"wait"      # Whether the cutscene should automatically suspend itself until the player makes their choice. (Defaults to `true`)
 ---@return number|function selected The index of the selected item if the cutscene has been set to wait for the choicer, otherwise a boolean that states whether the player has made their choice.
----@return Choicebox? choicer The choicebox object for this choicer. Only returned if wait is `false`. 
+---@return Choicebox? choicer The choicebox object for this choicer. Only returned if wait is `false`.
 function WorldCutscene:choicer(choices, options)
     self:closeText()
 
@@ -915,10 +915,10 @@ local function waitForTextChoicer(self) return not self.textchoicebox or self.te
 --- Creates a Text Choicer - A textbox that includes both dialogue and a choicer.
 ---@param text      string                      The text to be typed.
 ---@param choices   table                       A table of strings specifying the choices the player can select.
----@param portrait? string|nil                  The name of the character portrait to use for this textbox.
----@param actor?    Character|Actor|string|nil  The Character/Actor to be used for voice bytes and portraits, overriding the active cutscene speaker.
+---@param portrait? string?                  The name of the character portrait to use for this textbox.
+---@param actor?    Character|Actor|string?  The Character/Actor to be used for voice bytes and portraits, overriding the active cutscene speaker.
 ---@param options?  table                       A table definining additional properties to control the textbox.
----|"talk"      # If a `Character` instance is attached to the textbox, whether they should use their talk sprite in world. 
+---|"talk"      # If a `Character` instance is attached to the textbox, whether they should use their talk sprite in world.
 ---|"top"       # Override for the default textbox position, defining whether the textbox should appear at the top of the screen.
 ---|"x"         # The x-offset of the dialgoue portrait.
 ---|"y"         # The y-offset of the dialogue portrait.

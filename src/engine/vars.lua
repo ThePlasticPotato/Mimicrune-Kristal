@@ -24,6 +24,8 @@ FOLLOW_DELAY = 0.4
 
 BATTLE_LAYERS = {
     ["bottom"]         = -1000,
+    ["background"]     = -750,
+    ["darkener"]       = -500,
     ["below_battlers"] = -200,
     ["battlers"]       = -100,
     ["above_battlers"] = 0, --┰-- 0
@@ -126,9 +128,11 @@ local palette_data = {
     ["tension_back_reduced"] = { 0, 0, 128 / 255, 1 },
     ["tension_decrease_reduced"] = { 0, 0, 1, 1 },
     ["tension_fill_reduced"] = { 0, 63 / 255, 191 / 255, 1 },
-    ["tension_max_reduced"] = { 0, 95 / 255, 159 / 255, 1 }
+    ["tension_max_reduced"] = { 0, 95 / 255, 159 / 255, 1 },
+    ["tension_maxtext_reduced"] = { 1, 1, 0, 1 },
+    ["tension_desc_reduced"] = { 255 / 255, 160 / 255, 64 / 255, 1 }
 }
----@type table<PaletteIndex, number[]>
+---@type table<PaletteIndex, Color>
 PALETTE = {}
 setmetatable(PALETTE, {
     __index = function(t, i) return Kristal.callEvent(KRISTAL_EVENT.getPaletteColor, i) or palette_data[i] end,
@@ -201,7 +205,7 @@ KRISTAL_EVENT = {
     --menu events--
     createMenu = "createMenu", -- returns optional custom overworld menu / at: World:createMenu() / passes: NONE / returns: nil|Object
     getDarkMenuButtons = "getDarkMenuButtons", -- optional creation of buttons for custom dark world menu / at: DarkMenu:init() / passes: table:buttons, DarkMenu:self / returns: nil|table
-    getUISkin = "getUISkin", --optional default UI skin key / at: UIBox:init(x, y, width, height, skin) / passes: NONE / returns: nil|string
+    getUISkin = "getUISkin", --optional default UI skin key / at: UIBox:init(x, y, width, height, skin) / passes: skin:string / returns: nil|string
     onDarkMenuOpen = "onDarkMenuOpen",  -- dark world menu is opened / at: DarkMenu:onAdd(parent) / passes: DarkMenu:self / returns: NONE
 
     --discordrpc events--
@@ -225,6 +229,7 @@ KRISTAL_EVENT = {
     --gameplay events--
     onBorderDraw = "onBorderDraw", -- game border draw time / at: [HOOK]love.draw(...)J\love.load(args) / passes: string:border, love.Image:border_texture / returns: NONE
     onFootstep = "onFootstep", -- character walk cycle advances / at: Character:onFootstep(num) / passes: Character:self, int:num / returns: NONE
+    onGameOver = "onGameOver", -- overrides game over / at: Game:gameOver(x, y) / passes: int:x, int:y / returns: nil|bool
 
     --game variable events--
     getConfig = "getConfig", -- intercept mod's config value / at: Game:getConfig(key, merge, deep_merge) / passes: string:key / returns: nil|any
@@ -264,7 +269,7 @@ KRISTAL_EVENT = {
 
     --map events--
     loadLayer = "loadLayer", -- overrides the map loading the tile layer data on layer depth, when true / at: Map:loadMapData(data) / passes: Map:self, table:layer, number:depth / returns: bool
-    onMapBorder = "onMapBorder", -- intercept game border for this map / at: World:setupMap(map, ...), World:mapTransition(...) / passes: Map:map, string:map_music/ returns: string
+    onMapBorder = "onMapBorder", -- intercept game border for this map / at: World:setupMap(map, ...), World:mapTransition(...) / passes: Map:map, string:map_border / returns: string
     onMapMusic = "onMapMusic", -- intercept game border for this map / at: World:setupMap(map, ...), World:mapTransition(...) / passes: Map:map, string:map_music / returns: string
     loadObject = "loadObject", -- overrides loading an object / at: Map:loadObjects(data) / passes: World:self, name:string, table:data / returns: Event?
 

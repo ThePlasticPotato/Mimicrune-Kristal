@@ -86,7 +86,7 @@ function LightInventory:convertToDark()
     end
 
     new_inventory.storage_enabled = was_storage_enabled
-    
+
     Game.light_inventory = self
 
     return new_inventory
@@ -98,7 +98,7 @@ function LightInventory:getDarkInventory()
     if not self:hasItem("light/ball_of_junk") then
         self:addItem("light/ball_of_junk")
     end
-    
+
     return Game.dark_inventory
 end
 
@@ -121,7 +121,7 @@ end
 
 ---@param item              Item|string
 ---@param ignore_dark?      boolean     Whether to add the item to this inventory even if it is a Dark item
----@return Item|nil
+---@return Item?
 function LightInventory:addItem(item, ignore_dark)
     if type(item) == "string" then
         item = Registry.createItem(item)

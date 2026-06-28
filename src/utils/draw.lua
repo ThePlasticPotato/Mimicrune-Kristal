@@ -24,9 +24,9 @@ Draw._scissor_stack = {}
 Draw._shader_stack = {}
 
 ---@class Draw.canvasOptions
----@field clear boolean|nil
----@field stencil boolean|nil
----@field keep_transform boolean|nil
+---@field clear boolean?
+---@field stencil boolean?
+---@field keep_transform boolean?
 
 ---@overload fun(options?: Draw.canvasOptions) : love.Canvas
 ---@overload fun(canvas: love.Canvas, options?: Draw.canvasOptions) : love.Canvas
@@ -509,13 +509,11 @@ function Draw.drawMenuRectangle(x, y, width, height)
     love.graphics.setLineWidth(1)
     love.graphics.setLineStyle("rough")
 
-    local extra = Kristal.Config["brokenMenuBoxes"] and 0 or 1
-
     -- Draw the rectangles
     love.graphics.rectangle("line", x, y, width + 1, height + 1)
-    love.graphics.rectangle("line", x - 1, y - 1, width + 2 + extra, height + 2 + extra)
+    love.graphics.rectangle("line", x - 1, y - 1, width + 3, height + 3)
     love.graphics.rectangle("line", x - 2, y - 2, width + 5, height + 5)
-    love.graphics.rectangle("line", x - 3, y - 3, width + 6 + extra, height + 6 + extra)
+    love.graphics.rectangle("line", x - 3, y - 3, width + 7, height + 7)
 end
 
 return Draw

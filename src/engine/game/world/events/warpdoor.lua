@@ -1,7 +1,7 @@
 --- Warp Doors allow for fast travel between Overworld locations. \
 --- `WarpDoor` is an [`Event`](lua://Event.init) - naming an object `warpdoor` on an `objects` layer in a map creates this object. \
 --- See this object's Fields for the configurable properties on this object.
---- 
+---
 ---@class WarpDoor : Event
 ---
 ---@field solid         boolean
@@ -85,9 +85,7 @@ function WarpDoor:onInteract(chara, facing)
                     self.light:remove()
                     cutscene:text("* (The door opened...)")
                     cutscene:wait(0.2) -- 6/30
-                    for key,_ in pairs(Assets.sound_instances) do
-                        Assets.stopSound(key, true)
-                    end
+                    Assets.stopAllSounds()
                     Assets.playSound("doorclose")
                     Game.world.music:stop()
                     Game.world.fader:fadeOut(nil, {

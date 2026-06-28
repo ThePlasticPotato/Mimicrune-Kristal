@@ -94,8 +94,7 @@ Event.onHit = nil
 
 --- *(Override)* Called every frame the player and event are colliding with each other
 ---@param player    Player
----@param DT        number
-function Event:onCollide(player, DT)
+function Event:onCollide(player)
     -- Do stuff every frame the player collides with the object
 end
 
@@ -154,7 +153,7 @@ function Event:onRemove(parent)
     end
 end
 
---- Gets this `Event` instance's unique id within the whole mod
+--- Gets this `Event` instance's unique id within the whole project
 --- *The returned id follows the format `#[map.id](lua://Map.id)#[object_id](lua://Event.object_id)` if a custom [`unique_id`](lua://Event.unique_id) is not defined*
 ---@return string? id
 function Event:getUniqueID()
@@ -269,16 +268,21 @@ end
 ---@param offset_x? number
 ---@param offset_y? number
 ---@param layer?    number
+---@param color?    Color   The color used to draw the flash, defaulting to white
 ---@return FlashFade
-function Event:flash(sprite, offset_x, offset_y, layer)
+function Event:flash(sprite, offset_x, offset_y, layer, color)
     local sprite_to_use = sprite or self.sprite
-    return sprite_to_use:flash(offset_x, offset_y, layer)
+    return sprite_to_use:flash(offset_x, offset_y, layer, color)
+end
+
+function Event:drawDebug()
+    self.collider:draw(1, 0, 1)
 end
 
 function Event:draw()
     super.draw(self)
     if DEBUG_RENDER then
-        self.collider:draw(1, 0, 1)
+        self:drawDebug()
     end
 end
 

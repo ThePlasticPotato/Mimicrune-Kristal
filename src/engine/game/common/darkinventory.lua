@@ -42,7 +42,7 @@ function DarkInventory:convertToLight()
 
     local was_storage_enabled = new_inventory.storage_enabled
     new_inventory.storage_enabled = true
-    
+
     for k,storage in pairs(self:getLightInventory().storages) do
         for i = 1, storage.max do
             if storage[i] then
@@ -92,7 +92,7 @@ function DarkInventory:convertToLight()
     end
 
     new_inventory.storage_enabled = was_storage_enabled
-    
+
     Game.dark_inventory = self
 
     return new_inventory
@@ -114,7 +114,7 @@ end
 
 ---@param item              Item|string
 ---@param ignore_light?     boolean     Whether to add the item to this inventory even if it is a Light item
----@return Item|nil
+---@return Item?
 function DarkInventory:addItem(item, ignore_light)
     if type(item) == "string" then
         item = Registry.createItem(item)

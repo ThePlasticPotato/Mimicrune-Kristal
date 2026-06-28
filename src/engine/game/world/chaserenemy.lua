@@ -6,7 +6,7 @@
 ---
 ---@field encounter string *[Property `encounter`]* The encounter ID that will trigger when the player collides with the enemy.
 ---@field enemy string *[Property `enemy`]* The actor ID to use for this enemy.
----@field group string *[Property `group`]* An arbitrary ID that can be be used to group enemies together in a room. When one enemy in a group is defeated, all enemies in the group are defeated as well. 
+---@field group string *[Property `group`]* An arbitrary ID that can be be used to group enemies together in a room. When one enemy in a group is defeated, all enemies in the group are defeated as well.
 ---
 ---@field path string *[Property `path`]* The name of a path shape in the current map that the enemy will follow.
 ---@field speed number *[Property `speed`]* The speed that the enemy will move along the path specified in `path`, if defined.
@@ -32,11 +32,11 @@
 ---
 ---@field once boolean *[Property `once`]* Whether this enemy can only be encountered once (Will not respawn when the room reloads) (Defaults to `false`)
 ---
----@field aura boolean *[Property `aura`]* Whether this enemy will have an aura around it as seen with enemies in Deltarune Chapter 2. Overrides the mod-wide config for enemy auras.
+---@field aura boolean *[Property `aura`]* Whether this enemy will have an aura around it as seen with enemies in Deltarune Chapter 2. Overrides the project-wide config for enemy auras.
 ---
 ---*[Property `actor`]* Actor to use for this enemy \
 ---*[Property `sprite` or `animation`]* Default sprite/animation to set on this enemy
----@field sprite ActorSprite 
+---@field sprite ActorSprite
 ---
 ---@field chase_timer number
 ---@field pace_timer number
@@ -93,7 +93,7 @@ function ChaserEnemy:init(actor, x, y, properties)
     self.pace_type = properties["pacetype"]
     self.pace_marker = TiledUtils.parsePropertyList("marker", properties)
     self.pace_interval = properties["paceinterval"] or 24
-    self.pace_return  = properties["pacereturn"] or true
+    self.pace_return  = properties["pacereturn"] ~= false
     self.pace_speed = properties["pacespeed"] or 4
     self.swing_divisor = properties["swingdiv"] or 24
     self.swing_length = properties["swinglength"] or 400

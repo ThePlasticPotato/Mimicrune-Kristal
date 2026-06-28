@@ -2,6 +2,53 @@
 local TiledUtils = {}
 
 ---
+--- Converts a "marker input" to a set of coordinates.
+---
+--- This can either take a tiled object reference, a string, marker data itself (which'll get returned untouched) or a user-made position table.
+---
+--- NOTE: Don't put this in your event's `init`! Markers aren't guaranteed to be loaded at that point. Use `onLoad` instead.
+---
+--- This will error if no marker exists.
+---
+---@param obj Object # The object calling this function. Most of the time, you should just enter `self`.
+---@param target MarkerRef The marker input.
+---@param name string # The name of the property being parsed, used for error messages.
+---@return number x
+---@return number x
+---@return Marker? data
+function TiledUtils.parseMarkerProperty(obj, target, name)
+    if type(target) == "table" then
+        ---@cast target Position|Marker|TiledObjectRef
+        if target.center_x ~= nil and target.center_y ~= nil then
+            -- This is marker data.
+            return target.center_x, target.center_y, target
+        elseif target.id ~= nil then
+            -- This is a Tiled object reference.
+            ---@cast target TiledObjectRef
+
+            if not Game.world.map:hasMarker(target) then
+                error(string.format("%s at (%d, %d) has invalid position property \"%s\"", ClassUtils.getClassName(obj), obj.x, obj.y, name))
+            end
+
+            return Game.world.map:getMarker(target)
+        elseif target[1] ~= nil and target[2] ~= nil then
+            -- This is a position table.
+            return target[1], target[2], nil
+        else
+            error(string.format("%s at (%d, %d) has invalid position property \"%s\"", ClassUtils.getClassName(obj), obj.x, obj.y, name))
+        end
+    end
+
+    -- Not a table, could be a string or a number (a marker reference)
+
+    if not Game.world.map:hasMarker(target) then
+        error(string.format("%s at (%d, %d) has invalid position property \"%s\"", ClassUtils.getClassName(obj), obj.x, obj.y, name))
+    end
+
+    return Game.world.map:getMarker(target)
+end
+
+---
 --- Converts a Tiled color property to an RGBA color table.
 ---
 ---@param property string # The property string to convert.
@@ -14,12 +61,13 @@ function TiledUtils.parseColorProperty(property)
 
     local str = "#" .. string.sub(property, 4) -- Get the hex string without the alpha value
     local alpha = tonumber(string.sub(property, 2, 3), 16) / 255 -- Get the alpha value separately
-    local r, g, b, a = Utils.unpackColor(ColorUtils.hexToRGB(str))
+    local r, g, b, a = ColorUtils.unpackColor(ColorUtils.hexToRGB(str))
     return { r, g, b, a * (alpha or 1) }
 end
 
 ---
---- Returns a table with values based on Tiled properties. \
+--- Returns a table with values based on Tiled properties.
+---
 --- The function will check for a series of numbered properties starting with the specified `id` string, eg. `"id1"`, followed by `"id2"`, etc.
 ---
 ---@param id string        # The name the series of properties should all start with.
@@ -95,9 +143,9 @@ end
 ---
 --- Returns a series of values used to determine the behavior of a flag property for a Tiled event.
 ---
----@param flag string|nil     # The name of the flag property.
----@param inverted string|nil # The name of the property used to determine if the flag should be inverted.
----@param value string|nil    # The name of the property used to determine what the flag's value should be compared to.
+---@param flag string?     # The name of the flag property.
+---@param inverted string? # The name of the property used to determine if the flag should be inverted.
+---@param value string?    # The name of the property used to determine what the flag's value should be compared to.
 ---@param default_value any   # If a property for the `value` name is not found, the value will be this instead.
 ---@param properties table    # The properties table of a Tiled event's data.
 ---@return string flag        # The name of the flag to check.
@@ -208,7 +256,7 @@ end
 
 ---
 --- Attempts to resolve a relative path from a Tiled export to a valid asset id, given it points to a path inside the
---- `target_dir` of the current mod.
+--- `target_dir` of the current project.
 ---
 --- Relative directories (`..`) of the asset path are resolved by starting from the `source_dir`, which should match the
 --- directory the Tiled data was exported to. Exporting to a different directory and copying/moving the exported data will

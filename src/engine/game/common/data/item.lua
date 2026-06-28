@@ -182,6 +182,18 @@ function Item:onWorldUpdate(chara) end
 ---@param battler PartyBattler The equipping character
 function Item:onBattleUpdate(battler) end
 
+--- *(Override)* Called before a Character takes damage from a world bullet
+---@param amount number The damage of the incoming hit
+---@return number? New damage amount
+function Item:onWorldDamage(amount) end
+
+--- *(Override)* Called before a PartyBattler takes damage
+---@param amount number The damage of the incoming hit
+---@param swoon boolean Whether the damage will swoon the battler instead of downing them
+---@param all boolean Whether the damage being taken comes from a strike targeting the whole party
+---@return number? New damage amount
+function Item:onBattleDamage(amount, swoon, all) end
+
 --- *(Override)* Called after an attack from a party member with this item equipped hits an enemy
 ---@param battler PartyBattler The attacking character
 ---@param enemy EnemyBattler The enemy hit by the attack

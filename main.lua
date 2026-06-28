@@ -43,6 +43,7 @@ Game = Kristal.States["Game"]
 MainMenu = Kristal.States["MainMenu"]
 LoadingState = Kristal.States["Loading"]
 
+Sound = require("src.engine.sound")
 AssetBucket = require("src.engine.loading.AssetBucket")
 AssetLoader = require("src.engine.loading.AssetLoader")
 ShaderAssetLoader = require("src.engine.loading.loaders.ShaderAssetLoader")
@@ -165,9 +166,11 @@ TileLayer = require("src.engine.game.world.tilelayer")
 Character = require("src.engine.game.world.character")
 Follower = require("src.engine.game.world.follower")
 Player = require("src.engine.game.world.player")
+PlayerClimbState = require("src.engine.game.world.playerclimbstate")
 OverworldSoul = require("src.engine.game.world.overworldsoul")
 WorldBullet = require("src.engine.game.world.worldbullet")
 ChaserEnemy = require("src.engine.game.world.chaserenemy")
+ClimbEnemy = require("src.engine.game.world.climbenemy")
 
 SaveMenu = require("src.engine.game.world.ui.savemenu")
 SimpleSaveMenu = require("src.engine.game.world.ui.simplesavemenu")
@@ -195,6 +198,8 @@ LightCellMenu = require("src.engine.game.world.ui.light.lightcellmenu")
 
 EventRegistry = require("src.engine.game.world.eventregistry")
 
+-- Events
+
 Event = require("src.engine.game.world.event")
 Script = require("src.engine.game.world.events.script")
 Interactable = require("src.engine.game.world.events.interactable")
@@ -221,6 +226,13 @@ DarkFountain = require("src.engine.game.world.events.darkfountain")
 FountainFloor = require("src.engine.game.world.events.fountainfloor")
 QuicksaveEvent = require("src.engine.game.world.events.quicksave")
 MirrorArea = require("src.engine.game.world.events.mirror")
+ClimbEntry = require("src.engine.game.world.events.climbing.climbentry")
+ClimbExit = require("src.engine.game.world.events.climbing.climbexit")
+ClimbLanding = require("src.engine.game.world.events.climbing.climblanding")
+ClimbArea = require("src.engine.game.world.events.climbing.climbarea")
+ClimbUnsafe = require("src.engine.game.world.events.climbing.climbunsafe")
+FallingClimbArea = require("src.engine.game.world.events.climbing.fallingclimbarea")
+ClimbMover = require("src.engine.game.world.events.climbing.climbmover")
 
 ToggleController = require("src.engine.game.world.events.controllers.togglecontroller")
 FountainShadowController = require("src.engine.game.world.events.controllers.fountainshadowcontroller")
@@ -240,6 +252,8 @@ ArenaSprite = require("src.engine.game.battle.arenasprite")
 ArenaMask = require("src.engine.game.battle.arenamask")
 SnowGraveSpell = require("src.engine.game.battle.snowgravespell")
 
+BattleBackground = require("src.engine.game.battle.ui.battlebackground")
+BattleDarkener = require("src.engine.game.battle.ui.battledarkener")
 BattleUI = require("src.engine.game.battle.ui.battleui")
 ActionBox = require("src.engine.game.battle.ui.actionbox")
 ActionBoxDisplay = require("src.engine.game.battle.ui.actionboxdisplay")
@@ -251,6 +265,7 @@ TensionBarGlow = require("src.engine.game.battle.ui.tensionbarglow")
 SpeechBubble = require("src.engine.game.battle.ui.speechbubble")
 
 FlashFade = require("src.engine.game.effects.flashfade")
+SpriteCutHalf = require("src.engine.game.effects.spritecuthalf")
 DamageNumber = require("src.engine.game.effects.damagenumber")
 RecruitMessage = require("src.engine.game.effects.recruitmessage")
 HeartBurst = require("src.engine.game.effects.heartburst")
@@ -271,6 +286,7 @@ PsyBurst = require("src.engine.game.effects.psyburst")
 Jumpscare = require("src.engine.objects.jumpscare")
 TitanDarknessController = require("src.engine.objects.titandarknesscontroller")
 TwistedDarknessController = require("src.engine.objects.twisteddarknesscontroller")
+TenseIntroDarknessController = require("src.engine.objects.tenseintrodarknesscontroller")
 TaintedFountainBase = require("src.engine.objects.taintedfountainbase")
 LuaMidi = require("src.lib.LuaMidi")
 MidiTimeline = require("src.engine.game.battle.miditimeline")
@@ -446,8 +462,8 @@ function love.run()
             end
         else
             local err_msg_expose
-            local success, result = xpcall(mainLoop, 
-                function(err_msg) 
+            local success, result = xpcall(mainLoop,
+                function(err_msg)
                     --has a chance of failing due to a stack overflow. try and catch that, but this *also* might cause a stack overflow
                     local ok, msg = pcall(Kristal.errorHandler, err_msg, 4)
                     if(ok) then
@@ -464,7 +480,7 @@ function love.run()
                 error_result = result
             else
                 --this should only happen when there's an internal error with the errorhandler or the callstack overflows
-                --the LUA_ERRERR state is set internally by the lua engine for both of these cases 
+                --the LUA_ERRERR state is set internally by the lua engine for both of these cases
                 --see https://www.lua.org/source/5.4/ldo.c.html
                 error_result = Kristal.errorHandler({ critical = result, msg = err_msg_expose })
             end

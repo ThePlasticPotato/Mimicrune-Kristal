@@ -1,7 +1,7 @@
 ---@class DebugSystem : Object
 ---
 ---@field flag_type             string          The current flag filter setting for value type
----@field flag_query            { [1]: string } The current flag filter query 
+---@field flag_query            { [1]: string } The current flag filter query
 ---@field flag_filter_mode      string          The current flag filter mode
 ---
 ---@field temp_flag_type        string          Temporary version of [`flag_type`](lua://DebugSystem.flag_type). Only set as filter once the settings are saved.
@@ -384,6 +384,10 @@ function DebugSystem:addToExclusiveMenu(state, id)
 end
 
 function DebugSystem:fadeMusicOut(fade_to)
+    if not self:isInGame() then
+        return
+    end
+
     local music = Game:getActiveMusic()
     if music then
         self.old_music_volume = music.volume
@@ -393,6 +397,10 @@ function DebugSystem:fadeMusicOut(fade_to)
 end
 
 function DebugSystem:fadeMusicIn()
+    if not self:isInGame() then
+        return
+    end
+
     local music = Game:getActiveMusic()
     if music and self.music_needs_reset then
         music:fade(self.old_music_volume, 0.5)
@@ -596,7 +604,7 @@ function DebugSystem:registerSubMenus()
     end)
 
     self:registerOption("engine_option_fps", "Back", "Go back to the previous menu.", function() self:returnMenu() end)
-    
+
     self:registerMenu("fast_forward", "Fast Forward")
     self:registerOption(
         "fast_forward",
@@ -951,6 +959,11 @@ function DebugSystem:registerSubMenus()
         "music_test",
         function()
             self:fadeMusicOut(0)
+            if self.music then
+                self.music:remove()
+                self.music = nil
+            end
+            self.music = Music()
         end
     )
     self:registerMenuLeave(
@@ -960,7 +973,8 @@ function DebugSystem:registerSubMenus()
             self.music:fade(
                 0, 0.5,
                 function()
-                    self.music:stop()
+                    self.music:remove()
+                    self.music = nil
                 end
             )
         end
@@ -1025,8 +1039,6 @@ function DebugSystem:registerSubMenus()
         )
     end
 
-    -- TODO: toggle rather than only give
-
     self:registerMenu("give_spell", "Give Spell", "search")
 
     for id, _ in pairs(Registry.party_members) do
@@ -1080,8 +1092,12 @@ function DebugSystem:registerSubMenus()
     end
 end
 
+function DebugSystem:isInGame()
+    return Kristal.getState() == Game
+end
+
 function DebugSystem:registerDefaults()
-    local in_game = function() return Kristal.getState() == Game end
+    local in_game = function() return self:isInGame() end
     local in_battle = function() return in_game() and Game.state == "BATTLE" end
     local in_overworld = function() return in_game() and Game.state == "OVERWORLD" end
     local in_legend = function() return in_game() and Game.state == "LEGEND" end
@@ -1398,7 +1414,7 @@ end
 ---@param description string|fun():string
 ---@param func function
 ---@param visible_func? fun():boolean
----@param color? fun():table
+---@param color? fun(): Color
 ---@return nil
 function DebugSystem:registerOption(menu, name, description, func, visible_func, color)
     table.insert(self.menus[menu].options, {
@@ -1467,7 +1483,11 @@ function DebugSystem:onStateChange(old, new)
         Kristal.showCursor()
     elseif new == "IDLE" then
         self:unselectObject()
-        self.menu_anim_timer = 0
+
+        if old ~= "IDLE" then
+            self.menu_anim_timer = 0
+        end
+
         OVERLAY_OPEN = false
 
         Kristal.hideCursor()
@@ -1602,10 +1622,12 @@ function DebugSystem:onKeyPressed(key, is_repeat)
             else
                 local option = options[self.current_selecting]
                 if option then
+                    local menu = self.current_menu
                     local failsound = option.func() == false
+                    Input.clear("confirm")
                     if failsound then
                         Assets.playSound("ui_cant_select")
-                    elseif self.current_menu ~= "sound_test" then
+                    elseif menu ~= "sound_test" then
                         Assets.playSound("ui_select")
                     end
                 end
@@ -1851,7 +1873,7 @@ function DebugSystem:update()
             stage.active = true
         end
     end
-    
+
     if self:isMenuOpen() then
         -- Create a table to store states that should be excluded
         local excluded_states = {}
@@ -1885,6 +1907,10 @@ function DebugSystem:onWheelMoved(x, y)
 end
 
 function DebugSystem:draw()
+    if self.state == "IDLE" and self.menu_anim_timer >= 1 then
+        return
+    end
+
     love.graphics.setFont(self.font)
     Draw.setColor(1, 1, 1, 1)
 

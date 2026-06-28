@@ -16,8 +16,9 @@
 ---@field submit_callback fun()? # A callback that is called when the input is submitted.
 ---@field up_limit_callback fun()? # A callback that is called when the cursor reaches the top of the input.
 ---@field down_limit_callback fun()? # A callback that is called when the cursor reaches the bottom of the input.
----@field pressed_callback (fun(key:string):boolean|nil)? # A callback that is called when a key is pressed.
+---@field pressed_callback (fun(key:string):boolean?)? # A callback that is called when a key is pressed.
 ---@field text_callback fun(text:string)? # A callback that is called when text is inputted.
+---@field escape_callback fun()? # A callback that is called when escape is pressed.
 ---
 ---@field multiline boolean # Whether this input is multiline.
 ---@field enter_submits boolean # Whether pressing enter submits the input.
@@ -51,6 +52,7 @@ function TextInput.init()
     TextInput.down_limit_callback = nil
     TextInput.pressed_callback = nil
     TextInput.text_callback = nil
+    TextInput.escape_callback = nil
 
     TextInput.setOptions(nil)
     TextInput.reset()
@@ -99,6 +101,7 @@ function TextInput.attachInput(tbl, options)
     TextInput.down_limit_callback = nil
     TextInput.pressed_callback = nil
     TextInput.text_callback = nil
+    TextInput.escape_callback = nil
 end
 
 ---@param tbl string[]
@@ -199,15 +202,20 @@ function TextInput.onKeyPressed(key)
         end
     end
     if (key == "c") and Input.ctrl() then
+        Input.clear("c", true)
         love.system.setClipboardText(TextInput.getSelectedText())
     elseif (key == "x") and Input.ctrl() then
+        Input.clear("x", true)
         love.system.setClipboardText(TextInput.getSelectedText())
         TextInput.removeSelection()
     elseif (key == "v") and Input.ctrl() then
+        Input.clear("v", true)
         TextInput.insertString(love.system.getClipboardText())
     elseif (key == "a") and Input.ctrl() then
+        Input.clear("a", true)
         TextInput.selectAll()
     elseif key == "return" then
+        Input.clear("return", true)
         if TextInput.enter_submits then
             if TextInput.multiline and Input.shift() then
                 TextInput.insertString("\n")
@@ -221,8 +229,10 @@ function TextInput.onKeyPressed(key)
             end
         end
     elseif key == "tab" then
+        Input.clear("tab", true)
         TextInput.insertString("    ")
     elseif key == "backspace" then
+        Input.clear("backspace", true)
         if TextInput.selecting then
             TextInput.removeSelection()
             return
@@ -262,6 +272,7 @@ function TextInput.onKeyPressed(key)
             TextInput.input[TextInput.cursor_y] = string_1 .. string_2
         end
     elseif key == "delete" then
+        Input.clear("delete", true)
         if TextInput.selecting then
             TextInput.removeSelection()
             return
@@ -303,6 +314,7 @@ function TextInput.onKeyPressed(key)
             TextInput.input[TextInput.cursor_y] = string_1 .. string_2
         end
     elseif key == "up" then
+        Input.clear("up", true)
         if TextInput.checkSelecting() == "stopped" then
             if TextInput.cursor_y > TextInput.cursor_select_y then
                 TextInput.cursor_y = TextInput.cursor_select_y
@@ -321,6 +333,7 @@ function TextInput.onKeyPressed(key)
             TextInput.cursor_x = math.min(TextInput.cursor_x_tallest, StringUtils.len(TextInput.getCurrentLine()))
         end
     elseif key == "end" then
+        Input.clear("end", true)
         TextInput.checkSelecting()
 
         if Input.ctrl() then
@@ -329,6 +342,7 @@ function TextInput.onKeyPressed(key)
             TextInput.sendCursorToEndOfLine()
         end
     elseif key == "home" then
+        Input.clear("home", true)
         TextInput.checkSelecting()
 
         if Input.ctrl() then
@@ -336,7 +350,17 @@ function TextInput.onKeyPressed(key)
         else
             TextInput.sendCursorToStartOfLine(true)
         end
+    elseif key == "escape" then
+        Input.clear("escape", true)
+        if TextInput.selecting then
+            TextInput.selecting = false
+        else
+            if TextInput.escape_callback then
+                TextInput.escape_callback()
+            end
+        end
     elseif key == "down" then
+        Input.clear("down", true)
         if TextInput.checkSelecting() == "stopped" then
             if TextInput.cursor_y < TextInput.cursor_select_y then
                 TextInput.cursor_y = TextInput.cursor_select_y
@@ -355,10 +379,12 @@ function TextInput.onKeyPressed(key)
             TextInput.cursor_x = math.min(TextInput.cursor_x_tallest, StringUtils.len(TextInput.getCurrentLine()))
         end
     elseif key == "insert" then
+        Input.clear("insert", true)
         if TextInput.allow_overtyping then
             TextInput.overtyping = not TextInput.overtyping
         end
     elseif key == "left" then
+        Input.clear("left", true)
         if TextInput.checkSelecting() == "stopped" then
             if (TextInput.cursor_y > TextInput.cursor_select_y) or (TextInput.cursor_x > TextInput.cursor_select_x) then
                 TextInput.cursor_x = TextInput.cursor_select_x
@@ -391,6 +417,7 @@ function TextInput.onKeyPressed(key)
             end
         end
     elseif key == "right" then
+        Input.clear("right", true)
         if TextInput.checkSelecting() == "stopped" then
             if (TextInput.cursor_y < TextInput.cursor_select_y) or (TextInput.cursor_x < TextInput.cursor_select_x) then
                 TextInput.cursor_x = TextInput.cursor_select_x
@@ -740,7 +767,7 @@ end
 ---@field font love.Font?
 ---@field get_prefix (fun(prefix:"single"|"start"|"end"|"middle"):string)?
 ---@field print fun(text:string, x:number, y:number)?
----@field cursor_color [number, number, number, number?]? # The color of the cursor.
+---@field cursor_color Color? # The color of the cursor.
 
 --- Draw the current text input, with the cursor.
 ---@param options TextInput.drawOptions? # The options table. While optional, it won't be very pretty by default.

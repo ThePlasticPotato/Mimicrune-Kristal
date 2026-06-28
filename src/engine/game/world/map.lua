@@ -82,6 +82,7 @@ function Map:init(world, data)
     self.image_layers = {}
     self.shape_layers = {}
     self.markers = {}
+    self.markers_by_id = {}
     self.battle_areas = {}
     self.battle_borders = {}
     self.paths = {}
@@ -115,6 +116,8 @@ function Map:init(world, data)
 end
 
 function Map:load()
+    Game:setLight(self.light)
+
     self.world:addChild(self.timer)
     if self.data then
         self:loadMapData(self.data)
@@ -164,16 +167,42 @@ function Map:addFlag(flag, amount)
 end
 
 --- Gets a specific marker from the current map.
----@param name string The name of the marker to search for.
----@return number x The x-coordinate of the marker's center.
----@return number y The y-coordinate of the marker's center.
-function Map:getMarker(name)
-    local marker = self.markers[name]
-    return marker and marker.center_x or (self.width * self.tile_width / 2), marker and marker.center_y or (self.height * self.tile_height / 2)
+---@param id KristalObjectRef The name of the marker to search for, the unique numerical ID, or a Tiled object reference.
+---@return number x The x-coordinate of the marker's center (or the center of the map if it doesn't exist).
+---@return number y The y-coordinate of the marker's center (or the center of the map if it doesn't exist).
+---@return Marker? marker The full marker data.
+function Map:getMarker(id)
+    local marker
+
+    if type(id) == "table" then
+        if id.id ~= nil then
+            marker = self.markers_by_id[id.id]
+        end
+    elseif type(id) == "number" then
+        marker = self.markers_by_id[id]
+    else
+        marker = self.markers[id]
+    end
+
+    if marker == nil then
+        return (self.width * self.tile_width / 2), (self.height * self.tile_height / 2), nil
+    end
+
+    return marker.center_x, marker.center_y, marker
 end
 
-function Map:hasMarker(name)
-    return self.markers[name] ~= nil
+--- Checks if a marker exists.
+---@param id string|integer|TiledObjectRef The name of the marker to search for, or the unique numerical ID.
+function Map:hasMarker(id)
+    if type(id) == "table" then
+        if id.id ~= nil then
+            return self.markers_by_id[id.id] ~= nil
+        end
+    elseif type(id) == "number" then
+        return self.markers_by_id[id] ~= nil
+    end
+
+    return self.markers[id] ~= nil
 end
 
 function Map:getPath(name)
@@ -217,10 +246,17 @@ function Map:setTile(x, y, tileset, ...)
 end
 
 --- Gets a specific event present in the current map.
----@param id string|number  The unique numerical id of an event OR the text id of an event type to get the first instance of.
----@return Event? event The event instnace, or `nil` if it was not found.
+---
+--- If multiple objects are found (if you pass in a name), only the first will be returned. Use `Map:getEvents` to get all of them.
+---@see Map.getEvents
+---@param id string|integer|TiledObjectRef The name of the event, the unique numerical ID, or a Tiled object reference.
+---@return Event? event The event instance, if found.
 function Map:getEvent(id)
-    if type(id) == "number" then
+    if type(id) == "table" then
+        if id.id ~= nil then
+            return self.events_by_id[id.id]
+        end
+    elseif type(id) == "number" then
         return self.events_by_id[id]
     else
         if self.events_by_name[id] then
@@ -345,19 +381,18 @@ function Map:loadMapData(data)
 
     self.object_layer = nil
     for i, layer in ipairs(layers) do
-        local name = layer.name:lower()
         local depth = indexed_layers[i]
-        if not has_battle_border and StringUtils.startsWith(name, "battleborder") then
+        if not has_battle_border and self:isLayerType(layer, "battleborder") then
             self.battle_fader_layer = depth - (self.depth_per_layer / 2)
             has_battle_border = true
         end
-        if layer.type == "objectgroup" and StringUtils.startsWith(name, "objects") then
+        if layer.type == "objectgroup" and self:isLayerType(layer, "objects") then
             table.insert(object_depths, depth)
             if layer.properties["spawn"] then
                 self.object_layer = depth
             end
         end
-        if layer.type == "tilelayer" and not StringUtils.startsWith(name, "battleborder") then
+        if layer.type == "tilelayer" and not self:isLayerType(layer, "battleborder") then
             table.insert(tile_depths, depth)
         end
         if not Kristal.callEvent(KRISTAL_EVENT.loadLayer, self, layer, depth) then
@@ -371,10 +406,9 @@ function Map:loadMapData(data)
         local priority_object_layer = nil
         local has_markers_layer = false
         for i, layer in ipairs(layers) do
-            local name = layer.name:lower()
             local depth = indexed_layers[i]
             if layer.type == "objectgroup" then
-                if StringUtils.startsWith(name, "markers") then
+                if self:isLayerType(layer, "markers") then
                     has_markers_layer = true
                     priority_object_layer = nil
                     if #object_depths == 0 then
@@ -394,12 +428,12 @@ function Map:loadMapData(data)
                         end
                         self.object_layer = closest or depth
                     end
-                elseif name == "objects_party" then
+                elseif self:getLayerClassOrName(layer):lower() == "objects_party" then
                     priority_object_layer = depth
                     break -- always use 'objects_party' if available
                 elseif not has_markers_layer then
                     -- If there is no markers layer, set the object layer to the highest object layer
-                    if name == "objects" then
+                    if self:isLayerType(layer, "objects") then
                         priority_object_layer = depth
                     end
                     self.object_layer = depth
@@ -426,30 +460,50 @@ function Map:loadMapData(data)
     end
 end
 
+function Map:getLayerClassOrName(layer)
+    if layer.class ~= nil and layer.class ~= "" then
+        return layer.class
+    end
+
+    return layer.name
+end
+
+function Map:isLayerType(layer, type)
+    if layer.class ~= nil and layer.class ~= "" then
+        -- If there's a defined class, check that (strict)
+        return layer.class == type
+    end
+
+    -- If there isn't a class, use the name (loose)
+    return StringUtils.startsWith(layer.name:lower(), type)
+end
+
 function Map:loadLayer(layer, depth)
     if layer.type == "tilelayer" then
         self:loadTiles(layer, depth)
     elseif layer.type == "imagelayer" then
         self:loadImage(layer, depth)
     elseif layer.type == "objectgroup" then
-        if StringUtils.startsWith(layer.name:lower(), "objects") then
+        if self:isLayerType(layer, "objects") then
             self:loadObjects(layer, depth, "events")
-        elseif StringUtils.startsWith(layer.name:lower(), "controllers") then
+        elseif self:isLayerType(layer, "controllers") then
             self:loadObjects(layer, depth, "controllers")
-        elseif StringUtils.startsWith(layer.name:lower(), "markers") then
+        elseif self:isLayerType(layer, "markers") then
             self:loadMarkers(layer)
-        elseif StringUtils.startsWith(layer.name:lower(), "collision") then
+        elseif self:isLayerType(layer, "collision") then
             self:loadCollision(layer)
-        elseif StringUtils.startsWith(layer.name:lower(), "enemycollision") then
+        elseif self:isLayerType(layer, "enemycollision") then
             self:loadEnemyCollision(layer)
-        elseif StringUtils.startsWith(layer.name:lower(), "blockcollision") then
+        elseif self:isLayerType(layer, "blockcollision") then
             self:loadBlockCollision(layer)
-        elseif StringUtils.startsWith(layer.name:lower(), "paths") then
+        elseif self:isLayerType(layer, "paths") then
             self:loadPaths(layer)
-        elseif StringUtils.startsWith(layer.name:lower(), "battleareas") then
+        elseif self:isLayerType(layer, "battleareas") then
             self:loadBattleAreas(layer)
         end
         self:loadShapes(layer)
+    else
+        Kristal.Console:warn(string.format("Unhandled or unknown Tiled layer type \"%s\", ignoring", layer.type))
     end
 end
 
@@ -579,7 +633,13 @@ function Map:loadMarkers(layer)
         v.center_x = v.center_x + (layer.offsetx or 0)
         v.center_y = v.center_y + (layer.offsety or 0)
 
-        self.markers[v.name] = v
+        v.player_state = marker.properties["player_state"] or "WALK"
+
+        if v.name ~= nil then
+            self.markers[v.name] = v
+        end
+
+        self.markers_by_id[v.id] = v
     end
 end
 
@@ -716,7 +776,7 @@ function Map:loadObjects(layer, depth, layer_type)
                     obj.layer_name = layer.name
                     obj.data = v
 
-                    if v.properties["usetile"] and v.gid and obj.applyTileObject then
+                    if v.gid and obj.applyTileObject then
                         obj:applyTileObject(v, self)
                     end
 
@@ -740,7 +800,7 @@ end
 
 --- Loads an object using the old system, based on the Registry.
 ---
---- Solely for legacy support of mods and libraries that use the old event system.
+--- Solely for legacy support of projects and libraries that use the old event system.
 ---@internal
 ---@param name string # The name of the object to load.
 ---@param data table # The Tiled object data for the object.
@@ -874,6 +934,8 @@ function Map:loadTilesetFromTilesetPath(filename)
     return true, tileset
 end
 
+---@return Tileset?
+---@return integer
 function Map:getTileset(id)
     if type(id) == "number" then
         id = TiledUtils.parseTileGid(id)

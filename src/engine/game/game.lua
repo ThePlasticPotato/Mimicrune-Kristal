@@ -124,7 +124,7 @@ function Game:enter(previous_state, save_id, save_name, fade)
 
     if next(DISCORD_RPC_PRESENCE) == nil then
         Kristal.setPresence({
-            state = Kristal.callEvent(KRISTAL_EVENT.getPresenceState) or ("PARTICIPATING IN " .. (Kristal.getModOption("name") or "a mod")),
+            state = Kristal.callEvent(KRISTAL_EVENT.getPresenceState) or ("PARTICIPATING IN " .. (Kristal.getModOption("name") or "AN EXPERIMENT")),
             details = Kristal.callEvent(KRISTAL_EVENT.getPresenceDetails),
             largeImageKey = Kristal.callEvent(KRISTAL_EVENT.getPresenceImage) or "logo",
             largeImageText = "Mimicrune-Kristal v" .. tostring(Kristal.Version),
@@ -179,7 +179,7 @@ function Game:registerBuiltInEvents()
     registry:register("npc", function(data) return NPC(data.properties["actor"], getCharaX(data), getCharaY(data), data.properties) end)
     registry:register("enemy", function(data) return ChaserEnemy(data.properties["actor"], getCharaX(data), getCharaY(data), data.properties) end)
     registry:register("outline", function(data) return Outline(data.x, data.y, getRectData(data)) end)
-    registry:register("silhouette", function(data) return Silhouette(data.x, data.y, getRectData(data)) end)
+    registry:register("silhouette", function(data) return Silhouette(data.x, data.y, getRectData(data), data.properties) end)
     registry:register("slidearea", function(data) return SlideArea(data.x, data.y, getRectData(data), data.properties) end)
     registry:register("mirror", function(data) return MirrorArea(data.x, data.y, getRectData(data), data.properties) end)
     registry:register("chest", function(data) return TreasureChest(data.center_x, data.center_y, data.properties) end)
@@ -200,6 +200,45 @@ function Game:registerBuiltInEvents()
         sprite:play(data.properties["speed"], true)
         sprite:setScale(data.properties["scalex"] or 2, data.properties["scaley"] or 2)
         return sprite
+    end)
+
+    registry:register("climbentry", function(data)
+        return ClimbEntry(data.x, data.y, getRectData(data), {
+            target = data.properties.target,
+            solid = data.properties.solid
+        })
+    end)
+
+    registry:register("climbexit", function(data)
+        return ClimbExit(data.x, data.y, getRectData(data), {
+            target = data.properties.target,
+            direction = data.properties.direction,
+            can_exit = data.properties.can_exit
+        })
+    end)
+
+    registry:register("climblanding", function(data) return ClimbLanding(data.x, data.y, getRectData(data)) end)
+    registry:register("climbarea", function(data) return ClimbArea(data.x, data.y, getRectData(data)) end)
+
+    registry:register("fallingclimbarea", function(data)
+        return FallingClimbArea(data.x, data.y, getRectData(data), {
+            dont_break = data.properties.dont_break,
+            breaks_on_leave = data.properties.breaks_on_leave,
+            fall_time = data.properties.fall_time,
+            timed = data.properties.timed,
+            no_unsafe_area = data.properties.no_unsafe_area
+        })
+    end)
+
+    registry:register("climbunsafe", function(data) return ClimbUnsafe(data.x, data.y, getRectData(data)) end)
+
+    registry:register("climbmover", function(data)
+        return ClimbMover(data.x, data.y, getRectData(data), {
+            target = data.properties.target,
+            exit = data.properties.exit,
+            start_exit = data.properties.start_exit,
+            one_way = data.properties.one_way
+        })
     end)
 end
 
@@ -499,9 +538,9 @@ function Game:load(data, index, fade)
     end
 
     self.default_storage_slots = data.default_storage_slots or 0
-    -- Check if a mod is still using the deprecated "enableStorage" config
+    -- Check if a project is still using the deprecated "enableStorage" config
     if Game:getConfig("enableStorage") ~= nil then
-        Kristal.Console:warn("Using deprecated mod option 'enableStorage', switch to 'storageSlots' option instead")
+        Kristal.Console:warn("Using deprecated project option 'enableStorage', switch to 'storageSlots' option instead")
         if Game:getConfig("enableStorage") or self.default_storage_slots > 0 then
             self.default_storage_slots = 24
         else
@@ -689,6 +728,10 @@ end
 ---@param x? number
 ---@param y? number
 function Game:gameOver(x, y)
+    x, y = x or 0, y or 0
+    if Kristal.callEvent(KRISTAL_EVENT.onGameOver, x, y) then
+        return
+    end
     Kristal.hideBorder(0)
 
     self.state = "GAMEOVER"
@@ -697,7 +740,7 @@ function Game:gameOver(x, y)
         child:remove()
     end
 
-    self.gameover = GameOver(x or 0, y or 0)
+    self.gameover = GameOver(x, y)
     self.stage:addChild(self.gameover)
 end
 
@@ -910,7 +953,7 @@ end
 ---@return Recruit[]
 function Game:getRecruits(include_incomplete, include_hidden)
     local recruits = {}
-    for id,recruit in pairs(Game.recruits_data) do
+    for id, recruit in pairs(Game.recruits_data) do
         if (not recruit:getHidden() or include_hidden) and (recruit:getRecruited() == true or include_incomplete and type(recruit:getRecruited()) == "number" and recruit:getRecruited() > 0) then
             table.insert(recruits, recruit)
         end
@@ -922,7 +965,7 @@ end
 ---@param recruit string
 ---@return boolean
 function Game:hasRecruit(recruit)
-    return self:getRecruit(recruit):getRecruited() == true
+    return self:getRecruit(recruit) and self:getRecruit(recruit):getRecruited() == true
 end
 
 ---@param chara     string|PartyMember
@@ -937,6 +980,7 @@ function Game:addPartyMember(chara, index)
     else
         table.insert(self.party, chara)
     end
+    self.world:spawnSoul()
     return chara
 end
 
@@ -947,10 +991,12 @@ function Game:removePartyMember(chara)
         chara = self:getPartyMember(chara)
     end
     TableUtils.removeValue(self.party, chara)
+    self.world:spawnSoul()
     return chara
 end
 
 ---@param ... string|PartyMember
+---@return PartyMember[]
 function Game:setPartyMembers(...)
     local args = {...}
     self.party = {}
@@ -961,6 +1007,8 @@ function Game:setPartyMembers(...)
             self.party[i] = chara
         end
     end
+    self.world:spawnSoul()
+    return self.party
 end
 
 ---@param chara string|PartyMember
@@ -1225,10 +1273,6 @@ function Game:onKeyPressed(key, is_repeat)
         if self.world then
             self.world:onKeyPressed(key)
         end
-    elseif self.state == "SHOP" then
-        if self.shop then
-            self.shop:onKeyPressed(key, is_repeat)
-        end
     elseif self.state == "GAMEOVER" then
         if self.gameover then
             self.gameover:onKeyPressed(key)
@@ -1247,6 +1291,25 @@ function Game:onWheelMoved(x, y)
     Kristal.callEvent(KRISTAL_EVENT.onWheelMoved, x, y)
 end
 
+--- Responsible for drawing the "Developer Mode Enabled" warning in the top right of the screen when developer mode is forcibly enabled.
+function Game:drawDevWarning()
+    if Kristal.shouldDisplayDevWarning() then
+        love.graphics.push()
+
+        local small_font = Assets.getFont("main", 16)
+        love.graphics.setFont(small_font)
+        local notice = "Developer Mode Enabled"
+        Draw.setColor(0, 0, 0, 1)
+        love.graphics.print(notice, SCREEN_WIDTH - small_font:getWidth(notice) - 5, 4)
+        love.graphics.print(notice, SCREEN_WIDTH - small_font:getWidth(notice) - 3, 4)
+        love.graphics.print(notice, SCREEN_WIDTH - small_font:getWidth(notice) - 4, 3)
+        love.graphics.print(notice, SCREEN_WIDTH - small_font:getWidth(notice) - 4, 5)
+        Draw.setColor(1, 1, 1, 0.75)
+        love.graphics.print(notice, SCREEN_WIDTH - small_font:getWidth(notice) - 4, 4)
+        love.graphics.pop()
+    end
+end
+
 function Game:draw()
     love.graphics.clear(0, 0, 0, 1)
     love.graphics.push()
@@ -1261,6 +1324,8 @@ function Game:draw()
     love.graphics.push()
     Kristal.callEvent(KRISTAL_EVENT.postDraw)
     love.graphics.pop()
+
+    self:drawDevWarning()
 end
 
 return Game

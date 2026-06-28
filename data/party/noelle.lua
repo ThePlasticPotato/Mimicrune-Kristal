@@ -13,7 +13,11 @@ function character:init()
     -- Display level (saved to the save file)
     self.level = Game.chapter
     -- Default title / class (saved to the save file)
-    self.title = "Snowcaster\nMight be able to\nuse some cool moves."
+    if Game.chapter <= 4 then
+        self.title = "Snowcaster\nMight be able to\nuse some cool moves."
+    elseif Game.chapter >= 5 then
+        self.title = "Mistletoe\nThings got\nserious today."
+    end
 
     -- Determines which character the soul comes from (higher number = higher priority)
     self.soul_priority = 1
@@ -49,7 +53,7 @@ function character:init()
     self.max_stats = {
         health = 999
     }
-    
+
     -- Party members which will also get stronger when this character gets stronger, even if they're not in the party
     self.stronger_absent = {}
 
@@ -105,27 +109,18 @@ function character:init()
     -- Character flags (saved to the save file)
     self.flags = {
         ["iceshocks_used"] = 0,
-        ["boldness"] = -12,
+        ["boldness"] = (Game.chapter >= 2 and 100 or -12),
         ["weird"] = false
     }
 end
 
 function character:getTitle()
-    local prefix = "LV"..self:getLevel().." "
     if self:checkWeapon("thornring") then
-        return prefix.."Ice Trancer\nReceives pain to\nbecome stronger."
+        return "LV" .. self:getLevel() .. " Ice Trancer\nReceives pain to\nbecome stronger."
     elseif self:getFlag("iceshocks_used", 0) > 0 then
-        return prefix.."Frostmancer\nFreezes the enemy."
+        return "LV" .. self:getLevel() .. " Frostmancer\nFreezes the enemy."
     else
         return super.getTitle(self)
-    end
-end
-
-function character:getLevel()
-    if self:checkWeapon("thornring") or self:getFlag("iceshocks_used", 0) > 0 then
-        return super.getLevel(self)
-    else
-        return 1
     end
 end
 

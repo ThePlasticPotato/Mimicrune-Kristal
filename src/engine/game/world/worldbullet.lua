@@ -7,7 +7,7 @@
 ---
 ---@field world             World           The current World instance. Not defined until after `WorldBullet:init()`, and only if it is parented to a World instance.
 ---
----@field collider          Collider|nil
+---@field collider          Collider?
 ---
 ---@field damage            number
 ---@field inv_timer         number
@@ -71,17 +71,20 @@ end
 --- Not calling `super.onDamage()` here will stop the normal damage logic from occurring.
 ---@param soul OverworldSoul
 function WorldBullet:onDamage(soul)
-    if self:getDamage() > 0 then
-        self.world:hurtParty(self.damage)
-
+    local damage = self:getDamage()
+    if damage > 0 then
+        self.world:hurtParty(damage)
         soul.inv_timer = self.inv_timer
+        soul:onDamage(self, damage)
     end
 end
 
 --- *(Override)* Called when the bullet collides with the player's soul, before invulnerability checks.
 ---@param soul OverworldSoul
 function WorldBullet:onCollide(soul)
-    if not self.world:inBattle() then return end
+    if not self.world:shouldBulletsHurt() then
+        return
+    end
 
     if soul.inv_timer == 0 then
         self:onDamage(soul)
@@ -92,7 +95,7 @@ function WorldBullet:onCollide(soul)
     end
 end
 
----@param texture?      string|love.Image   The new texture or path to the texture to set on the sprite (Removes the bullet's sprite if undefined) 
+---@param texture?      string|love.Image   The new texture or path to the texture to set on the sprite (Removes the bullet's sprite if undefined)
 ---@param speed?        number              The time between frames of the sprite, in seconds (Defaults to 1/30th second)
 ---@param loop?         boolean             Whether the sprite should continuously loop. (Defaults to `true`)
 ---@param on_finished?  fun(Sprite)         A function that is called when the animation finishes.

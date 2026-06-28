@@ -35,10 +35,10 @@ function DarkMenuPartySelect:update()
             self.selected_party = self.selected_party - 1
         elseif Input.pressed(self.vertical and "down" or "right") then
             self.selected_party = self.selected_party + 1
+            Assets.stopAndPlaySound("ui_move")
         end
         self:updateSelectedParty()
         if old_selected ~= self.selected_party then
-            Assets.stopAndPlaySound("ui_move")
             if self.on_select then
                 self.on_select(self.selected_party, old_selected)
             end

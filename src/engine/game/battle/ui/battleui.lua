@@ -916,7 +916,7 @@ function BattleUI:drawState()
                         love.graphics.rectangle("fill", 420, 55 + 20 + y_off, ((enemy.mercy / 100) * 81), 16)
 
                         if draw_percents and enemy.selectable then
-                            Draw.setColor(PALETTE["battle_mercy_text"])
+                            Draw.setColor(enemy:getMercyColor())
                             love.graphics.print(enemy:getMercyDisplay(), 424, 55 + 20 + y_off, 0, 1, 0.5)
                         end
                     end

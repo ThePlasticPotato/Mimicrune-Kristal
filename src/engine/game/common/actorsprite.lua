@@ -1,6 +1,6 @@
 --- An extension of `Sprite` that can integrate with an actor.
 --- If an object defines an Actor, it will use this over `Sprite` for its sprite.
---- 
+---
 ---@class ActorSprite : Sprite
 ---
 ---@field actor               Actor                               *(Read-only)* The actor associated with this sprite
@@ -12,7 +12,7 @@
 ---@field sprite_options      table                               *(Read-only)*
 ---
 ---@field temp_anim           table|string|function?              *(Read-only)* The animation that will be set when the current temporary animation stops
----@field temp_sprite         string?                             *(Read-only)* The sprite that will be set when the current temporary animation stops 
+---@field temp_sprite         string?                             *(Read-only)* The sprite that will be set when the current temporary animation stops
 ---
 ---@field directional         boolean?                            *(Read-only)* Whether the current sprite changes based on the facing direction
 ---@field dir_sep             string?                             *(Read-only)* The separator the current sprite uses for its directional sprites. Either `"_"` or `"/"`
@@ -155,7 +155,7 @@ end
 --- Sets the sprite to either a texture or an animation \
 --- If the current actor has an animation with a name matching `name`, it will be passed into [`ActorSprite:setAnimation()`](lua://ActorSprite.setAnimation). \
 --- Otherwise, it will be passed into [`ActorSprite:setSprite()`](lua://ActorSprite.setSprite).
----@param name                      string|nil
+---@param name                      string?
 ---@param callback?                 fun(sprite: ActorSprite)
 ---@param ignore_actor_callback?    boolean
 function ActorSprite:set(name, callback, ignore_actor_callback)
@@ -432,7 +432,7 @@ function ActorSprite:update()
             local should_do_walk_animation = false
 
             if self.walking then
-                -- If we're holding a movement key, or this actor is walking 
+                -- If we're holding a movement key, or this actor is walking
                 -- for any reason, we want to do the walk animation.
                 should_do_walk_animation = true
             elseif self.frames then

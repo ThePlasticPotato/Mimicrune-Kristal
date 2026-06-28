@@ -8,12 +8,12 @@
 ---
 ---@field target_volume number
 ---@field fade_speed number
----@field fade_callback fun(music:Music)|nil
+---@field fade_callback fun(music:Music)?
 ---
 ---@field removed boolean
 ---
----@field current string|nil
----@field source love.Source|nil
+---@field current string?
+---@field source love.Source?
 ---
 ---@overload fun() : Music
 local Music = {}
@@ -64,6 +64,7 @@ function Music:play(music, volume, pitch)
     if music then
         local path = Assets.getMusicPath(music)
         if not path then
+            Kristal.Console:warn("Music not found: \"" .. music .. "\"")
             return
         end
         self:playFile(path, volume, pitch, music)

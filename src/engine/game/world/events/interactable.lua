@@ -11,7 +11,7 @@
 --- *[Property `text`]* A line of text to display when interacting with this object \
 --- *[Property list `text`]* Several lines of text to display when interacting with this object \
 --- *[Property multi-list `text`]* Several groups of lines of text to display on sequential interactions with this object - all of `text1_i` forms the first interaction, all of `text2_i` forms the second interaction etc...
----@field text string[] 
+---@field text string[]
 ---
 ---@field set_flag string   *[Property `setflag`]* The name of a flag to set the value of when interacting with this object
 ---@field set_value any     *[Property `setvalue`]* The value to set the flag specified by [`set_flag`](lua://Interactable.set_flag) to (Defaults to `true`)
@@ -19,6 +19,8 @@
 ---@field once boolean      *[Property `once`]* Whether this event can only be interacted with once per save file (Defaults to `false`)
 ---
 ---@field interact_count number The number of times this interactable has been interacted with on this map load
+---
+---@field private use_tile boolean *[Property `usetile`]* Whether to use the tile object from Tiled. Defaults to false.
 ---
 ---@overload fun(...) : Interactable
 local Interactable, super = Class(Event)
@@ -45,6 +47,8 @@ function Interactable:init(x, y, shape, properties)
     self.once = properties["once"] or false
 
     self.interact_count = 0
+
+    self.use_tile = properties["usetile"]
 end
 
 function Interactable:getDebugInfo()
@@ -109,7 +113,13 @@ end
 function Interactable:onTextEnd() end
 
 function Interactable:applyTileObject(data, map)
+    if not self.use_tile then
+        return
+    end
+
     local tile = map:createTileObject(data, 0, 0, self.width, self.height)
+
+    tile.debug_select = false
 
     local ox, oy = tile:getOrigin()
     self:setOrigin(ox, oy)

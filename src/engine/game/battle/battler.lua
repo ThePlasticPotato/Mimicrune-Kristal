@@ -1,4 +1,4 @@
---- The base class for participants in battles. 
+--- The base class for participants in battles.
 --- This class defines shared logic between types of `Battler`, but is not used on its own. \
 --- See [`EnemyBattler`](lua://EnemyBattler.init) or [`PartyBattler`](lua://PartyBattler.init) depending on which you are working with, as well as this object.
 ---
@@ -30,7 +30,7 @@
 ---@overload fun(x?:number, y?:number, width?:number, height?:number) : Battler
 local Battler, super = Class(Object)
 
----@param x?        number 
+---@param x?        number
 ---@param y?        number
 ---@param width?    number
 ---@param height?   number
@@ -112,10 +112,11 @@ end
 ---@param offset_x? number
 ---@param offset_y? number
 ---@param layer?    number
+---@param color?    Color   The color used to draw the flash, defaulting to white
 ---@return FlashFade
-function Battler:flash(sprite, offset_x, offset_y, layer)
+function Battler:flash(sprite, offset_x, offset_y, layer, color)
     local sprite_to_use = sprite or self.sprite
-    return sprite_to_use:flash(offset_x, offset_y, layer)
+    return sprite_to_use:flash(offset_x, offset_y, layer, color)
 end
 
 --- Creates an alert bubble (tiny !) above this battler.
@@ -131,12 +132,13 @@ end
 function Battler:alert(duration, options)
     options = options or {}
     if options["play_sound"] == nil or options["play_sound"] then
-        Assets.stopAndPlaySound("alert")
+        local sound_to_use = options["sound"] or "alert"
+        Assets.stopAndPlaySound(sound_to_use)
     end
     local sprite_to_use = options["sprite"] or "effects/alert"
-    self.alert_timer = duration and duration*30 or 20
+    self.alert_timer = duration and duration * 30 or 20
     if self.alert_icon then self.alert_icon:remove() end
-    self.alert_icon = Sprite(sprite_to_use, (self.width/2)+(options["offset_x"] or 0), options["offset_y"] or 0)
+    self.alert_icon = Sprite(sprite_to_use, (self.width / 2) + (options["offset_x"] or 0), options["offset_y"] or 0)
     self.alert_icon:setOrigin(0.5, 1)
     self.alert_icon.layer = options["layer"] or 100
     self:addChild(self.alert_icon)
@@ -149,17 +151,21 @@ end
 ---@param g? number
 ---@param b? number
 function Battler:sparkle(r, g, b)
-    Game.battle.timer:every(1/30, function()
-        for i = 1, 2 do
-            local x = self.x + ((love.math.random() * self.width) - (self.width / 2)) * 2
-            local y = self.y - (love.math.random() * self.height) * 2
-            local sparkle = HealSparkle(x, y)
-            if r and g and b then
-                sparkle:setColor(r, g, b)
+    Game.battle.timer:every(
+        1 / 30,
+        function()
+            for i = 1, 2 do
+                local x = self.x + ((love.math.random() * self.width) - (self.width / 2)) * 2
+                local y = self.y - (love.math.random() * self.height) * 2
+                local sparkle = HealSparkle(x, y)
+                if r and g and b then
+                    sparkle:setColor(r, g, b)
+                end
+                self.parent:addChild(sparkle)
             end
-            self.parent:addChild(sparkle)
-        end
-    end, 4)
+        end,
+        4
+    )
 end
 
 --- Creates a standard "healing effect" (flash, sparkles).
@@ -173,19 +179,19 @@ end
 
 --- Creates a status text on the battler. \
 --- Used for information such as damage numbers, being downed, or missing a hit
----@param x?        number  The x-coordinate the message should appear at, relative to the battler.
----@param y?        number  The y-coordinate the message should appear at, relative to the battler.
----@param type?     string  The type of message to display:
+---@param x? number The x-coordinate the message should appear at, relative to the battler.
+---@param y? number The y-coordinate the message should appear at, relative to the battler.
+---@param type? string The type of message to display:
 ---|"mercy"     # Indicates that the message will be a mercy number
 ---|"damage"    # Indicates that the message will be a damage number
 ---|"msg"       # Indicates that the message will use a unique sprite, such as MISS or DOWN text
----@param arg?      any     An additional argument which depends on what `type` is set to:
+---@param arg? any An additional argument which depends on what `type` is set to:
 ---|"mercy"     # The amount of mercy added
 ---|"damage"    # The amount of damage dealt
 ---|"msg"       # The path to the sprite, relative to `ui/battle/message`, to use
----@param color?    table   The color used to draw the status message, defaulting to white
----@param kill?     boolean Whether this status should cause all other statuses to disappear.
----@param delay?    number  The number of frames before this message first appears
+---@param color? Color The color used to draw the status message, defaulting to white
+---@param kill? boolean Whether this status should cause all other statuses to disappear.
+---@param delay? number The number of frames before this message first appears
 ---@return DamageNumber
 function Battler:statusMessage(x, y, type, arg, color, kill, delay)
     x, y = self:getRelativePos(x, y)

@@ -3,22 +3,17 @@
 ---
 ---@class Encounter : Class
 ---
----@field text                  string
+---@field text string Text that will be displayed when the battle starts.
+---@field background boolean Whether the default battle background is created or not.
+---@field hide_world boolean If enabled, hides the world even if the default background is disabled.
 ---
----@field background            boolean
----@field hide_world            boolean
+---@field music string? The music to be played for this encounter. If `nil`, the world music will continue playing. Use `"none"` to stop music from playing.
 ---
----@field music                 string?
----
----@field default_xactions      boolean
----
----@field no_end_message        boolean
----
----@field queued_enemy_spawns   table
----
----@field defeated_enemies      table
----
----@field reduced_tension       boolean
+---@field default_xactions boolean Whether or not the default X-Actions appear in spell menus.
+---@field no_end_message boolean Whether or not to skip the "You won!" text at the end of the battle.
+---@field queued_enemy_spawns table Table used to spawn enemies when the battle exists, if this encounter is created before then.
+---@field defeated_enemies table A copy of Battle.defeated_enemies, used to determine how an enemy has been defeated.
+---@field reduced_tension boolean Whether tension is reduced for this encounter.
 ---
 ---@field tense                 boolean
 ---
@@ -26,35 +21,22 @@
 local Encounter = Class()
 
 function Encounter:init()
-    -- Text that will be displayed when the battle starts
     self.text = "* A skirmish breaks out!"
 
-    -- Whether the default grid background is drawn
     self.background = true
-    -- If enabled, hides the world even if the default background is disabled
     self.hide_world = false
 
-    -- The music used for this encounter
     self.music = "battle"
 
-    -- Whether characters have the X-Action option in their spell menu
     self.default_xactions = Game:getConfig("partyActions")
 
-    -- Should the battle skip the YOU WON! text?
     self.no_end_message = false
-
-    -- Table used to spawn enemies when the battle exists, if this encounter is created before
     self.queued_enemy_spawns = {}
-
-    -- A copy of Battle.defeated_enemies, used to determine how an enemy has been defeated.
     self.defeated_enemies = nil
 
-    -- Whether tension is reduced for this encounter.
     self.reduced_tension = false
 
     self.tense = false
-    self.tense_offset = 0
-    self.surface_siner = 0
 end
 
 -- Callbacks
@@ -143,79 +125,28 @@ function Encounter:onReturnToWorld(events) end
 function Encounter:getDialogueCutscene() end
 
 --- *(Override)* Called to modify the victory money earned from the battle.
----@param money integer     Current victory money based on normal money calculations
+---@param money integer Current victory money based on normal money calculations
 ---@return integer? money
 function Encounter:getVictoryMoney(money) end
----@param xp integer        Current victory xp based on normal xp calculations
+---@param xp integer Current victory xp based on normal xp calculations
 ---@return integer? xp
 function Encounter:getVictoryXP(xp) end
----@param text  string      Current victory text
----@param money integer     Money earned on victory
----@param xp    integer     XP earned on victory
+---@param text string Current victory text
+---@param money integer Money earned on victory
+---@param xp integer XP earned on victory
 ---@return string? text
 function Encounter:getVictoryText(text, money, xp) end
 
-function Encounter:update()
-    if (self.tense) then
-        self.tense_offset = self.tense_offset + 4 * DTMULT
-        if self.tense_offset > 100 then
-            self.tense_offset = self.tense_offset - 100
-        end
-        self.surface_siner = self.surface_siner + 2 * DTMULT
-    end
-end
-
-function Encounter.floorStencil()
-    love.graphics.rectangle("fill", -8, 80, SCREEN_WIDTH+16, 380-128)
-end
+function Encounter:update() end
 
 --- *(Override)* Called after everything has been rendered each frame. Usable to draw custom effects for specific encounters.
----@param fade number   The opacity of the background when fading in/out of the world.
+---@param fade number *(Deprecated)* An alpha value for fading in/out of battle. This is not recommended to be used anymore!
 function Encounter:draw(fade) end
 
+--todo: MOVE THIS INTO BG OBJECT PLEASE I BEG YOU
 --- *(Override)* Called before anything has been rendered each frame. Usable to draw custom backgrounds for specific encounters.
 ---@param fade number   The opacity of the background when fading in/out of the world.
-function Encounter:drawBackground(fade)
-    if (self.tense) then
-        Draw.setColor(0, 0, 0, fade)
-        love.graphics.rectangle("fill", -8, -8, SCREEN_WIDTH+16, SCREEN_HEIGHT+16)
-        for i = 0, 11 do
-            local siner = self.surface_siner + (i * (10 * math.pi))
-
-            love.graphics.setLineWidth(2)
-            Draw.setColor(66 / 255, 0, 11 / 255, fade * math.sin(siner / 60))
-            if math.cos(siner / 60) < 0 then
-                love.graphics.line(0, 360 - (math.sin(siner / 60) * 60) + 30, SCREEN_WIDTH, 360 - (math.sin(siner / 60) * 60) + 30)
-                --love.graphics.line(0, 211 + (math.sin(siner / 60) * 30) - 30, SCREEN_WIDTH, 211 + (math.sin(siner / 60) * 30) - 30)
-            end
-        end
-
-        love.graphics.stencil(self.floorStencil, "replace", 1)
-        love.graphics.setStencilTest("greater", 0)
-        Draw.setColor(0, 0, 0, fade)
-        love.graphics.rectangle("fill", -8, 80, SCREEN_WIDTH+16, 380-128)
-
-        love.graphics.setLineStyle("rough")
-        love.graphics.setLineWidth(1)
-
-        for i = -2, 20 do
-            Draw.setColor(66 / 255, 0, 11 / 255, (fade) / 2)
-            love.graphics.line(0, -210 + (i * 50) + math.floor(self.tense_offset / 2), 640, 210 + (i * 50) + math.floor(self.tense_offset / 2))
-            love.graphics.line(-200 + (i * 50) + math.floor(self.tense_offset / 2), 0, 200 + (i * 50) + math.floor(self.tense_offset / 2), 480)
-        end
-
-        for i = 0, 20 do
-            Draw.setColor(66 / 255, 0, 11 / 255, fade)
-            love.graphics.line(0, -100 + (i * 50) - math.floor(self.tense_offset), 640, 100 + (i * 50) - math.floor(self.tense_offset))
-            love.graphics.line(-100 + (i * 50) - math.floor(self.tense_offset), 0, 100 + (i * 50) - math.floor(self.tense_offset), 480)
-        end
-        love.graphics.setStencilTest()
-        Draw.setColor(0.5, 0, 11/255)
-        love.graphics.setLineWidth(2)
-        love.graphics.line(0, 330, SCREEN_WIDTH, 330)
-        love.graphics.line(0, 80, SCREEN_WIDTH, 80)
-    end
-end
+function Encounter:drawBackground(fade) end
 
 -- Functions
 
@@ -295,13 +226,13 @@ end
 ---@return PartyBattler|PartyMember|Actor|string? actor # The actor to use for the text settings (ex. voice, portrait settings)
 function Encounter:getEncounterText()
     local enemies = Game.battle:getActiveEnemies()
-    local enemy = TableUtils.pick(enemies, function(v)
+    local enemy = TableUtils.pick(TableUtils.filter(enemies, function(v)
         if not v.text then
             return true
         else
             return #v.text > 0
         end
-    end)
+    end))
     if enemy then
         return enemy:getEncounterText()
     else
@@ -392,9 +323,9 @@ end
 
 --- *(Override)* Creates the soul being used this battle (Called at the start of the first wave)
 --- *By default, returns the regular (red) soul.*
----@param x         number  The x-coordinate the soul should spawn at.
----@param y         number  The y-coordinate the soul should spawn at.
----@param color?    table   A custom color for the soul, that should override its default.
+---@param x number The x-coordinate the soul should spawn at.
+---@param y number The y-coordinate the soul should spawn at.
+---@param color? Color A custom color for the soul, that should override its default.
 ---@return Soul
 function Encounter:createSoul(x, y, color)
     return Soul(x, y, color)
@@ -432,7 +363,7 @@ function Encounter:addFlag(flag, amount)
 end
 
 --- Checks if the encounter has reduced tension.
---- @return boolean reduced Whether the encounter has reduced tension.
+---@return boolean reduced Whether the encounter has reduced tension.
 function Encounter:hasReducedTension()
     return self.reduced_tension
 end
@@ -462,6 +393,22 @@ end
 ---@return boolean
 function Encounter:canSwoon(target)
     return true
+end
+
+--- *(Override)* Creates the battle background for this encounter. \
+--- *By default, returns a new instance of [`BattleBackground`](lua://BattleBackground) if the encounter's [background](lua://Encounter.background) property is `true`.
+---@return BattleBackground? background
+function Encounter:createBackground()
+    if self.background then
+        return Game.battle:addChild(BattleBackground(self.tense))
+    end
+end
+
+--- *(Override)* Creates the battle darkener for this encounter. \
+--- *By default, returns a new instance of [`BattleDarkener`](lua://BattleDarkener).
+---@return BattleDarkener? darkener
+function Encounter:createBattleDarkener()
+    return Game.battle:addChild(BattleDarkener())
 end
 
 return Encounter

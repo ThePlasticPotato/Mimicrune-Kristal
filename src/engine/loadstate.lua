@@ -160,7 +160,7 @@ function Loading:update()
         -- We're done loading! This should only happen once.
         self.done_loading = true
 
-        if Kristal.Args["test"] then
+        if Kristal.Args["test"] and (not RELEASE_MODE) then
             Kristal.setState("Testing")
         elseif AUTO_MOD_START and TARGET_MOD then
             if not Kristal.hasAnySaves("mimicrune") then

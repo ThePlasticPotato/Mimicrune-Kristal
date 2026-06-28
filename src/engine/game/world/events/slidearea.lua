@@ -18,6 +18,10 @@ end
 
 function SlideArea:onCollide(chara)
     if (chara.last_y or chara.y) < self.y + self.height and chara.is_player then
+        if chara.is_player and chara.jumping then
+            return
+        end
+
         if chara.state ~= "SLIDE" then
             if self:checkAgainstWall(chara) then return end
 
@@ -25,13 +29,16 @@ function SlideArea:onCollide(chara)
         end
 
         chara:setState("SLIDE", false, self.lock_movement)
+        chara.slide_lock_movement = self.lock_movement
 
         chara.current_slide_area = self
     end
 end
 
 function SlideArea:update()
-    if not Game.world.player then return end
+    if not Game.world.player then
+        return
+    end
 
     local stopped = false
 

@@ -67,9 +67,10 @@ function DarkItemMenu:getSelectedItem()
 end
 
 function DarkItemMenu:updateSelectedItem()
-    if not Game.world.menu or (Game.world.menu ~= self.parent) then -- will be true if an item creates a new menu
+    if (not Game.world.menu) or self:isRemoved() then
         return
     end
+
     local items = self:getCurrentStorage()
     if #items == 0 then
         self.state = "MENU"
@@ -149,10 +150,10 @@ function DarkItemMenu:update()
             self.ui_move:play()
             if prev_type ~= self:getCurrentItemType() then
                 for _, item in ipairs(Game.inventory:getStorage(prev_type)) do
-                    item:onMenuClose(self.parent)
+                    item:onMenuClose(self)
                 end
                 for _, item in ipairs(self:getCurrentStorage()) do
-                    item:onMenuOpen(self.parent)
+                    item:onMenuOpen(self)
                 end
             end
         end

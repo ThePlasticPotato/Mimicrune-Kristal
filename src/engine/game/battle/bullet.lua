@@ -1,6 +1,6 @@
 --- The class that all Battle bullets in Kristal originate from. \
 --- Generic bullets can be spawned into a wave with `Wave:spawnBullet(texture, x, y)` \
---- Files in `scripts/battle/bullets` will also be loaded as bullets and should Extend this class. 
+--- Files in `scripts/battle/bullets` will also be loaded as bullets and should Extend this class.
 --- Extension bullets can be spawned into a wave with `Wave:spawnBullet(id, ...)` - their `id` defaults to their filepath, starting from `scripts/battle/bullets`. Additional arguments `...` are passed into the bullet type's init function.
 ---
 ---@class Bullet : Object
@@ -9,7 +9,7 @@
 ---@field attacker          EnemyBattler    The attacker that owns the wave which created this bullet. Not defined until after `Bullet:init()`.
 ---@field wave              Wave            The wave that this bullet was created by. Not defined until after `Bullet:init()`.
 ---
----@field collider          Collider|nil
+---@field collider          Collider?
 ---
 ---@field tp                number
 ---@field time_bonus        number
@@ -55,8 +55,8 @@ function Bullet:init(x, y, texture)
 
     -- Damage given to the player when hit by this bullet (Defaults to 5x the attacker's attack stat)
     self.damage = nil
-    -- Invulnerability timer to apply to the player when hit by this bullet (Defaults to 4/3 seconds)
-    self.inv_timer = (4 / 3)
+    -- Invulnerability timer to apply to the player when hit by this bullet
+    self.inv_timer = Game:getConfig("defaultInvulnTime") / 30
     -- Whether this bullet gets removed on collision with the player (Defaults to `true`)
     self.destroy_on_hit = true
 
@@ -155,7 +155,7 @@ end
 ---@param wave Wave
 function Bullet:onWaveSpawn(wave) end
 
----@param texture?      string|love.Image   The new texture or path to the texture to set on the sprite (Removes the bullet's sprite if undefined) 
+---@param texture?      string|love.Image   The new texture or path to the texture to set on the sprite (Removes the bullet's sprite if undefined)
 ---@param speed?        number              The time between frames of the sprite, in seconds (Defaults to 1/30th second)
 ---@param loop?         boolean             Whether the sprite should continuously loop. (Defaults to `true`)
 ---@param on_finished?  fun(Sprite)         A function that is called when the animation finishes.

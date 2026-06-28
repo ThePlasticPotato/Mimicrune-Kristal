@@ -14,7 +14,7 @@
 ---
 --- The color of the object in the form {R, G, B}. \
 --- The values of R, G, and B are between 0 and 1.
----@field color table
+---@field color {[1]: number, [2]: number, [3]: number}
 ---
 ---@field alpha    number  The alpha transparency of the object, between 0 (invisible) and 1 (fully visible).
 ---@field scale_x  number  The horizontal scale of the object.
@@ -45,17 +45,17 @@
 ---@field origin_exact boolean Whether the object's origin is measured as a ratio of its `width` and `height`, or in exact pixels. (Defaults to false)
 --- The horizontal scale origin of the object. \
 --- Scale origin overrides the object's origin, and defines where the object will scale from.
----@field scale_origin_x number|nil
+---@field scale_origin_x number?
 --- The vertical scale origin of the object. \
 --- Scale origin overrides the object's origin, and defines where the object will scale from.
----@field scale_origin_y number|nil
+---@field scale_origin_y number?
 ---@field scale_origin_exact boolean Whether the object's scale origin is measured as a ratio of its `width` and `height`, or in exact pixels. (Defaults to false)
 --- The horizontal rotation origin of the object. \
 --- Rotation origin overrides the object's origin, and defines where the object will rotate from.
----@field rotation_origin_x number|nil
+---@field rotation_origin_x number?
 --- The vertical rotation origin of the object. \
 --- Rotation origin overrides the object's origin, and defines where the object will rotate from.
----@field rotation_origin_y number|nil
+---@field rotation_origin_y number?
 ---@field rotation_origin_exact boolean Whether the object's rotation origin is measured as a ratio of its `width` and `height`, or in exact pixels. (Defaults to false)
 ---
 --- The horizontal camera origin of the object. (Defaults to 0.5) \
@@ -69,24 +69,24 @@
 --- How much an object's position will be affected by the camera horizontally. \
 --- A value of 1 means it fully moves with the camera (aka default behavior), and a value of 0 means it will not move at all when the camera moves. \
 --- Parallax will only affect an object if its parent has a camera.
----@field parallax_x number|nil
+---@field parallax_x number?
 --- How much an object's position will be affected by the camera vertically. \
 --- A value of 1 means it fully moves with the camera (aka default behavior), and a value of 0 means it will not move at all when the camera moves. \
 --- Parallax will only affect an object if its parent has a camera.
----@field parallax_y number|nil
+---@field parallax_y number?
 ---@field parallax_origin_x number The horizontal position on the object's parent that the object's parallax will orient around.
 ---@field parallax_origin_y number The vertical position on the object's parent that the object's parallax will orient around.
----@field camera Camera|nil A camera instance that will automatically move and scale the object and its children. Should be `nil` for most objects.
+---@field camera Camera? A camera instance that will automatically move and scale the object and its children. Should be `nil` for most objects.
 ---
----@field cutout_left number|nil The amount of pixels to cut from the left of the object when drawing.
----@field cutout_top number|nil The amount of pixels to cut from the top of the object when drawing.
----@field cutout_right number|nil The amount of pixels to cut from the right of the object when drawing.
----@field cutout_bottom number|nil The amount of pixels to cut from the bottom of the object when drawing.
+---@field cutout_left number? The amount of pixels to cut from the left of the object when drawing.
+---@field cutout_top number? The amount of pixels to cut from the top of the object when drawing.
+---@field cutout_right number? The amount of pixels to cut from the right of the object when drawing.
+---@field cutout_bottom number? The amount of pixels to cut from the bottom of the object when drawing.
 ---
 ---@field draw_fx table A list of all DrawFX that are being applied to the object.
 ---
 ---@field debug_select boolean Whether the object can be selected by the Object Selection debug feature. (Defaults to true)
----@field debug_rect table|nil Defines the rectangle used for selecting the object with the Object Selection debug feature.
+---@field debug_rect table? Defines the rectangle used for selecting the object with the Object Selection debug feature.
 ---
 ---@field timescale number A multiplier that determines the speed at which the object updates.
 ---
@@ -96,27 +96,27 @@
 --- All children of an object will draw at the same visual layer as the parent. In other words, a child cannot render above an object that is higher than its parent, even if its own layer is higher.
 ---@field layer number
 ---
----@field collider Collider|nil A Collider class used to check collision with other objects.
+---@field collider Collider? A Collider class used to check collision with other objects.
 ---@field collidable boolean Whether the object should be able to collide with other objects.
 ---
 ---@field active boolean Whether the object should update itself and its children.
 ---@field visible boolean Whether the object should draw itself and its children.
 ---
----@field draw_children_below number|nil If defined, children with a layer less than this value will be drawn underneath the object.
----@field draw_children_above number|nil If defined, children with a layer greater than this value will be drawn above the object.
+---@field draw_children_below number? If defined, children with a layer less than this value will be drawn underneath the object.
+---@field draw_children_above number? If defined, children with a layer greater than this value will be drawn above the object.
 ---
 ---@field _dont_draw_children boolean *(Used internally)* Whether the object should draw its children or not.
 ---
 ---@field update_child_list boolean *(Used internally)* If true, the object will re-sort its children list.
 ---@field children_to_remove table *(Used internally)* A list of children for the object to remove next time it updates.
 ---
----@field parent Object|nil The object's parent.
+---@field parent Object? The object's parent.
 ---@field children table A list of all of this object's children.
 ---
 ---@field world           World?
 ---@field persistent      boolean
 ---
----@overload fun(x?:number, y?:number, width?:number, height?:number) : Object
+---@overload fun(x:number?, y:number?, width:number?, height:number?) : Object
 local Object = Class()
 
 Object.LAYER_SORT = function(a, b) return a.layer < b.layer end
@@ -175,6 +175,10 @@ function Object.uncacheFull(obj)
     end
 end
 
+---@param x number?
+---@param y number?
+---@param width number?
+---@param height number?
 function Object:init(x, y, width, height)
     -- Intitialize this object's position (optional args)
     self.x = x or 0
@@ -387,7 +391,7 @@ end
 ---@class graphics_table
 ---@field fade           number       The amount the object's alpha should approach its target value, per frame at 30FPS.
 ---@field fade_to        number       The target alpha to approach.
----@field fade_callback  function|nil A function that will be called when the object's alpha reaches its target value.
+---@field fade_callback  function? A function that will be called when the object's alpha reaches its target value.
 ---@field grow_x         number       The amount the object's `scale_x` will increase, per frame at 30FPS.
 ---@field grow_y         number       The amount the object's `scale_y` will increase, per frame at 30FPS.
 ---@field grow           number       The amount the object's `scale_x` and `scale_y` will increase, per frame at 30FPS.
@@ -726,16 +730,16 @@ end
 function Object:getScale() return self.scale_x, self.scale_y end
 
 --- Sets the object's `color` and `alpha` values to the specified color.
----@overload fun(self:Object, color:{r:number, g:number, b:number, a?:number})
----@param r  number The red value to set for the object's `color`.
----@param g  number The green value to set for the object's `color`.
----@param b  number The blue value to set for the object's `color`.
+---@overload fun(self: Object, color: Color)
+---@param r number The red value to set for the object's `color`.
+---@param g number The green value to set for the object's `color`.
+---@param b number The blue value to set for the object's `color`.
 ---@param a? number The value to set `alpha` to. (Doesn't change alpha if unspecified)
 ---@diagnostic disable-next-line: undefined-doc-param
 ---@param color table The value to set `color` to. Can optionally define a 4th value to set alpha.
 function Object:setColor(r, g, b, a)
     if type(r) == "table" then
-        r, g, b, a = unpack(r)
+        r, g, b, a = unpack(r --[[@as Color]])
     end
     self.color = { r, g, b }
     self.alpha = a or self.alpha
@@ -957,10 +961,10 @@ function Object:setLayer(layer)
 end
 
 --- Sets the object's `cutout` values to the specified cutout.
----@param left   number|nil The value to set `cutout_left` to.
----@param top    number|nil The value to set `cutout_top` to.
----@param right  number|nil The value to set `cutout_right` to.
----@param bottom number|nil The value to set `cutout_bottom` to.
+---@param left   number? The value to set `cutout_left` to.
+---@param top    number? The value to set `cutout_top` to.
+---@param right  number? The value to set `cutout_right` to.
+---@param bottom number? The value to set `cutout_bottom` to.
 function Object:setCutout(left, top, right, bottom)
     self.cutout_left = left
     self.cutout_top = top
@@ -969,10 +973,10 @@ function Object:setCutout(left, top, right, bottom)
 end
 
 --- Returns the object's `cutout` values.
----@return number|nil The `cutout_left` value of the object.
----@return number|nil The `cutout_top` value of the object.
----@return number|nil The `cutout_right` value of the object.
----@return number|nil The `cutout_bottom` value of the object.
+---@return number? The `cutout_left` value of the object.
+---@return number? The `cutout_top` value of the object.
+---@return number? The `cutout_right` value of the object.
+---@return number? The `cutout_bottom` value of the object.
 function Object:getCutout()
     return self.cutout_left, self.cutout_top, self.cutout_right, self.cutout_bottom
 end
@@ -1044,10 +1048,10 @@ function Object:getDirection()
 end
 
 --- Returns the dimensions of the object's `collider` if that collider is a Hitbox.
----@return number|nil x The `x` position of the collider, relative to the object.
----@return number|nil y The `y` position of the collider, relative to the object.
----@return number|nil width The `width` of the collider, in pixels.
----@return number|nil height The `height` of the collider, in pixels.
+---@return number? x The `x` position of the collider, relative to the object.
+---@return number? y The `y` position of the collider, relative to the object.
+---@return number? width The `width` of the collider, in pixels.
+---@return number? height The `height` of the collider, in pixels.
 function Object:getHitbox()
     local collider = self.collider
     if collider and collider:includes(Hitbox) then
@@ -1226,7 +1230,7 @@ function Object:getRelativePosFor(other)
     end
 end
 
----@return Object|nil stage The object's highest parent.
+---@return Object? stage The object's highest parent.
 function Object:getStage()
     if self.parent and self.parent.parent then
         return self.parent:getStage()
@@ -1277,7 +1281,7 @@ end
 
 --- Returns a DrawFX added to the object.
 ---@param id string|Class|DrawFX A string referring to the ID of a DrawFX, the class type that a DrawFX includes, or a DrawFX instance.
----@return DrawFX|nil fx A DrawFX instance if the object has one that matches the ID, or `nil` otherwise.
+---@return DrawFX? fx A DrawFX instance if the object has one that matches the ID, or `nil` otherwise.
 function Object:getFX(id)
     if isClass(id) then
         for _, fx in ipairs(self.draw_fx) do
@@ -1296,7 +1300,7 @@ end
 
 --- Removes the specified DrawFX from the object.
 ---@param id string|Class|DrawFX A string referring to the ID of a DrawFX, the class type that a DrawFX includes, or a DrawFX instance.
----@return DrawFX|nil fx The removed DrawFX instance if the object has one that matches the ID, or `nil` otherwise.
+---@return DrawFX? fx The removed DrawFX instance if the object has one that matches the ID, or `nil` otherwise.
 function Object:removeFX(id)
     local fx = self:getFX(id)
     if fx then
@@ -1511,7 +1515,7 @@ end
 ---@param dont_remove? boolean Whether the object should not be removed.
 ---@param options? table Additional properties.
 ---| "play_sound" # Whether it should play the sound. (Defaults to true)
----@return Explosion|nil
+---@return Explosion?
 function Object:explode(x, y, dont_remove, options)
     if self.parent then
         options = options or {}
@@ -2001,8 +2005,9 @@ end
 ---| "color_drift"
 ---@param options GlitchOptions
 ---@overload fun()
----@overload fun (options)
-function Object:glitch(options, time)
+---@overload fun(options)
+---@overload fun(options, time)
+function Object:glitch(options, time, transformed)
     options = options or {
         ["scan_line_jitter"] = (0.015 * (5 / 10));
         ["horizontal_shake"] = (0.01 * (5 / 10));
@@ -2011,7 +2016,8 @@ function Object:glitch(options, time)
     local jitter = options.scan_line_jitter and options.scan_line_jitter or (0.015 * (5 / 10))
     local shake = options.horizontal_shake and options.horizontal_shake or (0.01 * (5 / 10))
     local drift = options.color_drift and options.color_drift or (0.03)
-    self:addFX(ShaderFX("kinoglitch", { ["iTime"] = function () return Kristal.getTime() end, ["scan_line_jitter"] = jitter, ["horizontal_shake"] = shake, ["color_drift"] = drift }, false), "glitchy")
+    transformed = transformed or false
+    self:addFX(ShaderFX("kinoglitch", { ["iTime"] = function () return Kristal.getTime() end, ["scan_line_jitter"] = jitter, ["horizontal_shake"] = shake, ["color_drift"] = drift }, transformed), "glitchy")
     if time then
         Game.stage.timer:after(time, function() self:stopGlitch() end)
     end
@@ -2200,6 +2206,65 @@ function Object:spawnSplash(x, y, radius, strength, life)
         life = life or 0.4,
         maxLife = life or 0.4
     })
+end
+
+---@alias DissolveOptions table
+---| "time"
+---| "gradient_texture"
+---| "mix"
+---| "noise_scale"
+---| "invert"
+---| "remove_after"
+---@param texsize table<number, number>|function
+---@param transformed boolean
+---@param options DissolveOptions
+---@overload fun()
+---@overload fun(texsize)
+---@overload fun(texsize, transformed)
+function Object:dissolve(texsize, transformed, options)
+    texsize = {SCREEN_WIDTH, SCREEN_HEIGHT}
+    transformed = transformed or false
+    options = options or {}
+    local fallback = {
+        ["time"]             = 1.0;
+        ["gradient_texture"] = Assets.getTexture("misc/bwgradient");
+        ["mix"]              = 0.38;
+        ["noise_scale"]      = 3.0;
+        ["invert"]           = false;
+        ["remove_after"]     = true;
+    }
+
+    local invert = options.invert or false
+    local progress = invert and 0 or 1
+
+    local dis_time = options.time or fallback.time
+    local remove_after = options.remove_after ~= false
+    local width = math.max(self.width, 1)
+    local height = math.max(self.height, 1)
+
+    Game.stage.timer:approach(dis_time, invert and 0 or 1, invert and 1 or 0, function(val) progress = val; Kristal.Console:log(progress) end, "linear", function () if remove_after then self:removeFX("dissolve") end end)
+
+    local passthrough = {
+        ["texsize"]          = texsize;
+        ["dissolve_value"]   = function () return progress end;
+        ["dissolve_mix"]     = options.mix or fallback.mix;
+        ["dissolve_noise_scale"] = options.noise_scale or fallback.noise_scale;
+        ["dissolve_use_screen_coords"] = 0;
+        ["dissolve_origin"]  = function ()
+            if transformed then
+                return {
+                    math.floor(SCREEN_WIDTH / 2 - width / 2),
+                    math.floor(SCREEN_HEIGHT / 2 - height / 2)
+                }
+            else
+                return { self:localToScreenPos(0, 0) }
+            end
+        end;
+        ["dissolve_size"]    = { width, height };
+        ["dissolve_gradient"]= options.gradient_texture or fallback.gradient_texture;
+    }
+
+    self:addFX(ShaderFX("dissolve", passthrough, transformed), "dissolve")
 end
 
 return Object
