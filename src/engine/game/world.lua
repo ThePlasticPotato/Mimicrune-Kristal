@@ -515,7 +515,7 @@ function World:onKeyPressed(key)
                 self.player:setState("DASH")
                 Input.clear("dash")
             end
-        elseif Input.isMenu(key) and not self:canOpenMenu() then
+        elseif Input.isMenu(key) and self:canOpenMenu() then
             self:openMenu(nil, WORLD_LAYERS["ui"] + 1)
             Input.clear("menu")
         end
