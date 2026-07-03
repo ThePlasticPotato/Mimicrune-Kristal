@@ -142,7 +142,7 @@ function DarkMenu:addButtons()
         ["callback"]       = function()
             self.box = DarkItemMenu()
             self.box.layer = self.layer + 1
-            Game.world:addChild(self.box)
+            self:addChild(self.box)
 
             self.ui_select:stop()
             self.ui_select:play()
@@ -158,7 +158,7 @@ function DarkMenu:addButtons()
         ["callback"]       = function()
             self.box = DarkEquipMenu()
             self.box.layer = self.layer + 1
-            Game.world:addChild(self.box)
+            self:addChild(self.box)
 
             self.ui_select:stop()
             self.ui_select:play()
@@ -174,7 +174,7 @@ function DarkMenu:addButtons()
         ["callback"]       = function()
             self.box = DarkPowerMenu()
             self.box.layer = self.layer + 1
-            Game.world:addChild(self.box)
+            self:addChild(self.box)
 
             self.ui_select:stop()
             self.ui_select:play()
