@@ -100,6 +100,25 @@ function actor:init()
 
     -- Whether this actor as a follower will blush when close to the player
     self.can_blush = false
+
+    self.bust_path = "bust/fredbear"
+    self.busts = {
+        ["idle"] = {
+            "body/idle",
+            {
+                {36, 26},
+                {36, 27},
+                {36, 25},
+                {36, 27},
+                {37, 28},
+                {37, 27},
+            }
+        },
+        ["shitty"] = {
+            "still/shitty",
+            {}
+        },
+    }
 end
 
 return actor

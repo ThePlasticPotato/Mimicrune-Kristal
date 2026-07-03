@@ -8,75 +8,82 @@ function DarkPowerMenu:init()
     self.draw_children_below = 0
 
     self.font = Assets.getFont("main")
+    self.header_font = Assets.getFont("small")
     self.small_font = Assets.getFont("smallnumbers")
+    self.earthbound_font = Assets.getFont("eb")
+    self.mono_font = Assets.getFont("main_mono", 16)
+    self.lv_sprite = Assets.getTexture("ui/menu/caption_lv")
 
     self.ui_move = Assets.newSound("ui_move_panel")
     self.ui_select = Assets.newSound("ui_select_panel")
     self.ui_cant_select = Assets.newSound("ui_error_panel")
     self.ui_cancel_small = Assets.newSound("ui_cancel_small_camera")
 
-    self.heart_sprite = Assets.getTexture("player/heart")
-    self.arrow_sprite = Assets.getTexture("ui/page_arrow_down")
+    self.heart_sprite = Assets.getTexture("ui/flat_arrow_right")
 
-    self.tp_sprite = Assets.getTexture("ui/menu/caption_tp")
-
-    self.caption_sprites = {
-          ["char"] = Assets.getTexture("ui/menu/caption_char"),
-         ["stats"] = Assets.getTexture("ui/menu/caption_stats"),
-        ["spells"] = Assets.getTexture("ui/menu/caption_spells"),
-    }
+    self.popup_sprite = Assets.getTexture("ui/menu/popup")
+    self.popup_text = nil
 
     self.stat_icons = {
-         ["attack"] = Assets.getTexture("ui/menu/icon/sword"),
+        ["health"] = Assets.getTexture("ui/menu/icon/health"),
+        ["attack"] = Assets.getTexture("ui/menu/icon/sword"),
         ["defense"] = Assets.getTexture("ui/menu/icon/armor"),
-          ["magic"] = Assets.getTexture("ui/menu/icon/magic"),
+        ["magic"] = Assets.getTexture("ui/menu/icon/magic"),
+        ["gift"] = Assets.getTexture("ui/menu/icon/gift")
    }
 
-    self.bg = UIBox(0, 0, self.width, self.height)
-    self.bg.layer = -1
-    self.bg.debug_select = false
-    self:addChild(self.bg)
+    -- self.bg = UIBox(0, 0, self.width, self.height)
+    -- self.bg.layer = -1
+    -- self.bg.debug_select = false
+    -- self:addChild(self.bg)
 
     self.party = DarkMenuPartySelect(8, 48)
     self.party.focused = true
-    self.party.highlight_party = false
     self:addChild(self.party)
 
     self.party.on_select = function(new, old)
         Game.party[old]:onPowerDeselect(self)
         Game.party[new]:onPowerSelect(self)
+        self.pending_stat_allocations = {}
+        self:refreshStatPoints()
+        self:syncBust()
     end
 
-    -- PARTY, SPELLS
+    -- PARTY, OVERVIEW, STATS, CONFIRM
     self.state = "PARTY"
 
-    self.selected_spell = 1
+    self.stat_rows = {
+        {id = "health", label = "Health", description = "WITHSTAND PAIN."},
+        {id = "attack", label = "Attack", description = "ENHANCE PAIN."},
+        {id = "defense", label = "Defense", description = "REDUCE WOUNDS."},
+        {id = "magic", label = "Magic", description = "EMPOWER LIGHT."},
+    }
+    self.selected_stat = 1
+    self.pending_stat_points = 0
+    self.pending_stat_allocations = {}
+    self:refreshStatPoints()
 
-    self.scroll_y = 1
-end
+    self.bust = Bust(nil, nil, nil, 64, 64)
+    self.bust:setScale(2)
+    self.bust.body.inherit_color = true
+    self.bust.face.inherit_color = true
+    self.bust.visible = false
+    self.bust.active = false
+    self:addChild(self.bust)
+    self.bust_available = false
+    self:syncBust()
+    self:updateBustVisibility()
 
-function DarkPowerMenu:getSpellLimit()
-    return 6
-end
+    self.selection_siner = 0
 
-function DarkPowerMenu:getSpells()
-    local spells = {}
-    local party = self.party:getSelected()
-    if party:hasAct() then
-        table.insert(spells, Registry.createSpell("_act"))
-    end
-    for _,spell in ipairs(party:getSpells()) do
-        table.insert(spells, spell)
-    end
-    return spells
+    Assets.stopAndPlaySound("item_trash_warning", 0.6)
 end
 
 function DarkPowerMenu:updateDescription()
     if self.state == "PARTY" then
         Game.world.menu:setDescription("", false)
-    elseif self.state == "SPELLS" then
-        local spell = self:getSpells()[self.selected_spell]
-        Game.world.menu:setDescription(spell and spell:getDescription() or "", true)
+    elseif self.state == "OVERVIEW" or self.state == "STATS" then
+        Game.world.menu:setDescription("", false)
     end
 end
 
@@ -88,254 +95,464 @@ function DarkPowerMenu:onRemove(parent)
 end
 
 function DarkPowerMenu:update()
+    self.alpha = 1 - Game.world.menu.flicker_dur
     if self.state == "PARTY" then
+        self.popup_text = "PLEASE SELECT\nA VALID USER"
         if Input.pressed("cancel") then
             self.ui_cancel_small:stop()
             self.ui_cancel_small:play()
+            self.popup_text = nil
             Game.world.menu:closeBox()
             return
         elseif Input.pressed("confirm") then
-            if #self:getSpells() > 0 then
-                self.state = "SPELLS"
+            self.state = "OVERVIEW"
 
-                self.party.focused = false
+            self.party.focused = false
+            self.popup_text = nil
 
-                self.ui_select:stop()
-                self.ui_select:play()
+            self.ui_select:stop()
+            self.ui_select:play()
 
-                self.selected_spell = 1
-                self.scroll_y = 1
+            self.selected_stat = 1
 
-                self:updateDescription()
-            else
-                self.ui_select:stop()
-                self.ui_select:play()
-            end
+            self:updateDescription()
         end
-    elseif self.state == "SPELLS" then
+    elseif self.state == "OVERVIEW" then
         if Input.pressed("cancel") then
             self.state = "PARTY"
+            self.popup_text = "PLEASE SELECT\nA VALID USER"
 
             self.ui_cancel_small:stop()
             self.ui_cancel_small:play()
 
             self.party.focused = true
 
-            self.scroll_y = 1
+            self:updateDescription()
+            return
+        elseif Input.pressed("confirm") then
+            self.state = "STATS"
+
+            self.ui_select:stop()
+            self.ui_select:play()
+
+            self:updateDescription()
+        end
+    elseif self.state == "STATS" then
+        self.selection_siner = self.selection_siner + (DTMULT / 8)
+        if Input.pressed("cancel") then
+            self.state = "OVERVIEW"
+            self.popup_text = nil
+
+            self.ui_cancel_small:stop()
+            self.ui_cancel_small:play()
 
             self:updateDescription()
             return
         end
-        if Input.pressed("confirm") then
-            local spell = self:getSpells()[self.selected_spell]
-            if self:canCast(spell) then
-                self.state = "USE"
-                if spell:getTarget() == "ally" or spell:getTarget() == "party" then
 
-                    local target_type = spell:getTarget() == "ally" and "SINGLE" or "ALL"
-
-                    self:selectParty(target_type, spell)
-                else
-                    Game:removeTension(spell:getTPCost())
-                    spell:onWorldCast()
-                    self.state = "SPELLS"
-                end
-            end
-        end
-        local spells = self:getSpells()
-        local old_selected = self.selected_spell
+        local old_selected = self.selected_stat
         if Input.pressed("up", true) then
-            self.selected_spell = self.selected_spell - 1
+            self.selected_stat = self.selected_stat - 1
         end
         if Input.pressed("down", true) then
-            self.selected_spell = self.selected_spell + 1
+            self.selected_stat = self.selected_stat + 1
         end
-        self.selected_spell = MathUtils.clamp(self.selected_spell, 1, #spells)
-        if self.selected_spell ~= old_selected then
-            local spell_limit = self:getSpellLimit()
-            local min_scroll = math.max(1, self.selected_spell - (spell_limit - 1))
-            local max_scroll = math.min(math.max(1, #spells - (spell_limit - 1)), self.selected_spell)
-            self.scroll_y = MathUtils.clamp(self.scroll_y, min_scroll, max_scroll)
+        self.selected_stat = MathUtils.clamp(self.selected_stat, 1, #self.stat_rows)
 
+        if self.selected_stat ~= old_selected then
             self.ui_move:stop()
             self.ui_move:play()
             self:updateDescription()
         end
+
+        local pressed_left = Input.pressed("left", true)
+        local pressed_right = Input.pressed("right", true)
+        local pressed_confirm = Input.pressed("confirm")
+
+        if pressed_left then
+            if not self:allocateSelectedStat(-1) then
+                self.ui_cant_select:stop()
+                self.ui_cant_select:play()
+            end
+        elseif pressed_right or pressed_confirm then
+            if pressed_confirm and self:hasPendingStatAllocations() then
+                self:beginPendingStatConfirm()
+                return
+            end
+            if not self:allocateSelectedStat(1) then
+                self.ui_cant_select:stop()
+                self.ui_cant_select:play()
+            end
+        end
+    elseif self.state == "CONFIRM" then
+        if Input.pressed("cancel") then
+            self.state = "STATS"
+            self.popup_text = nil
+
+            self.ui_cancel_small:stop()
+            self.ui_cancel_small:play()
+
+            self:updateDescription()
+            return
+        elseif Input.pressed("confirm") then
+            if self:applyPendingStatAllocations() then
+                Assets.playSound("item_use")
+            else
+                self.ui_cant_select:stop()
+                self.ui_cant_select:play()
+            end
+
+            self.state = "STATS"
+            self.popup_text = nil
+            self:updateDescription()
+            return
+        end
     end
+    self:updateBustVisibility()
     super.update(self)
 end
 
-function DarkPowerMenu:selectParty(target_type, spell)
-    Game.world.menu:partySelect(target_type, function(success, party)
-        if success then
-            Game:removeTension(spell:getTPCost())
-            spell:onWorldCast(party)
-            if self:canCast(spell) then
-                self:selectParty(target_type, spell)
-            else
-                self.state = "SPELLS"
-            end
-        else
-            self.state = "SPELLS"
-        end
-    end)
+function DarkPowerMenu:syncBust()
+    local party = self.party:getSelected()
+    local actor = party and party:getActor(false)
+    self.bust_available = false
+
+    if not actor or not actor:getBustPath() then
+        return
+    end
+
+    self.bust:setActor(actor)
+    local body = actor:getDefaultBust() or "idle"
+    if self.bust:setBody(body) then
+        self.bust:setFace("blank")
+        self.bust_available = true
+    end
 end
 
-function DarkPowerMenu:canCast(spell)
-    if not Game:getConfig("overworldSpells") then return false end
-    if Game:getTension() < spell:getTPCost(self.party:getSelected()) then return false end
-    if (spell.psychic) then
-        local canCast = self.party:getSelected().is_psychic and (spell:getNPCost(self.party:getSelected()) <= self.party:getSelected().neural_power) and ((spell:getNHeat(self.party:getSelected()) + self.party:getSelected().heat) <= 100)
-        if (not canCast) then return false end
+function DarkPowerMenu:updateBustVisibility()
+    local visible = self.bust_available and self.state ~= "PARTY"
+    self.bust.visible = visible
+    self.bust.active = visible
+    self.bust:setColor(1, 1, 1, self.alpha)
+end
+
+function DarkPowerMenu:getClassText()
+    local lines = StringUtils.split(self.party:getSelected().title or "", "\n", false)
+    local class_name = lines[1] or ""
+    local description = {}
+    for i = 2, #lines do
+        table.insert(description, lines[i])
     end
-    return (spell:hasWorldUsage(self.party:getSelected()))
+    return class_name, table.concat(description, "\n")
+end
+
+function DarkPowerMenu:getPendingStatAllocation(stat)
+    return self.pending_stat_allocations[stat] or 0
+end
+
+function DarkPowerMenu:refreshStatPoints()
+    local party = self.party:getSelected()
+    if not party then
+        self.pending_stat_points = 0
+        return
+    end
+    self.pending_stat_points = Game:getFlag(party.name .. "/stat_points", 0) - Game:getFlag(party.name .. "/assigned_stat_points", 0)
+end
+
+function DarkPowerMenu:getTotalPendingStatAllocation()
+    local spent = 0
+    for _, amount in pairs(self.pending_stat_allocations) do
+        spent = spent + amount
+    end
+    return spent
+end
+
+function DarkPowerMenu:getAvailableStatPoints()
+    return self.pending_stat_points - self:getTotalPendingStatAllocation()
+end
+
+function DarkPowerMenu:hasPendingStatAllocations()
+    return self:getTotalPendingStatAllocation() > 0
+end
+
+function DarkPowerMenu:getCurrentStatRow()
+    return self.stat_rows[self.selected_stat]
+end
+
+function DarkPowerMenu:canAllocateStat(stat, amount)
+    if amount > 0 then
+        return self:getAvailableStatPoints() >= amount
+    elseif amount < 0 then
+        return self:getPendingStatAllocation(stat) >= -amount
+    end
+    return false
+end
+
+function DarkPowerMenu:allocateSelectedStat(amount)
+    local row = self:getCurrentStatRow()
+    if not row or not self:canAllocateStat(row.id, amount) then
+        return false
+    end
+    self.pending_stat_allocations[row.id] = self:getPendingStatAllocation(row.id) + amount
+    Assets.playSound("item_click")
+    return true
+end
+
+function DarkPowerMenu:beginPendingStatConfirm()
+    self.state = "CONFIRM"
+    self.popup_text = "ASSIGN POINT?\nTHIS IS IRREVERSIBLE."
+
+    self.ui_select:stop()
+    self.ui_select:play()
+
+    self:updateDescription()
+end
+
+function DarkPowerMenu:applyPendingStatAllocations()
+    local party = self.party:getSelected()
+    local total = self:getTotalPendingStatAllocation()
+    if not party or total <= 0 then
+        return false
+    end
+
+    for stat, amount in pairs(self.pending_stat_allocations) do
+        if amount > 0 then
+            party:increaseStat(stat, amount)
+        end
+    end
+
+    Game:addFlag(party.name .. "/assigned_stat_points", total)
+    self.pending_stat_allocations = {}
+    self:refreshStatPoints()
+
+    return true
 end
 
 function DarkPowerMenu:draw()
     love.graphics.setFont(self.font)
 
-    Draw.setColor(PALETTE["world_border"])
-    love.graphics.rectangle("fill", -24, 104, 525, 6)
-    if Game:getConfig("oldUIPositions") then
-        love.graphics.rectangle("fill", 212, 104, 6, 191)
-    else
-        love.graphics.rectangle("fill", 212, 104, 6, 193)
+    Draw.setColor(1, 1, 1, self.alpha)
+    love.graphics.stencil(function()
+        love.graphics.circle("fill", SCREEN_WIDTH / 2 - self.x, SCREEN_HEIGHT / 2 - self.y, 162)
+    end, "replace", 1)
+    love.graphics.setStencilTest("greater", 0)
+
+    self:updateBustVisibility()
+    if self.bust.visible then
+        Draw.pushShader("GonerPalette", {
+            shadow = {0.13, 0.13, 0.16},
+            mid = {0.53, 0.53, 0.60},
+            light = {0.84, 0.84, 0.90},
+            amount = 1,
+            steps = 4,
+        })
+    end
+    super.draw(self)
+    if self.bust.visible then
+        Draw.popShader()
     end
 
-    Draw.setColor(1, 1, 1, 1)
-    Draw.draw(self.caption_sprites[  "char"],  42, -28, 0, 2, 2)
-    Draw.draw(self.caption_sprites[ "stats"],  42,  98, 0, 2, 2)
-    Draw.draw(self.caption_sprites["spells"], 298,  98, 0, 2, 2)
+    if self.state ~= "PARTY" then
+        self:drawChar()
+        self:drawPowerPanel()
+    end
 
-    self:drawChar()
-    self:drawStats()
-    self:drawSpells()
+    self:drawPopup()
 
-    super.draw(self)
+    love.graphics.setStencilTest()
+end
+
+function DarkPowerMenu:drawPopup()
+    if self.popup_text then
+        Draw.setColor(1, 1, 1, self.alpha)
+        Draw.draw(self.popup_sprite, SCREEN_WIDTH / 3.95, 86)
+        Draw.setColor(0, 0, 0, self.alpha)
+        love.graphics.setFont(self.earthbound_font)
+        local _, wrapped = self.earthbound_font:getWrap(self.popup_text, 150)
+        local base_y = 96
+        if #wrapped < 4 then
+            base_y = base_y + (16 * (3.5 - #wrapped))
+        end
+        for i, textline in ipairs(wrapped) do
+            love.graphics.print(textline, (SCREEN_WIDTH / 4) + 10, base_y + (16 * (i - 1)))
+            if i > 4 then break end
+        end
+        love.graphics.setFont(self.font)
+        Draw.setColor(1, 1, 1, 1)
+    end
+end
+
+function DarkPowerMenu:drawSectionHeader(text, y, left, right)
+    local old_font = love.graphics.getFont()
+    love.graphics.setFont(self.header_font)
+    love.graphics.setLineWidth(2)
+
+    Draw.setColor(PALETTE["world_header"] or PALETTE["world_text"], self.alpha)
+
+    local center = (left + right) / 2
+    local width = self.header_font:getWidth(text)
+    local gap = 8
+
+    love.graphics.line(left, y, center - (width / 2) - gap, y)
+    love.graphics.line(center + (width / 2) + gap, y, right, y)
+    love.graphics.print(text, center - (width / 2), y - 6)
+
+    love.graphics.setFont(old_font)
 end
 
 function DarkPowerMenu:drawChar()
     local party = self.party:getSelected()
-    Draw.setColor(PALETTE["world_text"])
-    love.graphics.print(party:getName(), 48, -7)
-    love.graphics.print(party:getTitle(), 238, -7)
+    local center_x = SCREEN_WIDTH / 2 - self.x
+
+    Draw.setColor(PALETTE["world_text"], self.alpha)
+    local name_width = self.font:getWidth(party:getName())
+    love.graphics.print(party:getName(), center_x - (name_width / 2), -28)
+
+    Draw.setColor(1, 1, 1, self.alpha)
+    Draw.draw(self.lv_sprite, -self.x, 10 - self.y)
+    love.graphics.setFont(Game.world.menu.small_font)
+    love.graphics.print(party:getLevel(), SCREEN_WIDTH / 2.6, 2)
+
+    local class_name = self:getClassText()
+    if class_name ~= "" then
+        love.graphics.setFont(self.mono_font)
+        Draw.setColor(PALETTE["world_gray"], self.alpha)
+        local class_width = self.mono_font:getWidth(class_name)
+        love.graphics.print(class_name, center_x - (class_width / 2), 18)
+    end
+
+    love.graphics.setFont(self.font)
 end
 
-function DarkPowerMenu:drawStats()
+function DarkPowerMenu:drawPowerPanel()
+    self:drawBust()
+    self:drawClassText()
+    self:drawStatRows()
+    self:drawCustomPowerStats()
+end
+
+function DarkPowerMenu:drawBust()
     local party = self.party:getSelected()
-    Draw.setColor(1, 1, 1, 1)
-    Draw.draw(self.stat_icons[ "attack"], -8, 124, 0, 2, 2)
-    Draw.draw(self.stat_icons["defense"], -8, 149, 0, 2, 2)
-    Draw.draw(self.stat_icons[  "magic"], -8, 174, 0, 2, 2)
-    love.graphics.print( "Attack:", 18, 118)
-    love.graphics.print("Defense:", 18, 143)
-    love.graphics.print(  "Magic:", 18, 168)
-    local stats = party:getStats()
-    love.graphics.print(stats[ "attack"], 148, 118)
-    love.graphics.print(stats["defense"], 148, 143)
-    love.graphics.print(stats[  "magic"], 148, 168)
+
+    if self.bust_available then
+        return
+    end
+
+    local icon = party and Assets.getTexture(party:getMenuIcon()) or nil
+    if icon then
+        Draw.setColor(0.72, 0.72, 0.78, self.alpha)
+        Draw.draw(icon, 96, 104, 0, 4, 4)
+    end
+end
+
+function DarkPowerMenu:drawClassText()
+    local _, description = self:getClassText()
+
+    Draw.setColor(PALETTE["world_gray"], self.alpha)
+    love.graphics.setFont(self.earthbound_font)
+
+    local _, lines = self.earthbound_font:getWrap(description, 120)
+    for i, line in ipairs(lines) do
+        love.graphics.print(line, 116, 44 + ((i - 1) * 18))
+        if i >= 3 then break end
+    end
+
+    love.graphics.setFont(self.font)
+end
+
+function DarkPowerMenu:drawStatRows()
+    local party = self.party:getSelected()
+    local icon_x = 250
+    local text_x = 278
+    local value_x = 360
+    local y = 74
+    local row_spacing = 26
+    local stats = party:getStats(false)
+
+    self:drawSectionHeader("STATS", 52, 246, 390)
+    love.graphics.setFont(self.earthbound_font)
+
+    for i, row in ipairs(self.stat_rows) do
+        local row_y = y + ((i - 1) * row_spacing)
+        local pending = self:getPendingStatAllocation(row.id)
+        local selected = (self.state == "STATS" or self.state == "CONFIRM") and self.selected_stat == i
+        local color = selected and PALETTE["world_text_hover"] or PALETTE["world_text"]
+
+        Draw.setColor(color, self.alpha)
+        if selected then
+            local mult = math.floor(math.sin(self.selection_siner)/2+1)
+            Draw.draw(self.heart_sprite, icon_x - (18 + 6 * mult), row_y + 2)
+        end
+        if self.stat_icons[row.id] then
+            Draw.draw(self.stat_icons[row.id], icon_x, row_y + 1, 0, 1, 1)
+        end
+        love.graphics.print(row.label .. ":", text_x, row_y)
+
+        local value = stats[row.id] or party:getStat(row.id, 0)
+        if pending > 0 then
+            Draw.setColor(PALETTE["world_text_selected"], self.alpha)
+            local text = value .. " +" .. pending
+            love.graphics.print(text, value_x - self.earthbound_font:getWidth(text), row_y)
+        else
+            Draw.setColor(color, self.alpha)
+            local text = tostring(value)
+            love.graphics.print(text, value_x - self.earthbound_font:getWidth(text), row_y)
+        end
+
+    end
+
+    --love.graphics.setFont(self.mono_font)
+    if self:getAvailableStatPoints() > 0 then
+        Draw.setColor(PALETTE["world_text_hover"], self.alpha)
+    else
+        Draw.setColor(PALETTE["world_gray"], self.alpha)
+    end
+
+    local addon = (self:getTotalPendingStatAllocation() > 0) and (" (-" .. self:getTotalPendingStatAllocation() .. ")") or ""
+    local points = " : " .. self:getAvailableStatPoints() .. addon
+    local points_y = y + (#self.stat_rows * row_spacing) - 8
+    Draw.draw(self.stat_icons["gift"], value_x - self.earthbound_font:getWidth(points) - 10, points_y + 1, 0, 1, 1)
+    love.graphics.print(points, value_x - self.earthbound_font:getWidth(points), points_y)
+    if self.state == "STATS" then
+        local row = self:getCurrentStatRow()
+        local row_y = y + ((self.selected_stat - 1) * row_spacing)
+        self:drawStatDescription(row, text_x, row_y + 16)
+    end
+    love.graphics.setFont(self.font)
+end
+
+function DarkPowerMenu:drawStatDescription(row, x, y)
+    if not row.description then
+        return
+    end
+
+    love.graphics.setFont(self.earthbound_font)
+
+    local width = self.earthbound_font:getWidth(row.description)
+    Draw.setColor(0, 0, 0, 0.72 * self.alpha)
+    love.graphics.rectangle("fill", x - 4, y - 4, width + 8, 13)
+
+    Draw.setColor(PALETTE["world_gray"], self.alpha)
+    love.graphics.print(row.description, x, y-3)
+end
+
+function DarkPowerMenu:drawCustomPowerStats()
+    local party = self.party:getSelected()
+    local x = 246
+    local y = 214
+
+    self:drawSectionHeader("TRAITS", 198, 220, 390)
+
     for i = 1, 3 do
-        local x, y = 18, 168 + (i * 25)
-        love.graphics.setFont(self.font)
-        Draw.setColor(PALETTE["world_text"])
+        local row_y = y + ((i - 1) * 22)
+        love.graphics.setFont(self.earthbound_font)
+        Draw.setColor(PALETTE["world_text"], self.alpha)
         love.graphics.push()
-        if not party:drawPowerStat(i, x, y, self) then
-            Draw.setColor(PALETTE["world_dark_gray"])
-            love.graphics.print("???", x, y)
+        if not party:drawPowerStat(i, x, row_y, self) then
+            Draw.setColor(PALETTE["world_dark_gray"], self.alpha)
+            love.graphics.print("???", x, row_y)
         end
         love.graphics.pop()
-    end
-end
-
-function DarkPowerMenu:drawSpells()
-    local spells = self:getSpells()
-
-    local tp_x, tp_y
-    local name_x, name_y
-
-    if #spells <= 6 then
-        tp_x, tp_y = 258, 118
-        name_x, name_y = 328, 118
-    else
-        tp_x, tp_y = 242, 118
-        name_x, name_y = 302, 118
-    end
-
-    Draw.setColor(1, 1, 1)
-    Draw.draw(self.tp_sprite, tp_x, tp_y - 5)
-
-    local spell_limit = self:getSpellLimit()
-
-    for i = self.scroll_y, math.min(#spells, self.scroll_y + (spell_limit - 1)) do
-        local spell = spells[i]
-        local offset = i - self.scroll_y
-
-        local canCast = self:canCast(spell)
-
-        if not canCast then
-            Draw.setColor(0.5, 0.5, 0.5)
-        else
-            Draw.setColor(1, 1, 1)
-        end
-        if (spell.psychic) then
-            local npCost = tostring(spell:getNPCost(self.party:getSelected()))
-            local heat = tostring(spell:getNHeat(self.party:getSelected()))
-
-            local pColor = COLORS.aqua
-            local hColor = COLORS.red
-            if (not canCast) then
-                pColor = {0, 0.5, 0.5, 1}
-                hColor = {0.5, 0, 0, 1}
-            end
-
-            love.graphics.setFont(self.small_font)
-            Draw.setColor(0.5, 0.5, 0.5)
-            love.graphics.print("-", tp_x+ (12 * npCost:len()), tp_y+12 + (offset * 25))
-            Draw.setColor(pColor)
-            love.graphics.print(npCost.."%P", tp_x, tp_y+12 + (offset * 25))
-            Draw.setColor(hColor)
-            love.graphics.print(heat.."H", tp_x+(12 * (npCost:len())+8), tp_y+12 + (offset * 25))
-            if (canCast) then Draw.setColor(1, 1, 1) else Draw.setColor(0.5, 0.5, 0.5) end
-            love.graphics.setFont(self.font)
-        else
-            love.graphics.print(tostring(spell:getTPCost(self.party:getSelected())).."%", tp_x, tp_y + (offset * 25))
-        end
-        love.graphics.print(spell:getName(), name_x, name_y + (offset * 25))
-    end
-
-    -- Draw scroll arrows if needed
-    if #spells > spell_limit then
-        Draw.setColor(1, 1, 1)
-
-        -- Move the arrows up and down only if we're in the spell selection state
-        local sine_off = 0
-        if self.state == "SPELLS" then
-            sine_off = math.sin((Kristal.getTime()*30)/12) * 3
-        end
-
-        if self.scroll_y > 1 then
-            -- up arrow
-            Draw.draw(self.arrow_sprite, 469, (name_y + 25 - 3) - sine_off, 0, 1, -1)
-        end
-        if self.scroll_y + spell_limit <= #spells then
-            -- down arrow
-            Draw.draw(self.arrow_sprite, 469, (name_y + (25 * spell_limit) - 12) + sine_off)
-        end
-    end
-
-    if self.state == "SPELLS" then
-        Draw.setColor(Game:getSoulColor())
-        Draw.draw(self.heart_sprite, tp_x - 20, tp_y + 10 + ((self.selected_spell - self.scroll_y) * 25))
-
-        -- Draw scrollbar if needed (unless the spell limit is 2, in which case the scrollbar is too small)
-        if spell_limit > 2 and #spells > spell_limit then
-            local scrollbar_height = (spell_limit - 2) * 25
-            Draw.setColor(0.25, 0.25, 0.25)
-            love.graphics.rectangle("fill", 473, name_y + 30, 6, scrollbar_height)
-            local percent = (self.scroll_y - 1) / (#spells - spell_limit)
-            Draw.setColor(1, 1, 1)
-            love.graphics.rectangle("fill", 473, name_y + 30 + math.floor(percent * (scrollbar_height-6)), 6, 6)
-        end
     end
 end
 

@@ -470,7 +470,7 @@ function DarkMenu:draw()
         Draw.setColor(1, 1, 1)
     end
 
-    if self.box and (self.box:includes(DarkEquipMenu) or self.box:includes(DarkPowerMenu) or self.box:includes(DarkSpellMenu)) then
+    if self.box and (self.box:includes(DarkEquipMenu) or self.box:includes(DarkSpellMenu)) then
         self:drawStat(alpha)
     else
         self:drawBag(alpha)

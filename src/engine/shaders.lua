@@ -96,6 +96,35 @@ Shaders["AddColor"] = love.graphics.newShader([[
     }
 ]])
 
+Shaders["GonerPalette"] = love.graphics.newShader([[
+    extern vec3 shadow;
+    extern vec3 mid;
+    extern vec3 light;
+    extern float amount;
+    extern float steps;
+
+    vec4 effect(vec4 color, Image tex, vec2 texture_coords, vec2 screen_coords)
+    {
+        vec4 base = Texel(tex, texture_coords) * color;
+        float luma = dot(base.rgb, vec3(0.299, 0.587, 0.114));
+        float step_count = max(steps, 1.0);
+        float stepped = floor(luma * step_count + 0.5) / step_count;
+
+        vec3 low_mid = mix(shadow, mid, smoothstep(0.0, 0.55, stepped));
+        vec3 high_mid = mix(mid, light, smoothstep(0.35, 1.0, stepped));
+        vec3 mapped = mix(low_mid, high_mid, smoothstep(0.45, 0.65, stepped));
+
+        base.rgb = mix(base.rgb, mapped, amount);
+        return base;
+    }
+]])
+
+Shaders["GonerPalette"]:send("shadow", {0.13, 0.13, 0.16})
+Shaders["GonerPalette"]:send("mid", {0.53, 0.53, 0.60})
+Shaders["GonerPalette"]:send("light", {0.84, 0.84, 0.90})
+Shaders["GonerPalette"]:send("amount", 1)
+Shaders["GonerPalette"]:send("steps", 4)
+
 Shaders["Mask"] = love.graphics.newShader[[
     vec4 effect(vec4 color, Image tex, vec2 texture_coords, vec2 screen_coords) {
         if (Texel(tex, texture_coords).a == 0.0) {
