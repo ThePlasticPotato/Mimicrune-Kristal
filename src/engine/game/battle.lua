@@ -895,8 +895,8 @@ function Battle:onVictory()
         Game.level_up_count = Game.level_up_count + 1
         for _, party in ipairs(TableUtils.removeDuplicates(party_to_lvl_up)) do
             party:onLevelUp(Game.level_up_count)
-            local statPoints = Game:getFlag(party.name .. "/stat_points", 0)
-            Game:setFlag(party.name .. "/stat_points", statPoints + 1)
+            local statPoints = Game:getFlag(party.id .. "/stat_points", 0)
+            Game:setFlag(party.id .. "/stat_points", statPoints + 1)
         end
 
         win_text = string.format("* You won!\n* Got %s %s.\n* %s became stronger.", self.money, Game:getConfig("darkCurrencyShort"), stronger)

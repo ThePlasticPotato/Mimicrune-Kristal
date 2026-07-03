@@ -12,6 +12,7 @@ function DarkPowerMenu:init()
     self.small_font = Assets.getFont("smallnumbers")
     self.earthbound_font = Assets.getFont("eb")
     self.mono_font = Assets.getFont("main_mono", 16)
+    self.wingdings_font = Assets.getFont("wingdings", 4)
     self.lv_sprite = Assets.getTexture("ui/menu/caption_lv")
 
     self.ui_move = Assets.newSound("ui_move_panel")
@@ -20,16 +21,25 @@ function DarkPowerMenu:init()
     self.ui_cancel_small = Assets.newSound("ui_cancel_small_camera")
 
     self.heart_sprite = Assets.getTexture("ui/flat_arrow_right")
+    self.left_arrow_sprite = Assets.getTexture("ui/page_arrow_left")
+    self.right_arrow_sprite = Assets.getTexture("ui/page_arrow_right")
 
     self.popup_sprite = Assets.getTexture("ui/menu/popup")
     self.popup_text = nil
 
     self.stat_icons = {
         ["health"] = Assets.getTexture("ui/menu/icon/health"),
+        ["sword"] = Assets.getTexture("ui/menu/icon/sword"),
+        ["armor"] = Assets.getTexture("ui/menu/icon/armor"),
         ["attack"] = Assets.getTexture("ui/menu/icon/sword"),
         ["defense"] = Assets.getTexture("ui/menu/icon/armor"),
         ["magic"] = Assets.getTexture("ui/menu/icon/magic"),
-        ["gift"] = Assets.getTexture("ui/menu/icon/gift")
+        ["gift"] = Assets.getTexture("ui/menu/icon/gift"),
+        ["up"] = Assets.getTexture("ui/menu/icon/up"),
+        ["down"] = Assets.getTexture("ui/menu/icon/down"),
+        ["act"] = Assets.getTexture("ui/menu/icon/exclamation"),
+        ["mercy"] = Assets.getTexture("ui/menu/icon/note"),
+        ["demise"] = Assets.getTexture("ui/menu/icon/smile"),
    }
 
     -- self.bg = UIBox(0, 0, self.width, self.height)
@@ -58,7 +68,36 @@ function DarkPowerMenu:init()
         {id = "defense", label = "Defense", description = "REDUCE WOUNDS."},
         {id = "magic", label = "Magic", description = "EMPOWER LIGHT."},
     }
+    self.character_statistics = {
+        {
+            name = "PAIN",
+            stats = {
+                {label = "INFLICTED", flag = "%s/damage_dealt", icon = "sword"},
+                {label = "RECIEVED", flag = "%s/damage_taken", icon = "armor"},
+                {label = "RELIEVED", flag = "%s/healing_done", icon = "health"},
+            },
+        },
+        {
+            name = "EXPERIENCED",
+            stats = {
+                {label = "VICTORY", flag = "%s/battles_won", icon = "up"},
+                {label = "FALL", flag = "%s/downed_count", icon = "down"},
+                {label = "DEMISE", flag = "evan/remembered_deaths", icon = "demise", glitch = true, evan_only = true},
+            },
+        },
+        {
+            name = "PERFORMED",
+            stats = {
+                {label = "ATTACK", flag = "%s/attacks_made", icon = "sword"},
+                {label = "ACT", flag = "%s/acts_done", icon = "act"},
+                {label = "CAST", flag = "%s/spells_cast", icon = "magic"},
+                {label = "MERCY", flag = "%s/times_spared", icon = "mercy"},
+            },
+        },
+    }
     self.selected_stat = 1
+    self.overview_page = 1
+    self.max_overview_pages = 2
     self.pending_stat_points = 0
     self.pending_stat_allocations = {}
     self:refreshStatPoints()
@@ -109,6 +148,7 @@ function DarkPowerMenu:update()
 
             self.party.focused = false
             self.popup_text = nil
+            self.overview_page = 1
 
             self.ui_select:stop()
             self.ui_select:play()
@@ -129,13 +169,33 @@ function DarkPowerMenu:update()
 
             self:updateDescription()
             return
-        elseif Input.pressed("confirm") then
-            self.state = "STATS"
+        end
 
-            self.ui_select:stop()
-            self.ui_select:play()
+        local old_page = self.overview_page
+        if Input.pressed("left", true) then
+            self.overview_page = self.overview_page - 1
+        end
+        if Input.pressed("right", true) then
+            self.overview_page = self.overview_page + 1
+        end
+        self.overview_page = MathUtils.clamp(self.overview_page, 1, self.max_overview_pages)
 
+        if self.overview_page ~= old_page then
+            self.ui_move:stop()
+            self.ui_move:play()
             self:updateDescription()
+        elseif Input.pressed("confirm") then
+            if self.overview_page == 1 then
+                self.state = "STATS"
+
+                self.ui_select:stop()
+                self.ui_select:play()
+
+                self:updateDescription()
+            else
+                self.ui_cant_select:stop()
+                self.ui_cant_select:play()
+            end
         end
     elseif self.state == "STATS" then
         self.selection_siner = self.selection_siner + (DTMULT / 8)
@@ -256,7 +316,7 @@ function DarkPowerMenu:refreshStatPoints()
         self.pending_stat_points = 0
         return
     end
-    self.pending_stat_points = Game:getFlag(party.name .. "/stat_points", 0) - Game:getFlag(party.name .. "/assigned_stat_points", 0)
+    self.pending_stat_points = Game:getFlag(party.id .. "/stat_points", 0) - Game:getFlag(party.id .. "/assigned_stat_points", 0)
 end
 
 function DarkPowerMenu:getTotalPendingStatAllocation()
@@ -321,7 +381,7 @@ function DarkPowerMenu:applyPendingStatAllocations()
         end
     end
 
-    Game:addFlag(party.name .. "/assigned_stat_points", total)
+    Game:addFlag(party.id .. "/assigned_stat_points", total)
     self.pending_stat_allocations = {}
     self:refreshStatPoints()
 
@@ -427,8 +487,15 @@ end
 function DarkPowerMenu:drawPowerPanel()
     self:drawBust()
     self:drawClassText()
-    self:drawStatRows()
-    self:drawCustomPowerStats()
+    if self.state == "OVERVIEW" and self.overview_page == 2 then
+        self:drawCharacterStatistics()
+    else
+        self:drawStatRows()
+        self:drawCustomPowerStats()
+    end
+    if self.state == "OVERVIEW" then
+        self:drawOverviewPageIndicator()
+    end
 end
 
 function DarkPowerMenu:drawBust()
@@ -462,7 +529,7 @@ end
 
 function DarkPowerMenu:drawStatRows()
     local party = self.party:getSelected()
-    local icon_x = 250
+    local icon_x = 264
     local text_x = 278
     local value_x = 360
     local y = 74
@@ -481,7 +548,7 @@ function DarkPowerMenu:drawStatRows()
         Draw.setColor(color, self.alpha)
         if selected then
             local mult = math.floor(math.sin(self.selection_siner)/2+1)
-            Draw.draw(self.heart_sprite, icon_x - (18 + 6 * mult), row_y + 2)
+            Draw.draw(self.heart_sprite, icon_x - (12 + 6 * mult), row_y + 2)
         end
         if self.stat_icons[row.id] then
             Draw.draw(self.stat_icons[row.id], icon_x, row_y + 1, 0, 1, 1)
@@ -534,6 +601,129 @@ function DarkPowerMenu:drawStatDescription(row, x, y)
 
     Draw.setColor(PALETTE["world_gray"], self.alpha)
     love.graphics.print(row.description, x, y-3)
+end
+
+function DarkPowerMenu:getCharacterFlagName(stat)
+    local character = self:getSelectedCharacterId()
+    if stat.flag:find("%%s") then
+        return string.format(stat.flag, character)
+    end
+    return stat.flag
+end
+
+function DarkPowerMenu:getSelectedCharacterId()
+    local party = self.party:getSelected()
+    return party and (party.id or string.lower(party.name or "")) or ""
+end
+
+function DarkPowerMenu:getCharacterStatisticValue(stat)
+    return Game:getFlag(self:getCharacterFlagName(stat), 0)
+end
+
+function DarkPowerMenu:drawCharacterStatistics()
+    local x = 212
+    local y = 48
+    local value_x = 344
+
+    self:drawSectionHeader("RECORD", 52, 208, 380)
+    love.graphics.setFont(self.earthbound_font)
+
+    local row_y = y + 14
+    for _, category in ipairs(self.character_statistics) do
+        Draw.setColor(PALETTE["world_header"] or PALETTE["world_text"], self.alpha)
+        love.graphics.print(category.name, x, row_y)
+        row_y = row_y + 14
+
+        for _, stat in ipairs(category.stats) do
+            if self:shouldDrawCharacterStatistic(stat) then
+                self:drawCharacterStatisticRow(stat, x + 20, row_y, value_x)
+                row_y = row_y + 13
+            end
+        end
+
+        row_y = row_y + 4
+    end
+
+    love.graphics.setFont(self.font)
+end
+
+function DarkPowerMenu:shouldDrawCharacterStatistic(stat)
+    if stat.evan_only and self:getSelectedCharacterId() ~= "evan" then
+        return false
+    end
+    if stat.glitch and self:getCharacterStatisticValue(stat) <= 0 then
+        return false
+    end
+    return true
+end
+
+function DarkPowerMenu:drawCharacterStatisticRow(stat, x, y, value_x)
+    local value = tostring(self:getCharacterStatisticValue(stat))
+    local icon = self.stat_icons[stat.icon]
+
+    if stat.glitch then
+        self:drawGlitchedStatisticRow(stat.label, value, x, y, value_x, icon)
+        return
+    end
+
+    Draw.setColor(PALETTE["world_text"], self.alpha)
+    if icon then
+        Draw.draw(icon, x - 12, y + 1, 0, 1, 1)
+    end
+    love.graphics.print(stat.label, x, y)
+    love.graphics.print(value, value_x - self.earthbound_font:getWidth(value), y)
+end
+
+function DarkPowerMenu:drawGlitchedStatisticRow(label, value, x, y, value_x, icon)
+    local t = Kristal.getTime()
+    local glitching = (math.floor(t * 7) % 5 == 0)
+    local jitter_x = glitching and Utils.random(-2, 2) or 0
+    local jitter_y = glitching and Utils.random(-1, 1) or 0
+
+    love.graphics.setFont(self.wingdings_font)
+    Draw.setColor(0.28, 0.1, 0.1, 0.45 * self.alpha)
+    for i = 1, #label do
+        love.graphics.print(string.sub(label, i, i), x + ((i - 1) * 6), y + 1)
+    end
+
+    love.graphics.setFont(self.earthbound_font)
+    if icon then
+        Draw.setColor(1, 1, 1, self.alpha)
+        Draw.draw(icon, x - 12 + jitter_x, y + 1 + jitter_y, 0, 1, 1)
+    end
+    if glitching then
+        Draw.setColor(0.8, 0.1, 0.1, 0.75 * self.alpha)
+        love.graphics.print(label, x + jitter_x - 1, y + jitter_y)
+        love.graphics.print(value, value_x - self.earthbound_font:getWidth(value) + jitter_x - 1, y + jitter_y)
+        Draw.setColor(0.25, 0.7, 0.8, 0.55 * self.alpha)
+        love.graphics.print(label, x + jitter_x + 1, y - jitter_y)
+        love.graphics.print(value, value_x - self.earthbound_font:getWidth(value) + jitter_x + 1, y - jitter_y)
+    end
+
+    Draw.setColor(PALETTE["world_text"], self.alpha)
+    love.graphics.print(label, x + jitter_x, y + jitter_y)
+    love.graphics.print(value, value_x - self.earthbound_font:getWidth(value) + jitter_x, y + jitter_y)
+end
+
+function DarkPowerMenu:drawOverviewPageIndicator()
+    local center_x = (SCREEN_WIDTH / 2) - self.x
+    local y = 250
+    local text = self.overview_page .. "/" .. self.max_overview_pages
+    local sine_off = math.sin((Kristal.getTime() * 30) / 12) * 3
+
+    love.graphics.setFont(self.small_font)
+    Draw.setColor(PALETTE["world_text"], self.alpha)
+    love.graphics.print(text, center_x - (self.small_font:getWidth(text) / 2), y)
+
+    Draw.setColor(1, 1, 1, self.alpha)
+    if self.overview_page > 1 then
+        Draw.draw(self.left_arrow_sprite, center_x - 35 - sine_off, y + 2)
+    end
+    if self.overview_page < self.max_overview_pages then
+        Draw.draw(self.right_arrow_sprite, center_x + 24 + sine_off, y + 2)
+    end
+
+    love.graphics.setFont(self.font)
 end
 
 function DarkPowerMenu:drawCustomPowerStats()
