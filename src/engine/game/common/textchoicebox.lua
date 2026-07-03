@@ -53,7 +53,7 @@ function TextChoicebox:createChoiceTexts()
 
     for i, text in ipairs(self.choices_text) do
         local wait = "[wait:10]"
-        if self.face.texture then
+        if self:hasPortrait() then
             text.x = text.x + 2
             if (i == 1) then
                 wait = ""

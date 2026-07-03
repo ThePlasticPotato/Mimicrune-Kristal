@@ -71,6 +71,7 @@ function Textbox:init(x, y, width, height, default_font, default_font_size, batt
     end
 
     self.actor = nil
+    self.bottom_y = y
 
     self.default_font = default_font or "main_mono"
     self.default_font_size = default_font_size
@@ -90,6 +91,16 @@ function Textbox:init(x, y, width, height, default_font, default_font_size, batt
         return context
     end
     self:addChild(self.face)
+
+    self.bust = Bust(nil, nil, nil, self.face_x, self.face_y)
+    self.bust:setScale(2, 2)
+    self.bust:setOrigin(0.25, 1.0)
+    self.bust.visible = false
+    self.bust.active = false
+    self:addChild(self.bust)
+    self.bust_active = false
+    self.bust_ox = 0
+    self.bust_oy = 0
 
     -- Added text width for autowrapping
     self.wrap_add_w = battle_box and 0 or 14
@@ -114,7 +125,29 @@ function Textbox:init(x, y, width, height, default_font, default_font_size, batt
             ox = (ox or 0) - actor_ox
             oy = (oy or 0) - actor_oy
         end
-        self:setFace(node.arguments[1], ox, oy)
+        self:setClassicFace(node.arguments[1], ox, oy)
+    end)
+    self.text:registerCommand("bust", function(text, node, dry)
+        local command = node.arguments[1]
+        if command == "body" then
+            self:setBustBody(node.arguments[2])
+        elseif command == "face" then
+            if self.bust_active or self:canUseBust() then
+                self:setBustFace(node.arguments[2])
+            else
+                self:setFace(node.arguments[2])
+            end
+        elseif command == "shake" then
+            local x = tonumber(node.arguments[2]) or 0
+            local y = tonumber(node.arguments[3]) or 0
+            if self.bust_active then
+                if x == 0 and y == 0 then
+                    self.bust:stopShake()
+                else
+                    self.bust:shake(x, y)
+                end
+            end
+        end
     end)
 
     self.text:registerCommand("react", function(text, node, dry)
@@ -194,8 +227,9 @@ function Textbox:setSize(w, h)
     self.width, self.height = w or 0, h or 0
 
     self.face:setPosition(116 / 2, self.height /2)
+    self:updateBustPosition()
     self:updateTextBounds()
-    if self.face.texture then
+    if self:hasPortrait() then
         self.box:setSize(self.width - 116, self.height)
     else
         self.box:setSize(self.width, self.height)
@@ -214,6 +248,9 @@ function Textbox:setActor(actor)
     else
         self.face.path = "face"
     end
+    if self.bust then
+        self.bust:setActor(self.actor)
+    end
 
     if self.actor and self.actor:getMiniface() then
         self.miniface_path = self.actor:getMiniface()
@@ -222,9 +259,89 @@ function Textbox:setActor(actor)
     end
 end
 
-function Textbox:setFace(face, ox, oy)
+function Textbox:canUseBust(body)
+    if not self.actor or not self.actor:getBustPath() then
+        return false
+    end
+    body = body or self.bust_body or self.actor:getDefaultBust()
+    return body and self.actor:hasBust(body)
+end
+
+function Textbox:hasPortrait()
+    return (self.bust_active and self.bust and self.bust.visible and self.bust.body.texture) or self.face.texture
+end
+
+function Textbox:updateBustPosition()
+    if not self.bust then
+        return
+    end
+    local _, bottom_border = self:getBorder()
+    self.bust:setPosition(self.face_x + (self.bust_ox or 0), self.height + bottom_border + (self.bust_oy or 0))
+end
+
+function Textbox:hideBust()
+    self.bust_active = false
+    self.bust.visible = false
+    self.bust.active = false
+    self.bust:stopShake()
+end
+
+function Textbox:forceBottomForBust()
+    if not self.battle_box then
+        self.y = self.bottom_y
+    end
+end
+
+function Textbox:setBustBody(body)
+    if not self:canUseBust(body) then
+        return false
+    end
+
+    self.bust:setActor(self.actor)
+    if (not self.bust_active) or self.bust_body ~= body then
+        if not self.bust:setBody(body) then
+            return false
+        end
+    elseif not self.bust.body.texture then
+        return false
+    end
+
+    self.bust_body = body
+    self.bust.visible = true
+    self.bust.active = true
+    self.bust_active = true
+    self.face.visible = false
+    self:updateBustPosition()
+    self:forceBottomForBust()
+    self:updateTextBounds()
+    return true
+end
+
+function Textbox:setBustFace(face)
+    local body = self.bust_body or (self.actor and self.actor:getDefaultBust())
+    if not self:setBustBody(body) then
+        return false
+    end
+
+    self.bust_face = face
+    if face and not self.bust:setFace(face) then
+        return false
+    end
+    if not face then
+        self.bust:setFace(nil)
+    end
+    self:updateBustPosition()
+    return true
+end
+
+function Textbox:setClassicFace(face, ox, oy)
+    self:hideBust()
+    self.face.visible = true
+
     self.face:setSprite(face)
-    self.face:play(4/30)
+    if face then
+        self.face:play(4/30)
+    end
 
     if self.actor then
         local actor_ox, actor_oy = self.actor:getPortraitOffset()
@@ -234,6 +351,18 @@ function Textbox:setFace(face, ox, oy)
     self.face:setPosition(self.face_x + (ox or 0), self.face_y + (oy or 0))
 
     self:updateTextBounds()
+end
+
+function Textbox:setFace(face, ox, oy)
+    if face and self:canUseBust() then
+        self.bust_ox = ox or 0
+        self.bust_oy = oy or 0
+        if self:setBustFace(face) then
+            return
+        end
+    end
+
+    self:setClassicFace(face, ox, oy)
 end
 
 function Textbox:setFont(font, size)
@@ -355,7 +484,7 @@ function Textbox:getText()
 end
 
 function Textbox:updateTextBounds()
-    if self.face.texture then
+    if self:hasPortrait() then
         self.text.x = self.text_x + 116
         self.text.width = self.width - 116 + self.wrap_add_w
     else

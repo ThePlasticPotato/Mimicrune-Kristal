@@ -78,6 +78,8 @@ function Actor:init()
     self.offsets = {}
 
     self.bust_path = nil
+    self.bust_face_path = nil
+    self.default_bust = nil
     self.busts = {}
 end
 
@@ -156,6 +158,21 @@ function Actor:getPortraitPath() return self.portrait_path end
 function Actor:getPortraitOffset() return unpack(self.portrait_offset or { 0, 0 }) end
 function Actor:getMiniface() return self.miniface end
 function Actor:getMinifaceOffset() return unpack(self.miniface_offset or { 0, 0 }) end
+function Actor:getBustPath() return self.bust_path end
+function Actor:getBustFacePath()
+    if self.bust_face_path then
+        return self.bust_face_path
+    elseif self.bust_path then
+        return self.bust_path .. "/face"
+    end
+end
+function Actor:getBusts() return self.busts or {} end
+function Actor:getBust(name) return self:getBusts()[name] end
+function Actor:hasBust(name) return self:getBust(name) ~= nil end
+function Actor:getDefaultBust()
+    local busts = self:getBusts()
+    return self.default_bust or (busts["idle"] and "idle") or next(busts)
+end
 
 function Actor:getFlipDirection(sprite) return self.flip or self.flip_sprites[sprite] end
 
