@@ -677,8 +677,8 @@ end
 function DarkPowerMenu:drawGlitchedStatisticRow(label, value, x, y, value_x, icon)
     local t = Kristal.getTime()
     local glitching = (math.floor(t * 7) % 5 == 0)
-    local jitter_x = glitching and Utils.random(-2, 2) or 0
-    local jitter_y = glitching and Utils.random(-1, 1) or 0
+    local jitter_x = glitching and MathUtils.random(-2, 2) or 0
+    local jitter_y = glitching and MathUtils.random(-1, 1) or 0
 
     love.graphics.setFont(self.wingdings_font)
     Draw.setColor(0.28, 0.1, 0.1, 0.45 * self.alpha)
