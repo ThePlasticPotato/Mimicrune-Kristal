@@ -99,6 +99,58 @@ function actor:init()
 
     -- Whether this actor as a follower will blush when close to the player
     self.can_blush = true
+
+    self.bust_path = "bust/cassidy"
+    self.busts = {
+        ["idle"] = {
+            "body/idle",
+            {
+                {17, 5},
+                {17, 5},
+                {17, 5},
+                {17, 6},
+                {17, 6},
+                {17, 5},
+            }
+        },
+        ["bouncy"] = {
+            "body/bouncier",
+            {
+                {17, 3},
+                {17, 5},
+                {17, 5},
+                {17, 6},
+                {18, 6},
+                {18, 5},
+            }
+        },
+        ["shy"] = {
+            "body/pout",
+            {
+                {17, 5},
+                {17, 5},
+                {17, 5},
+                {17, 6},
+                {17, 6},
+                {17, 5},
+            }
+        },
+        ["tense"] = {
+            "body/tense",
+            {
+                {18, 6},
+                {18, 6},
+                {18, 6},
+                {18, 6},
+                {18, 6},
+                {18, 6},
+            }
+        },
+        ["shitty"] = {
+            "still/shitty",
+            {}
+        },
+    }
 end
 
 function actor:getPortraitOffset() return unpack(Game.battle and {0, 0} or self.portrait_offset or {0, 0}) end

@@ -76,6 +76,9 @@ function Actor:init()
 
     -- Table of sprite offsets (indexed by sprite name)
     self.offsets = {}
+
+    self.bust_path = nil
+    self.busts = {}
 end
 
 -- Callbacks
