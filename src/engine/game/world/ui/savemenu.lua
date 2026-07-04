@@ -13,6 +13,14 @@ local SAVED_FADE_TIME = 0.45
 local CHOICE_FADE_SPEED = 0.08
 local PROMPT_HOLD_TIME = 0.65
 local SAVE_TEXT_COLOR = { 0.95, 0.95, 0.95, 1 }
+local PROMPT_BG_PADDING_X = 12
+local PROMPT_BG_PADDING_Y = 7
+local PROMPT_BG_ALPHA = 0.72
+local STATIC_BG_PADDING_X = 9
+local STATIC_BG_PADDING_Y = 6
+local CHOICE_BG_PADDING_X = 5
+local CHOICE_BG_PADDING_Y = 4
+local TEXT_WAVE_OFFSET_X = 10
 
 function SaveMenu:init(marker, point)
     super.init(self, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
@@ -47,7 +55,7 @@ function SaveMenu:init(marker, point)
 
     self.prompt_lines = self:getPromptLines()
 
-    self.tomorrow_text = Text("[wave:1.2,12,8]Tomorrow is another day.", 0, 0, PROMPT_WIDTH, 40, {
+    self.tomorrow_text = Text("[wave:1.2,12,8]TOMORROW IS ANOTHER DAY.", 0, 0, PROMPT_WIDTH, 40, {
         align = "center",
         wrap = false,
         font = "eb",
@@ -135,7 +143,7 @@ function SaveMenu:getPromptLines()
 end
 
 function SaveMenu:formatPromptLine(line)
-    return "[voice:none][speed:0.45][wave:2,12,8]" .. line
+    return "[voice:none][speed:0.65][wave:2,12,8]" .. line
 end
 
 function SaveMenu:createPrompt(line)
@@ -210,6 +218,41 @@ function SaveMenu:updateElementPositions()
     self.saved_text.y = self.anchor_y + CHOICE_Y_OFFSET
 end
 
+function SaveMenu:drawPromptBackgrounds()
+    for _, prompt in ipairs(self.prompts) do
+        self:drawTextBackground(prompt, PROMPT_BG_PADDING_X, PROMPT_BG_PADDING_Y)
+    end
+end
+
+function SaveMenu:drawTextBackground(text, padding_x, padding_y, alpha)
+    alpha = alpha or text.alpha
+
+    if not text.stage or alpha <= 0 then
+        return
+    end
+
+    local width = math.max(1, text:getTextWidth())
+    local height = math.max(1, text:getTextHeight())
+    local x = text.x + (text.width / 2) - (width / 2) + TEXT_WAVE_OFFSET_X - padding_x
+    local y = text.y - padding_y
+
+    Draw.setColor(0, 0, 0, PROMPT_BG_ALPHA * alpha)
+    love.graphics.rectangle(
+        "fill",
+        x,
+        y,
+        width + (padding_x * 2),
+        height + (padding_y * 2)
+    )
+end
+
+function SaveMenu:drawStaticTextBackgrounds()
+    self:drawTextBackground(self.tomorrow_text, STATIC_BG_PADDING_X, STATIC_BG_PADDING_Y)
+    self:drawTextBackground(self.save_text, CHOICE_BG_PADDING_X, CHOICE_BG_PADDING_Y, self.state == "CHOICE" and self.choice_alpha or nil)
+    self:drawTextBackground(self.do_not_text, CHOICE_BG_PADDING_X, CHOICE_BG_PADDING_Y, self.state == "CHOICE" and self.choice_alpha or nil)
+    self:drawTextBackground(self.saved_text, STATIC_BG_PADDING_X, STATIC_BG_PADDING_Y)
+end
+
 function SaveMenu:setChoicesVisible(alpha)
     self.choice_alpha = alpha
     self.save_text.alpha = alpha
@@ -228,7 +271,7 @@ end
 
 function SaveMenu:save()
     Kristal.saveGame(Game.save_id, Game:save(self.marker))
-    Assets.playSound("save")
+    Assets.playSound("prognosticus")
 
     self.state = "SAVED"
     self.saved_timer = 0
@@ -306,6 +349,12 @@ function SaveMenu:update()
     end
 
     super.update(self)
+end
+
+function SaveMenu:draw()
+    self:drawPromptBackgrounds()
+    self:drawStaticTextBackgrounds()
+    super.draw(self)
 end
 
 return SaveMenu
