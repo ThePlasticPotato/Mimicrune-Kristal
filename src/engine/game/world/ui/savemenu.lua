@@ -3,6 +3,17 @@
 ---@overload fun(...) : SaveMenu
 local SaveMenu, super = Class(Object)
 
+local PROMPT_WIDTH = 420
+local PROMPT_HEIGHT = 116
+local PROMPT_DRIFT = 22
+local CHOICE_GAP = 34
+local CHOICE_Y_OFFSET = 30
+local SAVED_HOLD_TIME = 0.75
+local SAVED_FADE_TIME = 0.45
+local CHOICE_FADE_SPEED = 0.08
+local PROMPT_HOLD_TIME = 0.65
+local SAVE_TEXT_COLOR = { 0.95, 0.95, 0.95, 1 }
+
 function SaveMenu:init(marker, point)
     super.init(self, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
 
@@ -12,35 +23,7 @@ function SaveMenu:init(marker, point)
     self.draw_children_below = 0
 
     self.font = Assets.getFont("main")
-
     self.ui_select = Assets.newSound("ui_select")
-
-    self.heart_sprite = Assets.getTexture("player/heart")
-    self.divider_sprite = Assets.getTexture("ui/box/dark/top")
-
-    self.main_box = UIBox(124, 130, 391, 154)
-    self.main_box.layer = -1
-    self:addChild(self.main_box)
-
-    self.save_box = Rectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
-    self.save_box:setColor(0, 0, 0, 0.8)
-    self.save_box.layer = -1
-    self.save_box.visible = false
-    self:addChild(self.save_box)
-
-    self.save_header = UIBox(92, 44, 457, 42)
-    self.save_box:addChild(self.save_header)
-
-    self.save_list = UIBox(92, 156, 457, 258)
-    self.save_box:addChild(self.save_list)
-
-    self.overwrite_box = Rectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
-    self.overwrite_box:setColor(0, 0, 0, 0.8)
-    self.overwrite_box.layer = 1
-    self.overwrite_box.visible = false
-    self:addChild(self.overwrite_box)
-
-    self.overwrite_box:addChild(UIBox(42, 132, 557, 217))
 
     self.marker = marker
     self.point = point
@@ -48,26 +31,68 @@ function SaveMenu:init(marker, point)
         self.point:setInteracting(true)
     end
 
-    -- MAIN, SAVE, SAVED, OVERWRITE
-    self.state = "MAIN"
-
+    -- DRIFT, CHOICE, SAVED
+    self.state = "DRIFT"
     self.selected_x = 1
-    self.selected_y = 1
+    self.choice_alpha = 0
+    self.drift_timer = 0
+    self.prompt_index = 0
+    self.prompt_hold_timer = 0
+    self.saved_timer = 0
+    self.saved_fading = false
+    self.prompts = {}
 
-    self.saved_file = nil
+    self.anchor_x = SCREEN_WIDTH / 2
+    self.anchor_y = SCREEN_HEIGHT / 2
 
-    self.saves = {}
-    for i = 1, 3 do
-        self.saves[i] = Kristal.getSaveFile(i)
-    end
-end
+    self.prompt_lines = self:getPromptLines()
 
-function SaveMenu:updateSaveBoxSize()
-    if self.state == "SAVED" then
-        self.save_list.height = 210
-    else
-        self.save_list.height = 258
-    end
+    self.tomorrow_text = Text("[wave:1.2,12,8]Tomorrow is another day.", 0, 0, PROMPT_WIDTH, 40, {
+        align = "center",
+        wrap = false,
+        font = "eb",
+        style = "GONER_EB",
+        color = SAVE_TEXT_COLOR,
+    })
+    self.tomorrow_text.alpha = 0
+    self.tomorrow_text.layer = 2
+    self:addChild(self.tomorrow_text)
+
+    self.save_text = Text("[wave:1.5,14,8]SAVE", 0, 0, 100, 40, {
+        align = "center",
+        wrap = false,
+        font = "eb",
+        style = "GONER_EB",
+        color = SAVE_TEXT_COLOR,
+    })
+    self.save_text.alpha = 0
+    self.save_text.layer = 3
+    self:addChild(self.save_text)
+
+    self.do_not_text = Text("[wave:1.5,14,8]DO NOT", 0, 0, 120, 40, {
+        align = "center",
+        wrap = false,
+        font = "eb",
+        style = "GONER_EB",
+        color = SAVE_TEXT_COLOR,
+    })
+    self.do_not_text.alpha = 0
+    self.do_not_text.layer = 3
+    self:addChild(self.do_not_text)
+
+    self.saved_text = Text("[wave:2,12,8]FILE SAVED", 0, 0, 180, 40, {
+        align = "center",
+        wrap = false,
+        font = "eb",
+        style = "GONER_EB",
+        color = SAVE_TEXT_COLOR,
+    })
+    self.saved_text.alpha = 0
+    self.saved_text.layer = 4
+    self:addChild(self.saved_text)
+
+    self:updateElementPositions()
+    self:startNextPrompt()
 end
 
 function SaveMenu:onRemove(parent)
@@ -77,306 +102,210 @@ function SaveMenu:onRemove(parent)
     super.onRemove(self, parent)
 end
 
+function SaveMenu:getPromptLines()
+    local text
+
+    if self.point and self.point.text and #self.point.text > 0 then
+        local index = MathUtils.clamp(self.point.interact_count or 1, 1, #self.point.text)
+        text = self.point.text[index]
+    end
+
+    text = text or "* SAVE?"
+
+    local pages = {}
+    if type(text) == "table" then
+        pages = text
+    else
+        pages = { text }
+    end
+
+    local cleaned = {}
+    for _, page in ipairs(pages) do
+        page = tostring(page)
+        page = page:gsub("\n%*%s*", "\n")
+        page = page:gsub("^%*%s*", "")
+        page = page:gsub("^%s+", "")
+        page = page:gsub("%s+$", "")
+        if page ~= "" then
+            table.insert(cleaned, page)
+        end
+    end
+
+    return #cleaned > 0 and cleaned or { "SAVE?" }
+end
+
+function SaveMenu:formatPromptLine(line)
+    return "[voice:none][speed:0.45][wave:2,12,8]" .. line
+end
+
+function SaveMenu:createPrompt(line)
+    local prompt = DialogueText(self:formatPromptLine(line), 0, 0, PROMPT_WIDTH, PROMPT_HEIGHT, {
+        align = "center",
+        wrap = true,
+        font = "eb",
+        style = "GONER",
+        color = SAVE_TEXT_COLOR,
+        line_offset = 12,
+    })
+    prompt.skip_speed = true
+    prompt.can_advance = false
+    prompt.layer = 1
+    prompt.drift_timer = 0
+    self:addChild(prompt)
+    table.insert(self.prompts, prompt)
+    return prompt
+end
+
+function SaveMenu:startNextPrompt()
+    if self.prompt then
+        self.prompt:fadeTo(0, 0.35)
+    end
+
+    self.prompt_index = self.prompt_index + 1
+    self.prompt_hold_timer = 0
+
+    if self.prompt_index > #self.prompt_lines then
+        self:startChoices()
+        return
+    end
+
+    self.prompt = self:createPrompt(self.prompt_lines[self.prompt_index])
+    self:updateElementPositions()
+end
+
+function SaveMenu:startChoices()
+    self.state = "CHOICE"
+    self.prompt = nil
+    self.tomorrow_text:fadeTo(1, 0.4)
+end
+
+function SaveMenu:getAnchorPosition()
+    if self.point and self.point.stage then
+        local x, y = self.point:localToScreenPos(self.point.width / 4 + 2, self.point.height / 4 + 2)
+        return x, y
+    end
+    return SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2
+end
+
+function SaveMenu:updateElementPositions()
+    self.anchor_x, self.anchor_y = self:getAnchorPosition()
+
+    for _, prompt in ipairs(self.prompts) do
+        if prompt.stage then
+            prompt.x = self.anchor_x - PROMPT_WIDTH / 2
+            prompt.y = self.anchor_y - 58 - math.min(prompt.drift_timer or 0, 1) * PROMPT_DRIFT
+        end
+    end
+
+    self.tomorrow_text.x = self.anchor_x - PROMPT_WIDTH / 2
+    self.tomorrow_text.y = self.anchor_y - 36
+
+    self.save_text.x = self.anchor_x - CHOICE_GAP - self.save_text.width / 2
+    self.save_text.y = self.anchor_y + CHOICE_Y_OFFSET
+
+    self.do_not_text.x = self.anchor_x + CHOICE_GAP - self.do_not_text.width / 2
+    self.do_not_text.y = self.anchor_y + CHOICE_Y_OFFSET
+
+    self.saved_text.x = self.anchor_x - self.saved_text.width / 2
+    self.saved_text.y = self.anchor_y + CHOICE_Y_OFFSET
+end
+
+function SaveMenu:setChoicesVisible(alpha)
+    self.choice_alpha = alpha
+    self.save_text.alpha = alpha
+    self.do_not_text.alpha = alpha
+end
+
+function SaveMenu:updateChoiceSelection()
+    if self.selected_x == 1 then
+        self.save_text.alpha = self.choice_alpha
+        self.do_not_text.alpha = self.choice_alpha * 0.45
+    else
+        self.save_text.alpha = self.choice_alpha * 0.45
+        self.do_not_text.alpha = self.choice_alpha
+    end
+end
+
+function SaveMenu:save()
+    Kristal.saveGame(Game.save_id, Game:save(self.marker))
+    Assets.playSound("save")
+
+    self.state = "SAVED"
+    self.saved_timer = 0
+    self.saved_fading = false
+    self.tomorrow_text:fadeTo(0, 0.25)
+    self.save_text:fadeTo(0, 0.25)
+    self.do_not_text:fadeTo(0, 0.25)
+    self.saved_text:fadeTo(1, 0.35)
+    self.point:flash()
+end
+
+function SaveMenu:close()
+    self:remove()
+end
+
+function SaveMenu:requestClose()
+    if Game.world and Game.world.menu == self then
+        Game.world:closeMenu()
+    else
+        self:close()
+    end
+end
+
 function SaveMenu:update()
-    if self.state == "MAIN" then
+    self.drift_timer = self.drift_timer + DT
+    for _, prompt in ipairs(self.prompts) do
+        prompt.drift_timer = (prompt.drift_timer or 0) + DT
+    end
+    self:updateElementPositions()
+
+    if self.state == "DRIFT" then
         if Input.pressed("cancel") then
-            self:remove()
-            Game.world:closeMenu()
-        end
-        if Input.pressed("left") or Input.pressed("right") then
-            self.selected_x = self.selected_x == 1 and 2 or 1
-        end
-        if Input.pressed("up") or Input.pressed("down") then
-            self.selected_y = self.selected_y == 1 and 2 or 1
-        end
-        if Input.pressed("confirm") then
-            if self.selected_x == 1 and self.selected_y == 1 then
-                self.state = "SAVE"
-
-                self.ui_select:stop()
-                self.ui_select:play()
-
-                self.selected_y = Game.save_id
-                self.saved_file = nil
-
-                self.main_box.visible = false
-                self.save_box.visible = true
-                self:updateSaveBoxSize()
-            elseif self.selected_x == 2 and self.selected_y == 1 then
-                self:remove()
-                Game.world:closeMenu()
-            elseif self.selected_x == 1 and self.selected_y == 2 then
-                if Game.inventory.storage_enabled then
-                    Input.clear("confirm")
-                    self:remove()
-                    Game.world:closeMenu()
-                    Game.world:openMenu(DarkStorageMenu())
-                end
-            elseif self.selected_x == 2 and self.selected_y == 2 then
-                if Game:getConfig("enableRecruits") and #Game:getRecruits(true) > 0 then
-                    Input.clear("confirm")
-                    self:remove()
-                    Game.world:closeMenu()
-                    Game.world:openMenu(RecruitMenu())
-                end
-            end
-        end
-    elseif self.state == "SAVE" then
-        if Input.pressed("cancel") then
-            self.state = "MAIN"
-
-            self.ui_select:stop()
-            self.ui_select:play()
-
-            self.selected_x = 1
-            self.selected_y = 1
-
-            self.main_box.visible = true
-            self.save_box.visible = false
-        end
-        local last_selected = self.selected_y
-        if Input.pressed("up") then
-            self.selected_y = self.selected_y - 1
-        end
-        if Input.pressed("down") then
-            self.selected_y = self.selected_y + 1
-        end
-        self.selected_y = MathUtils.clamp(self.selected_y, 1, 4)
-        if Input.pressed("confirm") then
-            self.ui_select:stop()
-            self.ui_select:play()
-
-            if self.selected_y == 4 then
-                self.state = "MAIN"
-
-                self.selected_x = 1
-                self.selected_y = 1
-
-                self.main_box.visible = true
-                self.save_box.visible = false
-            elseif self.selected_y ~= Game.save_id and self.saves[self.selected_y] then
-                self.state = "OVERWRITE"
-
-                self.overwrite_box.visible = true
+            if self.prompt and self.prompt:isTyping() then
+                self.prompt:skip()
             else
-                self.state = "SAVED"
-
-                self.saved_file = self.selected_y
-                Kristal.saveGame(self.saved_file, Game:save(self.marker))
-                self.saves[self.saved_file] = Kristal.getSaveFile(self.saved_file)
-
-                Assets.playSound("save")
-                self:updateSaveBoxSize()
+                self:requestClose()
+            end
+        elseif self.prompt and not self.prompt:isTyping() then
+            self.prompt_hold_timer = self.prompt_hold_timer + DT
+            if Input.pressed("confirm") or self.prompt_hold_timer >= PROMPT_HOLD_TIME then
+                self:startNextPrompt()
             end
         end
-    elseif self.state == "SAVED" then
-        if Input.pressed("cancel") or Input.pressed("confirm") then
-            self:remove()
-            Game.world:closeMenu()
-        end
-    elseif self.state == "OVERWRITE" then
-        if Input.pressed("cancel") then
-            self.state = "SAVE"
+    elseif self.state == "CHOICE" then
+        self:setChoicesVisible(MathUtils.approach(self.choice_alpha, 1, CHOICE_FADE_SPEED * DTMULT))
 
-            self.selected_x = 1
-            self.overwrite_box.visible = false
+        if Input.pressed("cancel") then
+            self:requestClose()
         end
-        if Input.pressed("left") or Input.pressed("right") then
+        if Input.pressed("left") or Input.pressed("right") or Input.pressed("up") or Input.pressed("down") then
             self.selected_x = self.selected_x == 1 and 2 or 1
+            self.ui_select:stop()
+            self.ui_select:play()
         end
         if Input.pressed("confirm") then
             if self.selected_x == 1 then
-                self.state = "SAVED"
-
-                self.saved_file = self.selected_y
-                Kristal.saveGame(self.saved_file, Game:save(self.marker))
-                self.saves[self.saved_file] = Kristal.getSaveFile(self.saved_file)
-
-                Assets.playSound("save")
-
-                self.selected_x = 1
-                self.overwrite_box.visible = false
-                self:updateSaveBoxSize()
+                self:save()
             else
-                self.state = "SAVE"
-
-                self.selected_x = 1
-                self.overwrite_box.visible = false
+                self:requestClose()
             end
+        end
+
+        self:updateChoiceSelection()
+    elseif self.state == "SAVED" then
+        self.saved_timer = self.saved_timer + DT
+        if not self.saved_fading and self.saved_timer >= SAVED_HOLD_TIME then
+            self.saved_fading = true
+            self.saved_text:fadeTo(0, SAVED_FADE_TIME, function()
+                self:requestClose()
+            end)
+        end
+        if Input.pressed("confirm") or Input.pressed("cancel") then
+            self:requestClose()
         end
     end
 
     super.update(self)
-end
-
-function SaveMenu:draw()
-    love.graphics.setFont(self.font)
-    if self.state == "MAIN" then
-        local data = Game:getSavePreview()
-
-        -- Header
-        Draw.setColor(PALETTE["world_text"])
-        love.graphics.print(data.name, 120, 120)
-        love.graphics.print("LV " .. data.level, 352, 120)
-
-        local hours = math.floor(data.playtime / 3600)
-        local minutes = math.floor(data.playtime / 60 % 60)
-        local seconds = math.floor(data.playtime % 60)
-        local time_text = string.format("%d:%02d:%02d", hours, minutes, seconds)
-        love.graphics.print(time_text, 522 - self.font:getWidth(time_text), 120)
-
-        -- Room name
-        love.graphics.print(data.room_name, 319.5 - self.font:getWidth(data.room_name) / 2, 170)
-
-        -- Buttons
-        love.graphics.print("Save", 170, 220)
-        love.graphics.print("Return", 350, 220)
-        if Game.inventory.storage_enabled then
-            Draw.setColor(PALETTE["world_text"])
-        else
-            Draw.setColor(PALETTE["world_gray"])
-        end
-        love.graphics.print("Storage", 170, 260)
-
-        if Game:getConfig("enableRecruits") and #Game:getRecruits(true) > 0 then
-            Draw.setColor(PALETTE["world_text"])
-        else
-            Draw.setColor(PALETTE["world_gray"])
-        end
-        love.graphics.print("Recruits", 350, 260)
-
-        -- Heart
-        local heart_positions_x = { 142, 322 }
-        local heart_positions_y = { 228, 270 }
-        Draw.setColor(Game:getSoulColor())
-        Draw.draw(self.heart_sprite, heart_positions_x[self.selected_x], heart_positions_y[self.selected_y])
-    elseif self.state == "SAVE" or self.state == "OVERWRITE" then
-        self:drawSaveFile(0, Game:getSavePreview(), 74, 26, false, true)
-
-        self:drawSaveFile(1, self.saves[1], 74, 138, self.selected_y == 1)
-        Draw.draw(self.divider_sprite, 74, 208, 0, 493, 2)
-
-        self:drawSaveFile(2, self.saves[2], 74, 222, self.selected_y == 2)
-        Draw.draw(self.divider_sprite, 74, 292, 0, 493, 2)
-
-        self:drawSaveFile(3, self.saves[3], 74, 306, self.selected_y == 3)
-        Draw.draw(self.divider_sprite, 74, 376, 0, 493, 2)
-
-        if self.selected_y == 4 then
-            Draw.setColor(Game:getSoulColor())
-            Draw.draw(self.heart_sprite, 236, 402)
-
-            Draw.setColor(PALETTE["world_text_selected"])
-        else
-            Draw.setColor(PALETTE["world_text"])
-        end
-        love.graphics.print("Return", 278, 394)
-    elseif self.state == "SAVED" then
-        self:drawSaveFile(self.saved_file, self.saves[self.saved_file], 74, 26, false, true)
-
-        self:drawSaveFile(1, self.saves[1], 74, 138, self.selected_y == 1)
-        Draw.draw(self.divider_sprite, 74, 208, 0, 493, 2)
-
-        self:drawSaveFile(2, self.saves[2], 74, 222, self.selected_y == 2)
-        Draw.draw(self.divider_sprite, 74, 292, 0, 493, 2)
-
-        self:drawSaveFile(3, self.saves[3], 74, 306, self.selected_y == 3)
-    end
-
-    super.draw(self)
-
-    if self.state == "OVERWRITE" then
-        Draw.setColor(PALETTE["world_text"])
-        local overwrite_text = "Overwrite Slot " .. self.selected_y .. "?"
-        love.graphics.print(overwrite_text, SCREEN_WIDTH / 2 - self.font:getWidth(overwrite_text) / 2, 123)
-
-        local function drawOverwriteSave(data, x, y)
-            local w = 478
-
-            -- Header
-            love.graphics.print(data.name, x + (w / 2) - self.font:getWidth(data.name) / 2, y)
-            love.graphics.print("LV " .. data.level, x, y)
-
-            local minutes = math.floor(data.playtime / 60)
-            local seconds = math.floor(data.playtime % 60)
-            local time_text = string.format("%d:%02d", minutes, seconds)
-            love.graphics.print(time_text, x + w - self.font:getWidth(time_text), y)
-
-            -- Room name
-            love.graphics.print(data.room_name, x + (w / 2) - self.font:getWidth(data.room_name) / 2, y + 30)
-        end
-
-        Draw.setColor(PALETTE["world_text"])
-        drawOverwriteSave(self.saves[self.selected_y], 80, 165)
-        Draw.setColor(PALETTE["world_text_selected"])
-        drawOverwriteSave(Game:getSavePreview(), 80, 235)
-
-        if self.selected_x == 1 then
-            Draw.setColor(Game:getSoulColor())
-            Draw.draw(self.heart_sprite, 142, 332)
-
-            Draw.setColor(PALETTE["world_text_selected"])
-        else
-            Draw.setColor(PALETTE["world_text"])
-        end
-        love.graphics.print("Save", 170, 324)
-
-        if self.selected_x == 2 then
-            Draw.setColor(Game:getSoulColor())
-            Draw.draw(self.heart_sprite, 322, 332)
-
-            Draw.setColor(PALETTE["world_text_selected"])
-        else
-            Draw.setColor(PALETTE["world_text"])
-        end
-        love.graphics.print("Return", 350, 324)
-    end
-end
-
-function SaveMenu:drawSaveFile(index, data, x, y, selected, header)
-    if self.saved_file then
-        if self.saved_file == index then
-            Draw.setColor(PALETTE["world_text_selected"])
-        else
-            Draw.setColor(PALETTE["world_save_other"])
-        end
-    else
-        if selected then
-            Draw.setColor(PALETTE["world_text_selected"])
-        else
-            Draw.setColor(PALETTE["world_text"])
-        end
-    end
-    if self.saved_file == index and not header then
-        love.graphics.print("File Saved", x + 180, y + 22)
-    elseif not data then
-        love.graphics.print("New File", x + 193, y + 22)
-        if selected then
-            Draw.setColor(Game:getSoulColor())
-            Draw.draw(self.heart_sprite, x + 161, y + 30)
-        end
-    else
-        if self.saved_file or header then
-            love.graphics.print("LV " .. data.level, x + 26, y + 6)
-        else
-            love.graphics.print("LV " .. data.level, x + 50, y + 6)
-        end
-
-        love.graphics.print(data.name, x + (493 / 2) - self.font:getWidth(data.name) / 2, y + 6)
-
-        local minutes = math.floor(data.playtime / 60)
-        local seconds = math.floor(data.playtime % 60)
-        local time_text = string.format("%d:%02d", minutes, seconds)
-        love.graphics.print(time_text, x + 467 - self.font:getWidth(time_text), y + 6)
-
-        love.graphics.print(data.room_name, x + (493 / 2) - self.font:getWidth(data.room_name) / 2, y + 38)
-
-        if selected and not header then
-            Draw.setColor(Game:getSoulColor())
-            Draw.draw(self.heart_sprite, x + 18, y + 14)
-        end
-    end
-    Draw.setColor(1, 1, 1)
 end
 
 return SaveMenu

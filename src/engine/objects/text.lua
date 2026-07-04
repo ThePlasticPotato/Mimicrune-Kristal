@@ -897,21 +897,22 @@ function Text:drawChar(node, state, use_color)
         love.graphics.print(node.character, x + 2, y + 2, 0, scale, scale)
         Draw.setColor(mr, mg, mb, ma)
         love.graphics.print(node.character, x, y, 0, scale, scale)
-    elseif state.style == "GONER" then
+    elseif state.style == "GONER" or state.style == "GONER_EB" then
+        local offset = (state.style == "GONER_EB" or state.font == "eb") and 1 or 2
         local specfade = 1 -- This is unused for now!
         -- It's used in chapter 1, though... so let's keep it around.
         Draw.setColor(mr, mg, mb, ma * specfade)
         love.graphics.print(node.character, x, y, 0, scale, scale)
         Draw.setColor(mr, mg, mb, ma * ((0.3 + (math.sin((self.timer / 14)) * 0.1)) * specfade))
-        love.graphics.print(node.character, x + 2, y, 0, scale, scale)
-        love.graphics.print(node.character, x - 2, y, 0, scale, scale)
-        love.graphics.print(node.character, x, y + 2, 0, scale, scale)
-        love.graphics.print(node.character, x, y - 2, 0, scale, scale)
+        love.graphics.print(node.character, x + offset, y, 0, scale, scale)
+        love.graphics.print(node.character, x - offset, y, 0, scale, scale)
+        love.graphics.print(node.character, x, y + offset, 0, scale, scale)
+        love.graphics.print(node.character, x, y - offset, 0, scale, scale)
         Draw.setColor(mr, mg, mb, ma * ((0.08 + (math.sin((self.timer / 14)) * 0.04)) * specfade))
-        love.graphics.print(node.character, x + 2, y, 0, scale, scale)
-        love.graphics.print(node.character, x - 2, y, 0, scale, scale)
-        love.graphics.print(node.character, x, y + 2, 0, scale, scale)
-        love.graphics.print(node.character, x, y - 2, 0, scale, scale)
+        love.graphics.print(node.character, x + offset, y, 0, scale, scale)
+        love.graphics.print(node.character, x - offset, y, 0, scale, scale)
+        love.graphics.print(node.character, x, y + offset, 0, scale, scale)
+        love.graphics.print(node.character, x, y - offset, 0, scale, scale)
         Draw.setColor(mr, mg, mb, ma)
     end
 end
@@ -920,7 +921,7 @@ end
 ---@param style string The style to check.
 ---@return boolean is_animated Whether the style is animated or not.
 function Text:isStyleAnimated(style)
-    return style == "GONER" or Kristal.callEvent(KRISTAL_EVENT.isTextStyleAnimated, style, self)
+    return (style == "GONER") or (style == "GONER_EB") or Kristal.callEvent(KRISTAL_EVENT.isTextStyleAnimated, style, self)
 end
 
 --- An override function for processing a text style.

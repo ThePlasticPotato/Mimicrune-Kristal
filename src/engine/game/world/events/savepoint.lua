@@ -138,6 +138,31 @@ function Savepoint:updateTickVolume()
     self.tick_sound:setVolume(volume)
 end
 
+function Savepoint:usesNormalSaveMenu()
+    return not Game:isLight()
+        and not (self.simple_menu or (self.simple_menu == nil and Game:getConfig("smallSaveMenu")))
+end
+
+function Savepoint:openNormalSaveMenu(player, dir)
+    self.interact_count = self.interact_count + 1
+
+    if self.script then
+        Registry.getEventScript(self.script)(self, player, dir)
+    end
+
+    if self.set_flag then
+        Game:setFlag(self.set_flag, (self.set_value == nil and true) or self.set_value)
+    end
+
+    self:setFlag("used_once", true)
+    if self.once then
+        self:remove()
+        return
+    end
+
+    self:onTextEnd()
+end
+
 function Savepoint:onInteract(player, dir)
     if not self.activated then
         self.activated = true
@@ -155,6 +180,11 @@ function Savepoint:onInteract(player, dir)
 
     if self.text_once then
         self.used = true
+    end
+
+    if self:usesNormalSaveMenu() then
+        self:openNormalSaveMenu(player, dir)
+        return true
     end
 
     super.onInteract(self, player, dir)
