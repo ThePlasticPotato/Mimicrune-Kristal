@@ -29,7 +29,12 @@ function DarkMenu:init()
 
     self.selected_item = 1
 
-    self.state = "MAIN"
+    self.booting = not Game:getFlag("opened_darkmenu", false)
+    self.boot_timer = 0
+    self.boot_sound_played = false
+    self.boot_disk_played = false
+    self.boot_done = false
+    self.state = self.booting and "BOOT" or "MAIN"
     self.state_reason = nil
     self.heart_sprite = Assets.getTexture("player/heart_menu_small")
 
@@ -42,6 +47,7 @@ function DarkMenu:init()
     self.attack_sprite = Assets.getTexture("ui/menu/panels/dark/main/attack")
     self.magic_sprite = Assets.getTexture("ui/menu/panels/dark/main/magic")
     self.defense_sprite = Assets.getTexture("ui/menu/panels/dark/main/defense")
+    self.boot_logo_sprite = Assets.getTexture("misc/garamond_bios")
 
     self.positive_arrow = Assets.getTexture("ui/status/type/up")
     self.negative_arrow = Assets.getTexture("ui/status/type/down")
@@ -294,6 +300,7 @@ function DarkMenu:onKeyPressed(key)
     end
 
     if not self.panel_bg.operable then return end
+    if self.state == "BOOT" then return end
 
     if (Input.isMenu(key) or Input.isCancel(key)) and self.state == "MAIN" then
         Game.world:closeMenu()
@@ -394,6 +401,9 @@ end
 
 function DarkMenu:update()
     if (self.panel_bg.operable) then self.animation_timer = self.animation_timer + DTMULT end
+    if self.state == "BOOT" and self.panel_bg.operable then
+        self:updateBootSequence()
+    end
 
     local max_time = self.animate_out and 3 or 8
 
@@ -442,6 +452,29 @@ function DarkMenu:update()
     super.update(self)
 end
 
+function DarkMenu:updateBootSequence()
+    self.boot_timer = self.boot_timer + DTMULT
+
+    if self.boot_timer >= 24 and not self.boot_sound_played then
+        self.boot_sound_played = true
+        Assets.playSound("wakeup_call")
+    end
+
+    if self.boot_timer >= 30 and not self.boot_disk_played then
+        self.boot_disk_played = true
+        Assets.playSound("disk_noises")
+    end
+
+    if self.boot_timer >= 156 and not self.boot_done then
+        self.boot_done = true
+        self.state = "MAIN"
+        self.animation_done = true
+        self.animation_timer = 9
+        self.flicker_dur = Kristal.Config["simplifyVFX"] and 0 or 0.2
+        Game:setFlag("opened_darkmenu", true)
+    end
+end
+
 function DarkMenu:draw()
     super.draw(self)
     if (not self.panel_bg.operable) then
@@ -452,22 +485,13 @@ function DarkMenu:draw()
     if (self.animation_timer > max_time) and self.flicker_dur > 0 then
         alpha = 1 - self.flicker_dur
     end
+    if self.state == "BOOT" then
+        self:drawBootSequence()
+        return
+    end
+
     if (self.state == "MAIN" and not self.box) then
-        Draw.setColor(1, 1, 1, alpha)
-        Draw.draw(self.sprite, 0, 0)
-        if self.buttons[self.selected_submenu].desc_sprite then
-            Draw.draw(self.buttons[self.selected_submenu].desc_sprite, SCREEN_WIDTH/2, SCREEN_HEIGHT/2 + 38, 0, 2, 2, self.buttons[self.selected_submenu].desc_sprite:getPixelWidth()/2)
-        end
-
-        for i = 1, #self.buttons do
-            self:drawButton(i, 0, 0, alpha )
-        end
-
-        for i, party in ipairs(Game.party) do
-            self:drawMenuHealthbar(i, party, #Game.party, alpha)
-        end
-
-        Draw.setColor(1, 1, 1)
+        self:drawMainMenu(alpha)
     end
 
     if self.box and (self.box:includes(DarkEquipMenu) or self.box:includes(DarkSpellMenu)) then
@@ -475,6 +499,132 @@ function DarkMenu:draw()
     else
         self:drawBag(alpha)
     end
+end
+
+function DarkMenu:getBootElementAlpha(start, duration)
+    local progress = MathUtils.clamp((self.boot_timer - start) / duration, 0, 1)
+    if progress <= 0 then
+        return 0
+    elseif progress < 1 then
+        local flicker = (math.floor((self.boot_timer - start) / 3) % 2 == 0) and 1 or 0.25
+        return progress * flicker
+    end
+    return 1
+end
+
+function DarkMenu:drawBootSequence()
+    if self.boot_timer < 24 then
+        self:drawBootFlicker()
+    elseif self.boot_timer < 108 then
+        self:drawBootLoadingScreen()
+    else
+        local radial_alpha = self:getBootElementAlpha(108, 10)
+        local desc_alpha = self:getBootElementAlpha(116, 10)
+        local health_alpha = self:getBootElementAlpha(130, 12)
+        local bag_alpha = self:getBootElementAlpha(140, 10)
+        local button_alphas = {}
+        for i = 1, #self.buttons do
+            button_alphas[i] = self:getBootElementAlpha(118 + (i * 3), 8)
+        end
+
+        self:drawMainMenu(1, {
+            radial = radial_alpha,
+            desc = desc_alpha,
+            buttons = button_alphas,
+            healthbars = health_alpha,
+        })
+        self:drawBag(bag_alpha)
+    end
+end
+
+function DarkMenu:drawBootFlicker()
+    love.graphics.stencil(function()
+        love.graphics.circle("fill", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, 162)
+    end, "replace", 1)
+    love.graphics.setStencilTest("greater", 0)
+
+    local pulse = 0.08 + (math.sin(self.boot_timer / 5) * 0.03)
+    Draw.setColor(pulse, pulse, pulse + 0.02, 0.55)
+    love.graphics.rectangle("fill", 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
+
+    love.graphics.setStencilTest()
+end
+
+function DarkMenu:drawBootLoadingScreen()
+    love.graphics.stencil(function()
+        love.graphics.circle("fill", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, 162)
+    end, "replace", 1)
+    love.graphics.setStencilTest("greater", 0)
+
+    Draw.setColor(0.02, 0.025, 0.03, 0.92)
+    love.graphics.rectangle("fill", 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
+
+    local progress = MathUtils.clamp((self.boot_timer - 24) / 60, 0, 1)
+    local stepped_progress = math.floor(progress * 18) / 18
+    if progress >= 1 then
+        stepped_progress = 1
+    end
+    local center_x = SCREEN_WIDTH / 2
+    local center_y = SCREEN_HEIGHT / 2
+    local radius = 25
+    local jank = (math.floor(self.boot_timer / 5) % 5) == 0
+    local jitter_x = jank and ((math.floor(self.boot_timer) % 3) - 1) or 0
+    local jitter_y = jank and ((math.floor(self.boot_timer / 2) % 3) - 1) or 0
+
+    Draw.setColor(1, 1, 1, 0.05)
+    for y = 90, 300, 7 do
+        love.graphics.rectangle("fill", 170, y + ((math.floor(self.boot_timer / 8) % 2)), 300, 1)
+    end
+
+    Draw.setColor(1, 1, 1, 0.92)
+    Draw.draw(self.boot_logo_sprite, center_x - 96 + jitter_x, center_y + 18 + jitter_y, 0, 1, 1, self.boot_logo_sprite:getPixelWidth() / 2, self.boot_logo_sprite:getPixelHeight() / 2)
+
+    local old_line_width = love.graphics.getLineWidth()
+    love.graphics.setLineWidth(4)
+    Draw.setColor(PALETTE["world_dark_gray"], 0.9)
+    love.graphics.circle("line", center_x + jitter_x, center_y + 38 + jitter_y, radius, 48)
+    Draw.setColor(PALETTE["world_text"], 0.95)
+    love.graphics.arc("line", "open", center_x + jitter_x, center_y + 38 + jitter_y, radius, -math.pi / 2, (-math.pi / 2) + (stepped_progress * math.pi * 2), 48)
+    if jank and stepped_progress > 0.15 then
+        Draw.setColor(PALETTE["world_gray"], 0.65)
+        love.graphics.arc("line", "open", center_x + jitter_x, center_y + 38 + jitter_y, radius + 6, (stepped_progress * math.pi * 2) - 1.4, stepped_progress * math.pi * 2, 12)
+    end
+    love.graphics.setLineWidth(old_line_width)
+
+    love.graphics.setFont(self.small_font)
+    Draw.setColor(PALETTE["world_gray"], 0.75)
+    local percent = math.floor(stepped_progress * 100) .. "%"
+    local percent_alpha = (stepped_progress == 1 and (math.floor(self.boot_timer / 8) % 2 == 0)) and 0.45 or 0.8
+    Draw.setColor(PALETTE["world_gray"], percent_alpha)
+    love.graphics.print(percent, center_x - (self.small_font:getWidth(percent) / 2), center_y + 32)
+    love.graphics.setFont(self.font)
+
+    love.graphics.setStencilTest()
+end
+
+function DarkMenu:drawMainMenu(alpha, parts)
+    parts = parts or {}
+    local radial_alpha = parts.radial or alpha
+    local desc_alpha = parts.desc or alpha
+    local button_alphas = parts.buttons
+    local health_alpha = parts.healthbars or alpha
+
+    Draw.setColor(1, 1, 1, radial_alpha)
+    Draw.draw(self.sprite, 0, 0)
+    if self.buttons[self.selected_submenu].desc_sprite then
+        Draw.setColor(1, 1, 1, desc_alpha)
+        Draw.draw(self.buttons[self.selected_submenu].desc_sprite, SCREEN_WIDTH/2, SCREEN_HEIGHT/2 + 38, 0, 2, 2, self.buttons[self.selected_submenu].desc_sprite:getPixelWidth()/2)
+    end
+
+    for i = 1, #self.buttons do
+        self:drawButton(i, 0, 0, button_alphas and button_alphas[i] or alpha)
+    end
+
+    for i, party in ipairs(Game.party) do
+        self:drawMenuHealthbar(i, party, #Game.party, health_alpha)
+    end
+
+    Draw.setColor(1, 1, 1)
 end
 
 function DarkMenu:drawBag(alpha)
