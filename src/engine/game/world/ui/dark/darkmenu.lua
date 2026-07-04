@@ -54,11 +54,16 @@ function DarkMenu:init()
 
     self.font = Assets.getFont("main")
     self.small_font = Assets.getFont("smallnumbers")
+    self.mono_font = Assets.getFont("main_mono", 16)
     self.ui_interrupt = Assets.newSound("ui_interrupt_hand")
     self.ui_interrupt:setVolume(0.25)
 
+    ---@type PanelMenuBackground
     self.panel_bg = PanelMenuBackground("ui/menu/panels/dark/main/menu", 0, 0, "hand_open", "hand_open", "ui_move_panel", "ui_select_hand", "ui_error_hand", "ui_cancel_small", "ui_static", 0, 0)
     self:addChild(self.panel_bg)
+    if self.state == "BOOT" then
+        self.panel_bg.panel_ambience:pause()
+    end
 
     self.description_panel = PanelMenuBackground("ui/menu/panels/dark/hand/menu", 0, 0, "hand_open", "hand_open", "ui_move_panel", "ui_select_panel", "ui_error_panel", "ui_cancel_small_camera", nil, 0, 0, false)
     self.description_panel.layer = 10
@@ -467,6 +472,7 @@ function DarkMenu:updateBootSequence()
 
     if self.boot_timer >= 156 and not self.boot_done then
         self.boot_done = true
+        self.panel_bg.panel_ambience:play()
         self.state = "MAIN"
         self.animation_done = true
         self.animation_timer = 9
@@ -596,7 +602,11 @@ function DarkMenu:drawBootLoadingScreen()
     local percent = math.floor(stepped_progress * 100) .. "%"
     local percent_alpha = (stepped_progress == 1 and (math.floor(self.boot_timer / 8) % 2 == 0)) and 0.45 or 0.8
     Draw.setColor(PALETTE["world_gray"], percent_alpha)
-    love.graphics.print(percent, center_x - (self.small_font:getWidth(percent) / 2), center_y + 32)
+    love.graphics.print(percent, center_x - (self.small_font:getWidth(percent) / 2) + jitter_x, center_y + 32 + jitter_y)
+    love.graphics.setFont(self.mono_font)
+
+    love.graphics.print("REPAIRING DRIVE", center_x - (self.mono_font:getWidth("REPAIRING DRIVE") / 2) + jitter_x, center_y + 68 + jitter_y)
+
     love.graphics.setFont(self.font)
 
     love.graphics.setStencilTest()

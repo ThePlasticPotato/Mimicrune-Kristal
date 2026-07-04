@@ -2,7 +2,7 @@
 ---@overload fun(...) : LightSaveMenu
 local LightSaveMenu, super = Class(Object)
 
-function LightSaveMenu:init(marker)
+function LightSaveMenu:init(marker, point)
     super.init(self, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
 
     self.parallax_x = 0
@@ -42,6 +42,10 @@ function LightSaveMenu:init(marker)
     self.overwrite_box:addChild(UIBox(42, 132, 557, 217))
 
     self.marker = marker
+    self.point = point
+    if self.point then
+        self.point:setInteracting(true)
+    end
 
     -- MAIN, SAVE, SAVED, OVERWRITE, QUIT, QUITTING
     self.state = "MAIN"
@@ -55,6 +59,13 @@ function LightSaveMenu:init(marker)
     for i = 1, 3 do
         self.saves[i] = Kristal.getSaveFile(i)
     end
+end
+
+function LightSaveMenu:onRemove(parent)
+    if self.point then
+        self.point:setInteracting(false)
+    end
+    super.onRemove(self, parent)
 end
 
 function LightSaveMenu:updateSaveBoxSize()

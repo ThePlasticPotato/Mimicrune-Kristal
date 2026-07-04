@@ -2,7 +2,7 @@
 ---@overload fun(...) : SimpleSaveMenu
 local SimpleSaveMenu, super = Class(Object)
 
-function SimpleSaveMenu:init(save_id, marker)
+function SimpleSaveMenu:init(save_id, marker, point)
     super.init(self, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
 
     self.parallax_x = 0
@@ -19,6 +19,10 @@ function SimpleSaveMenu:init(save_id, marker)
     self:addChild(self.box)
 
     self.marker = marker
+    self.point = point
+    if self.point then
+        self.point:setInteracting(true)
+    end
 
     -- MAIN, SAVED
     self.state = "MAIN"
@@ -27,6 +31,13 @@ function SimpleSaveMenu:init(save_id, marker)
 
     self.save_id = save_id or Game.save_id
     self.saved_file = Kristal.getSaveFile(save_id)
+end
+
+function SimpleSaveMenu:onRemove(parent)
+    if self.point then
+        self.point:setInteracting(false)
+    end
+    super.onRemove(self, parent)
 end
 
 function SimpleSaveMenu:update()

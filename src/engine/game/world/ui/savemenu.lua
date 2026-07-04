@@ -1,8 +1,9 @@
 ---@class SaveMenu : Object
+---@overload fun(marker): SaveMenu
 ---@overload fun(...) : SaveMenu
 local SaveMenu, super = Class(Object)
 
-function SaveMenu:init(marker)
+function SaveMenu:init(marker, point)
     super.init(self, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
 
     self.parallax_x = 0
@@ -42,6 +43,10 @@ function SaveMenu:init(marker)
     self.overwrite_box:addChild(UIBox(42, 132, 557, 217))
 
     self.marker = marker
+    self.point = point
+    if self.point then
+        self.point:setInteracting(true)
+    end
 
     -- MAIN, SAVE, SAVED, OVERWRITE
     self.state = "MAIN"
@@ -63,6 +68,13 @@ function SaveMenu:updateSaveBoxSize()
     else
         self.save_list.height = 258
     end
+end
+
+function SaveMenu:onRemove(parent)
+    if self.point then
+        self.point:setInteracting(false)
+    end
+    super.onRemove(self, parent)
 end
 
 function SaveMenu:update()
