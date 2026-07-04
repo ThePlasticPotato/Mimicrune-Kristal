@@ -1121,6 +1121,17 @@ function World:loadMap(...)
         callback = table.remove(args, 1)
     end
 
+    local previous_run_state
+    if self.player and self.player.state_manager.state == "RUN" then
+        previous_run_state = {
+            run_timer = self.player.run_timer,
+            run_timer_grace = self.player.run_timer_grace,
+            run_momentum = { self.player.run_momentum[1], self.player.run_momentum[2] },
+            temp_boost_x = self.player.temp_boost_x,
+            temp_boost_y = self.player.temp_boost_y
+        }
+    end
+
     if self.map then
         self.map:onExit()
     end
@@ -1132,10 +1143,32 @@ function World:loadMap(...)
         self.camera:setPosition(spawn.center_x, spawn.center_y)
     end
 
+    local marker_player_state
+    if marker then
+        local _, _, data = self.map:getMarker(marker)
+        marker_player_state = data and data.player_state
+    end
+
     if marker then
         self:spawnParty(marker, nil, nil, facing)
     else
         self:spawnParty({ x, y }, nil, nil, facing)
+    end
+
+    if previous_run_state and not marker_player_state and self.player then
+        self.player:setState("RUN")
+        self.player.run_timer = previous_run_state.run_timer
+        self.player.run_timer_grace = previous_run_state.run_timer_grace
+        self.player.run_momentum[1] = previous_run_state.run_momentum[1]
+        self.player.run_momentum[2] = previous_run_state.run_momentum[2]
+        self.player.temp_boost_x = previous_run_state.temp_boost_x
+        self.player.temp_boost_y = previous_run_state.temp_boost_y
+
+        for _, follower in ipairs(self.followers) do
+            if follower.following then
+                follower.state_manager:setState("RUN")
+            end
+        end
     end
 
     self:setState("GAMEPLAY")

@@ -27,6 +27,10 @@ function Follower:init(chara, x, y, target)
 
     self.dash_timer = 0
     self.dash_afterimages = 0
+    self.run_settling = false
+    self.run_settle_target = nil
+    self.run_settle_speed = 0
+    self.run_settle_min_speed = 0
 
     self.blush_timer = 0
 
@@ -125,10 +129,18 @@ function Follower:getTarget()
 end
 
 function Follower:beginRun()
+    self.run_settling = false
+    self.run_settle_target = nil
+    self.run_settle_speed = 0
+    self.run_settle_min_speed = 0
     self:setWalkSprite(self.actor:getRunSprite())
 end
 
 function Follower:endRun(new_state)
+    self.run_settling = false
+    self.run_settle_target = nil
+    self.run_settle_speed = 0
+    self.run_settle_min_speed = 0
     if (new_state) == "WALK" then self:resetSprite() end
 end
 
@@ -218,9 +230,17 @@ function Follower:copyHistoryFrom(target)
     self.history_time = target.history_time
     self.history = TableUtils.copy(target.history)
 end
+
 function Follower:updateHistory(moved, auto)
     if moved then
         self.blush_timer = 0
+        if self.run_settling then
+            self.run_settling = false
+            self.run_settle_target = nil
+            self.run_settle_speed = 0
+            self.run_settle_min_speed = 0
+            self.following = true
+        end
     end
     local target = self:getTarget()
 
@@ -240,11 +260,44 @@ function Follower:updateHistory(moved, auto)
     end
 end
 
+function Follower:updateRunSettle()
+    local target = self.run_settle_target
+    if not target then
+        self.run_settling = false
+        return
+    end
+
+    local speed = self.run_settle_speed > 0 and self.run_settle_speed or 6
+    local x = MathUtils.approach(self.x, target.x, speed * DTMULT)
+    local y = MathUtils.approach(self.y, target.y, speed * DTMULT)
+    self.run_settle_speed = MathUtils.approach(self.run_settle_speed, self.run_settle_min_speed, DT * 12)
+
+    self:move(x - self.x, y - self.y)
+
+    if self.x == target.x and self.y == target.y then
+        self:setFacing(target.facing)
+        self.run_settling = false
+        self.run_settle_target = nil
+        self.run_settle_speed = 0
+        self.run_settle_min_speed = 0
+        self.following = true
+        self:interpolateHistory()
+
+        if self.state_manager.state == "RUN" then
+            self.state_manager:setState("WALK")
+        end
+    end
+end
+
 function Follower:update()
     self:updateIndex()
 
     if #self.history == 0 then
         table.insert(self.history, { x = self.x, y = self.y, time = 0 })
+    end
+
+    if self.run_settling then
+        self:updateRunSettle()
     end
 
     if self.returning and not self.physics.move_target then

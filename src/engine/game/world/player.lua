@@ -377,9 +377,32 @@ function Player:endRun(new_state)
         self.run_momentum[1] = 0
         self.run_momentum[2] = 0
 
-        for index, value in ipairs(Game.world.followers) do
-            if (value.following) then
-                value.state_manager:setState("WALK")
+        local settle_min_speed = self:getBaseWalkSpeed()
+        local settle_speed = settle_min_speed + (Game:isLight() and 4 or 4)
+        for _, follower in ipairs(Game.world.followers) do
+            if follower.following and follower.state_manager.state == "RUN" then
+                local offset_x, offset_y = 0, 0
+                if self.facing == "left" then
+                    offset_x = 1
+                elseif self.facing == "right" then
+                    offset_x = -1
+                elseif self.facing == "up" then
+                    offset_y = 1
+                elseif self.facing == "down" then
+                    offset_y = -1
+                end
+
+                local idist = (follower:getFollowDelay() / (1 / 30)) * 4
+                follower.run_settling = true
+                follower.run_settle_target = {
+                    x = self.x + (offset_x * idist),
+                    y = self.y + (offset_y * idist),
+                    facing = self.facing
+                }
+                follower.run_settle_speed = settle_speed
+                follower.run_settle_min_speed = settle_min_speed
+                follower.following = false
+                follower.returning = false
             end
         end
     end
