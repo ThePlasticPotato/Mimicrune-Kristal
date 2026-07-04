@@ -43,14 +43,14 @@ function character:init()
     self:addKnownSpell("psyball", true)
 
     -- Current health (saved to the save file)
-    self.health = 40
+    self.health = 70
 
     self.walk_speed_bonus = 2
     self.attack_distance = 0
 
     -- Base stats (saved to the save file)
     self.stats = {
-        health = 40,
+        health = 70,
         attack = 8,
         defense = 1,
         magic = 12,
