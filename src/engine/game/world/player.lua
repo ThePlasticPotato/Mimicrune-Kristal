@@ -26,6 +26,7 @@ function Player:init(chara, x, y)
     self.force_walk = false
     self.run_timer = 0
     self.run_timer_grace = 0
+    self.run_transition_grace = 0
 
     self.auto_moving = false
 
@@ -255,9 +256,17 @@ function Player:canDash()
     return self:isMovementEnabled() and self.dash_cd == 0 and not Game:isLight() and self.state_manager.state ~= "SLIDE" and self.state_manager.state ~= "DASH"
 end
 
-function Player:beginDash(prev_state)
+function Player:beginDash(prev_state, settings)
     self:setAnimation("dash")
-    Assets.playSound("bigcut", 0.8)
+    if not (settings and settings.transition_restore) then
+        Assets.playSound("bigcut", 0.8)
+    end
+
+    if settings and settings.transition_restore then
+        self.idle_timer = 0
+        return
+    end
+
     local walk_x = 0
     local walk_y = 0
 
@@ -408,6 +417,35 @@ function Player:endRun(new_state)
     end
 end
 
+function Player:restoreRunState(run_state)
+    self:setState("RUN")
+    self.run_timer = run_state.run_timer
+    self.run_timer_grace = run_state.run_timer_grace
+    self.run_momentum[1] = run_state.run_momentum[1]
+    self.run_momentum[2] = run_state.run_momentum[2]
+    self.temp_boost_x = run_state.temp_boost_x
+    self.temp_boost_y = run_state.temp_boost_y
+    self.run_transition_grace = run_state.run_transition_grace or 0.5
+    self:setWalkSprite(self.actor:getRunSprite())
+end
+
+function Player:restoreDashState(dash_state)
+    self:setState("DASH", { transition_restore = true })
+    self.dash_timer = dash_state.dash_timer
+    self.dash_momentum = { dash_state.dash_momentum[1], dash_state.dash_momentum[2] }
+    self.dash_magnitude = { dash_state.dash_magnitude[1], dash_state.dash_magnitude[2] }
+    self.dash_afterimages = dash_state.dash_afterimages
+    self.was_running = dash_state.was_running
+end
+
+function Player:restoreTransitionMovementState(movement_state)
+    if movement_state.state == "DASH" then
+        self:restoreDashState(movement_state)
+    elseif movement_state.state == "RUN" then
+        self:restoreRunState(movement_state)
+    end
+end
+
 function Player:updateRun()
     if (Game:getFlag("simple_run", false)) then
         self:updateWalk()
@@ -447,6 +485,9 @@ function Player:handleMomentumMovement()
     local running = (Input.down("cancel") or self.force_run) and not self.force_walk
     if Kristal.Config["autoRun"] and not self.force_run and not self.force_walk then
         running = not running
+    end
+    if self.run_transition_grace > 0 then
+        running = true
     end
 
     if self.force_run and not self.force_walk then
@@ -497,7 +538,7 @@ function Player:handleMomentumMovement()
 
     if not running or self.last_collided_x or self.last_collided_y then
         self.run_timer = 0
-        if ((self.last_collided_x and math.abs(self.run_momentum[1]) > 0.85) or (self.last_collided_y and math.abs(self.run_momentum[2]) > 0.85)) then
+        if ((self.last_collided_x and math.abs(self.run_momentum[1]) > 0.85) or (self.last_collided_y and math.abs(self.run_momentum[2]) > 0.85)) and Game:isLight() then
             local slide_position = {self.last_collided_x and -self.run_momentum[1] * 8 or 0, self.last_collided_y and -self.run_momentum[2] * 8 or 0}
             self:setState("WALK")
             self.splatted = true
@@ -513,9 +554,10 @@ function Player:handleMomentumMovement()
         if walk_x ~= 0 or walk_y ~= 0 then
             self.run_timer = self.run_timer + DTMULT
             self.run_timer_grace = 0
+            self.run_transition_grace = 0
         else
             -- Dont reset running until 2 frames after you release the movement keys
-            if self.run_timer_grace >= 2 then
+            if self.run_transition_grace == 0 and self.run_timer_grace >= 2 then
                 self.run_timer = 0
             end
             self.run_timer_grace = self.run_timer_grace + DTMULT
@@ -1191,6 +1233,10 @@ function Player:update()
         if self.dash_cd <= 0 then
             self:flash()
         end
+    end
+
+    if self.run_transition_grace > 0 and self:isMovementEnabled() then
+        self.run_transition_grace = MathUtils.approach(self.run_transition_grace, 0, DT)
     end
 
     if self.slide_land_timer > 0 and self.state_manager.state ~= "SLIDE" then

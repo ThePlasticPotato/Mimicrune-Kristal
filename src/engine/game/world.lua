@@ -1121,15 +1121,11 @@ function World:loadMap(...)
         callback = table.remove(args, 1)
     end
 
-    local previous_run_state
-    if self.player and self.player.state_manager.state == "RUN" then
-        previous_run_state = {
-            run_timer = self.player.run_timer,
-            run_timer_grace = self.player.run_timer_grace,
-            run_momentum = { self.player.run_momentum[1], self.player.run_momentum[2] },
-            temp_boost_x = self.player.temp_boost_x,
-            temp_boost_y = self.player.temp_boost_y
-        }
+    local previous_movement_state = self.pending_transition_movement_state
+    self.pending_transition_movement_state = nil
+    self.pending_transition_run_state = nil
+    if not previous_movement_state then
+        previous_movement_state = self:captureTransitionMovementState()
     end
 
     if self.map then
@@ -1143,32 +1139,16 @@ function World:loadMap(...)
         self.camera:setPosition(spawn.center_x, spawn.center_y)
     end
 
-    local marker_player_state
+    local marker_has_player_state
     if marker then
         local _, _, data = self.map:getMarker(marker)
-        marker_player_state = data and data.player_state
+        marker_has_player_state = data and data.has_player_state
     end
 
     if marker then
         self:spawnParty(marker, nil, nil, facing)
     else
         self:spawnParty({ x, y }, nil, nil, facing)
-    end
-
-    if previous_run_state and not marker_player_state and self.player then
-        self.player:setState("RUN")
-        self.player.run_timer = previous_run_state.run_timer
-        self.player.run_timer_grace = previous_run_state.run_timer_grace
-        self.player.run_momentum[1] = previous_run_state.run_momentum[1]
-        self.player.run_momentum[2] = previous_run_state.run_momentum[2]
-        self.player.temp_boost_x = previous_run_state.temp_boost_x
-        self.player.temp_boost_y = previous_run_state.temp_boost_y
-
-        for _, follower in ipairs(self.followers) do
-            if follower.following then
-                follower.state_manager:setState("RUN")
-            end
-        end
     end
 
     self:setState("GAMEPLAY")
@@ -1187,6 +1167,20 @@ function World:loadMap(...)
 
     if callback then
         callback(self.map)
+    end
+
+    if previous_movement_state and not marker_has_player_state and self.player then
+        self.player:restoreTransitionMovementState(previous_movement_state)
+
+        for _, follower in ipairs(self.followers) do
+            if follower.following then
+                follower.state_manager:setState(previous_movement_state.state)
+                if previous_movement_state.state == "DASH" then
+                    follower.dash_timer = previous_movement_state.dash_timer
+                    follower.dash_afterimages = previous_movement_state.dash_afterimages
+                end
+            end
+        end
     end
 end
 
@@ -1327,12 +1321,48 @@ function World:shopTransition(shop, options)
     end)
 end
 
+function World:captureTransitionMovementState()
+    if not self.player then
+        return nil
+    end
+
+    if self.player.state_manager.state == "DASH" then
+        return {
+            state = "DASH",
+            dash_timer = self.player.dash_timer,
+            dash_momentum = { self.player.dash_momentum[1], self.player.dash_momentum[2] },
+            dash_magnitude = { self.player.dash_magnitude[1], self.player.dash_magnitude[2] },
+            dash_afterimages = self.player.dash_afterimages,
+            was_running = self.player.was_running
+        }
+    end
+
+    local momentum_x = self.player.run_momentum[1]
+    local momentum_y = self.player.run_momentum[2]
+    local has_run_momentum = math.abs(momentum_x) > 0.05 or math.abs(momentum_y) > 0.05
+    local was_running = self.player.state_manager.state == "RUN" or self.player.run_timer > 0 or has_run_momentum
+    if not was_running then
+        return nil
+    end
+
+    return {
+        state = "RUN",
+        run_timer = math.max(self.player.run_timer, 31),
+        run_timer_grace = self.player.run_timer_grace,
+        run_momentum = { momentum_x, momentum_y },
+        temp_boost_x = self.player.temp_boost_x,
+        temp_boost_y = self.player.temp_boost_y,
+        run_transition_grace = math.max(self.player.run_transition_grace or 0, 0.5)
+    }
+end
+
 --- Loads a new map and starts the transition effects for world music, borders, and the screen as a whole
 ---@overload fun(self: World, map: string, ...: any)
 ---@param ... any   Additional arguments that will be passed into World:loadMap()
 ---@see World - World:loadMap()
 function World:mapTransition(...)
     local args = { ... }
+    self.pending_transition_movement_state = self:captureTransitionMovementState()
     local map = args[1]
     if type(map) == "string" then
         local map = Registry.createMap(map)

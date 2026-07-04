@@ -634,6 +634,7 @@ function Map:loadMarkers(layer)
         v.center_y = v.center_y + (layer.offsety or 0)
 
         v.player_state = marker.properties["player_state"] or "WALK"
+        v.has_player_state = marker.properties["player_state"] ~= nil
 
         if v.name ~= nil then
             self.markers[v.name] = v
