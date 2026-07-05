@@ -33,6 +33,7 @@ function DarkMenu:init()
     self.boot_timer = 0
     self.boot_sound_played = false
     self.boot_disk_played = false
+    self.boot_finboot_played = false
     self.boot_done = false
     self.state = self.booting and "BOOT" or "MAIN"
     self.state_reason = nil
@@ -60,6 +61,10 @@ function DarkMenu:init()
 
     ---@type PanelMenuBackground
     self.panel_bg = PanelMenuBackground("ui/menu/panels/dark/main/menu", 0, 0, "hand_open", "hand_open", "ui_move_panel", "ui_select_hand", "ui_error_hand", "ui_cancel_small", "ui_static", 0, 0)
+    if self.booting then
+        self.panel_bg.sprite = Assets.getTexture("ui/menu/panels/dark/main/menu_booting")
+        self.panel_bg.open_sprite:setSprite("ui/menu/panels/dark/main/menu_boot")
+    end
     self:addChild(self.panel_bg)
     if self.state == "BOOT" then
         self.panel_bg.panel_ambience:pause()
@@ -470,6 +475,11 @@ function DarkMenu:updateBootSequence()
         Assets.playSound("disk_noises")
     end
 
+    if self.boot_timer >= 108 and not self.boot_finboot_played then
+        self.boot_finboot_played = true
+        self:playPanelFinboot()
+    end
+
     if self.boot_timer >= 156 and not self.boot_done then
         self.boot_done = true
         self.panel_bg.panel_ambience:play()
@@ -479,6 +489,18 @@ function DarkMenu:updateBootSequence()
         self.flicker_dur = Kristal.Config["simplifyVFX"] and 0 or 0.2
         Game:setFlag("opened_darkmenu", true)
     end
+end
+
+function DarkMenu:playPanelFinboot()
+    local sprite = self.panel_bg.open_sprite
+    sprite.visible = true
+    sprite:setSprite("ui/menu/panels/dark/main/menu_finboot")
+    self.panel_bg.opening = true
+    sprite:play(1/20, false, function()
+        sprite.visible = false
+        self.panel_bg.opening = false
+        self.panel_bg.sprite = Assets.getTexture("ui/menu/panels/dark/main/menu")
+    end)
 end
 
 function DarkMenu:draw()

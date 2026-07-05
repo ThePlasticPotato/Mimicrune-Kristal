@@ -225,9 +225,9 @@ function Battle:init()
     self.description_panel = PanelMenuBackground("ui/menu/panels/dark/hand/menu", 0, 0, "hand_open", "hand_open", "ui_move_panel", "ui_select_panel", "ui_error_panel", "ui_cancel_small_camera", nil, 0, 0, false)
     self.description_panel.layer = BATTLE_LAYERS["above_ui"]
     self:addChild(self.description_panel)
-    self.description = Text("", 20, 5, 540, 80 - 16, {align = "center"})
-    self.cost_description = Text("", 20, 30, 540, 80-36, {align = "center"})
-    self.note_display = Text("", 20, 48, 540, 80 - 54, {align = "center"})
+    self.description = Text("", 20, 5, 540, 80 - 16, {align = "center", font="eb"})
+    self.cost_description = Text("", 20, 30, 540, 80-36, {align = "center", font="eb"})
+    self.note_display = Text("", 20, 48, 540, 80 - 54, {align = "center", font="eb"})
     self.description.visible = false
     self.cost_description.visible = false
     self.note_display.visible = false

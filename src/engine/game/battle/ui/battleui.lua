@@ -46,7 +46,7 @@ function BattleUI:init()
         text = Game.battle.encounter.text
     }
 
-    self.encounter_text = Textbox(10, 98, 454, 90, "main_mono", nil, true)
+    self.encounter_text = Textbox(10, 98, 454, 90, "eb", nil, true)
     self.encounter_text.text.line_offset = 0
     self.encounter_text:setText("")
     self.encounter_text.debug_rect = {-30, -12, SCREEN_WIDTH+1, 124}
