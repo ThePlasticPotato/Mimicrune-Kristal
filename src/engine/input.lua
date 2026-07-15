@@ -100,7 +100,9 @@ Input.order = {
     -- Mimicrune binds
     "attack", "dash",
     -- Kristal binds
-    "console", "debug_menu", "object_selector", "fast_forward", "mod_rebind"
+    "console", "debug_menu", "object_selector", "fast_forward", "editor", "editor_view", "editor_command_palette", "editor_delete", "editor_tool_select", "editor_tool_world_select", "editor_tool_object",
+    "editor_tool_shape", "editor_tool_tile_brush", "editor_tool_tile_fill", "editor_tool_eraser",
+    "editor_tool_link", "mod_rebind"
 }
 
 Input.required_binds = {
@@ -231,7 +233,19 @@ function Input.resetBinds(gamepad, mod_id)
             ["debug_menu"] = {{"shift", "`"}},
             ["object_selector"] = {{"ctrl", "o"}},
             ["fast_forward"] = {{"ctrl", "g"}},
-            ["mod_rebind"] = {"/"},
+            ["editor"] = { "f10" },
+            ["editor_view"] = { "tab" },
+            ["editor_command_palette"] = { { "ctrl", "shift", "p" } },
+            ["editor_delete"] = { "delete" },
+            ["editor_tool_select"] = { "v" },
+            ["editor_tool_world_select"] = { "w" },
+            ["editor_tool_object"] = { "o" },
+            ["editor_tool_shape"] = { "s" },
+            ["editor_tool_tile_brush"] = { "b" },
+            ["editor_tool_tile_fill"] = { "f" },
+            ["editor_tool_eraser"] = { "e" },
+            ["editor_tool_link"] = { "l" },
+            ["mod_rebind"] = { "/" },
         }
         local gamepad_bindings = {
             ["up"] = {"gamepad:lsup"},
@@ -250,7 +264,19 @@ function Input.resetBinds(gamepad, mod_id)
             ["debug_menu"] = {},
             ["object_selector"] = {},
             ["fast_forward"] = {},
-            ["mod_rebind"] = {},
+            ["editor"] = {},
+            ["editor_view"] = {},
+            ["editor_command_palette"] = {},
+            ["editor_delete"] = {},
+            ["editor_tool_select"] = {},
+            ["editor_tool_world_select"] = {},
+            ["editor_tool_object"] = {},
+            ["editor_tool_shape"] = {},
+            ["editor_tool_tile_brush"] = {},
+            ["editor_tool_tile_fill"] = {},
+            ["editor_tool_eraser"] = {},
+            ["editor_tool_link"] = {},
+            ["mod_rebind"] = { },
         }
         if gamepad ~= true then TableUtils.merge(Input.key_bindings, key_bindings) end
         if gamepad ~= false then TableUtils.merge(Input.gamepad_bindings, gamepad_bindings) end
@@ -306,7 +332,19 @@ function Input.resetBinds(gamepad, mod_id)
             ["debug_menu"] = {{"shift", "`"}},
             ["object_selector"] = {{"ctrl", "o"}},
             ["fast_forward"] = {{"ctrl", "g"}},
-            ["mod_rebind"] = {"/"},
+            ["editor"] = { "f10" },
+            ["editor_view"] = { "tab" },
+            ["editor_command_palette"] = { { "ctrl", "shift", "p" } },
+            ["editor_delete"] = { "delete" },
+            ["editor_tool_select"] = { "v" },
+            ["editor_tool_world_select"] = { "w" },
+            ["editor_tool_object"] = { "o" },
+            ["editor_tool_shape"] = { "s" },
+            ["editor_tool_tile_brush"] = { "b" },
+            ["editor_tool_tile_fill"] = { "f" },
+            ["editor_tool_eraser"] = { "e" },
+            ["editor_tool_link"] = { "l" },
+            ["mod_rebind"] = { "/" },
         }
         for _, mod in ipairs(Kristal.Mods.getMods()) do
             if mod.keybinds then
@@ -357,7 +395,19 @@ function Input.resetBinds(gamepad, mod_id)
             ["debug_menu"] = {},
             ["object_selector"] = {},
             ["fast_forward"] = {},
-            ["mod_rebind"] = {},
+            ["editor"] = {},
+            ["editor_view"] = {},
+            ["editor_command_palette"] = {},
+            ["editor_delete"] = {},
+            ["editor_tool_select"] = {},
+            ["editor_tool_world_select"] = {},
+            ["editor_tool_object"] = {},
+            ["editor_tool_shape"] = {},
+            ["editor_tool_tile_brush"] = {},
+            ["editor_tool_tile_fill"] = {},
+            ["editor_tool_eraser"] = {},
+            ["editor_tool_link"] = {},
+            ["mod_rebind"] = { },
         }
         for _, mod in ipairs(Kristal.Mods.getMods()) do
             if mod.keybinds then

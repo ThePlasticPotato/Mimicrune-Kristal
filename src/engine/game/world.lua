@@ -495,9 +495,23 @@ function World:onKeyPressed(key)
         end
         if key == "k" then
             Game:setTension(Game:getMaxTension())
+            Assets.playSound("cardrive", 0.8, 1.4)
         end
         if key == "n" then
             NOCLIP = not NOCLIP
+            if NOCLIP then
+                Assets.playSound("petrify")
+            else
+                Assets.playSound("bump")
+            end
+        end
+        if key == "i" then
+            INVINCIBILITY = not INVINCIBILITY
+            if INVINCIBILITY then
+                Assets.playSound("sparkle_glock")
+            else
+                Assets.playSound("bump")
+            end
         end
     end
 
@@ -1302,7 +1316,8 @@ local function parseTransitionTargetArgs(...)
             if type(args[4]) == "string" then
                 target.facing = args[4]
             end
-        elseif type(args[2]) == "string" then
+        elseif type(args[2]) == "string"
+            or type(args[2]) == "table" and (args[2].object_id ~= nil or args[2].object ~= nil) then
             target.marker = args[2]
             if type(args[3]) == "string" then
                 target.facing = args[3]
@@ -1428,7 +1443,6 @@ function World:shakeCamera(x, y, friction)
 end
 
 function World:sortChildren()
-    Utils.pushPerformance("World#sortChildren")
     Object.startCache()
     local positions = {}
     for _, child in ipairs(self.children) do
@@ -1446,7 +1460,6 @@ function World:sortChildren()
                     (a:includes(Follower) and b:includes(Follower) and b.index < a.index)))))
     end)
     Object.endCache()
-    Utils.popPerformance()
 end
 
 ---@param parent Object
@@ -1480,6 +1493,14 @@ function World:shouldBulletsHurt()
     end
 
     return self:inBattle()
+end
+
+--- Whether the world should decrease the invulnerability timer.
+---
+--- By default, this redirects to [`Player:shouldDecreaseInvuln()`](lua://Player.shouldDecreaseInvuln) if the player exists.
+---@return boolean? decrease_invuln # `true` if the invulnerability timer should decrease.
+function World:shouldDecreaseInvuln()
+    return self.player ~= nil and self.player:shouldDecreaseInvuln()
 end
 
 function World:shouldCharacterCollide(char)

@@ -59,10 +59,11 @@ end
 
 --- Applies `Battle:applyHealBonuses()` to the battle heal amount. Can be overriden to disable or change behaviour.
 ---@param id string             The id of the character to get the HP amount for
----@param healer PartyMember    The party member performing the heal action
-function HealItem:getBattleHealAmountModified(id, healer)
+---@param caster PartyMember?   The party member performing the heal action, if applicable.
+---@param target PartyMember?   The party member targeted by the heal action, if applicable.
+function HealItem:getBattleHealAmountModified(id, caster, target)
     local amount = self:getBattleHealAmount(id)
-    return Game.battle:applyHealBonuses(amount, healer)
+    return Game.battle:applyHealBonuses(amount, caster, target)
 end
 
 --- Modified to perform healing based on the set healing amounts
@@ -93,7 +94,7 @@ end
 function HealItem:onBattleUse(user, target)
     if self:getTarget() == "ally" then
         -- Heal single party member
-        local amount = self:getBattleHealAmountModified(target.chara.id, user.chara)
+        local amount = self:getBattleHealAmountModified(target.chara.id, user.chara, target.chara)
         target:heal(amount)
         for i, buff in ipairs(self.buffs) do
             target:addStatus({effect = buff[1], source = user, duration = buff[2], stacks = buff[3]}, buff[4], false)
@@ -101,7 +102,7 @@ function HealItem:onBattleUse(user, target)
     elseif self:getTarget() == "party" then
         -- Heal all party members
         for _, battler in ipairs(target) do
-            local amount = self:getBattleHealAmountModified(battler.chara.id, user.chara)
+            local amount = self:getBattleHealAmountModified(battler.chara.id, user.chara, battler.chara)
             battler:heal(amount)
             for i, buff in ipairs(self.buffs) do
                 battler:addStatus({effect = buff[1], source = user, duration = buff[2], stacks = buff[3]}, buff[4], false)
@@ -109,7 +110,7 @@ function HealItem:onBattleUse(user, target)
         end
     elseif self:getTarget() == "enemy" then
         -- Heal single enemy (why)
-        local amount = self:getBattleHealAmountModified(target.id, user.chara)
+        local amount = self:getBattleHealAmountModified(target.id, user.chara, nil)
         target:heal(amount)
         for i, buff in ipairs(self.buffs) do
             target:addStatus({effect = buff[1], source = user, duration = buff[2], stacks = buff[3]}, buff[4], false)
@@ -117,7 +118,7 @@ function HealItem:onBattleUse(user, target)
     elseif self:getTarget() == "enemies" then
         -- Heal all enemies (why????)
         for _, enemy in ipairs(target) do
-            local amount = self:getBattleHealAmountModified(enemy.id, user.chara)
+            local amount = self:getBattleHealAmountModified(enemy.id, user.chara, nil)
             enemy:heal(amount)
             for i, buff in ipairs(self.buffs) do
                 enemy:addStatus({effect = buff[1], source = user, duration = buff[2], stacks = buff[3]}, buff[4], false)

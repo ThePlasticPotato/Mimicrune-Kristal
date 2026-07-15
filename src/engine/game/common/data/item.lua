@@ -45,9 +45,9 @@
 ---
 ---@field flags table<string, any>
 ---
----@field dark_item Item
+---@field dark_item Item|string?
 ---@field dark_location {storage: string, index: integer}
----@field light_item Item
+---@field light_item Item|string?
 ---@field light_location {storage: string, index: integer}
 ---
 ---@field buffs table<table<string, number, number, boolean>>
@@ -284,11 +284,11 @@ end
 
 --- *(Override)* Converts an equipped item to its light counterpart
 ---@param chara PartyMember
----@return boolean|Item
+---@return string|Item?
 function Item:convertToLightEquip(chara) return self:convertToLight() end
 --- *(Override)* Converts an equipped item to its dark counterpart
 ---@param chara PartyMember
----@return boolean|Item
+---@return string|Item?
 function Item:convertToDarkEquip(chara) return self:convertToDark() end
 
 --[[ Getters ]]--
@@ -313,6 +313,8 @@ function Item:getShopDescription()
     return self:getTypeName() .. "\n" .. self.shop
 end
 
+function Item:getEquipIcon() return self.icon end
+
 function Item:getPrice() return self.price end
 
 function Item:getBuyPrice() return self.buy_price or self:getPrice() end
@@ -325,14 +327,25 @@ function Item:isSellable() return self.can_sell end
 function Item:getStatBonuses() return self.bonuses end
 function Item:getBonusName() return self.bonus_name end
 function Item:getBonusIcon() return self.bonus_icon end
+function Item:getBonusColor() return self.bonus_color end
 
 function Item:getAttackSprite(battler, enemy, points) return battler.chara:getAttackSprite() end
 function Item:getAttackSound(battler, enemy, points) return battler.chara:getAttackSound() end
 function Item:getAttackPitch(battler, enemy, points) return battler.chara:getAttackPitch() end
 
+--- *(Override)* Gets the size of the critical hit box for the battler this weapon is equipped to. **Only affects weapons**.
+---
+--- The size is both visual and equivalent to the frame leniency of the attack (at 30fps). The default is `1`, meaning you only have 1 frame to crit.
+---@param battler PartyBattler # The attacker's battler.
+---@return number size # The size of the critical hit box.
+function Item:getAttackCritBoxSize(battler)
+    return 1
+end
+
 function Item:getReactions() return self.reactions end
 
 function Item:hasResultItem() return self.result_item ~= nil end
+
 --- *(Override)* Creates an instance of this Item's specified [`result_item`](lua://Item.result_item)
 ---@return Item result_item
 function Item:createResultItem()
@@ -352,6 +365,7 @@ end
 --- *(Override)* If the item grants bonus `gold`, it applies its bonus here
 ---@param gold number   The current amount of victory gold
 ---@return number new_gold  The amount of gold with the bonus applied
+---@deprecated Use `Item.calculateBattleMoney` instead
 function Item:applyMoneyBonus(gold)
     return gold
 end
@@ -361,8 +375,77 @@ end
 ---@param base_heal number      The original heal amount
 ---@param healer PartyMember    The character performing the heal
 ---@return number new_heal      The new heal amount affected by this item
+---@deprecated Use `Item.calculateBattleHeal` instead
 function Item:applyHealBonus(current_heal, base_heal, healer)
     return current_heal
+end
+
+--- *(Override)* Takes in the current amount of money earned in battle, returning the new amount modified by this item.
+---
+--- This function is only called once per unique item id, and it is given the amount of that same item equipped.
+--- @param money number # The current amount of money earned in battle.
+--- @param base_money number # The base amount of money before any bonuses.
+--- @param num_equipped number # The number of the same item id equipped by the party.
+--- @return number new_money # The new amount of money earned in battle after applying this item's bonus.
+function Item:calculateBattleMoney(money, base_money, num_equipped)
+    return money
+end
+
+--- *(Override)* Returns the priority of this item when calculating battle money bonuses.
+---
+--- Higher priority items are applied later, lower priority items are applied first, and items with the same priority are applied in an arbitrary order.
+--- Recommended use is to use a negative priority for flat bonuses (e.g. `+ 100`) and a positive priority for multiplicative bonuses (e.g. `* 2`).
+---
+--- By default, this is `0`. Built-in DELTARUNE items will use decimal priorities between `0` and `1`.
+---@return number priority # The priority of this item when calculating battle money bonuses.
+function Item:calculateBattleMoneyPriority()
+    return 0
+end
+
+--- *(Override)* Takes in the heal amount of a spell or item used in battle, returning the new amount modified by this item.
+---
+--- This function is only called once per unique item id. It is recommended you make the effect scale with amount equipped, which can be checked via
+--- [Game.checkPartyEquipped](lua://Game.checkPartyEquipped), [PartyMember.checkArmor](lua://PartyMember.checkArmor), or [PartyMember.checkWeapon](lua://PartyMember.checkWeapon).
+--- @param heal number # The current amount of healing done.
+--- @param base_heal number # The base amount of healing done before any bonuses.
+--- @param caster PartyMember? # The party member performing the heal, if applicable.
+--- @param target PartyMember? # The party member receiving the heal, if applicable.
+--- @return number new_heal # The new amount of healing done in battle after applying this item's bonus.
+function Item:calculateBattleHeal(heal, base_heal, caster, target)
+    return heal
+end
+
+--- *(Override)* Returns the priority of this item when calculating battle heal bonuses.
+---
+--- Higher priority items are applied later, lower priority items are applied first, and items with the same priority are applied in an arbitrary order.
+--- Recommended use is to use a negative priority for flat bonuses (e.g. `+ 100`) and a positive priority for multiplicative bonuses (e.g. `* 2`).
+---
+--- By default, this is `0`. Built-in DELTARUNE items will use decimal priorities between `0` and `1`.
+---@return number priority # The priority of this item when calculating battle heal bonuses.
+function Item:calculateBattleHealPriority()
+    return 0
+end
+
+--- *(Override)* Takes in the current amount of invulnerability frames, returning the new amount modified by this item.
+---
+--- This function is only called once per unique item id, and it is given the amount of that same item equipped.
+--- @param frames number # The current amount of invulnerability frames.
+--- @param base_frames number # The base amount of invulnerability frames before any bonuses.
+--- @param num_equipped number # The number of the same item id equipped by the party.
+--- @return number new_frames # The new amount of invulnerability frames after applying this item's bonus.
+function Item:calculateInvulnFrames(frames, base_frames, num_equipped)
+    return frames
+end
+
+--- *(Override)* Returns the priority of this item when calculating invulnerability frame bonuses.
+---
+--- Higher priority items are applied later, lower priority items are applied first, and items with the same priority are applied in an arbitrary order.
+--- Recommended use is to use a negative priority for flat bonuses (e.g. `+ 100`) and a positive priority for multiplicative bonuses (e.g. `* 2`).
+---
+--- By default, this is `0`. Built-in DELTARUNE items will use decimal priorities between `0` and `1`.
+---@return number priority # The priority of this item when calculating invulnerability frame bonuses.
+function Item:calculateInvulnFramesPriority()
+    return 0
 end
 
 --- Gets the stat bonus an item has for a specific stat

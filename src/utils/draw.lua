@@ -225,6 +225,8 @@ end
 ---@param shader love.Shader|string
 ---@return love.Shader
 function Draw.pushShader(shader, vars)
+    vars = vars or {}
+
     if type(shader) == "string" then
         if Kristal.Shaders[shader] then
             shader = Kristal.Shaders[shader]

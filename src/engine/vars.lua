@@ -207,6 +207,8 @@ KRISTAL_EVENT = {
     getDarkMenuButtons = "getDarkMenuButtons", -- optional creation of buttons for custom dark world menu / at: DarkMenu:init() / passes: table:buttons, DarkMenu:self / returns: nil|table
     getUISkin = "getUISkin", --optional default UI skin key / at: UIBox:init(x, y, width, height, skin) / passes: skin:string / returns: nil|string
     onDarkMenuOpen = "onDarkMenuOpen",  -- dark world menu is opened / at: DarkMenu:onAdd(parent) / passes: DarkMenu:self / returns: NONE
+    getConfigOptions = "getConfigOptions", -- dark world config menu is opened, while registering config options / at: DarkConfigMenu:init() / passes: DarkConfigMenu:self, table:options / returns: NONE
+    postConfigOptions = "postConfigOptions", -- dark world config menu is opened, after registering all config options / at: DarkConfigMenu:init() / passes: DarkConfigMenu:self, table:options / returns: NONE
 
     --discordrpc events--
     getPresenceDetails = "getPresenceDetails", -- optional discordRPC detail message at mod start / at: Game:enter(previous_state, save_id, save_name, fade) / passes: NONE / returns: nil|string
@@ -292,7 +294,12 @@ KRISTAL_EVENT = {
     onRegisterWaves = "onRegisterWaves", -- wave scripts finished registering / in: Registry.initWaves() / passes: NONE / returns: NONE
     onRegisterBullets = "onRegisterBullets", -- bullet scripts finished registering / in: Registry.initBullets() / passes: NONE / returns: NONE
     onRegisterCutscenes = "onRegisterCutscenes", -- cutscene scripts finished registering / in: Registry.initCutscenes() / passes: NONE / returns: NONE
+    onRegisterLayerTypes = "onRegisterLayerTypes", -- default map layer types registered / in: Registry.initLayerTypes() / passes: LayerTypeRegistry:registry / returns: NONE
+    onRegisterEditorPropertyTypes = "onRegisterEditorPropertyTypes", -- default editor property types registered / in: Registry.initEditorProperties() / passes: EditorPropertyRegistry:registry / returns: NONE
+    onRegisterEditorTemplates = "onRegisterEditorTemplates", -- default editor templates registered / in: Registry.initEditorTemplates() / passes: Registry / returns: NONE
+    onRegisterEditorDrawFX = "onRegisterEditorDrawFX", -- default editor DrawFX registered / in: Registry.initEditorDrawFX() / passes: table registry / returns: NONE
     onRegisterEvents = "onRegisterEvents", -- event scripts finished registering / in: Registry.initEventScripts() / passes: NONE / returns: NONE
+    onRegisterEditorEvents = "onRegisterEditorEvents", -- default editor events registered; libraries and the mod can register theirs / in: Registry.initEditorEvents() / passes: NONE / returns: NONE
     onRegisterTilesets = "onRegisterTilesets", -- tileset scripts finished registering / in: Registry.initTilesets() / passes: NONE / returns: NONE
     onRegisterMaps = "onRegisterMaps", -- map scripts finished registering / in: Registry.initMaps() / passes: NONE / returns: NONE
     onRegisterEventScripts = "onRegisterEventScripts", -- event scripts finished registering / in: Registry.initEvents() / passes: NONE / returns: NONE

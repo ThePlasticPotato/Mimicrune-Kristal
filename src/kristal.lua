@@ -14,6 +14,8 @@ else
         ["Loading"] = require("src.engine.loadstate"),
         ["MainMenu"] = require("src.engine.menu.mainmenu"),
         ["Game"] = require("src.engine.game.game"),
+        ["Editor"] = require("src.engine.editor.editor"),
+        ["EditorTransition"] = require("src.engine.editor.editortransitionstate"),
         ["Testing"] = require("src.teststate"),
         ["Empty"] = {}
     }
@@ -232,6 +234,7 @@ function love.load(args)
 
     -- setup structure
     love.filesystem.createDirectory("mods")
+    love.filesystem.createDirectory("editor/plugins")
     love.filesystem.createDirectory("saves")
     love.filesystem.createDirectory("pv")
     love.filesystem.createDirectory("pv/vessel")
@@ -253,6 +256,7 @@ function love.load(args)
     Kristal.ChapterConfigs[2] = JSON.decode(love.filesystem.read("configs/chapter2.json"))
     Kristal.ChapterConfigs[3] = JSON.decode(love.filesystem.read("configs/chapter3.json"))
     Kristal.ChapterConfigs[4] = JSON.decode(love.filesystem.read("configs/chapter4.json"))
+    Kristal.ChapterConfigs[5] = JSON.decode(love.filesystem.read("configs/chapter5.json"))
 
     -- initialize overlay
     Kristal.Overlay:init()
@@ -263,10 +267,6 @@ function love.load(args)
     -- screen canvas
     SCREEN_CANVAS = love.graphics.newCanvas(SCREEN_WIDTH, SCREEN_HEIGHT)
     SCREEN_CANVAS:setFilter("nearest", "nearest")
-
-    PERFORMANCE_TEST = nil
-    ---@type string?
-    PERFORMANCE_TEST_STAGE = nil
 
     SCREENSHOT_DISPLAY = 1
     TAKING_SCREENSHOT = false
@@ -313,6 +313,9 @@ function love.load(args)
 end
 
 function love.quit()
+    if Kristal.getState() == Kristal.States["Editor"] and Kristal.States["Editor"].saveSession then
+        pcall(function() Kristal.States["Editor"]:saveSession() end)
+    end
     if DISCORD_RPC_AVAILABLE and Kristal.Config["discordRPC"] then
         DiscordRPC.shutdown()
     end
@@ -334,11 +337,6 @@ function love.focus()
 end
 
 function love.draw()
-    if PERFORMANCE_TEST_STAGE == "DRAW" then
-        PERFORMANCE_TEST = {}
-        Utils.pushPerformance("Total")
-    end
-
     -- We need to draw the game to a canvas, so we can scale
     -- Also, to draw the borders later
     Draw.reset()
@@ -346,9 +344,11 @@ function love.draw()
     Draw.pushCanvas(SCREEN_CANVAS)
     love.graphics.clear(0, 0, 0, 1)
 
-    -- Draw the current state
+    -- Draw the current state (or the editor's underlying game state)
     local state = Kristal.getState()
-    if state ~= nil and state.draw then
+    if state ~= nil and state.editor_mode and state.drawGame then
+        state:drawGame()
+    elseif state ~= nil and state.draw then
         state:draw()
     end
 
@@ -357,6 +357,24 @@ function love.draw()
     Kristal.Overlay:draw()
 
     Draw.popCanvas()
+
+    -- Editor UI uses raw window coordinates and owns composition of the fixed
+    -- game canvas. The normal border/scale path remains untouched otherwise.
+    if state ~= nil and state.editor_mode and state.drawEditor then
+        love.graphics.origin()
+        Draw.reset()
+        state:drawEditor(SCREEN_CANVAS)
+        Draw._clearUnusedCanvases()
+
+        if PERFORMANCE_TEST then
+            Utils.popPerformance()
+            Utils.printPerformance()
+            PERFORMANCE_TEST_STAGE = nil
+            PERFORMANCE_TEST = nil
+        end
+        TAKING_SCREENSHOT = false
+        return
+    end
 
     -- Draw borders if possible
     Kristal.drawBorders()
@@ -383,13 +401,6 @@ function love.draw()
     end
 
     Draw._clearUnusedCanvases()
-
-    if PERFORMANCE_TEST then
-        Utils.popPerformance()
-        Utils.printPerformance()
-        PERFORMANCE_TEST_STAGE = nil
-        PERFORMANCE_TEST = nil
-    end
 
     local screenshot_size = MathUtils.lerp(20, 0, SCREENSHOT_DISPLAY)
     if screenshot_size > 0 and not TAKING_SCREENSHOT then
@@ -447,11 +458,6 @@ function Kristal.drawBorders()
 end
 
 function love.update(dt)
-    if PERFORMANCE_TEST_STAGE == "UPDATE" then
-        PERFORMANCE_TEST = {}
-        Utils.pushPerformance("Total")
-    end
-
     BASE_DT = dt
     if FAST_FORWARD then
         CURRENT_SPEED_MULT = FAST_FORWARD_SPEED
@@ -540,23 +546,25 @@ function love.update(dt)
 
     -- Update overlay last (after loader, which sometimes updates the overlay)
     Kristal.Overlay:update()
-
-    if PERFORMANCE_TEST then
-        Utils.popPerformance()
-        print("-------- PERFORMANCE --------")
-        Utils.printPerformance()
-        PERFORMANCE_TEST_STAGE = "DRAW"
-        PERFORMANCE_TEST = nil
-    end
 end
 
 function love.textinput(key)
+    local state = Kristal.getState()
+    if state and state.owns_window_input and state.onTextInput then
+        state:onTextInput(key)
+        return
+    end
     TextInput.onTextInput(key)
     Kristal.callEvent(KRISTAL_EVENT.onTextInput, key)
 end
 
 function love.mousepressed(win_x, win_y, button, istouch, presses)
     Input.active_gamepad = nil
+    local state = Kristal.getState()
+    if state and state.owns_window_input and state.onMousePressed then
+        state:onMousePressed(win_x, win_y, button, istouch, presses)
+        return
+    end
     local x, y = Input.getMousePosition(win_x, win_y)
     if Kristal.DebugSystem then
         Kristal.DebugSystem:onMousePressed(x, y, button, istouch, presses)
@@ -566,6 +574,11 @@ function love.mousepressed(win_x, win_y, button, istouch, presses)
 end
 
 function love.mousemoved(x, y, dx, dy, istouch)
+    local state = Kristal.getState()
+    if state and state.owns_window_input and state.onMouseMoved then
+        state:onMouseMoved(x, y, dx, dy, istouch)
+        return
+    end
     -- Adjust to be inside of the screen
     x, y = Input.getMousePosition(x, y)
     dx, dy = Input.getMousePosition(dx, dy, true)
@@ -573,6 +586,11 @@ function love.mousemoved(x, y, dx, dy, istouch)
 end
 
 function love.mousereleased(x, y, button, istouch, presses)
+    local state = Kristal.getState()
+    if state and state.owns_window_input and state.onMouseReleased then
+        state:onMouseReleased(x, y, button, istouch, presses)
+        return
+    end
     if Kristal.DebugSystem then
         Kristal.DebugSystem:onMouseReleased(x, y, button, istouch, presses)
     end
@@ -623,6 +641,11 @@ function Kristal.shouldDisplayDevWarning()
 end
 
 function Kristal.onKeyPressed(key, is_repeat)
+    local owning_state = Kristal.getState()
+    if owning_state and owning_state.owns_window_input then
+        if owning_state.onKeyPressed then owning_state:onKeyPressed(key, is_repeat) end
+        return
+    end
     if not TextInput.active and not (Input.gamepad_locked and Input.isGamepad(key)) then
         if not StringUtils.startsWith(key, "gamepad:") then
             Input.active_gamepad = nil
@@ -685,7 +708,11 @@ function Kristal.onKeyPressed(key, is_repeat)
     local console_open = Kristal.Console and Kristal.Console.is_open
 
     if not is_repeat and Input.shouldProcess(key) then
-        if Kristal.isDevMode() then
+        if not RELEASE_MODE and Input.is("editor", key) and Kristal.getState() == Game
+            and Game.state == "OVERWORLD" and Game.world and Game.world.map then
+            Input.clear("editor")
+            Kristal.enterEditor({ map_id = Game.world.map.id, game_preview = true })
+        elseif Kristal.isDevMode() then
             -- Developer hotkeys
             if key == "f2" or (Input.is("fast_forward", key) and not console_open) then
                 FAST_FORWARD = not FAST_FORWARD
@@ -745,6 +772,11 @@ function Kristal.onKeyPressed(key, is_repeat)
 end
 
 function Kristal.onKeyReleased(key)
+    local owning_state = Kristal.getState()
+    if owning_state and owning_state.owns_window_input then
+        if owning_state.onKeyReleased then owning_state:onKeyReleased(key) end
+        return
+    end
     if Kristal.DebugSystem then
         Kristal.DebugSystem:onKeyReleased(key)
     end
@@ -757,6 +789,11 @@ function Kristal.onKeyReleased(key)
 end
 
 function Kristal.onWheelMoved(x, y)
+    local owning_state = Kristal.getState()
+    if owning_state and owning_state.owns_window_input then
+        if owning_state.onWheelMoved then owning_state:onWheelMoved(x, y) end
+        return
+    end
     if Kristal.DebugSystem then
         Kristal.DebugSystem:onWheelMoved(x, y)
     end
@@ -859,12 +896,16 @@ function Kristal.errorHandler(msg, trace_level)
         end
     end
 
+    local state = Kristal.getState()
+    local editor_error = state and state.editor_mode
     local window_scale = 1
-    if Kristal.Config and Kristal.Config["borders"] ~= "off" then
-        window_scale = math.min(love.graphics.getWidth() / (BORDER_WIDTH * BORDER_SCALE),
-                                love.graphics.getHeight() / (BORDER_HEIGHT * BORDER_SCALE))
-    else
-        window_scale = math.min(love.graphics.getWidth() / SCREEN_WIDTH, love.graphics.getHeight() / SCREEN_HEIGHT)
+    if not editor_error then
+        if Kristal.Config and Kristal.Config["borders"] ~= "off" then
+            window_scale = math.min(love.graphics.getWidth() / (BORDER_WIDTH * BORDER_SCALE),
+                                    love.graphics.getHeight() / (BORDER_HEIGHT * BORDER_SCALE))
+        else
+            window_scale = math.min(love.graphics.getWidth() / SCREEN_WIDTH, love.graphics.getHeight() / SCREEN_HEIGHT)
+        end
     end
 
     local window_width = love.graphics.getWidth() / window_scale
@@ -1242,6 +1283,53 @@ function Kristal.getState()
     return Kristal.CurrentState
 end
 
+--- Opens editor mode around the currently loaded game context.
+---@param options? {project_id?: string, map_id?: string, restore_active_document?: boolean, game_preview?: boolean}
+---@return boolean success
+function Kristal.enterEditor(options)
+    if RELEASE_MODE then return false end
+    if Kristal.getState() == Kristal.States["Editor"]
+        or Kristal.getState() == Kristal.States["EditorTransition"] then return true end
+    if Kristal.getState() ~= Game or not Mod then return false end
+    options = options or {}
+    options.project_id = options.project_id or Mod.info.id
+    options.map_id = options.map_id or (Game.world and Game.world.map and Game.world.map.id)
+    if options.transition == false then
+        Kristal.pushState("Editor", options)
+    else
+        Kristal.pushState("EditorTransition", "enter", options)
+    end
+    return true
+end
+
+--- Closes editor mode and restores its underlying game context.
+---@return boolean success
+function Kristal.exitEditor()
+    if Kristal.getState() ~= Kristal.States["Editor"] then return false end
+    return Kristal.States["Editor"]:beginExitTransition()
+end
+
+--- Loads a project through the normal registry path and opens it in editor mode.
+---@param id string
+---@return boolean success
+function Kristal.loadModIntoEditor(id)
+    if RELEASE_MODE then return false end
+    return Kristal.loadMod(id, nil, nil, function()
+        if Kristal.preInitMod(id) then
+            Kristal.setDesiredWindowTitleAndIcon()
+            Kristal.setState("Game")
+            Kristal.resetDevMode()
+            Kristal.enterEditor({
+                project_id = id,
+                transition = false,
+                restore_active_document = true,
+                game_preview = false,
+                return_to_menu = true
+            })
+        end
+    end)
+end
+
 ---@return number runtime The current runtime (`RUNTIME`), affected by timescale / fast-forward.
 function Kristal.getTime()
     return RUNTIME
@@ -1266,7 +1354,6 @@ end
 function Kristal.setVolume(volume)
     Kristal.Config["masterVolume"] = MathUtils.clamp(volume, 0, 1)
     love.audio.setVolume(volume)
-    Kristal.saveConfig()
 end
 
 --- Called internally to make sure the correct cursor is displayed.
@@ -1316,6 +1403,7 @@ function Kristal.resetDevMode()
     FAST_FORWARD = false
     DEBUG_RENDER = false
     NOCLIP = false
+    INVINCIBILITY = false
 end
 
 --- Clears all state expected to be changed by projects. \
@@ -1401,6 +1489,10 @@ function Kristal.returnToMenu()
     --     end
     --     return
     -- end
+    local state = Kristal.getState()
+    if state and state.closeGamePreviewFromGameMenu
+        and state:closeGamePreviewFromGameMenu() then return end
+
     -- Go to empty state
     Kristal.setState("Empty")
 
@@ -1433,6 +1525,12 @@ function Kristal.quickReload(mode)
     if Kristal.isLoading() then
         error("Attempt to reload while loading")
     end
+
+    local dev_debug_override = DEBUG_OVERRIDE
+    local dev_fast_forward = FAST_FORWARD
+    local dev_debug_render = DEBUG_RENDER
+    local dev_noclip = NOCLIP
+    local dev_invincibility = INVINCIBILITY
 
     -- Temporarily save game variables
     local save, save_id, encounter, encounter_type, shop
@@ -1488,10 +1586,31 @@ function Kristal.quickReload(mode)
                         -- Switch to Game
                         Kristal.setState(Game)
                     end
+
+                    if Kristal.isDevMode() then
+                        DEBUG_OVERRIDE = dev_debug_override
+                        FAST_FORWARD = dev_fast_forward
+                        DEBUG_RENDER = dev_debug_render
+                        NOCLIP = dev_noclip
+                        INVINCIBILITY = dev_invincibility
+                    end
                 end
             end)
         else
-            Kristal.loadMod(mod_id, save_id)
+            Kristal.loadMod(mod_id, save_id, nil, function()
+                if Kristal.preInitMod(mod_id) then
+                    Kristal.setDesiredWindowTitleAndIcon()
+                    Kristal.setState("Game", save_id)
+                    Kristal.resetDevMode()
+                    if Kristal.isDevMode() then
+                        DEBUG_OVERRIDE = dev_debug_override
+                        FAST_FORWARD = dev_fast_forward
+                        DEBUG_RENDER = dev_debug_render
+                        NOCLIP = dev_noclip
+                        INVINCIBILITY = dev_invincibility
+                    end
+                end
+            end)
         end
     end)
 end
@@ -1766,10 +1885,18 @@ function Kristal.resetWindow()
         properties
     )
 
-    -- Force tilelayers to redraw, since resetWindow destroys their canvases
-    if Game.world then
-        for _, tilelayer in ipairs(Game.world.stage:getObjects(TileLayer)) do
-            tilelayer.drawn = false
+    Kristal.refreshWindowText()
+end
+
+--- Forces live Text objects to rebuild canvases after a window mode change.
+function Kristal.refreshWindowText()
+    local stages = { Kristal.Stage, Kristal.States["Testing"].stage, Game.stage, MainMenu.stage }
+
+    for _, stage in pairs(stages) do
+        if stage ~= nil then
+            for _, obj in ipairs(stage:getObjects(Text)) do
+                obj:forceRedraw()
+            end
         end
     end
 end
@@ -2344,6 +2471,16 @@ function libRequire(lib, path, ...)
     end
     Kristal.LoadedModScripts[full_path] = result
     return result
+end
+
+--- Executes a cached Lua script from an editor plugin.
+---@param plugin_id string The editor plugin ID.
+---@param path string The script path, using dot or slash separators.
+---@param ... any Arguments passed to the script the first time it is loaded.
+---@return any ... The script's cached return values.
+---@diagnostic disable-next-line: lowercase-global
+function pluginRequire(plugin_id, path, ...)
+    return EditorPlugins:require(plugin_id, path, ...)
 end
 
 return Kristal

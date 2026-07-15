@@ -50,7 +50,7 @@ function item:init()
 
     -- Character reactions
     self.reactions = {
-        susie = "ABSOLUTELY not.",
+        susie = "Hey, ONLY on the arm.",
         ralsei = "Yeah!",
         noelle = "Go...  t... team?",
         evan = "Uh... okay...?",
@@ -60,6 +60,7 @@ function item:init()
         },
         fredbear = "Too much bow for me."
     }
+    self.susie_rejection = "ABSOLUTELY not."
     -- Ralsei cheer reactions (advanced on each equip)
     self.ralsei_cheer_reactions = {
         "Give me a K! Give me an R!",
@@ -81,6 +82,14 @@ function item:init()
     self.ralsei_cheer_flag = "blueribbon_ralsei_cheer"
 end
 
+function item:canEquip(character, slot_type, slot_index)
+    if character.id == "susie" and not character:getFlag("can_wear_ribbons", false) then
+        return false
+    end
+
+    return super.canEquip(self, character, slot_type, slot_index)
+end
+
 function item:onEquip(character, replacement)
     if character.id == "ralsei" then
         -- Cheer reaction advances each equip
@@ -100,16 +109,32 @@ function item:getReaction(user_id, reactor_id)
         end
     end
 
+    -- Handle ribbon rejection for Susie
+    if user_id == "susie" and reactor_id == "susie" then
+        local susie = Game:getPartyMember("susie")
+
+        if not susie:getFlag("can_wear_ribbons", false) then
+            return self.susie_rejection
+        end
+    end
+
     return super.getReaction(self, user_id, reactor_id)
 end
 
-function item:applyHealBonus(current_heal, base_heal, healer)
-    if self:isEquippedBy(healer) then
-        -- Apply healing bonus if healing is performed by equipped party member
-        current_heal = current_heal + math.ceil(base_heal / 8)
+function item:calculateBattleHeal(heal, base_heal, caster, target)
+    -- Increase heal by 1/8 of the base heal for each equipped on the healer
+    local heal_add = math.ceil(base_heal / 8)
+
+    if caster ~= nil then
+        local _, amount = caster:checkArmor(self.id)
+        heal_add = heal_add * amount
     end
 
-    return current_heal
+    return heal + heal_add
+end
+
+function item:calculateBattleHealPriority()
+    return -0.9
 end
 
 return item

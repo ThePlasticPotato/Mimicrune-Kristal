@@ -52,7 +52,7 @@ function item:init()
 
     -- Character reactions
     self.reactions = {
-        susie = "... it gets worse and worse.",
+        susie = "NOT the hair though.",
         ralsei = "Try around my horns!",
         noelle = "... nostalgic, huh.",
         evan = "I, um, draw the line at one.",
@@ -62,6 +62,27 @@ function item:init()
         },
         fredbear = "Far too much bow for me."
     }
+    self.susie_rejection = "... it gets worse and worse."
+end
+
+function item:canEquip(character, slot_type, slot_index)
+    if character.id == "susie" and not character:getFlag("can_wear_ribbons", false) then
+        return false
+    end
+
+    return super.canEquip(self, character, slot_type, slot_index)
+end
+
+function item:getReaction(user_id, reactor_id)
+    if user_id == "susie" and reactor_id == "susie" then
+        local susie = Game:getPartyMember("susie")
+
+        if not susie:getFlag("can_wear_ribbons", false) then
+            return self.susie_rejection
+        end
+    end
+
+    return super.getReaction(self, user_id, reactor_id)
 end
 
 return item

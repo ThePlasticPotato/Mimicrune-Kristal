@@ -318,7 +318,6 @@ end
 
 --- *(Override)* Called when all the waves of the current turn have finished.
 function Encounter:onWavesDone()
-    Game.battle:setState("DEFENDINGEND", "WAVEENDED")
 end
 
 --- *(Override)* Creates the soul being used this battle (Called at the start of the first wave)
@@ -393,6 +392,14 @@ end
 ---@return boolean
 function Encounter:canSwoon(target)
     return true
+end
+
+--- *(Override)* Whether the encounter should decrease the invulnerability timer.
+---
+--- By default, this redirects to [`Soul:shouldDecreaseInvuln()`](lua://Soul.shouldDecreaseInvuln) if the soul exists.
+---@return boolean decrease_invuln # `true` if the invulnerability timer should decrease.
+function Encounter:shouldDecreaseInvuln()
+    return Game.battle.soul ~= nil and Game.battle.soul:shouldDecreaseInvuln()
 end
 
 --- *(Override)* Creates the battle background for this encounter. \

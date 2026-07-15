@@ -1119,7 +1119,8 @@ function Object:getDebugOptions(context)
             local clone = self:clone() ---@type Object
             clone:removeFX("debug_flash")
             self.parent:addChild(clone)
-            clone:setScreenPos(Input.getMousePosition())
+            clone:setScreenPos(Kristal.DebugSystem and Kristal.DebugSystem:getCursorPosition()
+                or Input.getMousePosition())
             Kristal.DebugSystem:selectObject(clone)
         end)
     end
@@ -1313,7 +1314,6 @@ function Object:removeFX(id)
 end
 
 function Object:applyTransformTo(transform, floor_x, floor_y)
-    Utils.pushPerformance("Object#applyTransformTo")
     if not floor_x then
         transform:translate(self.x, self.y)
     else
@@ -1376,14 +1376,11 @@ function Object:applyTransformTo(transform, floor_x, floor_y)
             transform:translate(MathUtils.floorToMultiple(shake_x, floor_x), MathUtils.floorToMultiple(shake_y, floor_y))
         end
     end
-    Utils.popPerformance()
 end
 
 function Object:createTransform()
-    Utils.pushPerformance("Object#createTransform")
     local transform = love.math.newTransform()
     self:applyTransformTo(transform)
-    Utils.popPerformance()
     return transform
 end
 

@@ -16,6 +16,7 @@
 ---@field started           boolean
 ---@field border            string|Border
 ---@field fft               LoveFFT
+---@field inv_frames        number
 ---
 ---@field previous_state    string
 ---@field state             string
@@ -76,6 +77,7 @@ function Game:clear()
     self.started = false
     self.border = "simple"
     self.fft = nil
+    self.inv_frames = 0
 end
 
 ---@overload fun(self: Game, previous_state: string, save_data: SaveData, save_id: number)
@@ -92,9 +94,6 @@ function Game:enter(previous_state, save_id, save_name, fade)
     self.quick_save = nil
 
     self.event_registry = EventRegistry()
-    self.builtin_event_registry = EventRegistry()
-
-    self:registerBuiltInEvents()
 
     Kristal.callEvent(KRISTAL_EVENT.init)
 
@@ -134,112 +133,18 @@ function Game:enter(previous_state, save_id, save_name, fade)
     end
 end
 
---- Register a new event class with the given ID.
----@param id string                    The ID of the event.
----@param constructor fun(data):Event  A constructor function that takes event data and returns an event instance.
+--- Registers a fallback runtime constructor for a mod event which has no EditorEvent.
+---@param id string
+---@param constructor fun(data: table):Object
+---@return boolean registered
 function Game:registerEvent(id, constructor)
+    if Registry.getEditorEvent(id) then
+        Kristal.Console:warn("Ignoring fallback event '" .. id
+            .. "' because an EditorEvent is already registered for that type")
+        return false
+    end
     self.event_registry:register(id, constructor)
-end
-
---- Responsible for registering all built-in events.
-function Game:registerBuiltInEvents()
-    local registry = Game.builtin_event_registry
-
-    -- Unfortunately, we have to defer all of these...
-
-    local function getCharaX(data)
-        if data.gid then
-            local tx, _, tw, _ = Game.world.map:getTileObjectRect(data)
-            return tx + tw / 2
-        end
-        return data.center_x
-    end
-
-    local function getCharaY(data)
-        if data.gid then
-            local _, ty, _, th = Game.world.map:getTileObjectRect(data)
-            return ty + th
-        end
-        return data.center_y
-    end
-
-    local function getShapeData(data)
-        return { data.width, data.height, data.polygon }
-    end
-
-    local function getRectData(data)
-        return { data.width, data.height }
-    end
-
-    registry:register("savepoint", function(data) return Savepoint(data.center_x, data.center_y, data.properties) end)
-    registry:register("interactable", function(data) return Interactable(data.x, data.y, getShapeData(data), data.properties) end)
-    registry:register("attackable", function(data) return Attackable(data.x, data.y, getShapeData(data), data.properties) end)
-    registry:register("script", function(data) return Script(data.x, data.y, getShapeData(data), data.properties) end)
-    registry:register("transition", function(data) return Transition(data.x, data.y, getShapeData(data), data.properties) end)
-    registry:register("npc", function(data) return NPC(data.properties["actor"], getCharaX(data), getCharaY(data), data.properties) end)
-    registry:register("enemy", function(data) return ChaserEnemy(data.properties["actor"], getCharaX(data), getCharaY(data), data.properties) end)
-    registry:register("outline", function(data) return Outline(data.x, data.y, getRectData(data)) end)
-    registry:register("silhouette", function(data) return Silhouette(data.x, data.y, getRectData(data), data.properties) end)
-    registry:register("slidearea", function(data) return SlideArea(data.x, data.y, getRectData(data), data.properties) end)
-    registry:register("mirror", function(data) return MirrorArea(data.x, data.y, getRectData(data), data.properties) end)
-    registry:register("chest", function(data) return TreasureChest(data.center_x, data.center_y, data.properties) end)
-    registry:register("cameratarget", function(data) return CameraTarget(data.x, data.y, getShapeData(data), data.properties) end)
-    registry:register("hideparty", function(data) return HideParty(data.x, data.y, getShapeData(data), data.properties.alpha) end)
-    registry:register("setflag", function(data) return SetFlagEvent(data.x, data.y, getShapeData(data), data.properties) end)
-    registry:register("cybertrash", function(data) return CyberTrashCan(data.center_x, data.center_y, data.properties) end)
-    registry:register("forcefield", function(data) return Forcefield(data.x, data.y, getRectData(data), data.properties) end)
-    registry:register("pushblock", function(data) return PushBlock(data.x, data.y, getRectData(data), data.properties) end)
-    registry:register("tilebutton", function(data) return TileButton(data.x, data.y, getRectData(data), data.properties) end)
-    registry:register("magicglass", function(data) return MagicGlass(data.x, data.y, getRectData(data), data.properties) end)
-    registry:register("warpdoor", function(data) return WarpDoor(data.x, data.y, data.properties) end)
-    registry:register("darkfountain", function(data) return DarkFountain(data.x, data.y, data.properties) end)
-    registry:register("fountainfloor", function(data) return FountainFloor(data.x, data.y, getRectData(data)) end)
-    registry:register("quicksave", function(data) return QuicksaveEvent(data.x, data.y, getShapeData(data), data.properties["marker"]) end)
-    registry:register("sprite", function(data)
-        local sprite = Sprite(data.properties["texture"], data.x, data.y)
-        sprite:play(data.properties["speed"], true)
-        sprite:setScale(data.properties["scalex"] or 2, data.properties["scaley"] or 2)
-        return sprite
-    end)
-
-    registry:register("climbentry", function(data)
-        return ClimbEntry(data.x, data.y, getRectData(data), {
-            target = data.properties.target,
-            solid = data.properties.solid
-        })
-    end)
-
-    registry:register("climbexit", function(data)
-        return ClimbExit(data.x, data.y, getRectData(data), {
-            target = data.properties.target,
-            direction = data.properties.direction,
-            can_exit = data.properties.can_exit
-        })
-    end)
-
-    registry:register("climblanding", function(data) return ClimbLanding(data.x, data.y, getRectData(data)) end)
-    registry:register("climbarea", function(data) return ClimbArea(data.x, data.y, getRectData(data)) end)
-
-    registry:register("fallingclimbarea", function(data)
-        return FallingClimbArea(data.x, data.y, getRectData(data), {
-            dont_break = data.properties.dont_break,
-            breaks_on_leave = data.properties.breaks_on_leave,
-            fall_time = data.properties.fall_time,
-            timed = data.properties.timed,
-            no_unsafe_area = data.properties.no_unsafe_area
-        })
-    end)
-
-    registry:register("climbunsafe", function(data) return ClimbUnsafe(data.x, data.y, getRectData(data)) end)
-
-    registry:register("climbmover", function(data)
-        return ClimbMover(data.x, data.y, getRectData(data), {
-            target = data.properties.target,
-            exit = data.properties.exit,
-            start_exit = data.properties.start_exit,
-            one_way = data.properties.one_way
-        })
-    end)
+    return true
 end
 
 function Game:leave()
@@ -278,6 +183,9 @@ function Game:setBorder(border, time)
 end
 
 function Game:returnToMenu()
+    local state = Kristal.getState()
+    if state and state.closeGamePreviewFromGameMenu
+        and state:closeGamePreviewFromGameMenu() then return end
     self.fader:fadeOut(Kristal.returnToMenu, { speed = 0.5, music = 10 / 30 })
     Kristal.hideBorder(0.5)
     self.state = "EXIT"
@@ -380,7 +288,14 @@ function Game:save(x, y)
         if type(x) == "string" then
             data.spawn_marker = x
         elseif type(x) == "table" then
-            data.spawn_position = x
+            local object_id = x.object_id or x.object or x.id
+            if object_id ~= nil then
+                local map_id = x.map_id or x.map
+                data.spawn_marker = { map = map_id, object = object_id }
+                if map_id then data.room_id = map_id end
+            else
+                data.spawn_position = x
+            end
         elseif x and y then
             data.spawn_position = { x, y }
         end
@@ -455,8 +370,7 @@ function Game:load(data, index, fade)
 
     self.light = false
 
-    -- Used to carry the soul invulnerability frames between waves
-    self.old_soul_inv_timer = 0
+    self.inv_frames = 0
 
     -- BEGIN SAVE FILE VARIABLES --
 
@@ -804,6 +718,12 @@ function Game:loadQuick(fade)
     end
 end
 
+--- Creates the battle instance. You most likely do not need to call this directly.
+---@return Battle
+function Game:createBattle(battle_class)
+    return battle_class and battle_class() or Battle()
+end
+
 --- Starts a battle using the specified encounter file.
 ---@param encounter     Encounter|string    The encounter id or instance to use for this battle.
 ---@param transition?   boolean|string      Whether to start in the transition state (Defaults to `true`). As a string, represents the state to start the battle in.
@@ -839,7 +759,7 @@ function Game:_startEncounter(battle_class, encounter, transition, enemy, contex
 
     self.state = "BATTLE"
 
-    self.battle = battle_class()
+    self.battle = self:createBattle(battle_class)
 
     if context then
         self.battle.encounter_context = context
@@ -1230,6 +1150,118 @@ function Game:isWorldHidden()
     return false
 end
 
+--- Gets whether the player is currently invulnerable to damage.
+---@return boolean invulnerable # Whether the player is currently invulnerable to damage.
+function Game:hasInvulnerability()
+    return self.inv_frames > -1
+end
+
+--- Resets the invulnerability timer to `-1`, making the player vulnerable to damage again.
+function Game:resetInvuln()
+    self.inv_frames = -1
+end
+
+--- Sets the number of frames the player is invulnerable to damage for.
+---
+--- The player will be invulnerable for as long as this number is **greater than** `-1`, causing one extra frame of invulnerability.
+--- If you would like to disable invulnerability, set this to `-1`.
+---@param frames number
+function Game:setInvulnFrames(frames)
+    self.inv_frames = frames
+end
+
+--- Gets the default number of frames the player should be invulnerable to damage for.
+---@return number frames # The default number of frames the player should be invulnerable to damage for.
+function Game:getDefaultInvulnFrames()
+    return Game:getConfig("defaultInvulnTime")
+end
+
+---@param inv_frames number
+---@return number
+function Game:applyInvulnBonuses(inv_frames)
+    return Game:callEquipmentBonusCalculations(
+        -- Current value, Base value
+        inv_frames, inv_frames,
+        -- Group calculation
+        function(item, current_frames, base_frames, num_equipped)
+            return item:calculateInvulnFrames(current_frames, base_frames, num_equipped)
+        end,
+        -- Priority getter
+        function(item)
+            return item:calculateInvulnFramesPriority()
+        end
+    )
+end
+
+--- Whether the invulnerability timer should decrease each frame.
+---
+--- This redirects to either [`Battle:shouldDecreaseInvuln()`](lua://Battle.shouldDecreaseInvuln) or [`World:shouldDecreaseInvuln()`](lua://World.shouldDecreaseInvuln),
+--- depending on the current state.
+---@return boolean? decrease_invuln # `true` if the invulnerability timer should decrease.
+function Game:shouldDecreaseInvuln()
+    if self.state == "BATTLE" and self.battle ~= nil then
+        return self.battle:shouldDecreaseInvuln()
+    elseif self.state == "OVERWORLD" and self.world ~= nil then
+        return self.world:shouldDecreaseInvuln()
+    end
+end
+
+--- Calculates a value based on the equipped items of all party members.
+---
+--- This function will search through the party members' equipped items, grouping items of the same ID and calling the `group_callback` function once
+--- for each unique equipped item, optionally sorted with a priority getter.
+---
+--- The `group_callback` function is given a reference to the first item of the group, the current value (which should be modified and returned),
+--- the base value before modification, and how many of that item are equipped across the party.
+---
+--- If a `priority_getter` function is provided, it will be called for each unique equipped item to determine the order in which they are processed.
+--- Items with lower priority values will be processed first.
+---
+--- If a `direct_callback` function is provided, it will be called for each individual equipped item before priority sorting. In the base engine, this is
+--- only used to temporarily support deprecated equipment callbacks.
+---@generic T
+---@param value T # The value which will be modified by the callback function for each equipped item.
+---@param base_value T # The base value which will be passed to the callback function for each equipped item.
+---@param group_callback fun(item: Item, value: T, base_value: T, num_equipped: integer): T # The callback function which will be called for each unique equipped item. It should return the modified value.
+---@param priority_getter? fun(item: Item): number # An optional function which will be called for each unique equipped item to determine the order in which they are processed. Items with lower priority values will be processed first.
+---@param direct_callback? fun(item: Item, value: T, base_value: T): T # An optional function which will be called for each individual equipped item, before priority sorting. It should return the modified value.
+---@return T # The final modified value after all equipped items have been processed.
+function Game:callEquipmentBonusCalculations(value, base_value, group_callback, priority_getter, direct_callback)
+    ---@type Item[]
+    local item_list = {}
+    ---@type table<string, number>
+    local num_equipped = {}
+
+    for _, party_member in ipairs(self.party) do
+        for _, item in ipairs(party_member:getEquipment()) do
+            local current_count = num_equipped[item.id]
+
+            if current_count == nil then
+                num_equipped[item.id] = 1
+                table.insert(item_list, item)
+            else
+                num_equipped[item.id] = current_count + 1
+            end
+
+            if direct_callback ~= nil then
+                value = direct_callback(item, value, base_value)
+            end
+        end
+    end
+
+    if priority_getter ~= nil then
+        table.sort(item_list, function(a, b)
+            return priority_getter(a) < priority_getter(b)
+        end)
+    end
+
+    for _, item in ipairs(item_list) do
+        value = group_callback(item, value, base_value, num_equipped[item.id])
+    end
+
+    return value
+end
+
 function Game:update()
     if self.state == "EXIT" then
         self.fader:update()
@@ -1262,6 +1294,10 @@ function Game:update()
     end
 
     self.playtime = self.playtime + DT
+
+    if self:shouldDecreaseInvuln() then
+        self.inv_frames = self.inv_frames - DTMULT
+    end
 
     self.stage:update()
 

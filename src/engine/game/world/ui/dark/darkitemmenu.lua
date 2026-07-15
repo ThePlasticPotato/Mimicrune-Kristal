@@ -44,7 +44,7 @@ function DarkItemMenu:init()
     self.item_selected_x = 1
     self.item_selected_y = 1
     for _, item in ipairs(self:getCurrentStorage()) do
-        item:onMenuOpen(self.parent)
+        item:onMenuOpen(self)
     end
 
     self.selected_item = 1
@@ -267,7 +267,7 @@ function DarkItemMenu:update()
     end
 
     for _, item in ipairs(self:getCurrentStorage()) do
-        item:onMenuUpdate(self.parent)
+        item:onMenuUpdate(self)
     end
 
     super.update(self)

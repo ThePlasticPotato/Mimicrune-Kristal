@@ -1,6 +1,11 @@
 ---@class MathUtils
 local MathUtils = {}
 
+function MathUtils.pointInRect(x, y, rect)
+    return rect and x >= rect.x and y >= rect.y
+        and x < rect.x + rect.width and y < rect.y + rect.height
+end
+
 ---
 --- Checks if a number is an integer.
 ---
@@ -174,6 +179,20 @@ end
 ---
 function MathUtils.lerpPoint(x1, y1, x2, y2, t)
     return MathUtils.lerp(x1, x2, t), MathUtils.lerp(y1, y2, t)
+end
+
+---
+--- Performs an inverse lerp, returning the percentage (from 0 to 1) that a value is between two numbers.
+---
+---@param a number     # The start value of the range.
+---@param b number     # The end value of the range.
+---@param value number # The value to check.
+---@return number t # The percentage (from 0 to 1) that the value is between the specified range.
+function MathUtils.inverseLerp(a, b, value)
+    if a == b then
+        return 0
+    end
+    return (value - a) / (b - a)
 end
 
 ---

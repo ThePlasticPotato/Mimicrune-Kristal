@@ -76,6 +76,9 @@ function DebugSystem:init()
 
     self.context = nil
     self.last_context = nil
+    self.selection_environment_owner = nil
+    self.selection_stage_provider = nil
+    self.selection_cursor_provider = nil
 
     self.search = { "" }
 
@@ -106,9 +109,33 @@ function DebugSystem:init()
 end
 
 function DebugSystem:getStage()
+    if self.selection_stage_provider then
+        return self.selection_stage_provider()
+    end
     if Kristal.getState() then
         return Kristal.getState().stage
     end
+end
+
+function DebugSystem:getCursorPosition()
+    if self.selection_cursor_provider then
+        return self.selection_cursor_provider()
+    end
+    return Input.getCurrentCursorPosition()
+end
+
+function DebugSystem:setSelectionEnvironment(owner, stage_provider, cursor_provider)
+    self.selection_environment_owner = owner
+    self.selection_stage_provider = stage_provider
+    self.selection_cursor_provider = cursor_provider
+end
+
+function DebugSystem:clearSelectionEnvironment(owner)
+    if owner and self.selection_environment_owner ~= owner then return false end
+    self.selection_environment_owner = nil
+    self.selection_stage_provider = nil
+    self.selection_cursor_provider = nil
+    return true
 end
 
 function DebugSystem:selectionOpen()
@@ -145,7 +172,7 @@ function DebugSystem:onMousePressed(x, y, button, istouch, presses)
 
     if self:selectionOpen() then
         if button == 1 or button == 2 then
-            local object = self:detectObject(Input.getCurrentCursorPosition())
+            local object = self:detectObject(self:getCursorPosition())
 
             if object then
                 self:selectObject(object)
@@ -168,7 +195,7 @@ function DebugSystem:onMousePressed(x, y, button, istouch, presses)
                                 "Teleport",
                                 "Teleport the player to\nthe current position.",
                                 function()
-                                    Game.world.player:setScreenPos(Input.getCurrentCursorPosition())
+                                    Game.world.player:setScreenPos(self:getCursorPosition())
                                     Game.world.player:interpolateFollowers()
                                     self:selectObject(Game.world.player)
                                 end)
@@ -178,7 +205,7 @@ function DebugSystem:onMousePressed(x, y, button, istouch, presses)
                                 "Spawn the player at the\ncurrent position.",
                                 function()
                                     Game.world:spawnPlayer(0, 0, Game.party[1]:getActor())
-                                    Game.world.player:setScreenPos(Input.getCurrentCursorPosition())
+                                    Game.world.player:setScreenPos(self:getCursorPosition())
                                     Game.world.player:interpolateFollowers()
                                     self:selectObject(Game.world.player)
                                 end)
@@ -209,11 +236,11 @@ function DebugSystem:onMousePressed(x, y, button, istouch, presses)
                                     Object.endCache()
                                 end
                             end)
-                        self.window:setPosition(Input.getCurrentCursorPosition())
+                        self.window:setPosition(self:getCursorPosition())
                         self:addChild(self.window)
                     end)
                     Kristal.callEvent(KRISTAL_EVENT.registerDebugContext, self.context, nil)
-                    self.context:setPosition(Input.getCurrentCursorPosition())
+                    self.context:setPosition(self:getCursorPosition())
                     self:addChild(self.context)
                 end
             end
@@ -228,7 +255,7 @@ function DebugSystem:openObjectContext(object)
     self.last_context = self.context
 
     Kristal.callEvent(KRISTAL_EVENT.registerDebugContext, self.context, self.object)
-    self.context:setPosition(Input.getCurrentCursorPosition())
+    self.context:setPosition(self:getCursorPosition())
     self:addChild(self.context)
 end
 
@@ -266,7 +293,7 @@ function DebugSystem:pasteObject(object)
         end
     end
 
-    new_object:setScreenPos(Input.getCurrentCursorPosition())
+    new_object:setScreenPos(self:getCursorPosition())
     self:selectObject(new_object)
     if self.copied_object_temp ~= nil then
         self.copied_object = nil
@@ -449,6 +476,7 @@ function DebugSystem:enterMenu(menu, soul, skip_history)
     self.current_menu = menu
     self.current_selecting = soul or self.current_selecting or 1
     self:updateBounds(self:getValidOptions())
+    self.menu_y = self.menu_target_y
 
     if (self.menu_entry_callbacks[self.current_menu]) then
         self.menu_entry_callbacks[self.current_menu]()
@@ -563,7 +591,6 @@ function DebugSystem:registerSubMenus()
     )
 
     self:registerConfigOption("engine_options", "Frame Skip", "Toggle frame skipping.", "frameSkip")
-    self:registerOption("engine_options", "Print Performance", "Show performance in the console.", function() PERFORMANCE_TEST_STAGE = "UPDATE" end)
     self:registerOption("engine_options", "Force GC", "Force a garbage collection.", function() collectgarbage("collect") end)
     self:registerOption("engine_options", "Force Crash", "Force a crash.", function() error("Debug crash!") end)
     self:registerOption("engine_options", "Back", "Go back to the previous menu.", function() self:returnMenu() end)
@@ -599,7 +626,7 @@ function DebugSystem:registerSubMenus()
                 FRAMERATE = fps
             end
         end)
-        self.window:setPosition(Input.getCurrentCursorPosition())
+        self.window:setPosition(self:getCursorPosition())
         self:addChild(self.window)
     end)
 
@@ -1221,6 +1248,14 @@ function DebugSystem:registerDefaults()
 
     self:registerOption(
         "main",
+        "Invincibility",
+        function() return self:appendBool("Toggle invincibility.", INVINCIBILITY) end,
+        function() INVINCIBILITY = not INVINCIBILITY end,
+        in_game
+    )
+
+    self:registerOption(
+        "main",
         "Give Item",
         "Give an item.",
         function()
@@ -1247,7 +1282,7 @@ function DebugSystem:registerDefaults()
                 end
             )
 
-            self.window:setPosition(Input.getCurrentCursorPosition())
+            self.window:setPosition(self:getCursorPosition())
             self:addChild(self.window)
         end,
         in_game
@@ -1573,7 +1608,7 @@ function DebugSystem:onStateChange(old, new)
 end
 
 ---@param options table|number
-function DebugSystem:updateBounds(options)
+function DebugSystem:updateBounds(options, is_repeat)
     local is_search = (self.menus[self.current_menu].type == "search")
     if self.state == "FLAGS" then
         is_search = false
@@ -1584,6 +1619,11 @@ function DebugSystem:updateBounds(options)
     end
 
     local limit = is_search and 0 or 1
+
+    if is_repeat then
+        self.current_selecting = MathUtils.clamp(self.current_selecting, limit, options)
+    end
+
     if self.current_selecting < limit then self.current_selecting = options end
     if self.current_selecting > options then self.current_selecting = limit end
     if self.state == "MENU" or self.state == "FLAGS" or self.state == "FLAG_FILTERS" then
@@ -1667,25 +1707,48 @@ function DebugSystem:onKeyPressed(key, is_repeat)
         end
 
         local limit = (self.menus[self.current_menu].type == "search") and 0 or 1
-        if Input.is("down", key) and (not is_repeat or self.current_selecting < #options) then
-            Assets.playSound("ui_move")
+        local old_selecting = self.current_selecting
+
+        if Input.is("down", key) then
             self.current_selecting = self.current_selecting + 1
         end
-        if Input.is("up", key) and (not is_repeat or self.current_selecting > limit) then
-            Assets.playSound("ui_move")
+
+        if Input.is("up", key) then
             self.current_selecting = self.current_selecting - 1
         end
-        self:updateBounds(options)
+
+        if Input.is("left", key) then
+            if self.current_selecting == limit and not is_repeat then
+                self.current_selecting = #options
+            else
+                self.current_selecting = math.max(self.current_selecting - 5, limit)
+            end
+        end
+
+        if Input.is("right", key) then
+            if self.current_selecting == #options and not is_repeat then
+                self.current_selecting = limit
+            else
+                self.current_selecting = math.min(self.current_selecting + 5, #options)
+            end
+        end
+
+        self:updateBounds(options, is_repeat)
+
+        if old_selecting ~= self.current_selecting then
+            Assets.playSound("ui_move")
+        end
+
     elseif self.state == "SELECTION" and not is_repeat then
         -- Gamepad
         if (key == "gamepad:a") and Input.usingGamepad() then
-            local object = self:detectObject(Input.getCurrentCursorPosition())
+            local object = self:detectObject(self:getCursorPosition())
 
             if object then
                 self:selectObject(object)
                 self.grabbing = true
                 local screen_x, screen_y = object:getScreenPos()
-                local x, y = Input.getCurrentCursorPosition()
+                local x, y = self:getCursorPosition()
                 self.grab_offset_x = x - screen_x
                 self.grab_offset_y = y - screen_y
             else
@@ -1750,7 +1813,7 @@ function DebugSystem:onKeyPressed(key, is_repeat)
                             end
                         end
                     )
-                    self.window:setPosition(Input.getCurrentCursorPosition())
+                    self.window:setPosition(self:getCursorPosition())
                     self:addChild(self.window)
                     self.window.input_lines[1] = Game:getFlag(flag_name)
                     TextInput.cursor_x = string.len(Game:getFlag(flag_name))
@@ -1765,7 +1828,7 @@ function DebugSystem:onKeyPressed(key, is_repeat)
                             Assets.playSound("ui_select")
                         end
                     )
-                    self.window:setPosition(Input.getCurrentCursorPosition())
+                    self.window:setPosition(self:getCursorPosition())
                     self.window.input_lines[1] = Game:getFlag(flag_name)
                     TextInput.cursor_x = string.len(Game:getFlag(flag_name))
                     self:addChild(self.window)
@@ -1881,7 +1944,7 @@ function DebugSystem:update()
     -- Update grabbed object
     if self.grabbing then
         if self.object then
-            local x, y = Input.getCurrentCursorPosition()
+            local x, y = self:getCursorPosition()
             self.object:setScreenPos(x - self.grab_offset_x, y - self.grab_offset_y)
             self.object.debug_x, self.object.debug_y = self.object.x, self.object.y
         end
@@ -1940,6 +2003,7 @@ end
 
 function DebugSystem:draw()
     if self.state == "IDLE" and self.menu_anim_timer >= 1 then
+        self:drawChildren()
         return
     end
 
@@ -2020,7 +2084,11 @@ function DebugSystem:draw()
             if type(color) == "function" then
                 color = color()
             end
-            self:printShadow(name, text_offset + 19, y_off + menu_y + (index - 1) * 32 + 16 + (is_search and 64 or 0) + self.menu_y, color)
+            local x = text_offset + 19
+            local y = y_off + menu_y + (index - 1) * 32 + 16 + (is_search and 64 or 0) + self.menu_y
+            if y > 0 and y < SCREEN_HEIGHT then
+                self:printShadow(name, x, y, color)
+            end
         end
         Draw.popScissor()
 
@@ -2079,12 +2147,16 @@ function DebugSystem:draw()
             local x = (i - 1) % faces_per_row
             local y = math.floor((i - 1) / faces_per_row)
             local texture = Assets.getTexture("face/" .. texture_id)
-            Draw.draw(texture, x_offset + (x * gap), y_offset + (self.faces_y + (y * gap)), 0, 2, 2)
+            local draw_x = x_offset + (x * gap)
+            local draw_y = y_offset + (self.faces_y + (y * gap))
+            if draw_y > 0 and draw_y < SCREEN_HEIGHT then
+                Draw.draw(texture, draw_x, draw_y, 0, 2, 2)
+            end
 
             local width = texture:getWidth() * 2
             local height = texture:getHeight() * 2
 
-            local mx, my = Input.getCurrentCursorPosition()
+            local mx, my = self:getCursorPosition()
 
             if mx > x_offset + (x * gap) and
             mx < x_offset + (x * gap) + width and
@@ -2243,7 +2315,7 @@ function DebugSystem:draw()
     elseif self.state == "SELECTION" or (self.old_state == "SELECTION" and self.state == "IDLE" and (menu_alpha > 0)) then
         header_name = "~ OBJECT SELECTION ~"
 
-        local mx, my = Input.getCurrentCursorPosition()
+        local mx, my = self:getCursorPosition()
 
         for i = 1, 2 do
             local prog = circle_progress - (i - 1) * 0.4
@@ -2367,12 +2439,10 @@ function DebugSystem:draw()
             end
             local info = object:getDebugInfo()
 
-            local small = #info > 7
-
             for i, line in ipairs(info) do
                 self:printShadow(
-                    line, x_offset, (32 * inc) + ((i - 1) * (small and 16 or 32)) + 10, { 1, 1, 1, self.selected_alpha },
-                    self.current_text_align, limit * (small and 2 or 1), small and 0.5 or 1
+                    line, x_offset, (32 * inc) + ((i - 1) * 16) + 10, { 1, 1, 1, self.selected_alpha },
+                    self.current_text_align, limit * 2, 0.5
                 )
             end
         end
