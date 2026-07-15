@@ -18,8 +18,4 @@ function Actor:init()
 
 end
 
-function Actor:getStepSoundOverride()
-    return nil
-end
-
 return Actor

@@ -1,6 +1,24 @@
 ---@class World
 local World, super = HookSystem.hookScript(World)
 
+local function getMapProperties(map)
+    return map and map.data and map.data.properties or {}
+end
+
+local function getTileProperties(world, x, y)
+    local map = world.map
+    if not map then return nil end
+
+    local map_properties = getMapProperties(map)
+    local tile_x = math.floor(x / (map.tile_width or 40))
+    local tile_y = math.floor(y / (map.tile_height or 40))
+    local tileset, tile_index = map:getTile(tile_x, tile_y, map_properties.step_layer or "stepsounds")
+    if not tileset or tile_index == nil then return nil end
+
+    local tile_info = tileset.tile_info[tile_index]
+    return tile_info and tile_info.properties or nil
+end
+
 ---Returns the path of the correct step sound for the given conditions.
 ---@param x number x pos on map
 ---@param y number y pos on map
@@ -9,44 +27,32 @@ local World, super = HookSystem.hookScript(World)
 ---@return string
 ---@return number?
 function World:getStepSound(x, y, num, actor)
-    if (actor:getStepSoundOverride()) then return actor:getStepSoundOverride()..tostring(num) end
+    local override = actor and actor.getStepSoundOverride and actor:getStepSoundOverride()
+    if override then return override .. tostring(num) end
+
     local prefix = "step/"
     if (self.map) then
-        if (self.map.has_tile_sounds or Game.world.map.data.properties["has_tile_sounds"]) then
-            local tile_x = math.floor(x/40)
-            local tile_y = math.floor(y/40)
-            local tileset, tile_index = self.map:getTile(tile_x, tile_y, self.map.data.properties.step_layer or "stepsounds")
-            if (tileset and tile_index) then
-                if (tileset.tile_info[tile_index] and (tileset.tile_info[tile_index].step_sound)) then
-                    local sound = tileset.tile_info[tile_index].step_sound
-                    if (sound == "") then sound = "default" end
-                    return prefix..sound..tostring(num), tileset.tile_info[tile_index]["step_pitch"]
-                end
+        local map_properties = getMapProperties(self.map)
+        if self.map.has_tile_sounds or map_properties.has_tile_sounds then
+            local tile_properties = getTileProperties(self, x, y)
+            if tile_properties and tile_properties.step_sound ~= nil then
+                local sound = tile_properties.step_sound
+                if sound == "" then sound = "default" end
+                return prefix .. sound .. tostring(num), tile_properties.step_pitch
             end
-            
         end
-        if (self.map.step_sound or Game.world.map.data.properties["step_sound"]) then
-            local sound = self.map.step_sound or Game.world.map.data.properties["step_sound"]
-            if (sound == "") then sound = "default" end
-            return prefix..sound..tostring(num), nil
+
+        local sound = self.map.step_sound or map_properties.step_sound
+        if sound ~= nil then
+            if sound == "" then sound = "default" end
+            return prefix .. sound .. tostring(num), nil
         end
     end
-    return prefix.."default"..tostring(num), nil
+    return prefix .. "default" .. tostring(num), nil
 end
 
 function World:getSteppableTile(x, y)
-    if self.map then
-        if true then
-            local tile_x = math.floor(x/40)
-            local tile_y = math.floor(y/40)
-            local tileset, tile_index = self.map:getTile(tile_x, tile_y, self.map.data.properties.step_layer or "stepsounds")
-            if (tileset and tile_index) then
-                return tileset.tile_info[tile_index]
-            end
-            return false
-        end
-        return false
-    end
-    return false
+    return getTileProperties(self, x, y)
 end
+
 return World
