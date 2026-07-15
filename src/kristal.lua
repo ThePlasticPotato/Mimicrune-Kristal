@@ -234,6 +234,7 @@ function love.load(args)
 
     -- setup structure
     love.filesystem.createDirectory("mods")
+    love.filesystem.createDirectory("libraries")
     love.filesystem.createDirectory("editor/plugins")
     love.filesystem.createDirectory("saves")
     love.filesystem.createDirectory("pv")

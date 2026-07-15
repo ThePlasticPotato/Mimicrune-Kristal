@@ -39,25 +39,22 @@ function MainMenuTitle:onEnter(old_state)
 
     if TARGET_MOD then
         self.options = {
-            { "play", (self.menu.seen_intro and self.has_target_saves) and "CONTINUE" or "CONNECT" },
-            { "options", "OPTIONS" },
-            { "credits", "CREDITS" },
-            { "quit", "ESCAPE" },
+            { "play", (self.menu.seen_intro and self.has_target_saves) and "CONTINUE" or "CONNECT" }
         }
-        if not RELEASE_MODE then table.insert(self.options, { "editor", "Editor" }) end
-        table.insert(self.options, { "options", "Options" })
-        table.insert(self.options, { "credits", "Credits" })
-        table.insert(self.options, { "quit", "Quit" })
+        if not RELEASE_MODE then table.insert(self.options, { "editor", "MODIFY" }) end
+        table.insert(self.options, { "options", "CONFIGURE" })
+        table.insert(self.options, { "credits", "CREDITS" })
+        table.insert(self.options, { "quit", "ESCAPE" })
     else
         self.options = {
-            { "play", "Play" },
+            { "play", "COMMENCE" },
         }
-        if not RELEASE_MODE then table.insert(self.options, { "editor", "Editor" }) end
-        table.insert(self.options, { "modfolder", "Open folder" })
-        table.insert(self.options, { "options", "Options" })
-        table.insert(self.options, { "credits", "Credits" })
-        table.insert(self.options, { "wiki", "Open wiki" })
-        table.insert(self.options, { "quit", "Quit" })
+        if not RELEASE_MODE then table.insert(self.options, { "editor", "MODIFY" }) end
+        table.insert(self.options, { "modfolder", "ACCESS" })
+        table.insert(self.options, { "options", "CONFIGURE" })
+        table.insert(self.options, { "credits", "CREDITS" })
+        table.insert(self.options, { "wiki", "LEARN" })
+        table.insert(self.options, { "quit", "ESCAPE" })
     end
 
     if not TARGET_MOD then

@@ -28,6 +28,61 @@ function combinePath(baseDir, subDir, path)
     return s
 end
 
+local function copyTable(value)
+    if type(value) ~= "table" then return value end
+
+    local result = {}
+    for key, item in pairs(value) do
+        result[copyTable(key)] = copyTable(item)
+    end
+    return result
+end
+
+local function loadLibrary(directory, folder)
+    local full_path = directory .. "/" .. folder
+    local zip_id = checkExtension(folder, "zip")
+
+    if zip_id then
+        local mounted_path = full_path
+        full_path = directory .. "/" .. zip_id
+        folder = zip_id
+        love.filesystem.mount(mounted_path, full_path)
+    else
+        local info = love.filesystem.getInfo(full_path)
+        -- Files such as README files are allowed alongside library folders.
+        if not info or info.type ~= "directory" then return nil end
+    end
+
+    local lib = {}
+    if love.filesystem.getInfo(full_path .. "/lib.json") then
+        local ok
+        ok, lib = pcall(json.decode, love.filesystem.read(full_path .. "/lib.json"))
+        if not ok then return nil, lib end
+    end
+
+    lib.id = lib.id or folder
+    lib.folder = folder
+    lib.path = full_path
+
+    return lib
+end
+
+local function loadLibraries(directory)
+    local libraries = {}
+    if not love.filesystem.getInfo(directory) then return libraries end
+
+    for _, folder in ipairs(love.filesystem.getDirectoryItems(directory)) do
+        local lib, err = loadLibrary(directory, folder)
+        if err then return nil, err end
+        if lib then libraries[lib.id] = lib end
+    end
+
+    return libraries
+end
+
+local root_libraries
+local root_library_error
+
 function resetData()
     data = {
         mods = {},
@@ -68,6 +123,18 @@ function resetData()
     }
 
     tileset_image_data = {}
+
+    -- Root libraries are scanned lazily once per mod-loader request, then copied
+    -- into each discovered mod so their runtime metadata remains independent.
+    root_libraries = nil
+    root_library_error = nil
+end
+
+local function getRootLibraries()
+    if not root_libraries and not root_library_error then
+        root_libraries, root_library_error = loadLibraries("libraries")
+    end
+    return root_libraries, root_library_error
 end
 
 local loaders = {
@@ -189,42 +256,41 @@ local loaders = {
                 end
             end
 
+            local shared_libraries, shared_error = getRootLibraries()
+            if shared_error then
+                table.insert(data.failed_mods, {
+                    path = path,
+                    error = shared_error,
+                    file = "lib.json"
+                })
+                print("[WARNING] Shared libraries contain an invalid lib.json; mod \"" .. path .. "\" could not be loaded!")
+                return
+            end
+
+            -- Shared libraries are defaults. A library bundled with a mod can
+            -- intentionally replace one by using the same library ID.
             mod.libs = mod.libs or {}
+            for lib_id, lib in pairs(shared_libraries) do
+                if not mod.libs[lib_id] then
+                    mod.libs[lib_id] = copyTable(lib)
+                end
+            end
 
             if love.filesystem.getInfo(full_path .. "/libraries") then
                 for _, lib_path in ipairs(love.filesystem.getDirectoryItems(full_path .. "/libraries")) do
-                    local lib_full_path = full_path .. "/libraries/" .. lib_path
-                    local lib_zip_id = checkExtension(lib_path, "zip")
-                    if lib_zip_id then
-                        local mounted_path = lib_full_path
-                        lib_full_path = full_path .. "/libraries/" .. lib_zip_id
-                        lib_path = lib_zip_id
-                        love.filesystem.mount(mounted_path, lib_full_path)
-                    end
+                    local lib, lib_error = loadLibrary(full_path .. "/libraries", lib_path)
 
-                    local lib = {}
-
-                    ok = true
-
-                    if love.filesystem.getInfo(lib_full_path .. "/lib.json") then
-                        ok, lib = pcall(json.decode, love.filesystem.read(lib_full_path .. "/lib.json"))
-                    end
-
-                    if not ok then
+                    if lib_error then
                         table.insert(data.failed_mods, {
                             path = path,
-                            error = lib,
+                            error = lib_error,
                             file = "lib.json"
                         })
                         print("[WARNING] Mod \"" .. path .. "\" has a library with an invalid lib.json!")
                         return
                     end
 
-                    lib.id = lib.id or lib_path
-                    lib.folder = lib_path
-                    lib.path = lib_full_path
-
-                    mod.libs[lib.id] = lib
+                    if lib then mod.libs[lib.id] = lib end
                 end
             end
 
