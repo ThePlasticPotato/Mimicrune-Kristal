@@ -24,6 +24,8 @@ function Loading:enter(from, dir)
     MOD_PATH = nil
 
     self.loading_state = Loading.States.WAITING
+    self.prologue_boot = Kristal.PrognosticusCoreMissingAtStartup
+    self.skip_intro = Kristal.Config["skipIntro"] or self.prologue_boot
 
     self.animation_done = false
     self.debug_wait = false
@@ -32,7 +34,7 @@ function Loading:enter(from, dir)
     self.w = self.logo:getWidth()
     self.h = self.logo:getHeight()
 
-    if not Kristal.Config["skipIntro"] then
+    if not self.skip_intro then
         if not self.debug_wait then
             self:startIntro()
         end
@@ -143,7 +145,7 @@ function Loading:update()
         love.window.setPosition(window_x + self.shake_x, window_y + self.shake_y)
     end
     if self.done_loading then
-        if (self.shaking and (self.animation_done or KRistal.Config["skipIntro"])) then
+        if (self.shaking and (self.animation_done or self.skip_intro)) then
             self.shake_x = 0
             self.shake_y = 0
             self.shaking = false
@@ -156,12 +158,17 @@ function Loading:update()
     self.dog:setProgress(loaded / total)
     self.stage:update()
 
-    if (self.loading_state == Loading.States.DONE) and loaded >= total and self.key_check and (self.animation_done or Kristal.Config["skipIntro"]) then
+    if (self.loading_state == Loading.States.DONE) and loaded >= total and self.key_check and (self.animation_done or self.skip_intro) then
         -- We're done loading! This should only happen once.
         self.done_loading = true
 
         if Kristal.Args["test"] and (not RELEASE_MODE) then
             Kristal.setState("Testing")
+        elseif Kristal.PrognosticusCoreMissingAtStartup then
+            local prologue = "mimicrune_prologue"
+            if not Kristal.loadMod(prologue) then
+                error("Failed to load mod: " .. prologue)
+            end
         elseif AUTO_MOD_START and TARGET_MOD then
             if not Kristal.hasAnySaves("mimicrune") then
                 TARGET_MOD = "mimicrune"
@@ -229,7 +236,13 @@ function Loading:draw()
     if (self.debug_wait) then
         return
     end
-    if Kristal.Config["skipIntro"] then
+    if self.prologue_boot then
+        Draw.setColor(0, 0, 0, 1)
+        love.graphics.rectangle("fill", 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
+        Draw.setColor(1, 1, 1, 1)
+        return
+    end
+    if self.skip_intro then
         love.graphics.push()
         love.graphics.translate(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2)
         love.graphics.scale(2, 2)

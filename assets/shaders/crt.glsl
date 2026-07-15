@@ -61,7 +61,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord, in Image tex)
   float yOffset    = abs(sin(iTime)*4.0)*vertMoveOn + vertJerk*vertJerk2*0.3;
   float y          = mod(uv.y + yOffset, 1.0);
 
-  float xOffset = (fuzzOffset + largeFuzzOff) * horzFuzzOpt + jerkOffset;
+  float xOffset = (fuzzOffset + largeFuzzOff + jerkOffset) * horzFuzzOpt;
 
   // vertical “bottom static”
   float staticVal = 0.0;
@@ -76,6 +76,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord, in Image tex)
   float red   = Texel(tex, vec2(fract(uv.x + xOffset - 0.01*rgbOffsetOpt), y)).r + staticVal;
   float green = Texel(tex, vec2(fract(uv.x + xOffset),                     y)).g + staticVal;
   float blue  = Texel(tex, vec2(fract(uv.x + xOffset + 0.01*rgbOffsetOpt), y)).b + staticVal;
+  float sourceAlpha = Texel(tex, vec2(fract(uv.x + xOffset), y)).a;
 
   vec3 color = vec3(red, green, blue);
 
@@ -83,7 +84,9 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord, in Image tex)
   float scanline = sin(uv.y * texsize.y * 0.8) * 0.04 * scanlinesOpt;
   color -= scanline;
 
-  fragColor = vec4(color, 1.0);
+  // CRT is also used on transparent UI canvases. Preserve their coverage so
+  // empty UI space does not become an opaque black layer over the battle.
+  fragColor = vec4(color, sourceAlpha);
 }
 
 vec4 effect(vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords)

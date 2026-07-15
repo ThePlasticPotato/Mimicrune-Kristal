@@ -2127,11 +2127,12 @@ function Object:crt(texsize, transformed, options)
     local passthrough = {
         ["iTime"]            = function () return Kristal.getTime() end;
         ["texsize"]          = texsize;
-        ["vertJerkOpt"]      = options.vertJerkOpt or fallback.vertJerkOpt;
-        ["bottomStaticOpt"]  = options.bottomStaticOpt or fallback.bottomStaticOpt;
-        ["scanlinesOpt"]     = options.scanlinesOpt or fallback.scanlinesOpt;
-        ["rgbOffsetOpt"]     = options.rgbOffsetOpt or fallback.rgbOffsetOpt;
-        ["horzFuzzOpt"]      = options.horzFuzzOpt or fallback.horzFuzzOpt;
+        ["vertJerkOpt"]      = options.vertJerkOpt ~= nil and options.vertJerkOpt or fallback.vertJerkOpt;
+        ["vertMovementOpt"]  = options.vertMovementOpt ~= nil and options.vertMovementOpt or fallback.vertMovementOpt;
+        ["bottomStaticOpt"]  = options.bottomStaticOpt ~= nil and options.bottomStaticOpt or fallback.bottomStaticOpt;
+        ["scanlinesOpt"]     = options.scanlinesOpt ~= nil and options.scanlinesOpt or fallback.scanlinesOpt;
+        ["rgbOffsetOpt"]     = options.rgbOffsetOpt ~= nil and options.rgbOffsetOpt or fallback.rgbOffsetOpt;
+        ["horzFuzzOpt"]      = options.horzFuzzOpt ~= nil and options.horzFuzzOpt or fallback.horzFuzzOpt;
     }
 
     self:addFX(ShaderFX("crt", passthrough, transformed), "crtified")

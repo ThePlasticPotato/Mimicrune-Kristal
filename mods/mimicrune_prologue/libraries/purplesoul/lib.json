@@ -1,0 +1,21 @@
+{
+    "id": "purplesoulskerchv2",
+    "version": "2.0.0",
+    "engineVersion": "0.10.0-dev",
+    "authors": [
+      "TheSkerch"
+    ],
+    "config": {
+      "visuallyRotateSoul": true,
+      "correctControlsForRotation": true,
+      "diagonalControls": false,
+      "directionalJumps": true,
+      "stringWidth": 2,
+      "stringColor": {
+        "r": 0.7725,
+        "g": 0.2941,
+        "b": 0.5490,
+        "a": 0.4
+      }
+    }
+}

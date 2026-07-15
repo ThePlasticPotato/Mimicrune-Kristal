@@ -82,7 +82,7 @@ function MainMenuTitle:onKeyPressed(key, is_repeat)
             if not TARGET_MOD then
                 self.menu:setState("MODSELECT")
             else
-                local realTarget = (self.seen_intro) and "mimicrune_chapter_select" or "mimicrune"
+                local realTarget = (self.seen_intro) and "mimicrune_chapter_select" or "mimicrune_prologue"
                 local mod = Kristal.Mods.getMod(realTarget)
 
                 if (mod["useSaves"] == true) or (mod["useSaves"] == nil and self.has_target_saves) then

@@ -1,0 +1,65 @@
+{
+    // The ID of your project. Should be unique!!
+    "id": "mimicrune_prologue",
+    // Displays on the main menu.
+    "name": "Mimicrune Prologue",
+    // Displays underneath the name. Optional.
+    "subtitle": "",
+
+    // The version of your project.
+    "version": "v1.0.0",
+    // What version of the engine your project was made with.
+    "engineVer": "v0.11.0-dev",
+
+    // The Deltarune chapter you'd like to base your project off of.
+    // Do keep in mind that you can control chapter-specific features
+    // one by one using the config below.
+    "chapter": 5,
+
+    // The map that you start in when first starting the project.
+    "map": "void",
+
+    // The party. The first character is the player.
+    "party": [],
+
+    // Keep every storage explicit so the engine does not add its default cell phone.
+    "inventory": {
+        "items": [],
+        "armors": [],
+        "trinkets": [],
+        "weapons": [],
+        "key_items": []
+    },
+
+    "equipment": {},
+
+    // Should never be true, but just in case. Restarts the entire engine when leaving the project.
+    // If you need this, you're most likely doing something wrong.
+    "hardReset": false,
+
+    // The Prologue is a one-time sequence rather than a save-slot project.
+    "useSaves": false,
+
+    // Whether the project is hidden from the project selection.
+    "hidden": false,
+
+    // Whether the game window's title should be set to the project's name, and the icon to the image
+    // in the file `window_icon.png`.
+    // When your project is configured as the engine's target project, it's automatically done unless if
+    // this option is explicitly set to false; else, it's done if this is set to true.
+    "setWindowTitleAndIcon": null,
+
+    // Config values for the engine and any libraries you may have.
+    // These config values can control chapter-specific features as well.
+    "config": {
+        "kristal": {
+            // Prologue uses its own DEVICE-based menu and connection-loss screen.
+            "worldMenu": "goner",
+            "gameOver": "goner"
+            // End of config
+        }
+    },
+
+    // Whether or not to enable dev mode. Dev mode enables debug keys and the console.
+    "dev": true
+}

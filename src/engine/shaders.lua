@@ -96,6 +96,15 @@ Shaders["AddColor"] = love.graphics.newShader([[
     }
 ]])
 
+Shaders["Grayscale"] = love.graphics.newShader([[
+    vec4 effect(vec4 color, Image tex, vec2 texture_coords, vec2 screen_coords)
+    {
+        vec4 outputcolor = Texel(tex, texture_coords) * color;
+        float luma = dot(outputcolor.rgb, vec3(0.299, 0.587, 0.114));
+        return vec4(vec3(luma), outputcolor.a);
+    }
+]])
+
 Shaders["GonerPalette"] = love.graphics.newShader([[
     extern vec3 shadow;
     extern vec3 mid;

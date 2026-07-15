@@ -740,7 +740,8 @@ function Game:gameOver(x, y)
         child:remove()
     end
 
-    self.gameover = GameOver(x, y)
+    local gameover_class = self:getConfig("gameOver") == "goner" and GonerGameOver or GameOver
+    self.gameover = gameover_class(x, y)
     self.stage:addChild(self.gameover)
 end
 
@@ -809,6 +810,21 @@ end
 ---@param enemy?        Character|table     An enemy instance or list of enemies as `Character`s in the world that will transition into the battle.
 ---@param context?      ChaserEnemy
 function Game:encounter(encounter, transition, enemy, context)
+    return self:_startEncounter(Battle, encounter, transition, enemy, context)
+end
+
+--- Starts a one-member Goner battle using the specified encounter file.
+---@param encounter     Encounter|string    The encounter id or instance to use for this battle.
+---@param transition?   boolean|string      Whether to use the Goner bleed transition (Defaults to `true`).
+---@param enemy?        Character|table     An enemy instance or list of enemies in the world.
+---@param context?      ChaserEnemy
+function Game:gonerEncounter(encounter, transition, enemy, context)
+    return self:_startEncounter(GonerBattle, encounter, transition, enemy, context)
+end
+
+---@param battle_class Battle
+---@private
+function Game:_startEncounter(battle_class, encounter, transition, enemy, context)
     if transition == nil then transition = true end
 
     if self.battle then
@@ -823,7 +839,7 @@ function Game:encounter(encounter, transition, enemy, context)
 
     self.state = "BATTLE"
 
-    self.battle = Battle()
+    self.battle = battle_class()
 
     if context then
         self.battle.encounter_context = context

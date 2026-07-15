@@ -762,6 +762,12 @@ function WorldCutscene:text(text, portrait, actor, options)
     end
 
     self.textbox = Textbox(56, 344, width, height)
+    local _, bottom_border = self.textbox:getBorder()
+    local bottom_overflow = self.textbox.y + self.textbox.height + bottom_border - SCREEN_HEIGHT
+    if bottom_overflow > 0 then
+        self.textbox.y = self.textbox.y - bottom_overflow
+        self.textbox.bottom_y = self.textbox.y
+    end
     self.textbox.layer = WORLD_LAYERS["textbox"]
     self.world:addChild(self.textbox)
     self.textbox:setParallax(0, 0)

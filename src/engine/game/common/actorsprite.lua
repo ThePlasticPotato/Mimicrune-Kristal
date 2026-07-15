@@ -238,6 +238,23 @@ end
 ---@param ignore_actor_callback? boolean        Whether to skip calling [`Actor:preSetAnimation()`](lua://Actor.preSetAnimation)
 ---@return boolean?
 function ActorSprite:setAnimation(anim, callback, ignore_actor_callback)
+    local namespace_fallback = false
+    if type(anim) == "string" and self.animation_namespace then
+        local battle_anim = anim:match("^battle/(.+)$")
+        if battle_anim then
+            local namespaced = self.animation_namespace .. "/" .. battle_anim
+            local fallback = self.animation_namespace .. "/idle"
+            if self.actor:getAnimation(namespaced) then
+                anim = namespaced
+            elseif self.actor:getAnimation(fallback) then
+                anim = fallback
+                namespace_fallback = true
+            else
+                anim = namespaced
+            end
+        end
+    end
+
     if not ignore_actor_callback and self.actor:preSetAnimation(self, anim, callback) then
         return
     end
@@ -265,7 +282,7 @@ function ActorSprite:setAnimation(anim, callback, ignore_actor_callback)
             self.temp_anim = nil
             self.temp_sprite = nil
         end
-        if callback then
+        if callback and not namespace_fallback then
             if anim.callback then
                 local old_callback = anim.callback
                 anim.callback = function(s) old_callback(s); callback(s) end
@@ -276,6 +293,9 @@ function ActorSprite:setAnimation(anim, callback, ignore_actor_callback)
         super.setAnimation(self, anim)
         if not ignore_actor_callback then
             self.actor:onSetAnimation(self, anim, callback)
+        end
+        if namespace_fallback and callback then
+            callback(self)
         end
         return true
     else

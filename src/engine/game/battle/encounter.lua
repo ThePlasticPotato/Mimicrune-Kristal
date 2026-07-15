@@ -404,6 +404,14 @@ function Encounter:createBackground()
     end
 end
 
+--- Creates the background used by a Goner battle.
+---@return GonerBattleBackground? background
+function Encounter:createGonerBackground()
+    if self.background then
+        return Game.battle:addChild(GonerBattleBackground())
+    end
+end
+
 --- *(Override)* Creates the battle darkener for this encounter. \
 --- *By default, returns a new instance of [`BattleDarkener`](lua://BattleDarkener).
 ---@return BattleDarkener? darkener

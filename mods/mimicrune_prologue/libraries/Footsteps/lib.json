@@ -1,0 +1,15 @@
+{
+    "id": "footsteps",
+    "authors": [
+        "ThePlasticPotato"
+    ],
+    "version": "v1.0.0",
+    "engineVer": "v0.10.0",
+
+    "config": {
+        "footsteps_audible_by_default": true,
+        "step_volume": 0.8,
+        "step_volume_max": 2.3,
+        "half_volume_followers": true
+    }
+}

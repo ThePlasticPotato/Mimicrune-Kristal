@@ -1,0 +1,11 @@
+{
+    "id": "worldsoul",
+    "authors": [
+        "ThePlasticPotato"
+    ],
+    "version": "v1.0.0",
+    "engineVer": "v0.10.0",
+    "config": {
+        "override_world_collision_behavior": false // replaces the world collision code. Warning: VERY INVASIVE! If false, runs collision code a second time, which could be performance intensive. also note: not implemented atm
+    }
+}

@@ -222,7 +222,7 @@ function Battle:init()
 
     self.ui_interrupt = Assets.newSound("ui_interrupt_hand")
     self.ui_interrupt:setVolume(0.25)
-    self.description_panel = PanelMenuBackground("ui/menu/panels/dark/hand/menu", 0, 0, "hand_open", "hand_open", "ui_move_panel", "ui_select_panel", "ui_error_panel", "ui_cancel_small_camera", nil, 0, 0, false)
+    self.description_panel = self:createDescriptionPanel()
     self.description_panel.layer = BATTLE_LAYERS["above_ui"]
     self:addChild(self.description_panel)
     self.description = Text("", 20, 5, 540, 80 - 16, {align = "center", font="eb"})
@@ -346,6 +346,33 @@ function Battle:createPartyBattlers()
     end
 end
 
+--- Creates the popup used for action descriptions.
+--- Battle subclasses can replace it when their UI owns that presentation.
+---@return Object
+function Battle:createDescriptionPanel()
+    return PanelMenuBackground("ui/menu/panels/dark/hand/menu", 0, 0, "hand_open", "hand_open", "ui_move_panel", "ui_select_panel", "ui_error_panel", "ui_cancel_small_camera", nil, 0, 0, false)
+end
+
+--- Creates the UI used by this battle.
+--- Battle subclasses can override this without replacing postInit.
+---@return BattleUI
+function Battle:createBattleUI()
+    return BattleUI()
+end
+
+--- Creates the tension display used by this battle.
+--- Returning nil disables the display.
+---@return TensionBar?
+function Battle:createTensionBar()
+    return TensionBar(-25, 40, true)
+end
+
+--- Creates this battle's background through the encounter.
+---@return Object?
+function Battle:createBackground()
+    return self.encounter:createBackground()
+end
+
 ---@param state string
 ---@param encounter string|Encounter
 function Battle:postInit(state, encounter)
@@ -358,7 +385,7 @@ function Battle:postInit(state, encounter)
     end
 
     --todo: move mimicrune's battle background into the bg object
-    self.background = self.encounter:createBackground()
+    self.background = self:createBackground()
 
     if self.encounter and self.encounter.tense then
         self.tense = true
@@ -395,11 +422,13 @@ function Battle:postInit(state, encounter)
         end
     end
 
-    self.battle_ui = BattleUI()
+    self.battle_ui = self:createBattleUI()
     self:addChild(self.battle_ui)
 
-    self.tension_bar = TensionBar(-25, 40, true)
-    self:addChild(self.tension_bar)
+    self.tension_bar = self:createTensionBar()
+    if self.tension_bar then
+        self:addChild(self.tension_bar)
+    end
 
     self.battler_targets = {}
     for index, battler in ipairs(self.party) do
@@ -621,23 +650,7 @@ function Battle:onActionSelectState()
             enemy.init_y = enemy.target_y
         end
 
-        if self.encounter.music or self.tense then
-            if not self.encounter.music or (self.encounter.music == "battle" and self.tense)then
-                self.notes, self.bpm = MidiTimeline:loadMidiTimeline(Assets.getMidiPath("battle_tense_bg"), 2)
-            else
-                self.battle_intro:play()
-                self.notes, self.bpm = MidiTimeline:loadMidiTimeline(Assets.getMidiPath(self.encounter.music .. "_lead"), 2)
-
-                -- if (Game.fft and self.using_fft) then
-                --     --Game.fft:release()
-                --     Game.fft:setSoundData(Assets.getMusicPath(self.encounter.music))
-                -- end
-                self.timer:afterCond(function () return not self.battle_intro:isPlaying() end, function ()
-                    Game.fft:setPlayPosition(0)
-                    self.music:play(self.encounter.music)
-                end)
-            end
-        end
+        self:startBattleMusic()
     end
 
     self:showUI()
@@ -647,6 +660,26 @@ function Battle:onActionSelectState()
     self.encounter:onCharacterTurn(party, false)
     for _, status in pairs(party.statuses) do
         if status.data.effect.onTurnStart then status.data.effect:onTurnStart(party, status) end
+    end
+end
+
+--- Starts this battle's music after the first action-select state begins.
+--- Battle variants may override this to provide a different intro/fade.
+function Battle:startBattleMusic()
+    if not self.encounter.music and not self.tense then
+        return
+    end
+
+    if not self.encounter.music or (self.encounter.music == "battle" and self.tense) then
+        self.notes, self.bpm = MidiTimeline:loadMidiTimeline(Assets.getMidiPath("battle_tense_bg"), 2)
+    else
+        self.battle_intro:play()
+        self.notes, self.bpm = MidiTimeline:loadMidiTimeline(Assets.getMidiPath(self.encounter.music .. "_lead"), 2)
+
+        self.timer:afterCond(function() return not self.battle_intro:isPlaying() end, function()
+            Game.fft:setPlayPosition(0)
+            self.music:play(self.encounter.music)
+        end)
     end
 end
 
@@ -1041,6 +1074,7 @@ function Battle:onDefendingBeginState()
         local arena = Arena(arena_x or SCREEN_WIDTH / 2, arena_y or (SCREEN_HEIGHT - 155) / 2 + 10, arena_shape)
         arena.rotation = arena_rotation
         arena.layer = BATTLE_LAYERS["arena"]
+        self:configureArena(arena)
 
         self.arena = arena
         self:addChild(arena)
@@ -1076,6 +1110,10 @@ end
 function Battle:onBattleTextState()
     self:undarken()
 end
+
+--- *(Override)* Called after an arena is created and before it is added to the battle.
+---@param arena Arena
+function Battle:configureArena(arena) end
 
 --- Called when the [`BattleState`](lua://BattleState) is changed via [`Battle:setState()`](lua://Battle.setState).
 ---@param old BattleState

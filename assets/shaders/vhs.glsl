@@ -46,29 +46,22 @@ vec3 stripesRGB(vec2 uv)
 	return clamp(stripe, 0.0, 1.0);
 }
 
-// Wrap inside [0,1], but zero out any contribution from coords outside [0,1]
-vec4 sampleWrapNoTile(in Image tex, in vec2 uv)
+vec4 sampleNoTile(in Image tex, in vec2 uv)
 {
-    vec2 uvWrapped = fract(uv);
-    // inRange = 1 when 0 <= uv <= 1 for both components
     vec2 inRange  = step(0.0, uv) * step(uv, vec2(1.0));
-    float mask    = inRange.x * inRange.y; // 1 if both in-range, else 0
-    return Texel(tex, uvWrapped) * mask;
+    float mask    = inRange.x * inRange.y;
+    return Texel(tex, clamp(uv, vec2(0.0), vec2(1.0))) * mask;
 }
 
-vec4 sampleWrapNoTileFeather(in Image tex, in vec2 uv)
+vec4 sampleNoTileFeather(in Image tex, in vec2 uv)
 {
-    vec2 uvWrapped = fract(uv);
-
     vec2 inRange = step(0.0, uv) * step(uv, vec2(1.0));
     float inside = inRange.x * inRange.y;
 
-    float dY = min(uv.y, 1.0 - uv.y);
-    float fadeY = smoothstep(0.0, seam_feather, dY);
+    float edgeDistance = min(min(uv.x, 1.0 - uv.x), min(uv.y, 1.0 - uv.y));
+    float edgeFade = smoothstep(0.0, seam_feather, max(edgeDistance, 0.0));
 
-    float mask = mix(fadeY, 1.0, inside);
-
-    return Texel(tex, uvWrapped) * mask;
+    return Texel(tex, clamp(uv, vec2(0.0), vec2(1.0))) * inside * edgeFade;
 }
 
 
@@ -87,9 +80,9 @@ vec3 getVideo(vec2 uv, Image texture)
       + 0.3*sin(iTime*0.35);                     // slow drift
 
     float vShift = scroll_amp * vShiftCore * onOff(2.0, 3.0, 0.9);
-    look.y = mod(look.y + vShift * scroll_speed, 1.0);
+    look.y = look.y + vShift * scroll_speed;
 
-    return sampleWrapNoTileFeather(texture, look).rgb;
+    return sampleNoTileFeather(texture, look).rgb;
 }
 
 vec2 screenDistort(vec2 uv)
@@ -109,10 +102,15 @@ float vignetteFn(vec2 uv)
 
 vec4 effect(vec4 color, Image texture, vec2 texcoord, vec2 screen_coords)
 {
-    vec2 uvraw = screen_coords / texsize;
+    vec2 uvraw = texcoord;
     vec2 uv = screenDistort(uvraw);
 
     vec3 video = getVideo(uv, texture);
+
+    // Keep scanlines locked to actual canvas pixels. This also keeps texsize
+    // active as a shader uniform for Object:vhs callers.
+    float pixelScanline = 0.985 + 0.015 * sin(uvraw.y * texsize.y * 3.14159265);
+    video *= pixelScanline;
 
     float vignetteA = vignetteFn(uv);          // post-distort
     float vignetteB = vignetteFn(uvraw);      // pre-distort

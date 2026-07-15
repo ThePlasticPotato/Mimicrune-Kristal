@@ -238,8 +238,10 @@ function love.load(args)
     love.filesystem.createDirectory("pv/plot")
     love.filesystem.createDirectory("pv/device")
 
-    -- ensure corefiles exist
-    Kristal.verifyCoreFiles()
+    -- The Prognosticus core is a Prologue completion marker. Do not create it
+    -- during boot: the connection sequence attaches it when that point is met.
+    Kristal.PrognosticusCoreMissingAtStartup =
+        not Kristal.checkPersistentVariable("device/prognosticus.core")
 
     -- default registry
     Registry.initialize()
@@ -1433,11 +1435,14 @@ function Kristal.quickReload(mode)
     end
 
     -- Temporarily save game variables
-    local save, save_id, encounter, shop
+    local save, save_id, encounter, encounter_type, shop
     if mode == "temp" then
         save = Game:save()
         save_id = Game.save_id
         encounter = Game.battle and Game.battle.encounter and Game.battle.encounter.id
+        if encounter and Game.battle:includes(GonerBattle) then
+            encounter_type = "goner"
+        end
         shop = Game.shop and Game.shop.id
     elseif mode == "save" then
         save_id = Game.save_id
@@ -1471,7 +1476,11 @@ function Kristal.quickReload(mode)
                         Kristal.setState(Game, save, save_id, false)
                         -- If we had an encounter, restart the encounter
                         if encounter then
-                            Game:encounter(encounter, false)
+                            if encounter_type == "goner" then
+                                Game:gonerEncounter(encounter, false)
+                            else
+                                Game:encounter(encounter, false)
+                            end
                         elseif shop then -- If we were in a shop, re-enter it
                             Game:enterShop(shop)
                         end

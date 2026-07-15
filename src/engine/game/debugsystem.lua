@@ -353,7 +353,7 @@ end
 function DebugSystem:refresh()
     self.menus = {}
     self.exclusive_menus = {}
-    self.exclusive_menus["OVERWORLD"] = { "encounter_select", "select_shop", "select_map", "cutscene_select", "legend_select" }
+    self.exclusive_menus["OVERWORLD"] = { "encounter_select", "goner_encounter_select", "select_shop", "select_map", "cutscene_select", "legend_select" }
     self.exclusive_menus["LEGEND"] = { "legend_select" }
     self.exclusive_menus["BATTLE"] = { "wave_select", "wave_select_multiple" }
     self:registerMenu("main", "~ DEBUG ~")
@@ -668,6 +668,22 @@ function DebugSystem:registerSubMenus()
             "Start this encounter.",
             function()
                 Game:encounter(id)
+                self:closeMenu()
+            end
+        )
+    end
+
+    self:registerMenu("goner_encounter_select", "Goner Encounter Select", "search")
+    for id, _ in pairs(Registry.encounters) do
+        self:registerOption(
+            "goner_encounter_select",
+            id,
+            "Start this encounter as a one-member Goner battle.",
+            function()
+                if #Game.party == 0 then
+                    return false
+                end
+                Game:gonerEncounter(id)
                 self:closeMenu()
             end
         )
@@ -1326,6 +1342,22 @@ function DebugSystem:registerDefaults()
         "Start an encounter.",
         function()
             self:enterMenu("encounter_select", 0)
+        end,
+        in_overworld
+    )
+
+    self:registerOption(
+        "main",
+        "Start Goner Battle",
+        function()
+            local description = "Start an encounter using the Goner battle interface."
+            if #Game.party == 0 then
+                description = description .. " (Requires a party member.)"
+            end
+            return description
+        end,
+        function()
+            self:enterMenu("goner_encounter_select", 0)
         end,
         in_overworld
     )

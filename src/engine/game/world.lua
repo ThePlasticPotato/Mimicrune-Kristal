@@ -296,11 +296,13 @@ end
 
 --- Creates the main overworld menu if it does not exist \
 --- *The [event](lua://KRISTAL_EVENT) `createMenu` is called by this function, which can return a custom menu to use instead of the default Light/Dark menu*
----@return LightMenu|DarkMenu
+---@return LightMenu|DarkMenu|GonerMenu
 function World:createMenu()
     local menu = Kristal.callEvent(KRISTAL_EVENT.createMenu)
     if menu then return menu end
-    if Game:isLight() then
+    if Game:getConfig("worldMenu") == "goner" then
+        menu = GonerMenu()
+    elseif Game:isLight() then
         menu = LightMenu()
     else
         menu = DarkMenu()

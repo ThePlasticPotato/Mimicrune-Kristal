@@ -152,6 +152,12 @@ function Soul:init(x, y, color)
     self:addChild(self.parry_glow)
 end
 
+function Soul:canParry()
+    local evan = TableUtils.filter(Game.battle.party, function (battler) return battler.chara.name == "Evan" end)[1]
+    local evan_down = evan and evan.is_down
+    return self.parry and evan and not evan_down
+end
+
 ---@param parent Object
 function Soul:onRemove(parent)
     super.onRemove(self, parent)
@@ -472,7 +478,7 @@ function Soul:doMovement()
         end
     end
 
-    if Input.down("parry") and self.parry_cd == 0 and self.inv_timer == 0 then
+    if Input.down("parry") and self.parry_cd == 0 and self.inv_timer == 0  then
         self.parry_timer = 0.1
         self.parry_cd = 2
     end

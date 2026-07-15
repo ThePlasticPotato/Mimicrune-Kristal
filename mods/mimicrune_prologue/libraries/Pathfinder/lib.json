@@ -1,0 +1,15 @@
+{
+    "id": "pathfinder",
+    "authors": [
+        "ThePlasticPotato"
+    ],
+    "version": "v1.1.0",
+    "engineVer": "v0.10.0",
+
+    "config": {
+        "default_node_size": 40,
+        "debug_render_pathfinding": true,
+        "replace_return_to_following": true,
+        "chaser_pathing_poll_rate": 2
+    }
+}

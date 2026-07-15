@@ -126,7 +126,7 @@ function Bullet:onParry(soul) end
 
 function Bullet:canParry()
     local evan = TableUtils.filter(Game.battle.party, function (battler) return battler.chara.name == "Evan" end)[1]
-    local evan_down = evan.is_down
+    local evan_down = evan and evan.is_down
     return self.parry and evan and not evan_down
 end
 
