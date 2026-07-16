@@ -1,10 +1,10 @@
-uniform float iTime;
-uniform float weatherSway;
-uniform float windPhaseOffset;
+uniform highp float iTime;
+uniform highp float weatherSway;
+uniform highp float windPhaseOffset;
 
 // Main motion
 const float wind_strength = 2.0;   // try 2.0 to 6.0
-uniform float wind_speed;      // try 0.8 to 2.0
+uniform highp float wind_speed;      // try 0.8 to 2.0
 const float wind_scale = 0.02;      // try 0.01 to 0.04
 
 // Gust layer

@@ -1,6 +1,6 @@
 uniform float iTime;
 uniform vec2 screenSize;
-uniform vec2 textureSize;
+uniform vec2 ttextureSize;
 
 uniform Image noise1;
 uniform Image noise2;
@@ -51,9 +51,9 @@ float shorelineMask(Image tex, vec2 uv) {
         return 0.0;
     }
 
-    vec2 px1 = vec2(1.0) / textureSize;
-    vec2 px2 = vec2(2.0) / textureSize;
-    vec2 px3 = vec2(3.0) / textureSize;
+    vec2 px1 = vec2(1.0) / ttextureSize;
+    vec2 px2 = vec2(2.0) / ttextureSize;
+    vec2 px3 = vec2(3.0) / ttextureSize;
 
     float min1 = min(
         min(Texel(tex, uv + vec2(-px1.x, 0.0)).a, Texel(tex, uv + vec2(px1.x, 0.0)).a),
