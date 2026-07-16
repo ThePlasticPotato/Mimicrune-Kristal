@@ -28,6 +28,7 @@
 ---@field layer_types LayerTypeRegistry
 ---@field editor_events table<string, EditorEvent>
 ---@field editor_properties EditorPropertyRegistry
+---@field editor_format_extensions EditorFormatRegistry
 ---@field terrain_rules TerrainRuleRegistry
 ---@field editor_worlds table<string, EditorWorld>
 ---@field editor_draw_fx table<string, table>
@@ -107,6 +108,7 @@ function Registry.initialize(preload)
         Registry.initCutscenes()
         Registry.initEventScripts()
         Registry.initEditorProperties()
+        Registry.initEditorFormatExtensions()
         Registry.initTerrainRules()
         Registry.initEditorTemplates()
         Registry.initEditorDrawFX()
@@ -136,6 +138,7 @@ function Registry.saveData()
     self.saved_data.map_readers = self.map_readers
     self.saved_data.layer_types = self.layer_types
     self.saved_data.editor_events = self.editor_events
+    self.saved_data.editor_format_extensions = self.editor_format_extensions
     self.saved_data.terrain_rules = self.terrain_rules
     self.saved_data.editor_worlds = self.editor_worlds
     self.saved_data.editor_draw_fx = self.editor_draw_fx
@@ -152,6 +155,8 @@ function Registry.restoreData()
         self.map_readers = self.saved_data.map_readers
         self.layer_types = self.saved_data.layer_types
         self.editor_events = self.saved_data.editor_events or {}
+        self.editor_format_extensions = self.saved_data.editor_format_extensions
+            or EditorFormatRegistry()
         self.terrain_rules = self.saved_data.terrain_rules or TerrainRuleRegistry()
         self.editor_worlds = self.saved_data.editor_worlds or {}
         self.editor_draw_fx = self.saved_data.editor_draw_fx or {}
@@ -548,6 +553,51 @@ function Registry.registerEditorDrawFX(id, definition)
     self.editor_draw_fx = self.editor_draw_fx or {}
     self.editor_draw_fx[id] = definition
     return definition
+end
+
+function Registry.getTilesetFormatExtension(id)
+    return self.editor_format_extensions
+        and self.editor_format_extensions:getTilesetExtension(id)
+end
+
+function Registry.getMapFormatExtension(id)
+    return self.editor_format_extensions
+        and self.editor_format_extensions:getMapExtension(id)
+end
+
+function Registry.getMapFormatExtensions()
+    return self.editor_format_extensions
+        and self.editor_format_extensions:getMapExtensions() or {}
+end
+
+function Registry.registerMapFormatExtension(id, definition)
+    assert(self.editor_format_extensions, "Editor format extension registry is not initialized")
+    return self.editor_format_extensions:registerMapExtension(id, definition)
+end
+
+function Registry.getTilesetFormatExtensions()
+    return self.editor_format_extensions
+        and self.editor_format_extensions:getTilesetExtensions() or {}
+end
+
+function Registry.registerTilesetFormatExtension(id, definition)
+    assert(self.editor_format_extensions, "Editor format extension registry is not initialized")
+    return self.editor_format_extensions:registerTilesetExtension(id, definition)
+end
+
+function Registry.getWorldFormatExtension(id)
+    return self.editor_format_extensions
+        and self.editor_format_extensions:getWorldExtension(id)
+end
+
+function Registry.getWorldFormatExtensions()
+    return self.editor_format_extensions
+        and self.editor_format_extensions:getWorldExtensions() or {}
+end
+
+function Registry.registerWorldFormatExtension(id, definition)
+    assert(self.editor_format_extensions, "Editor format extension registry is not initialized")
+    return self.editor_format_extensions:registerWorldExtension(id, definition)
 end
 
 function Registry.getTerrainConditionType(id)
@@ -1134,6 +1184,10 @@ end
 function Registry.initEditorProperties()
     self.editor_properties = EditorPropertyRegistry()
     Kristal.callEvent(KRISTAL_EVENT.onRegisterEditorPropertyTypes, self.editor_properties)
+end
+
+function Registry.initEditorFormatExtensions()
+    self.editor_format_extensions = EditorFormatRegistry()
 end
 
 function Registry.initTerrainRules()
