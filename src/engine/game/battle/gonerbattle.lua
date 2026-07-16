@@ -58,7 +58,7 @@ function GonerBattle:createDescriptionPanel()
 end
 
 function GonerBattle:createBattleUI()
-    return GonerBattleUI()
+    return self:addChild(GonerBattleUI())
 end
 
 function GonerBattle:createTensionBar()

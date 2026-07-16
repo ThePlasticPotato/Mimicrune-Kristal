@@ -375,7 +375,7 @@ function Battle:createBackground()
 end
 
 function Battle:createUI()
-    self.background = self.encounter:createBackground()
+    self.background = self:createBackground()
     self.battle_ui = self:createBattleUI()
     self.tension_bar = self:createTensionBar()
 end

@@ -43,7 +43,8 @@ function BattleBackground:init(tense)
         enemy = {66 / 255, 0, 33 / 255},
         evan = {0, 66 / 255, 33 / 255},
         cassidy = {211/255/2, 130/255/2, 75/255/2},
-        fredbear = {66 / 255, 0, 66 / 255},
+        fredbear = { 66 / 255, 0, 66 / 255 },
+        vessel = { 0.25, 0.25, 0.25 }
     }
     self.bg_secondaries = {
         none = {1,1,1},
@@ -52,6 +53,7 @@ function BattleBackground:init(tense)
         evan = {0, 0.5, 11/255},
         cassidy = {0.8, 200/255, 43/255},
         fredbear = {0.5, 0, 0.5},
+        vessel = {0.25, 0.25, 0.25}
     }
 
     self:setParallax(0, 0)
