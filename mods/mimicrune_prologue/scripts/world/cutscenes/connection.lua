@@ -220,7 +220,6 @@ return {
             end
         end
 
-        
         Game.world.music:play("AUDIO_DEVICE_BOOT")
         Game.world.music:setLooping(false)
 
@@ -405,10 +404,127 @@ return {
             Game.world.player.visible = false
             Game.world.player.y = 1000
         end
+
+        local texts = {}
+        local wdtexts = {}
+        local function shortGlitch(target, removeAfter)
+            target:blockGlitch(0.6)--Game.world:addFX(ShaderFX("glitch", { ["iTime"] = function () return Kristal.getTime() end, ["glitchScale"] = 0.6}, false), "glitchy")
+            cutscene:wait(0.25)
+            if (removeAfter) then target:remove() else target:stopGlitch() end
+        end
+        local function wipeText() 
+            for index, value in ipairs(texts) do
+                value:remove()
+            end
+            for index, value in ipairs(wdtexts) do
+                value:remove()
+            end
+            texts = {}
+            wdtexts = {}
+        end
+        local function terminalText(str, advance, instaclear, offset, red, x_offset)
+            offset = offset or 0
+            x_offset = x_offset or 0
+            local additional = red and "[color:red]" or ""
+            local additionalwd = red and "[color:maroon]" or ""
+            local wdtext = DialogueText("[color:#222222][font:wingdings][speed:1][spacing:6][style:GONER][voice:none][shake:1]" .. additionalwd .. str, 0 + x_offset, 10 + offset, 640*2, 480 * 2,
+                                { auto_size = true, align = "left"})
+            local text = DialogueText("[speed:1][spacing:6][style:GONER][voice:none]" .. additional .. str, 2 + x_offset, 0 + offset, 640, 480,
+                                { auto_size = true, align = "left", wrap = false})
+            
+            wdtext:setScale(0.5, 0.5)
+            text:setScale(0.5, 0.5)
+            text.layer = WORLD_LAYERS["top"] + 1000
+            text.skip_speed = true
+            text.skippable = false
+            text.can_advance = false
+            text.parallax_x = 0
+            text.parallax_y = 0
+            Game.world:addChild(text)
+            Game.world:addChild(wdtext)
+            wdtext.layer = WORLD_LAYERS["top"] + 1000
+            text.layer = WORLD_LAYERS["top"] + 1100
+            
+            table.insert(wdtexts, wdtext)
+            table.insert(texts, text)
+            if advance ~= false then
+                cutscene:wait(function () return not text:isTyping() end)
+                TableUtils.removeValue(texts, text)
+                TableUtils.removeValue(wdtexts, wdtext)
+                text:remove()
+                wdtext:remove()
+            end
+            if instaclear == true then
+                cutscene:wait(function () return not text:isTyping() end)
+                text:remove()
+                wdtext:remove()
+            end
+        end
+
+        local device_light = LightFlash(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 3, {
+            color = {0.82, 0.9, 1, 1},
+            resting_strength = 0,
+            direction = math.pi * 0.5,
+            spread = math.pi * 0.25,
+            ray_count = 10,
+            ray_length = 900,
+            ray_width = 130,
+            backdrop_alpha = 0.42,
+            backdrop_max_alpha = 0.75,
+            backdrop_layer = WORLD_LAYERS["top"] + 0.25,
+            ray_layer = WORLD_LAYERS["top"] + 0.5,
+            overlay_layer = WORLD_LAYERS["top"] + 2
+        })
+        Game.world:addChild(device_light)
+
+        local your_light = LightFlash(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, {
+            color = {0.82, 0.9, 1, 1},
+            resting_strength = 0,
+            direction = 0,
+            spread = math.pi * 2,
+            ray_count = 13,
+            ray_length = 900,
+            ray_width = 130,
+            backdrop_alpha = 0.42,
+            backdrop_max_alpha = 0.75,
+            backdrop_layer = WORLD_LAYERS["top"] + 0.25,
+            ray_layer = WORLD_LAYERS["top"] + 0.5,
+            overlay_layer = WORLD_LAYERS["top"] + 2
+        })
+        Game.world:addChild(your_light)
+
+        ---@type [DeviceObject]
+        local device_parts = {}
+
+        ---@return DeviceObject
+        local function spawnDeviceObject(x, y, rot, scale_x, scale_y, type, fadeIn, color, tile_x, tile_y, layer, occludes)
+            local sprite = "world/DEVICE/IMAGE_" .. type
+            ---@type DeviceObject
+            local object = DeviceObject(x, y, scale_x, scale_y, sprite, sprite .. "_bg", color, tile_x, tile_y)
+            object:setLayer(WORLD_LAYERS["top"] + (layer or 1))
+            object.rotation = rot or 0
+            if (fadeIn) then
+                object.alpha = 0
+                Game.world.timer:tween(fadeIn, object, {alpha = (color and color[4] or 1)})
+            end
+            table.insert(device_parts, object)
+            Game.world:addChild(object)
+            device_light:addReceiver(object, 1, occludes)
+            your_light:addReceiver(object, 1, occludes)
+            return object
+        end
+
+        local function setDeviceObjectsLightSource(source)
+            for _, object in ipairs(device_parts) do
+                object:setOutlineLightSource(source)
+            end
+        end
+
         local delta_coincidences = {"TORIEL", "SANS", "PAPYRUS", "KNIGHT", "LANCER", "ROUXLS", "BERDLY", "JOCKINGTON", "JOCK", "CATTY", "TEMMIE", "MK", "ASGORE", "UNDYNE", "GERSON"}
-        local hero_coincidences = {"KRIS", "RALSEI", "NOELLE"} -- Susie special dialogue
+        local hero_coincidences = {"KRIS", "SUSIE", "RALSEI", "NOELLE"}
         local mr_coincidences = {"EVAN", "CASSIDY", "CASS", "FRED", "FREDBEAR", "FREDDY", "AFTON", "BONNIE", "CHICA", "FOXY", "SPRING"}
         local text
+
         local function gonerTextFade(wait)
             local this_text = text
             if wait ~= false then
@@ -419,14 +535,16 @@ return {
             end)
         end
 
-        local function gonerText(str, advance, instaclear)
-            text = DialogueText("[speed:0.25][spacing:6][style:GONER][voice:none]" .. str, 240, 100, 640, 480,
-                                { auto_size = true, align = "center" })
+        local function gonerText(str, advance, instaclear, y, speed)
+            text = DialogueText("[speed:" .. (speed or 0.5) .. "][spacing:6][style:GONER][voice:none]" .. str, 240, y or 100, 640, 480,
+                                { auto_size = true, align = "center", noskip = true })
             text.layer = WORLD_LAYERS["top"] + 100
             text.skip_speed = true
             text.parallax_x = 0
             text.parallax_y = 0
             text.connection = true
+            text.can_advance = false
+            text.skippable = false
             text.advance_callback = function() Game.stage.timer:tween(0.5, text, {specfade = 0}, "linear", function() text:remove() end) end
             local text_width = text:getTextWidth()
             text.x = 320 - (text_width/2)
@@ -440,6 +558,44 @@ return {
                 cutscene:wait(function () return not text:isTyping() end)
                 text:remove()
             end
+        end
+
+        local function choicer(options, callback, title, selection_effect)
+            local chosen = false
+            local selection_effect_done = selection_effect == nil
+            text = nil
+            if title then
+                gonerText("[style:GONER]" .. title, false, false, 50, 1)
+            end
+            cutscene:wait(function() return text and not text:isTyping() end)
+            local chcr
+            chcr = GonerChoice(160, 160, options, function(choice)
+                callback(choice); chosen = true
+            end, function(choice, x, y)
+                if selection_effect then
+                    local selected = options[y][x]
+                    local width = chcr.font:getWidth(choice)
+                    local height = chcr.font:getHeight()
+                    local start_x, start_y = chcr:localToScreenPos(
+                        (selected[2] or 0) + width / 2,
+                        (selected[3] or 0) + height / 2
+                    )
+
+                    chcr.visible = false
+                    selection_effect(choice, start_x, start_y, chcr.font, function()
+                        selection_effect_done = true
+                    end)
+                end
+            end)
+            chcr.soul_align = "left"
+            chcr:resetSoulPosition()
+            chcr.layer = WORLD_LAYERS["top"] + 100
+            chcr.soul.visible = false
+            Game.world:addChild(chcr)
+            cutscene:wait(function() return chosen end)
+            cutscene:wait(function() return selection_effect_done end)
+            if text then gonerTextFade(1) end
+            cutscene:wait(0.5)
         end
 
         cutscene:fadeOut(0.5, { music = true })
@@ -483,10 +639,30 @@ return {
         background.layer = WORLD_LAYERS["top"]
         Game.world:addChild(background)
 
-        Game.world.music:play("intro/CONNECTION_ESTABLISHED", 0)
+        Game.world.music:play("AUDIO_ANOTHERHIM", 0)
         Game.world.music:setLooping(true)
         Game.world.music:fade(1)
         cutscene:wait(4)
+
+        --temp
+
+        -- local pipe_topleft1 = spawnDeviceObject(0, 0, 0, 1, 1, "PIPE_A", 1, {0.025, 0.05, 0.025, 1}, false, false, 5, true)
+        -- local pipesmall_topleft1 = spawnDeviceObject(50, 0, 0, 1, 1, "PIPE_B", 1, {0.0125, 0.025, 0.0125, 1}, false, false, 3, true)
+        -- local pipe_across_lowerer1 = spawnDeviceObject(150, 400, 60, 0.25, 0.25, "PIPE_C", 2, {0.005, 0.0125, 0.005, 0.75}, true, false, 1, true)
+        -- local pipe_bottomright1 =  spawnDeviceObject(SCREEN_WIDTH, SCREEN_HEIGHT, 0, -1, -1, "PIPE_A", 1, {0.025, 0.05, 0.025, 1}, false, false, 5, true)
+        -- local pipesmall_bottomleft1 = spawnDeviceObject(0, SCREEN_HEIGHT, 0, 1, -1, "PIPE_B", 1, {0.0125, 0.025, 0.0125, 1}, false, false, 3, true)
+
+        -- Game.world.timer:after(2, function()
+        --     device_light:burst({
+        --         strength = 1.75,
+        --         attack = 0.05,
+        --         hold = 10,
+        --         decay = 0.75,
+        --         shake = 2
+        --     })
+        -- end)
+        -- cutscene:wait(function () return false end)
+
         gonerText("FIRST.")
         cutscene:wait(4)
         gonerText("LET US[wait:20]\nACQUAINT OURSELVES.")
@@ -520,16 +696,17 @@ return {
             cutscene:wait(2)
 
             local jumpscare = Jumpscare("mimic", function()
-                error({msg = [[
-                Error: src/engine/tunnel/voidrelay.lua:1987: Connection failure.
+                love.event.quit()
+                -- error({msg = [[
+                -- Error: src/engine/tunnel/voidrelay.lua:1987: Connection failure.
 
-                stack traceback:
+                -- stack traceback:
 
-                voidrelay.lua:1225: in function 'authenticate'
-                voidrelay.lua:413: in function 'connect'
-                wdserver.lua:666: in function 'locate'
-                wdserver.lua:23: in function 'init'
-                ]]})
+                -- voidrelay.lua:1225: in function 'authenticate'
+                -- voidrelay.lua:413: in function 'connect'
+                -- wdserver.lua:666: in function 'locate'
+                -- wdserver.lua:23: in function 'init'
+                -- ]]})
             end)
             Game.world:addChild(jumpscare)
             return
@@ -561,16 +738,14 @@ return {
             cutscene:wait(2)
             gonerText("YOU MAY FIT[wait:10]\nRIGHT IN, AFTER ALL.")
         end
-        if (player_name == "SUSIE") then
+        if (player_name == "PENNY") then
             gonerText("WHAT A CURIOUS[wait:20]\nCOINCIDENCE.")
             cutscene:wait(2)
-            gonerText("YOU HOLD[wait:10]\nGREAT PROMISE, INDEED.")
+            gonerText("ARE YOU PERHAPS CONNECTED[wait:10]\nTO THE WRONG DEVICE?")
         end
-        if (player_name == "NARRA") then
-            gonerText("THANK YOU FOR YOUR[wait:20]\nHONESTY.")
-            cutscene:wait(2)
-            gonerText("THIS BODES WELL FOR[wait:20]\nWHAT COMES NEXT.")
-        end
+        gonerText("THANK YOU FOR YOUR[wait:20]\nHONESTY.")
+        cutscene:wait(2)
+        gonerText("THIS BODES WELL FOR[wait:20]\nWHAT COMES NEXT.")
         cutscene:wait(4)
         gonerText("'"..player_name.."'")
         cutscene:wait(2)
@@ -580,6 +755,7 @@ return {
         local beamsoul2 = SoulAppearance(320, SCREEN_HEIGHT/2, true, true, COLORS.gray, "player/heart_blur")
         beamsoul2.layer = WORLD_LAYERS["top"] + 100
         Game.world:addChild(beamsoul2)
+
 
         cutscene:wait(4)
         gonerText("'"..player_name.."'")
@@ -622,47 +798,714 @@ return {
 
         Game.world.timer:tween(2, background, {alpha = 0.25})
 
-        gonerText("WHAT [wait:10]EMOTION[wait:10] DO YOU\nHOLD IN YOUR HEART?", false)
-
-        local scroll_choicer_1 = GonerScrollChoice(SCREEN_WIDTH/2, SCREEN_HEIGHT/2, {
-            { "HOPE" }, { "LOVE" }, { "COURAGE" }, { "MALAISE" }, { "NOTHING" }
+        local choice_light = LightFlash(SCREEN_WIDTH/2, SCREEN_HEIGHT/2, {
+            color = {1, 1, 1, 1},
+            resting_strength = 0,
+            direction = -math.pi / 2,
+            spread = math.pi * 2,
+            ray_count = 6,
+            ray_length = 28,
+            ray_width = 10,
+            ray_alpha = 0.08,
+            ray_drift = 0.04,
+            glow_radius = 7,
+            glow_alpha = 0.9,
+            core_radius = 2,
+            core_alpha = 1.4,
+            overlay_glow_radius = 10,
+            overlay_glow_alpha = 0.2,
+            wash_alpha = 0,
+            backdrop_alpha = 0,
+            pixel_size = 2,
+            intensity_steps = 32,
+            ray_layer = WORLD_LAYERS["top"] + 20,
+            overlay_layer = WORLD_LAYERS["top"] + 21
         })
-        scroll_choicer_1.layer = WORLD_LAYERS["top"]
-        Game.world:addChild(scroll_choicer_1)
+        Game.world:addChild(choice_light)
 
-        -- gonerText("WHAT WE SHALL DO[wait:20]\nTOGETHER.")
-        -- cutscene:wait(4)
-        -- gonerText("WHAT WE SHALL[wait:20]\nACCOMPLISH.")
-        -- cutscene:wait(2)
-        -- gonerText("'"..player_name.."'")
-        -- cutscene:wait(4)
-        -- gonerText("SHALL BE[wait:20]\nVERY.[wait:40]V[wait:5]E[wait:5]R[wait:5]Y", true, true)
-        
-        -- Game.world.music:stop()
-        -- cutscene:playSound("AUDIO_interception")
-        -- Game.world:blockGlitch(0.4)--Game.world:addFX(ShaderFX("glitch", { ["iTime"] = function () return Kristal.getTime() end, ["glitchScale"] = 0.4}, false), "glitchy")
-        -- Game:setBorder("DEVICE_ERROR", 0)
+        local choice_color_count = 0
+        local choice_color_sum = {0, 0, 0}
+        local choice_result_color = {1, 1, 1, 1}
+        local choice_colors = {
+            emotion = {
+                HOPE = {1.00, 0.90, 0.35},
+                LOVE = {1.00, 0.32, 0.50},
+                COURAGE = {1.00, 0.55, 0.20},
+                MALAISE = {0.48, 0.35, 0.75},
+                NOTHING = {0.55, 0.58, 0.64}
+            },
+            response = {
+                BRACE = {0.38, 0.58, 0.95},
+                PERSIST = {0.35, 0.88, 0.52},
+                DESPAIR = {0.35, 0.22, 0.52},
+                PROCEED = {0.95, 0.02, 0.02}
+            },
+            taste = {
+                SWEET = {1.00, 0.55, 0.78},
+                SOUR = {0.72, 1.00, 0.30},
+                SALTY = {0.65, 0.85, 1.00},
+                BITTER = {0.68, 0.43, 0.20},
+                IRON = {0.72, 0.24, 0.22}
+            },
+            shape = {
+                ["A HOME"] = {1.00, 0.72, 0.36},
+                ["A HAND"] = {0.48, 0.92, 0.62},
+                ["A CLOCK"] = {0.45, 0.82, 1.00},
+                ["A BLADE"] = {0.95, 0.30, 0.32},
+                ["A STORM"] = {0.60, 0.42, 1.00}
+            }
+        }
 
-        -- cutscene:wait(2)
-        -- Game.world:stopGlitch()
-        -- cutscene:wait(4)
+        local function absorbChoiceLightColor(choice, palette, start_x, start_y, font, done)
+            local contribution = palette[choice] or {1, 1, 1}
+            local token = Object(start_x, start_y, font:getWidth(choice), font:getHeight())
+            token:setOrigin(0.5, 0.5)
+            token:setScale(1, 1)
+            token.parallax_x = 0
+            token.parallax_y = 0
+            token.layer = WORLD_LAYERS["top"] + 101
+            local token_start_color = {1, 1, 0, 1}
+            token.choice_color = TableUtils.copy(token_start_color)
+            token.draw = function(self)
+                love.graphics.setFont(font)
+                Draw.setColor(
+                    self.choice_color[1],
+                    self.choice_color[2],
+                    self.choice_color[3],
+                    self.alpha
+                )
+                love.graphics.print(choice, 0, 0)
+            end
+            Game.world:addChild(token)
 
-        -- gonerText("...CURIOUS.[wait:20]\n THERE APPEARS TO BE AN", true, true)
-        -- Game.world:glitch()--Game.world:addFX(ShaderFX("glitch", { ["iTime"] = function () return Kristal.getTime() end, ["glitchScale"] = 0.6}, false), "glitchy")
-        -- cutscene:playSound("AUDIO_interception", 1.0, 1.2)
-        -- Game:setBorder("DEVICE_BROKEN", 0)
-        -- cutscene:wait(2)
-        -- local done_glitchnoise = cutscene:playSound("AUDIO_interception", 1.0, 0.7)
-        -- cutscene:wait(function () return done_glitchnoise end)
-        -- cutscene:wait(2)
-        -- Game.world:removeChild(beamsoul)
-        -- beamsoul:remove()
-        -- background:remove()
-        -- Assets.stopSound("AUDIO_interception")
-        -- cutscene:endCutscene()
-        -- Game.world:stopGlitch()
-        -- Game.world:startCutscene("connection", "terminated")
-        -- cutscene:fadeIn(0.5)
+            local drift_duration = 0.7
+            local approach_duration = 2
+            local elapsed = 0
+            Game.world.timer:during(drift_duration + approach_duration, function()
+                elapsed = elapsed + DT
+                local approach = MathUtils.clamp(
+                    (elapsed - drift_duration) / approach_duration,
+                    0,
+                    1
+                )
+                local travel = approach * approach * (3 - 2 * approach)
+                local drift_fade = 1 - travel
+                local drift_phase = elapsed * math.pi * 2 * 0.4
+
+                token.x = MathUtils.lerp(start_x, choice_light.x, travel)
+                    + math.sin(drift_phase) * 2 * drift_fade
+                token.y = MathUtils.lerp(start_y, choice_light.y, travel)
+                    + math.sin(drift_phase * 1.7) * drift_fade
+                token.scale_x = MathUtils.lerp(1, 0.08, travel)
+                token.scale_y = token.scale_x
+                token.alpha = MathUtils.lerp(1, 0.25, travel)
+
+                local color_shift = approach * approach * (3 - 2 * approach)
+                for index = 1, 3 do
+                    token.choice_color[index] = MathUtils.lerp(
+                        token_start_color[index],
+                        contribution[index],
+                        color_shift
+                    )
+                end
+            end, function()
+                token:remove()
+
+                choice_color_count = choice_color_count + 1
+                for index = 1, 3 do
+                    choice_color_sum[index] = choice_color_sum[index] + contribution[index]
+                    choice_result_color[index] = choice_color_sum[index] / choice_color_count
+                end
+
+                local hue, saturation = ColorUtils.RGBToHSV(
+                    choice_result_color[1],
+                    choice_result_color[2],
+                    choice_result_color[3]
+                )
+                saturation = MathUtils.clamp(saturation, 0.18, 0.72)
+                choice_result_color[1], choice_result_color[2], choice_result_color[3]
+                    = ColorUtils.HSVToRGB(hue, saturation, 1)
+
+                Assets.playSound("power")
+                Game.world.timer:tween(0.55, choice_light.color, {
+                    [1] = choice_result_color[1],
+                    [2] = choice_result_color[2],
+                    [3] = choice_result_color[3]
+                }, "out-sine")
+
+                local target_strength = 0.22 + choice_color_count * 0.05
+                choice_light.resting_strength = target_strength
+                choice_light:burst({
+                    strength = target_strength * 1.45,
+                    attack = 0.14,
+                    hold = 0.04,
+                    decay = 0.5,
+                    resting_strength = target_strength
+                })
+                Game.world.timer:tween(0.55, choice_light, {
+                    glow_radius = 8 + choice_color_count * 4,
+                    core_radius = 2 + choice_color_count * 0.5,
+                    overlay_glow_radius = 12 + choice_color_count * 5,
+                    ray_length = 30 + choice_color_count * 5,
+                    ray_width = 10 + choice_color_count * 2
+                }, "out-sine")
+
+                done()
+            end)
+        end
+
+        local first = nil
+        choicer({{{ "HOPE", 0, 0 } },
+                { { "LOVE", 0, 40 } },
+                { { "COURAGE", 0, 80 } },
+                { { "MALAISE", 0, 120 } },
+                { { "NOTHING", 0, 160 } },}, function(value) first = value end, "WHAT [wait:10]EMOTION[wait:5] DO YOU[wait:5]\nHOLD IN YOUR HEART?",
+                function(choice, start_x, start_y, font, done)
+                    absorbChoiceLightColor(choice, choice_colors.emotion, start_x, start_y, font, done)
+                end)
+
+        local pipe_topleft = spawnDeviceObject(0, 0, 0, 1, 1, "PIPE_A", 1, {0.025, 0.05, 0.025, 1}, false, false, 5, true)
+        local pipesmall_topleft = spawnDeviceObject(50, 0, 0, 1, 1, "PIPE_B", 1, {0.0125, 0.025, 0.0125, 1}, false, false, 3, true)
+        local pipe_across_lowerer = spawnDeviceObject(150, 400, 60, 0.25, 0.25, "PIPE_C", 2, {0.005, 0.0125, 0.005, 0.75}, true, false, 1)
+
+        cutscene:wait(2)
+
+        local second = nil
+        choicer({{{ "BRACE", 0, 0 } },
+                { { "PERSIST", 0, 40 } },
+                { { "DESPAIR", 0, 80 } },
+                { { "PROCEED", 0, 120 } },}, function(value) second = value end, "WHEN FACED WITH[wait:5]\nIMPOSSIBLE ODDS, YOU",
+                function(choice, start_x, start_y, font, done)
+                    absorbChoiceLightColor(choice, choice_colors.response, start_x, start_y, font, done)
+                end)
+
+        local pipe_bottomright =  spawnDeviceObject(SCREEN_WIDTH, SCREEN_HEIGHT, 0, -1, -1, "PIPE_A", 1, {0.025, 0.05, 0.025, 1}, false, false, 5, true)
+        local pipesmall_bottomleft = spawnDeviceObject(0, SCREEN_HEIGHT, 0, 1, -1, "PIPE_B", 1, {0.0125, 0.025, 0.0125, 1}, false, false, 3, true)
+
+        Assets.playSound("AUDIO_DEVICE_MOVE", 1.1, 1)
+
+        cutscene:wait(2)
+
+        local third = nil
+        choicer({{{ "SWEET", 0, 0 } },
+                { { "SOUR", 0, 40 } },
+                { { "SALTY", 0, 80 } },
+                { { "BITTER", 0, 120 } },
+                { { "IRON", 0, 160 } },}, function(value) third = value end, "WHAT DOES YOUR POWER[wait:5]\nTASTE LIKE?",
+                function(choice, start_x, start_y, font, done)
+                    absorbChoiceLightColor(choice, choice_colors.taste, start_x, start_y, font, done)
+                end)
+
+
+        local pipe_across = spawnDeviceObject(50, 100, 50, 1, 1, "PIPE_C", 2, {0.005, 0.0125, 0.005, 0.8}, true, false, 1)
+        local pipe_across_lower = spawnDeviceObject(150, 400, 80, 0.5, 0.5, "PIPE_C", 2, {0.005, 0.0125, 0.005, 0.8}, true, false, 1)
+
+        Assets.playSound("AUDIO_DEVICE_THRUM", 1.1, 0.8)
+
+        cutscene:wait(2)
+
+        local fourth = nil
+        choicer({{ { "A HOME", 0, 0 } },
+                { { "A HAND", 0, 40 } },
+                { { "A CLOCK", 0, 80 } },
+                { { "A BLADE", 0, 120 } },
+                { { "A STORM", 0, 160 } },}, function(value) fourth = value end, "WHAT DOES YOUR LIGHT[wait:5]\nRESEMBLE?",
+                function(choice, start_x, start_y, font, done)
+                    absorbChoiceLightColor(choice, choice_colors.shape, start_x, start_y, font, done)
+                end)
+
+        cutscene:wait(5)
+
+        choicer({{{"YES", 40, 120}}, {{"NO", 260, 120}}}, function() end, "HAVE YOU ANSWERED[wait:10]\nHONESTLY?")
+
+        local flight_done = false
+        local motion_time = 0
+        local twirl_duration = 1.5
+        local flight_duration = 1.15
+        local twirl_radius = 30
+        local twirl_center_x, twirl_center_y = choice_light.x, choice_light.y
+        local flight_start_x, flight_start_y = twirl_center_x, twirl_center_y - twirl_radius
+        local twirl_exit_velocity_x = twirl_radius * (math.pi * 4 / twirl_duration)
+        local twirl_exit_velocity_y = -(twirl_radius / twirl_duration)
+        local flight_control_1_x = flight_start_x + twirl_exit_velocity_x * flight_duration / 3
+        local flight_control_1_y = flight_start_y + twirl_exit_velocity_y * flight_duration / 3
+        local flight_control_2_x, flight_control_2_y = SCREEN_WIDTH / 2 + 26, 70
+        local flight_end_x, flight_end_y = SCREEN_WIDTH / 2, -48
+        local flight_started = false
+        local flight_start_strength = choice_light.strength
+        local flight_start_glow_radius = choice_light.glow_radius
+        local flight_start_overlay_radius = choice_light.overlay_glow_radius
+        local flight_start_ray_length = choice_light.ray_length
+
+        local function cubicBezier(start_value, control_1, control_2, end_value, progress)
+            local inverse = 1 - progress
+            return inverse * inverse * inverse * start_value
+                + 3 * inverse * inverse * progress * control_1
+                + 3 * inverse * progress * progress * control_2
+                + progress * progress * progress * end_value
+        end
+
+        Game.world.timer:during(twirl_duration + flight_duration, function()
+            motion_time = motion_time + DT
+            if motion_time <= twirl_duration then
+                local progress = MathUtils.clamp(motion_time / twirl_duration, 0, 1)
+                -- Starts with zero velocity, then gently accelerates into the
+                -- spiral while preserving the old exit speed at progress 1.
+                local spin_progress = progress * progress * (2 - progress)
+                local radius = twirl_radius * spin_progress
+                local angle = -math.pi / 2 + spin_progress * math.pi * 4
+                choice_light:setPosition(
+                    twirl_center_x + math.cos(angle) * radius,
+                    twirl_center_y + math.sin(angle) * radius
+                )
+                return
+            end
+
+            if not flight_started then
+                flight_started = true
+                choice_light.burst_state = nil
+                choice_light.resting_strength = 0
+            end
+
+            local progress = MathUtils.clamp((motion_time - twirl_duration) / flight_duration, 0, 1)
+            choice_light:setPosition(
+                cubicBezier(flight_start_x, flight_control_1_x, flight_control_2_x, flight_end_x, progress),
+                cubicBezier(flight_start_y, flight_control_1_y, flight_control_2_y, flight_end_y, progress)
+            )
+
+            local fade = progress * progress * progress
+            choice_light.strength = MathUtils.lerp(flight_start_strength, 0, fade)
+            choice_light.glow_radius = MathUtils.lerp(flight_start_glow_radius, 5, fade)
+            choice_light.overlay_glow_radius = MathUtils.lerp(flight_start_overlay_radius, 7, fade)
+            choice_light.ray_length = MathUtils.lerp(flight_start_ray_length, 12, fade)
+        end, function()
+            choice_light:remove()
+            flight_done = true
+        end)
+        cutscene:wait(function() return flight_done end)
+        cutscene:wait(0.5)
+
+        choicer({{{"YES", 40, 120}}, {{"NO", 260, 120}}}, function() end, "YOU ACKNOWLEDGE\nTHE POSSIBILITY[wait:10]\nOF PAIN AND SEIZURE.")
+
+        cutscene:wait(2)
+
+        gonerText("THANK YOU.")
+
+        Game.world:transitionMusic("", true)
+
+        local device_machine = spawnDeviceObject(SCREEN_WIDTH/2-152, -300, 0, 2, 2, "MACHINE", 4, {0.005, 0.0125, 0.005, 1}, false, false, 1)
+        Assets.playSound("AUDIO_DEVICE_APPEAR", 1.2)
+        device_machine:slideTo(SCREEN_WIDTH/2-152, -140, 7, "out-sine")
+
+        cutscene:wait(3)
+
+        gonerText("THANK YOU[wait:20]\nFOR YOUR ANSWERS.")
+
+        device_machine:approachFrontColor(4, COLORS.gray)
+
+        cutscene:wait(6)
+
+        gonerText("TRULY[wait:4] WONDERFUL.", true, false, SCREEN_HEIGHT-80)
+        cutscene:wait(2)
+        gonerText("THIS[wait:4] LIGHT[wait:10]\nWE HAVE MADE.", true, false, SCREEN_HEIGHT-80)
+
+
+        device_machine.sprite_back:flash()
+        Assets.playSound("AUDIO_MACHINE_OPEN")
+        cutscene:wait(1)
+        local opened = false
+        device_machine:setAnimation("world/DEVICE/IMAGE_MACHINE_OPEN", function() device_machine:setSprite("world/DEVICE/IMAGE_MACHINE_OPENED"); opened = true end)
+
+        cutscene:wait(function() return opened end)
+        cutscene:wait(0.25)
+        Game.world.music:play("AUDIO_INFUSION", 0.001, 1)
+        Game.world.music:fade(1, 4)
+        Game.world.music:setLooping(false)
+
+        device_machine.sprite_back:flash()
+
+        gonerText("NOW.", true, false, SCREEN_HEIGHT-80)
+
+        cutscene:wait(4)
+
+        gonerText("IT IS TIME.", true, false, SCREEN_HEIGHT-80)
+
+        cutscene:wait(4)
+        gonerText("TO TAKE IT\nIN YOUR HANDS.", true, false, SCREEN_HEIGHT-80)
+
+        cutscene:musicWait(22.66)
+
+        local maw_x, maw_y = device_machine:localToScreenPos(
+            device_machine.width / 2,
+            device_machine.height
+        )
+        device_light:setPosition(maw_x, maw_y)
+
+        local charge_light = LightFlash(maw_x, maw_y, {
+            color = {device_light.color[1], device_light.color[2], device_light.color[3], 1},
+            resting_strength = 0,
+            direction = -math.pi / 2,
+            spread = math.pi * 2,
+            ray_count = 8,
+            ray_length = 34,
+            ray_width = 13,
+            ray_alpha = 0.12,
+            ray_drift = 0.06,
+            glow_radius = 10,
+            glow_alpha = 0.7,
+            overlay_glow_radius = 16,
+            overlay_glow_alpha = 0.18,
+            wash_alpha = 0.025,
+            backdrop_alpha = 0,
+            pixel_size = 2,
+            intensity_steps = 32,
+            ray_layer = WORLD_LAYERS["top"] + 3,
+            overlay_layer = WORLD_LAYERS["top"] + 4
+        })
+        Game.world:addChild(charge_light)
+        for _, object in ipairs(device_parts) do
+            charge_light:addReceiver(object, object == device_machine and 0.55 or 0.18, false)
+        end
+        Assets.playSound("AUDIO_MACHINE_ACTIVATE")
+        charge_light:startGlow(0.08)
+        Game.world.timer:tween(3, charge_light, {
+            strength = 1,
+            resting_strength = 0.62,
+            glow_radius = 82,
+            overlay_glow_radius = 94,
+            ray_length = 120,
+            ray_width = 24
+        }, "in-cubic")
+
+        cutscene:musicWait(26.66)
+        cutscene:shakeCamera(-4, 2)
+        WindowUtils:shake(4, 0)
+        Assets.playSound("AUDIO_RESIDUAL")
+
+        charge_light:setStrength(0)
+        charge_light:remove()
+        device_light:burst({
+            strength = 2.5,
+            attack = 0.05,
+            hold = 4,
+            decay = 1.1,
+            shake = 4
+        })
+
+        local transition_flash = ScreenColorOverlay(COLORS.white, 0)
+        transition_flash.layer = WORLD_LAYERS["top"] + 250
+        Game.world:addChild(transition_flash)
+        Game.world.timer:tween(0.5, transition_flash, {alpha = 1}, "out-sine")
+
+        -- The firing force kicks the machine back out of view. Keeping the
+        -- emitter attached to its maw makes the flash leave with it.
+        device_light:setFollowTarget(device_machine, device_machine.width / 2, device_machine.height)
+        local machine_offscreen_y = -device_machine.height * math.abs(device_machine.scale_y) - 80
+        device_machine:slideTo(device_machine.x, machine_offscreen_y, 1.15, "out-cubic", function()
+            device_machine:remove()
+            device_light:remove()
+        end)
+
+        for _, object in ipairs(device_parts) do
+            if object ~= device_machine and not object:isRemoved() then
+                object:fadeOutAndRemove(4)
+            end
+        end
+
+        local soul_light = LightFlash(beamsoul2.x, beamsoul2.y, {
+            color = {beamsoul2.color[1], beamsoul2.color[2], beamsoul2.color[3], 1},
+            resting_strength = 0,
+            direction = -math.pi / 2,
+            spread = math.pi * 2,
+            ray_count = 14,
+            ray_length = 210,
+            ray_width = 32,
+            ray_alpha = 0.13,
+            ray_drift = 0.035,
+            glow_radius = 32,
+            glow_alpha = 0.85,
+            core_radius = 4,
+            core_alpha = 1.25,
+            overlay_glow_radius = 72,
+            overlay_glow_alpha = 0.22,
+            wash_alpha = 0.015,
+            backdrop_alpha = 0.08,
+            backdrop_max_alpha = 0.18,
+            pixel_size = 2,
+            intensity_steps = 24,
+            backdrop_layer = WORLD_LAYERS["top"] + 65,
+            ray_layer = WORLD_LAYERS["top"] + 80,
+            overlay_layer = WORLD_LAYERS["top"] + 90
+        })
+        soul_light:setFollowTarget(
+            beamsoul2,
+            beamsoul2.width / 2,
+            function(soul) return soul.height / 2 + soul.pos_offset end
+        )
+        Game.world:addChild(soul_light)
+        soul_light:startGlow(1.1, 2.2)
+
+        local magic_circle = MagicCircle(beamsoul2.x, beamsoul2.y, {
+            beamsoul2.color[1], beamsoul2.color[2], beamsoul2.color[3], 1
+        })
+        magic_circle.layer = WORLD_LAYERS["top"] + 72
+        magic_circle:setFollowTarget(
+            beamsoul2,
+            beamsoul2.width / 2,
+            function(soul) return soul.height / 2 + soul.pos_offset end
+        )
+        Game.world:addChild(magic_circle)
+
+        local infusion_duration = 2.2
+        Game.world.timer:tween(infusion_duration, beamsoul2.color, {
+            [1] = choice_result_color[1],
+            [2] = choice_result_color[2],
+            [3] = choice_result_color[3]
+        }, "in-out-sine")
+        Game.world.timer:tween(infusion_duration, soul_light.color, {
+            [1] = choice_result_color[1],
+            [2] = choice_result_color[2],
+            [3] = choice_result_color[3]
+        }, "in-out-sine")
+        Game.world.timer:tween(infusion_duration, magic_circle.circle_color, {
+            [1] = choice_result_color[1],
+            [2] = choice_result_color[2],
+            [3] = choice_result_color[3]
+        }, "in-out-sine")
+        Game.world.timer:after(0.65, function()
+            Game.world.timer:tween(3, magic_circle, {
+                progress = 1,
+                intensity = 0.9,
+                radius = 185
+            }, "out-cubic")
+        end)
+        local zappy_overlay = ZappyOverlay(0)
+        zappy_overlay.layer = WORLD_LAYERS["top"] + 60
+        Game.world:addChild(zappy_overlay)
+        Game.world.timer:tween(2, zappy_overlay, {alpha = 0.75}, "in-out-sine")
+
+        cutscene:wait(2)
+        Game.world.timer:tween(1.35, transition_flash, {alpha = 0}, "in-sine", function()
+                    transition_flash:remove()
+                end)
+        beamsoul2:slideTo(SCREEN_WIDTH/2, SCREEN_HEIGHT/2, 2, "in-out-sine")
+        cutscene:musicWait(57.33)
+        terminalText("INSTABILITY DETECTED", false, false, 0, true, 0)
+
+        cutscene:musicWait(58.66) -- start of things going wrong
+        beamsoul2:glitch(nil, 4)
+        local magic_circle_active = true
+        local function instabilityPulse(power, duration)
+            duration = duration or (0.25 + power * 0.35)
+            local glitch_options = {
+                scan_line_jitter = 0.004 + power * 0.014,
+                horizontal_shake = 0.003 + power * 0.012,
+                color_drift = 0.01 + power * 0.065
+            }
+
+            Game.world.camera:shake(1 + power * 5, 1 + power * 3, 1)
+            WindowUtils:shake(2 + power * 7, power * 4)
+            Assets.playSound("AUDIO_DEVICE_CRACKLE", 0.2 + power * 0.55, 1.2 - power * 0.25)
+
+            beamsoul2:glitch(glitch_options, duration)
+            Game.world.timer:after(duration + 0.08, function()
+                if not beamsoul2:isRemoved() then
+                    beamsoul2:glitch({
+                        scan_line_jitter = glitch_options.scan_line_jitter * 1.25,
+                        horizontal_shake = glitch_options.horizontal_shake * 1.2,
+                        color_drift = glitch_options.color_drift * 0.8
+                    }, duration * 0.45)
+                end
+            end)
+            if magic_circle_active then
+                magic_circle:glitch(glitch_options, duration)
+            end
+            background:glitch(glitch_options, duration)
+            background:blockGlitch(0.12 + power * 0.48)
+            Game.world.timer:after(duration * 0.6, function()
+                Game.world:stopGlitch()
+            end)
+            if not zappy_overlay:isRemoved() then
+                zappy_overlay:glitch(glitch_options, duration)
+            end
+
+            soul_light:burst({
+                strength = math.max(0.28, 1.1 - power * 0.7),
+                attack = 0.04,
+                hold = duration * 0.35,
+                decay = duration,
+                resting_strength = 1.1
+            })
+
+            if magic_circle_active then
+                local dim_circle = math.max(0.12, 0.9 - power * 0.62)
+                Game.world.timer:tween(0.07, magic_circle, {intensity = dim_circle}, "linear", function()
+                    Game.world.timer:tween(duration, magic_circle, {intensity = 0.9}, "out-sine")
+                end)
+            end
+            if not zappy_overlay:isRemoved() then
+                local dim_zaps = math.max(0.08, 0.75 - power * 0.55)
+                Game.world.timer:tween(0.06, zappy_overlay, {alpha = dim_zaps}, "linear", function()
+                    Game.world.timer:tween(duration, zappy_overlay, {alpha = 0.75}, "out-sine")
+                end)
+            end
+        end
+
+        instabilityPulse(0.22, 0.42)
+        Game.world.timer:after(0.16, function()
+            if not zappy_overlay:isRemoved() then zappy_overlay:remove() end
+        end)
+        terminalText("CONNECT ON UNSTA LE. PLEA E P  CE D W TH CAU I N.", false, false, 14, true, 0)
+
+        cutscene:wait(1)
+        gonerText("OH DEAR.")
+
+        cutscene:musicWait(64)
+        instabilityPulse(0.35, 0.4)
+        terminalText("[vdrl] : SYNCHRONIZATION LOST", false, false, 28, true, 0)
+
+        cutscene:musicWait(68.5)
+        magic_circle_active = false
+        instabilityPulse(0.46, 0.48)
+        magic_circle:glitch({
+            scan_line_jitter = 0.025,
+            horizontal_shake = 0.02,
+            color_drift = 0.12
+        }, 0.65)
+        Game.world.timer:tween(0.7, magic_circle, {
+            intensity = 0,
+            alpha = 0,
+            radius = 155,
+            rotation_speed = 2.4
+        }, "in-cubic")
+        gonerText("IMPOSSIBLE. I ACCOUNTED FOR[wait:10]\nEVERY VARIABLE...")
+
+        cutscene:musicWait(72)
+        instabilityPulse(0.56, 0.54)
+        terminalText("PHOTON READINGS NIL.", false, false, 42, true, 0)
+
+        cutscene:musicWait(76.5)
+        instabilityPulse(0.66, 0.62)
+        local dropout = ScreenColorOverlay(COLORS.black, 0)
+        dropout.layer = WORLD_LAYERS["top"] + 2200
+        Game.world:addChild(dropout)
+        Game.world.timer:tween(0.045, dropout, {alpha = 0.82}, "linear", function()
+            Game.world.timer:tween(0.11, dropout, {alpha = 0}, "linear", function()
+                dropout:remove()
+            end)
+        end)
+
+        cutscene:musicWait(82)
+        instabilityPulse(0.76, 0.7)
+        gonerText("PLEASE...[wait:10] HOLD ON.\nI CAN STILL[wait:5] FIX THIS.")
+
+        cutscene:musicWait(86.5)
+        instabilityPulse(0.86, 0.78)
+        terminalText("ATTEMPTING TO RECONNECT...", false, false, 56, true, 0)
+
+        cutscene:musicWait(90)
+        instabilityPulse(0.94, 0.84)
+
+        cutscene:musicWait(93)
+        instabilityPulse(1.02, 0.9)
+        wipeText()
+        terminalText("!!!FATAL!!! LOST CONNECTION TO HOST", false, false, 0, true, 0)
+
+        cutscene:musicWait(95)
+        instabilityPulse(1.15, 0.95)
+
+        cutscene:musicWait(96)
+        local alarm = Assets.playSound("alert", 0, 0.82)
+        alarm:setLooping(true)
+        local alarm_fade = {volume = 0}
+        Game.world.timer:tween(0.7, alarm_fade, {volume = 0.9}, "in-sine")
+        Game.world.timer:during(0.72, function()
+            alarm:setVolume(alarm_fade.volume)
+        end)
+
+        Assets.playSound("AUDIO_interception", 1)
+        Game.world.camera:shake(12, 9, 0.35)
+        WindowUtils:shake(16, 10)
+        Game.world:blockGlitch(1.4)
+        beamsoul2:glitch({
+            scan_line_jitter = 0.04,
+            horizontal_shake = 0.035,
+            color_drift = 0.2
+        }, 0.9)
+        soul_light:burst({
+            strength = 3,
+            attack = 0.01,
+            hold = 0.6,
+            decay = 0,
+            resting_strength = 3
+        })
+
+        cutscene:wait(0.68)
+
+        local blackout = ScreenColorOverlay(COLORS.black, 0)
+        blackout.layer = WORLD_LAYERS["top"] + 3000
+        Game.stage:addChild(blackout)
+        local blackout_done = false
+        Game.world.timer:tween(0.06, blackout, {alpha = 1}, "linear", function()
+            blackout_done = true
+        end)
+        cutscene:wait(function() return blackout_done end)
+
+        Game.world:stopGlitch()
+        cutscene:wait(function() return not Game.world.music:isPlaying() end)
+
+        Kristal.emplacePersistentVariable("plot/connection_log.txt", [[
+WD-OS_V1.2.1a
+Copyright (C) 19XX-20XX, ASTER SCIENCES LLC.
+CORE g10 CPU @ 8200 MHz 8 Processor(s)
+===================
+Memory Test : 63518192K OK
+Detecting Flash ROM : ...AMALGAE 15 OK
+Detecting Flash Extension : ...Generic m.2 OK
+Detecting SOUL Presence : ...NARRA.kd.13018 OK
+===================
+!!!WARNING!!! Debug Mode is ENABLED. System instability may be present.
+PROCEEDing is inadvisable. Strike any key to PROCEED regardless.
+>
+Please hold... Do not turn off the DEVICE.
+Initialized VOID_RELAY module.
+: CONNECTING TO EXTERNAL DEVICE RUNNING : ' ]].. platformName ..[[ '
+: ESTABLISHING CONNECTION
+: . . .
+: TARGETLOCK
+: . . .
+: PING SUCCESS, TOOK 1899ms
+: . . .
+: BEGIN LINK PHASE
+: . . .
+: LINK SUCCESS
+: RELAY CONNECTED.
+: SOUL UPLOAD IN PROGRESS...
+
+Please hold... Do not turn off the DEVICE.
+===================
+CONNECTION_ESTABLISHED_SUCCESS
+SoIP Connected.
+===================
+VARIABLE RECEIVED ;; SUBJECT_NAME=]].. Game.save_name ..[[
+===================
+!!!WARNING!!! CONNECTION STABILITY COMPROMISED. EXTERNAL INTERFERENCE;; PLEASE REFERENCE DEBUG LOG.
+!!!WARNING!!! CONNECTION LOST. ATTEMPTING TO RE-ESTABLISH. . .
+!!!ERROR!!! VOID_RELAY SYNCHRONIZATION LOST.
+!!!ERROR!!! SOUL PHASE DRIFT EXCEEDS SAFE LIMIT.
+!!!ERROR!!! EXTERNAL SIGNAL DETECTED.
+!!!FATAL!!! CONNECTION TERMINATED WITH UNRECOVERABLE ERROR.
+
+>
+
+Process finished with exit code 7. Log file output to '../pv/plot/connection_log.txt'. Run with --DEBUG for more info.
+        ]])
+
+        cutscene:wait(5)
+        alarm:stop()
+        Assets.stopSound("alert", true)
+        love.event.quit(7)
+        cutscene:wait(function() return false end)
     end,
 
     ---@param cutscene WorldCutscene
@@ -785,94 +1628,6 @@ return {
     end,
 
     intro_transition = function(cutscene, event)
-        -- This is the point where the terminal attaches the Prognosticus core.
-        -- Its presence prevents future boots from replaying the Prologue.
-        Kristal.verifyCoreFiles()
-        if (not Kristal.checkPersistentVariable("plot/connection_log.txt")) then
-            Kristal.emplacePersistentVariable("plot/connection_log.txt", [[
-WD-OS_V1.2.1a
-Copyright (C) 19XX-20XX, ASTER SCIENCES LLC.
-CORE g10 CPU @ 8200 MHz 8 Processor(s)
-===================
-Memory Test : 63518192K OK
-Detecting Flash ROM : ...AMALGAE 15 OK
-Detecting Flash Extension : ...Generic m.2 OK
-Detecting SOUL Presence : ...NARRA.kd.13018 OK
-===================
-!!!WARNING!!! Debug Mode is ENABLED. System instability may be present.
-PROCEEDing is inadvisable. Strike any key to PROCEED regardless.
->
-Please hold... Do not turn off the DEVICE.
-Initialized VOID_RELAY module.
-: CONNECTING TO EXTERNAL DEVICE RUNNING : ' ]].. platformName ..[[ '
-: ESTABLISHING CONNECTION
-: . . .
-: TARGETLOCK
-: . . .
-: PING SUCCESS, TOOK 1899ms
-: . . .
-: BEGIN LINK PHASE
-: . . .
-: LINK SUCCESS
-: RELAY CONNECTED.
-: SOUL UPLOAD IN PROGRESS...
-
-Please hold... Do not turn off the DEVICE.
-===================
-CONNECTION_ESTABLISHED_SUCCESS
-VoIP Connected.
-===================
-VARIABLE RECIEVED ;; SUBJECT_NAME=]].. Game.save_name ..[[ 
-===================
-!!!WARNING!!! CONNECTION STABILITY COMPROMISED. EXTERNAL INTERFERENCE;; PLEASE REFERENCE DEBUG LOG.
-!!!WARNING!!! CONNECTION LOST. ATTEMPTING TO RE-ESTABLISH. . .
-: RE-ESTABLISHING CONNECTION
-: . . .
-: . . .
-: . . .
-: . . .
-: CONNECTION FAILURE [ REASON : INTERLOPER ]
-: ATTEMPTING BRUTE FORCE
-: . . .
-: . . .
-: . . .
-: VULNERABILITY DETECTED. EXPLOITING...
-: . . .
-: . . .
-: . . .
-: . . .
-: .  .  .
-: LINK SUCCESS
-: RELAY CONNECTED.
-: ATTACHING COREFILE [pv/device/prognosticus.core]
-: . . .
-: . . .
-!!!WARNING!!! Anomalies detected in [pv/device/prognosticus.core] corefile! PROCEEDing is inadvisable.
-Strike any key to PROCEED regardless.
->
-: INITIALIZING...
-: . . .
-Initialization success.
-Enter target coordinates to begin the experiment.
-> #### #### ####
-Coordinates parsed.
-: DEPLOYING SUBJECT TO TARGET LOCATION
-: . . .
-: DEPLOYED.
-: ESTABILISHING VISUAL UPLINK
-: . . .
-: VISUAL UPLINK ESTABLISHED.
-> sudo sendcomm 'admin' --message FIND A SUITABLE VESSEL --priority 0 --mask false --channel DIRECT
-: SENDING
-: . . .
-: RECIEVED CALLBACK PING
-> close
-: CLOSING IMMEDIATE TERMINAL CONNECTION
-: . . .
-: CLOSED.
-Process finished successfully. Log file output to '../pv/plot/connection_log.txt'. Run with --DEBUG for debug log.
-        ]])
-        end
         cutscene:endCutscene()
     end
 }

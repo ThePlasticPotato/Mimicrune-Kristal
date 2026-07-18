@@ -242,8 +242,6 @@ function love.load(args)
     love.filesystem.createDirectory("pv/plot")
     love.filesystem.createDirectory("pv/device")
 
-    -- The Prognosticus core is a Prologue completion marker. Do not create it
-    -- during boot: the connection sequence attaches it when that point is met.
     Kristal.PrognosticusCoreMissingAtStartup =
         not Kristal.checkPersistentVariable("device/prognosticus.core")
 
