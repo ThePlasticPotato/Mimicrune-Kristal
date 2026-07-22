@@ -1,4 +1,8 @@
+--- Defines how a type of document is opened and displayed.
 ---@class EditorDocumentProvider : Class
+---@field editor Editor
+---@field id string?
+---@field priority number
 ---@overload fun(editor: Editor, options?: table): EditorDocumentProvider
 local EditorDocumentProvider = Class()
 
@@ -27,6 +31,10 @@ end
 
 function EditorDocumentProvider:close(document)
     return false
+end
+
+function EditorDocumentProvider:closeActive()
+    return nil
 end
 
 function EditorDocumentProvider:isFocused()

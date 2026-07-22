@@ -1,4 +1,14 @@
+--- Displays the layers in the active map.
 ---@class EditorLayersPanel : EditorControl
+---@field darken_toggle EditorCheckbox
+---@field detail_y number
+---@field document EditorMapDocument?
+---@field editor Editor
+---@field list EditorTreeList
+---@field map_id string?
+---@field new_button EditorButton
+---@field selected_layer table?
+---@field updating_fields boolean
 ---@overload fun(editor: table): EditorLayersPanel
 local EditorLayersPanel, super = Class(EditorControl)
 
@@ -29,8 +39,7 @@ function EditorLayersPanel:init(editor)
         on_rename = function(node, _, new_name) self:renameLayer(node.data, new_name) end,
         on_move = function(node) self:applyLayerTreeMove(node) end,
         on_drag_start = function(node)
-            local layer_type = self:getLayerType(node.data)
-            self.editor:beginDragPreview("layer", node.name, layer_type and layer_type.icon, node.data)
+            self.editor:beginDragPreview("layer", node.name, self:getLayerIcon(node.data), node.data)
         end,
         on_drag_move = function(_, list, x, y)
             local gx, gy = list:getGlobalPosition()
@@ -106,6 +115,10 @@ function EditorLayersPanel:openLayerContextMenu(node, list, x, y)
         end
         table.insert(items, { label = "Rename", action = function() list:beginRename(node) end })
         table.insert(items, {
+            label = layer._editor_locked and "Unlock Layer" or "Lock Layer",
+            action = function() self:toggleLayerLock(layer) end
+        })
+        table.insert(items, {
             label = "Delete Layer",
             action = function()
                 self:selectLayer(layer)
@@ -129,6 +142,14 @@ function EditorLayersPanel:getLayerColor(layer)
     return Registry.layer_types:getLayerColor(layer, self:getLayerType(layer))
 end
 
+function EditorLayersPanel:getLayerIcon(layer)
+    return Registry.layer_types:getLayerIcon(layer, self:getLayerType(layer))
+end
+
+function EditorLayersPanel:getLayerDepthText(layer)
+    return "L " .. string.format("%g", tonumber(layer and layer._editor_depth_offset) or 0)
+end
+
 function EditorLayersPanel:findLayerNode(uid)
     local found
     local function visit(parent)
@@ -142,7 +163,8 @@ function EditorLayersPanel:findLayerNode(uid)
     return found
 end
 
-function EditorLayersPanel:refreshList(selected_uid)
+function EditorLayersPanel:refreshList(selected_uid, silent)
+    if self.list.right_edit_item then self.list:finishRightItemEdit(false) end
     selected_uid = selected_uid or (self.selected_layer and self.selected_layer._editor_uid)
     self.list.root.children = {}
     local function append(layers, parent)
@@ -154,10 +176,30 @@ function EditorLayersPanel:refreshList(selected_uid)
                     container = layer._editor_kind_id == "group",
                     expanded = layer._editor_expanded ~= false,
                     data = layer,
-                    icon = layer_type and layer_type.icon,
+                    icon = self:getLayerIcon(layer),
                     color = self:getLayerColor(layer),
-                    right_icon = layer._editor_visible == false and "editor/ui/eye_closed" or "editor/ui/eye_open",
-                    right_action = function() self:toggleLayerVisibility(layer) end
+                    right_icons = {
+                        {
+                            text = self:getLayerDepthText(layer),
+                            min_width = 48,
+                            color = { 0.75, 0.75, 0.8, 1 },
+                            background_color = { 0.12, 0.12, 0.14, 0.9 },
+                            editable = true,
+                            edit_value = function()
+                                return string.format("%g", tonumber(layer._editor_depth_offset) or 0)
+                            end,
+                            on_submit = function(value) return self:setLayerDepthInline(layer, value) end
+                        },
+                        {
+                            icon = layer._editor_locked and "editor/ui/lock_closed" or "editor/ui/lock_open",
+                            color = layer._editor_locked and { 1, 0.78, 0.28, 1 } or { 0.68, 0.68, 0.72, 1 },
+                            action = function() self:toggleLayerLock(layer) end
+                        },
+                        {
+                            icon = layer._editor_visible == false and "editor/ui/eye_closed" or "editor/ui/eye_open",
+                            action = function() self:toggleLayerVisibility(layer) end
+                        }
+                    }
                 })
             node.parent = parent
             table.insert(parent.children, node)
@@ -169,11 +211,21 @@ function EditorLayersPanel:refreshList(selected_uid)
     local selected_node = selected_uid and self:findLayerNode(selected_uid)
         or self.list.visible_nodes[1] and self.list.visible_nodes[1].node
     if selected_node then
-        self.list:selectNode(selected_node)
-        self:selectLayer(selected_node.data)
+        if silent then
+            self.list.selected_node = selected_node
+            self.selected_layer = selected_node.data
+        else
+            self.list:selectNode(selected_node)
+            self:selectLayer(selected_node.data)
+        end
     else
-        self.list:selectNode(nil)
-        self:selectLayer(nil)
+        if silent then
+            self.list.selected_node = nil
+            self.selected_layer = nil
+        else
+            self.list:selectNode(nil)
+            self:selectLayer(nil)
+        end
     end
 end
 
@@ -209,19 +261,41 @@ function EditorLayersPanel:getPropertiesTarget(layer)
         },
         {
             id = "depth",
-            label = "Depth Override",
+            label = "Layer Offset",
             compact = true,
-            placeholder = "Automatic",
-            get = function() return layer._editor_depth_override or "" end,
+            placeholder = "0",
+            get = function() return tonumber(layer._editor_depth_offset) or 0 end,
             set = function(value, submitted) return self:setLayerDepth(layer, value, submitted) end
         },
         EditorPropertyFields.number(layer, "Parallax X", "parallaxx", { default = 1 }),
         EditorPropertyFields.number(layer, "Parallax Y", "parallaxy", { default = 1 })
     }
+    if layer._editor_kind_id ~= "group" then
+        table.insert(fields, EditorPropertyFields.choice(layer, "Blend Mode", "blend_mode", {
+            { value = "normal", label = "Normal" },
+            { value = "add", label = "Add" },
+            { value = "multiply", label = "Multiply" },
+            { value = "screen", label = "Screen" },
+            { value = "darken", label = "Darken" },
+            { value = "lighten", label = "Lighten" }
+        }, { default = "normal", compact = true }))
+        table.insert(fields, {
+            id = "opacity",
+            label = "Opacity",
+            compact = true,
+            get = function() return layer.opacity == nil and 1 or layer.opacity end,
+            set = function(value) return self:setLayerOpacity(layer, value) end
+        })
+    end
     if layer._editor_kind_id == "image" or (layer_type and layer_type.kind == "image") then
         table.insert(fields, 1, {
             id = "image",
             label = "Image Source",
+            control = "path",
+            path_kind = "asset",
+            asset_registry = { "texture", "frames" },
+            path_root = "assets/sprites",
+            strip_extension = true,
             placeholder = "Sprite asset ID or path",
             get = function() return layer.image or "" end,
             set = function(value) return self:setLayerImage(layer, value) end
@@ -234,7 +308,14 @@ function EditorLayersPanel:getPropertiesTarget(layer)
         property_types = layer._editor_property_types,
         property_set = layer._editor_property_set,
         fields = fields,
-        on_changed = function() self:changed(false) end
+        on_changed = function(name)
+            local node = self:findLayerNode(layer._editor_uid)
+            if node then
+                node.icon = self:getLayerIcon(layer)
+                node.right_icons[1].text = self:getLayerDepthText(layer)
+            end
+            self:changed(false)
+        end
     }
 end
 
@@ -242,6 +323,32 @@ function EditorLayersPanel:toggleLayerVisibility(layer)
     if not self.document or not layer then return false end
     self.editor:beginHistoryTransaction("Toggle Layer Visibility", self.document)
     self.document:setEditableLayerVisible(layer._editor_uid, layer._editor_visible == false, self.map_id)
+    self.editor:markHistoryChanged()
+    self.editor:commitHistoryTransaction()
+    self:refreshList(self.selected_layer and self.selected_layer._editor_uid)
+    return true
+end
+
+function EditorLayersPanel:toggleLayerLock(layer)
+    if not self.document or not layer then return false end
+    self.editor:beginHistoryTransaction(layer._editor_locked and "Unlock Layer" or "Lock Layer",
+        self.document)
+    layer._editor_locked = not layer._editor_locked
+    layer.locked = layer._editor_locked
+    if layer._editor_locked then
+        local remaining = {}
+        for _, selection in ipairs(self.editor:getSelectedMapObjects(self.document)) do
+            if not self.document:isLayerLocked(selection.layer, selection.map_id) then
+                table.insert(remaining, selection)
+            end
+        end
+        self.editor:selectMapObjects(remaining, remaining[1])
+        local view = self.document.map_view
+        if view and view.tile_selection
+            and self.document:isLayerLocked(view.tile_selection.layer, view.tile_selection.map_id) then
+            view.tile_selection = nil
+        end
+    end
     self.editor:markHistoryChanged()
     self.editor:commitHistoryTransaction()
     self:refreshList(self.selected_layer and self.selected_layer._editor_uid)
@@ -263,6 +370,8 @@ function EditorLayersPanel:renameLayer(layer, value)
         if entry.layer ~= layer and entry.layer.id then used[entry.layer.id] = true end
     end
     layer.id = EditorFormat.uniqueSlug(value, used, "layer")
+    local node = self:findLayerNode(layer._editor_uid)
+    if node then node.icon = self:getLayerIcon(layer) end
     if self.selected_layer == layer then
         self.editor:setPropertiesTarget(self:getPropertiesTarget(layer), self)
     end
@@ -285,6 +394,14 @@ function EditorLayersPanel:setLayerColor(layer, value)
         self.editor:addWarning("Layer color must use #RRGGBB or #RRGGBBAA", nil, "layer_color")
         return false
     end
+end
+
+function EditorLayersPanel:setLayerOpacity(layer, value)
+    value = tonumber(value)
+    if not layer or value == nil then return false end
+    layer.opacity = MathUtils.clamp(value, 0, 1)
+    layer.alpha = layer.opacity
+    return true
 end
 
 function EditorLayersPanel:setLayerImage(layer, value)
@@ -310,15 +427,39 @@ end
 
 function EditorLayersPanel:setLayerDepth(layer, value, submitted)
     if not layer then return false end
-    local depth = value == "" and false or tonumber(value)
+    local depth = value == "" and 0 or tonumber(value)
     if depth ~= nil then
-        layer._editor_depth_override = depth or nil
+        layer._editor_depth_offset = depth
+        local node = self:findLayerNode(layer._editor_uid)
+        if node then node.right_icons[1].text = self:getLayerDepthText(layer) end
         self.editor:clearDiagnostics("layer_depth")
         return true
     elseif submitted then
-        self.editor:addWarning("Layer depth override must be a number or blank", nil, "layer_depth")
+        self.editor:addWarning("Layer depth offset must be a number", nil, "layer_depth")
     end
     return false
+end
+
+function EditorLayersPanel:setLayerDepthInline(layer, value)
+    if not self.document or not layer then return false end
+    local previous = tonumber(layer._editor_depth_offset) or 0
+    self.editor:beginHistoryTransaction("Edit Layer Depth", self.document)
+    if not self:setLayerDepth(layer, value, true) then
+        self.editor:cancelHistoryTransaction()
+        return false
+    end
+    local changed = previous ~= layer._editor_depth_offset
+    if changed then
+        self:changed(false)
+        self.editor:markHistoryChanged()
+        self.editor:commitHistoryTransaction()
+    else
+        self.editor:cancelHistoryTransaction()
+    end
+    if self.selected_layer == layer then
+        self.editor:setPropertiesTarget(self:getPropertiesTarget(layer), self)
+    end
+    return true
 end
 
 function EditorLayersPanel:createLayer(type_id, parent_uid)

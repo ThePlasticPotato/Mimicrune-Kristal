@@ -1,4 +1,11 @@
+--- Stores property values, types, definitions, and groups for one owner.
 ---@class EditorPropertySet : Class
+---@field definitions table
+---@field group_order table
+---@field groups table
+---@field order table
+---@field types table
+---@field values any
 ---@overload fun(values?: table, types?: table): EditorPropertySet
 local EditorPropertySet = Class()
 
@@ -88,9 +95,11 @@ function EditorPropertySet:normalizeObjectReferences(default_map_id)
                 if definition.group_index then map_key = map_key .. tostring(definition.group_index) end
                 map_id = self.values[map_key] or map_id
             end
-            local reference = definition.marker
-                and MapUtils.resolveMarkerReference(map_id, self.values[definition.id])
-                or EditorObjectReference.from(self.values[definition.id], map_id)
+            local reference = EditorObjectReference.from(self.values[definition.id], map_id)
+            if definition.allowed_types
+                and MapUtils.isObjectTypeAllowed("marker", definition.allowed_types) then
+                reference = MapUtils.resolveMarkerReference(map_id, self.values[definition.id])
+            end
             self.values[definition.id] = reference
             self.types[definition.id] = "object_reference"
         end

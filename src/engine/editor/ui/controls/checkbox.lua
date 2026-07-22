@@ -1,4 +1,11 @@
+--- Provides a labeled boolean checkbox.
 ---@class EditorCheckbox : EditorControl
+---@field cursor_type string
+---@field focusable boolean
+---@field focused boolean
+---@field label string?
+---@field on_changed function?
+---@field value boolean
 ---@overload fun(label?: string, value?: boolean, on_changed?: function): EditorCheckbox
 local EditorCheckbox, super = Class(EditorControl)
 

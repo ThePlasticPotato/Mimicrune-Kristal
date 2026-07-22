@@ -1,4 +1,15 @@
+--- Handles plugins.
 ---@class EditorPlugins
+---@field directory string
+---@field debug_directory string
+---@field plugins table<string, EditorPlugin>
+---@field plugin_order EditorPlugin[]
+---@field panel_definitions table[]
+---@field menu_definitions table[]
+---@field command_definitions table[]
+---@field file_context_providers table[]
+---@field object_initializers table[]
+---@field editor Editor?
 local EditorPlugins = {
     directory = "editor/plugins",
     debug_directory = "plugins",
@@ -7,7 +18,8 @@ local EditorPlugins = {
     panel_definitions = {},
     menu_definitions = {},
     command_definitions = {},
-    event_initializers = {},
+    file_context_providers = {},
+    object_initializers = {},
     editor = nil
 }
 
@@ -96,6 +108,35 @@ function EditorPlugin:registerPropertyType(id, definition)
     return type_id
 end
 
+function EditorPlugin:registerFileType(id, definition)
+    assert(type(id) == "string" and id ~= "", "Plugin file types require an id")
+    local editor = assert(EditorPlugins.editor, "Plugin file types require an active editor")
+    local type_id = namespaced(self, "file_type", id)
+    local registered = editor.file_type_registry:register(type_id, definition)
+    registered.owner = self
+    self:trackRegistration(function()
+        if editor.file_type_registry then
+            editor.file_type_registry:unregister(type_id, registered)
+        end
+    end)
+    return registered
+end
+
+function EditorPlugin:registerFileContextProvider(id, provider)
+    assert(type(id) == "string" and id ~= "", "Plugin file context providers require an id")
+    assert(type(provider) == "function", "Plugin file context providers require a callback")
+    local definition = {
+        plugin = self,
+        id = namespaced(self, "file_context", id),
+        provider = provider
+    }
+    table.insert(EditorPlugins.file_context_providers, definition)
+    self:trackRegistration(function()
+        TableUtils.removeValue(EditorPlugins.file_context_providers, definition)
+    end)
+    return definition
+end
+
 function EditorPlugin:registerFormatExtension(scope, id, definition)
     assert(scope == "map" or scope == "tileset" or scope == "world",
         "Editor format extension scope must be map, tileset, or world")
@@ -152,39 +193,39 @@ function EditorPlugin:registerLayerType(id, definition)
     return type_id
 end
 
-function EditorPlugin:registerEditorEventProperty(event_id, id, property_type, options)
-    return self:registerEditorEventInitializer(event_id, function(event)
-        event:registerProperty(id, property_type, options)
+function EditorPlugin:registerEditorObjectProperty(object_id, id, property_type, options)
+    return self:registerEditorObjectInitializer(object_id, function(object)
+        object:registerProperty(id, property_type, options)
     end)
 end
 
-function EditorPlugin:registerEditorEventInitializer(event_id, initializer)
-    assert(type(initializer) == "function", "EditorEvent initializers must be functions")
-    EditorPlugins.event_initializers[event_id] = EditorPlugins.event_initializers[event_id] or {}
-    table.insert(EditorPlugins.event_initializers[event_id], initializer)
+function EditorPlugin:registerEditorObjectInitializer(object_id, initializer)
+    assert(type(initializer) == "function", "EditorObject initializers must be functions")
+    EditorPlugins.object_initializers[object_id] = EditorPlugins.object_initializers[object_id] or {}
+    table.insert(EditorPlugins.object_initializers[object_id], initializer)
     self:trackRegistration(function()
-        local initializers = EditorPlugins.event_initializers[event_id]
+        local initializers = EditorPlugins.object_initializers[object_id]
         if not initializers then return end
         TableUtils.removeValue(initializers, initializer)
-        if #initializers == 0 then EditorPlugins.event_initializers[event_id] = nil end
+        if #initializers == 0 then EditorPlugins.object_initializers[object_id] = nil end
     end)
     return initializer
 end
 
-function EditorPlugin:registerEditorEvent(id, event, options)
-    if type(event) == "string" then event = self:require(event) end
+function EditorPlugin:registerEditorObject(id, object, options)
+    if type(object) == "string" then object = self:require(object) end
     options = options or {}
-    local event_id = id
-    local previous = Registry.getEditorEvent(event_id)
+    local object_id = id
+    local previous = Registry.getEditorObject(object_id)
     assert(not previous or options.replace == true,
-        "Editor event '" .. tostring(event_id) .. "' is already registered; pass replace = true to override it")
-    local previous_id = event.id
-    Registry.registerEditorEvent(event_id, event)
+        "Editor object '" .. tostring(object_id) .. "' is already registered; pass replace = true to override it")
+    local previous_id = object.id
+    Registry.registerEditorObject(object_id, object)
     self:trackRegistration(function()
-        if Registry.editor_events[event_id] == event then Registry.editor_events[event_id] = previous end
-        if event.id == event_id then event.id = previous_id end
+        if Registry.editor_objects[object_id] == object then Registry.editor_objects[object_id] = previous end
+        if object.id == object_id then object.id = previous_id end
     end)
-    return event_id
+    return object_id
 end
 
 function EditorPlugin:registerEditorDrawFX(id, definition)
@@ -217,6 +258,56 @@ function EditorPlugin:registerPanel(id, title, content_factory, options)
         TableUtils.removeValue(EditorPlugins.panel_definitions, definition)
     end)
     return definition
+end
+
+---@param id string
+---@param name string|table
+---@param layout? table|fun(editor: Editor, workspace: table): table
+---@param options? table
+function EditorPlugin:registerWorkspace(id, name, layout, options)
+    assert(type(id) == "string" and id ~= "", "Plugin workspaces require an id")
+    assert(not self.workspaces[id], "Duplicate plugin workspace id: " .. id)
+    if type(name) == "table" and layout == nil then
+        options = name
+        name = options.name
+        layout = options.layout or options.get_layout
+    end
+    options = TableUtils.copy(options or {}, false)
+    local workspace_id = namespaced(self, "workspace", id)
+    options.name = name or options.name or id
+    options.layout = layout or options.layout or options.get_layout
+    options.owner = self
+    local workspace = EditorPlugins.editor.workspace_registry:register(workspace_id, options)
+    self.workspaces[id] = workspace
+    self:trackRegistration(function()
+        self.workspaces[id] = nil
+        local editor = EditorPlugins.editor
+        if editor and editor.workspace_registry then
+            editor.workspace_registry:remove(workspace_id, workspace)
+        end
+    end)
+    return workspace
+end
+
+---@param music string|false Music id, or false to silence editor music
+---@param options? {volume?: number, pitch?: number, looping?: boolean, fade?: number}
+function EditorPlugin:setEditorMusicOverride(music, options)
+    local editor = assert(EditorPlugins.editor, "Editor music is unavailable outside editor mode")
+    if not self.editor_music_cleanup_registered then
+        self.editor_music_cleanup_registered = true
+        self:trackRegistration(function()
+            local active_editor = EditorPlugins.editor
+            if active_editor then active_editor:clearEditorMusicOverride(self, { fade = 0 }) end
+            self.editor_music_cleanup_registered = nil
+        end)
+    end
+    return editor:setEditorMusicOverride(self, music, options)
+end
+
+---@param options? {fade?: number}
+function EditorPlugin:clearEditorMusicOverride(options)
+    local editor = EditorPlugins.editor
+    return editor and editor:clearEditorMusicOverride(self, options) or false
 end
 
 function EditorPlugin:registerMenuItem(menu_id, id, label, options)
@@ -333,11 +424,34 @@ function EditorPlugins:reset()
     self.panel_definitions = {}
     self.menu_definitions = {}
     self.command_definitions = {}
-    self.event_initializers = {}
+    self.file_context_providers = {}
+    self.object_initializers = {}
 end
 
-function EditorPlugins:initializeEditorEvent(event)
-    for _, initializer in ipairs(self.event_initializers[event.id] or {}) do initializer(event) end
+function EditorPlugins:getFileContextMenuItems(data, context)
+    local items = {}
+    for _, definition in ipairs(self.file_context_providers) do
+        if not definition.plugin.disabled then
+            local success, provided = xpcall(function()
+                return definition.provider(data, context)
+            end, ErrorUtils.traceback)
+            if not success then
+                self:report(self.editor,
+                    "Could not build file context menu from plugin: " .. definition.plugin.id, provided)
+            elseif type(provided) == "table" and provided.label then
+                table.insert(items, provided)
+            elseif type(provided) == "table" then
+                for _, item in ipairs(provided) do
+                    if type(item) == "table" and item.label then table.insert(items, item) end
+                end
+            end
+        end
+    end
+    return items
+end
+
+function EditorPlugins:initializeEditorObject(object)
+    for _, initializer in ipairs(self.object_initializers[object.id] or {}) do initializer(object) end
 end
 
 function EditorPlugins:clearPluginHooks(plugin)
@@ -365,6 +479,7 @@ function EditorPlugins:disablePlugin(plugin)
     if self.editor and self.editor.settings then self.editor.settings:removeOwner(plugin) end
     self:clearPluginRegistrations(plugin)
     plugin.settings_pages = {}
+    plugin.workspaces = {}
 end
 
 function EditorPlugins:report(editor, message, detail)
@@ -372,7 +487,7 @@ function EditorPlugins:report(editor, message, detail)
     print(message .. (detail and ("\n" .. detail) or ""))
 end
 
-function EditorPlugins:loadPlugin(editor, directory, folder, source)
+function EditorPlugins:loadPlugin(editor, directory, folder, source, context)
     local path = directory .. "/" .. folder
     local info_path = path .. "/plugin.json"
     if not love.filesystem.getInfo(info_path, "file") then return nil end
@@ -402,13 +517,25 @@ function EditorPlugins:loadPlugin(editor, directory, folder, source)
         end
     end
     if self.plugins[info.id] then
-        if source == "user" and self.plugins[info.id].info.source == "debug" then return nil end
-        self:report(editor, "Duplicate editor plugin id: " .. info.id, path)
-        return nil
+        local existing = self.plugins[info.id]
+        if source ~= "debug" and existing.info.source == "debug" then return nil end
+        if (source == "mod" or source == "library") and existing.info.source == "user" then
+            self.plugins[info.id] = nil
+            TableUtils.removeValue(self.plugin_order, existing)
+        else
+            self:report(editor, "Duplicate editor plugin id: " .. info.id, path)
+            return nil
+        end
     end
 
     info.path = path
     info.source = source
+    info.embedded = source == "mod" or source == "library"
+    info.container_type = context and context.container_type
+    info.project_id = context and context.project_id
+    info.library_id = context and context.library_id
+    info.project = context and context.project
+    info.library = context and context.library
     info.script_chunks = {}
     for _, script_path in ipairs(FileSystemUtils.getFilesRecursive(path, ".lua")) do
         local chunk, load_error = love.filesystem.load(path .. "/" .. script_path .. ".lua")
@@ -512,13 +639,40 @@ function EditorPlugins:initializeFormatExtensions(scope)
     return true
 end
 
-function EditorPlugins:scanDirectory(editor, directory, source)
+function EditorPlugins:scanDirectory(editor, directory, source, context)
     if not love.filesystem.getInfo(directory, "directory") then return end
     local folders = love.filesystem.getDirectoryItems(directory)
     table.sort(folders)
     for _, folder in ipairs(folders) do
         local info = love.filesystem.getInfo(directory .. "/" .. folder)
-        if info and info.type == "directory" then self:loadPlugin(editor, directory, folder, source) end
+        if info and info.type == "directory" then
+            self:loadPlugin(editor, directory, folder, source, context)
+        end
+    end
+end
+
+function EditorPlugins:scanProjectPlugins(editor)
+    if not Mod or not Mod.info then return end
+    local project_id = Mod.info.id
+    for _, library_id in ipairs(Mod.info.lib_order or {}) do
+        local library = Mod.libs and Mod.libs[library_id]
+        local library_info = library and library.info or Mod.info.libs and Mod.info.libs[library_id]
+        if library_info and library_info.path then
+            self:scanDirectory(editor, library_info.path .. "/editor/plugins", "library", {
+                container_type = "library",
+                project_id = project_id,
+                library_id = library_id,
+                project = Mod,
+                library = library
+            })
+        end
+    end
+    if Mod.info.path then
+        self:scanDirectory(editor, Mod.info.path .. "/editor/plugins", "mod", {
+            container_type = "mod",
+            project_id = project_id,
+            project = Mod
+        })
     end
 end
 
@@ -530,6 +684,7 @@ function EditorPlugins:initialize(editor)
     love.filesystem.createDirectory(self.directory)
     self:scanDirectory(editor, self.debug_directory, "debug")
     self:scanDirectory(editor, self.directory, "user")
+    self:scanProjectPlugins(editor)
     self.plugin_order = self:sortPlugins(editor)
 
     for index, plugin in ipairs(self.plugin_order) do

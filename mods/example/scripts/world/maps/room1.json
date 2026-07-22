@@ -15,8 +15,10 @@
       "y": 0,
       "type": "tile",
       "kind": "tile",
+      "depth": -0.1,
       "alpha": 1,
       "visible": true,
+      "locked": true,
       "parallax_x": 1,
       "parallax_y": 1,
       "properties": [],
@@ -121,6 +123,7 @@
       "y": 0,
       "type": "tile",
       "kind": "tile",
+      "depth": 0,
       "alpha": 1,
       "visible": true,
       "parallax_x": 1,
@@ -161,6 +164,7 @@
       "y": 0,
       "type": "collision",
       "kind": "object",
+      "depth": 0,
       "alpha": 0.5,
       "visible": true,
       "parallax_x": 1,
@@ -551,6 +555,7 @@
       "y": 0,
       "type": "objects",
       "kind": "object",
+      "depth": 0,
       "alpha": 1,
       "visible": true,
       "parallax_x": 1,
@@ -586,6 +591,7 @@
       "y": 0,
       "type": "objects",
       "kind": "object",
+      "depth": 0,
       "alpha": 1,
       "visible": true,
       "parallax_x": 1,
@@ -679,8 +685,9 @@
       "name": "markers",
       "x": 0,
       "y": 0,
-      "type": "markers",
+      "type": "objects",
       "kind": "object",
+      "depth": 0,
       "alpha": 1,
       "visible": true,
       "parallax_x": 1,
@@ -691,7 +698,7 @@
         {
           "id": 20,
           "name": "spawn",
-          "type": "",
+          "type": "marker",
           "x": 300,
           "y": 250,
           "width": 0,
@@ -711,7 +718,7 @@
         {
           "id": 30,
           "name": "entry",
-          "type": "",
+          "type": "marker",
           "x": 760,
           "y": 240,
           "width": 0,
@@ -731,7 +738,7 @@
         {
           "id": 38,
           "name": "entry_climb",
-          "type": "",
+          "type": "marker",
           "x": 740,
           "y": 1260,
           "width": 0,
@@ -757,7 +764,7 @@
         {
           "id": 47,
           "name": "",
-          "type": "",
+          "type": "marker",
           "x": 300,
           "y": 980,
           "width": 0,
@@ -777,7 +784,7 @@
         {
           "id": 49,
           "name": "",
-          "type": "",
+          "type": "marker",
           "x": 300,
           "y": 850,
           "width": 0,
@@ -797,7 +804,7 @@
         {
           "id": 55,
           "name": "",
-          "type": "",
+          "type": "marker",
           "x": 700,
           "y": 710,
           "width": 0,
@@ -823,6 +830,7 @@
       "y": 0,
       "type": "objects",
       "kind": "object",
+      "depth": 0,
       "alpha": 1,
       "visible": true,
       "parallax_x": 1,
@@ -954,7 +962,7 @@
           "properties": [
             {
               "name": "cutscene",
-              "type": "string",
+              "type": "script_path",
               "value": "room1.wall"
             },
             {
@@ -1086,7 +1094,13 @@
             "shape_data": {}
           },
           "visible": true,
-          "properties": [],
+          "properties": [
+            {
+              "name": "item",
+              "type": "chooser",
+              "value": "autoaxe"
+            }
+          ],
           "center_x": 140,
           "center_y": 740
         },

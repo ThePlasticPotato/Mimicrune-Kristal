@@ -1,4 +1,15 @@
+--- Registers and displays the editor menu bar.
 ---@class EditorMenuBar : Class
+---@field button_rects table
+---@field editor Editor
+---@field height number
+---@field item_rects table
+---@field items table
+---@field open_menu any
+---@field providers table
+---@field y number
+---@field width number
+---@field x number
 ---@overload fun(editor: table): EditorMenuBar
 local EditorMenuBar = Class()
 
@@ -7,8 +18,8 @@ EditorMenuBar.HEIGHT = 30
 local BUTTONS = {
     { id = "file", label = "File" },
     { id = "edit", label = "Edit" },
-    { id = "properties", label = "Properties" },
     { id = "view", label = "View" },
+    { id = "workspaces", label = "Workspaces" },
     { id = "window", label = "Window" },
     { id = "help", label = "Help" }
 }
@@ -171,6 +182,25 @@ function EditorMenuBar:onMousePressed(x, y, button)
     local was_open = self.open_menu ~= nil
     self.open_menu = nil
     return was_open or y < self.y + self.height
+end
+
+function EditorMenuBar:onMouseMoved(x, y)
+    if not self.open_menu then return false end
+    self:layout()
+    for _, button in ipairs(BUTTONS) do
+        local rect = self.button_rects[button.id]
+        if MathUtils.pointInRect(x, y, rect) then
+            if button.id ~= self.open_menu and #self:getItems(button.id) > 0 then
+                self.open_menu = button.id
+                self:layout()
+            end
+            return true
+        end
+    end
+    for _, rect in ipairs(self.item_rects) do
+        if MathUtils.pointInRect(x, y, rect) then return true end
+    end
+    return y >= self.y and y < self.y + self.height
 end
 
 function EditorMenuBar:onKeyPressed(key)

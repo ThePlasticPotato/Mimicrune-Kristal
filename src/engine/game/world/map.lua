@@ -69,6 +69,7 @@ function Map:init(world, data)
     self.shape_layers = {}
     self.markers = {}
     self.markers_by_id = {}
+    self.player_spawn = nil
     self.battle_areas = {}
     self.battle_borders = {}
     self.paths = {}
@@ -183,7 +184,7 @@ function Map:getMarker(id)
     elseif type(id) == "number" then
         marker = self.markers_by_id[id]
     else
-        marker = self.markers[id]
+        marker = id == "spawn" and self.player_spawn or self.markers[id]
     end
 
     if marker == nil then
@@ -207,7 +208,7 @@ function Map:hasMarker(id)
         return self.markers_by_id[id] ~= nil
     end
 
-    return self.markers[id] ~= nil
+    return id == "spawn" and self.player_spawn ~= nil or self.markers[id] ~= nil
 end
 
 function Map:getPath(name)

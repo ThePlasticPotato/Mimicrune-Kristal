@@ -1,41 +1,18 @@
+--- Displays and manages files in the current project.
 ---@class EditorFileBrowser : EditorControl
+---@field editor Editor
+---@field new_file_button EditorButton
+---@field new_folder_button EditorButton
+---@field search EditorSearchBar
+---@field tree EditorTreeList
+---@field workspace EditorProjectWorkspace
 ---@overload fun(editor: Editor, workspace: EditorProjectWorkspace): EditorFileBrowser
 local EditorFileBrowser, super = Class(EditorControl)
 
-local function dirname(path)
-    return path:match("^(.*)/[^/]+$") or path
-end
-
-local function childPath(parent, name)
-    return parent:gsub("/+$", "") .. "/" .. name
-end
-
-local function normalizeExternalPath(path)
-    path = tostring(path or ""):gsub("\\", "/")
-    local unc = path:sub(1, 2) == "//"
-    path = path:gsub("/+", "/")
-    if unc then path = "/" .. path end
-    return path
-end
-
-local function encodePath(path)
-    return normalizeExternalPath(path):gsub("([^%w%-%._~/:])", function(character)
-        return string.format("%%%02X", character:byte())
-    end)
-end
-
-local function fileURL(path)
-    local encoded = encodePath(path)
-    if encoded:match("^%a:/") then return "file:///" .. encoded end
-    if encoded:sub(1, 2) == "//" then return "file:" .. encoded end
-    if encoded:sub(1, 1) == "/" then return "file://" .. encoded end
-    return "file:///" .. encoded
-end
-
-local function openExternal(editor, url, label)
+function EditorFileBrowser:openExternal(url, label)
     local opened = love.system.openURL(url)
     if opened == false then
-        editor:addWarning("Could not " .. label, "No application accepted " .. url, "filesystem")
+        self.editor:addWarning("Could not " .. label, "No application accepted " .. url, "filesystem")
         return false
     end
     return true
@@ -146,6 +123,20 @@ function EditorFileBrowser:init(editor, workspace)
         on_activate = function(node) self:activateNode(node) end,
         on_rename = function(node, old_name) self:renameNode(node, old_name) end,
         on_move = function(node, old_parent) self:moveNode(node, old_parent) end,
+        on_drag_start = function(node)
+            if node.data and node.data.type == "file" then
+                self.editor:beginProjectFileDrag(node.data, getFileIcon(node.data))
+            end
+        end,
+        on_drag_move = function(_, tree, x, y)
+            local global_x, global_y = tree:getGlobalPosition()
+            self.editor:updateProjectFileDrag(global_x + x, global_y + y)
+        end,
+        on_drag_outside = function(_, tree, x, y)
+            local global_x, global_y = tree:getGlobalPosition()
+            self.editor:finishProjectFileDrag(global_x + x, global_y + y)
+        end,
+        on_drag_end = function() self.editor:cancelProjectFileDrag() end,
         on_context_menu = function(node, tree, x, y) self:openContextMenu(node, tree, x, y) end,
         on_request_focus = function(control) self.editor.dockspace:setFocus(control) end,
         icon_scale = 1
@@ -244,34 +235,34 @@ end
 function EditorFileBrowser:openInVSCode(node)
     local real_path = node and node.data and ProjectFileSystem.getRealPath(node.data.path)
     if not real_path then return false end
-    return openExternal(self.editor, "vscode://file/" .. encodePath(real_path):gsub("^/", ""),
+    return self:openExternal("vscode://file/" .. FileSystemUtils.encodeURLPath(real_path):gsub("^/", ""),
         "open " .. node.name .. " in VS Code")
 end
 
 function EditorFileBrowser:openInFileExplorer(node)
     if not node or not node.data then return false end
-    local path = node.data.type == "directory" and node.data.path or dirname(node.data.path)
+    local path = node.data.type == "directory" and node.data.path or FileSystemUtils.getDirname(node.data.path)
     local real_path = ProjectFileSystem.getRealPath(path)
     if not real_path then return false end
-    return openExternal(self.editor, fileURL(real_path), "open the containing folder")
+    return self:openExternal(FileSystemUtils.toFileURL(real_path), "open the containing folder")
 end
 
 function EditorFileBrowser:getInsertionDirectory()
     local node = self.tree.selected_node
     if node and node.data then
-        return node.data.type == "directory" and node.data.path or dirname(node.data.path)
+        return node.data.type == "directory" and node.data.path or FileSystemUtils.getDirname(node.data.path)
     end
     return self.workspace.virtual_root
 end
 
 function EditorFileBrowser:getUniquePath(directory, base)
-    local path = childPath(directory, base)
+    local path = FileSystemUtils.join(directory, base)
     if not love.filesystem.getInfo(path) then return path end
     local stem, extension = base:match("^(.*)(%.[^.]*)$")
     stem, extension = stem or base, extension or ""
     local index = 2
     repeat
-        path = childPath(directory, stem .. " " .. index .. extension)
+        path = FileSystemUtils.join(directory, stem .. " " .. index .. extension)
         index = index + 1
     until not love.filesystem.getInfo(path)
     return path
@@ -289,7 +280,7 @@ function EditorFileBrowser:createFile()
                 id = "directory", name = "Folder", type = "string",
                 default = function(_, context, definition)
                     if context.directory == context.root and definition.suggested_directory then
-                        return childPath(context.root, definition.suggested_directory)
+                        return FileSystemUtils.join(context.root, definition.suggested_directory)
                     end
                     return context.directory
                 end
@@ -311,7 +302,7 @@ function EditorFileBrowser:createFile()
             if normalized_directory ~= root and not StringUtils.startsWith(normalized_directory, root .. "/") then
                 return false, "Folder must be inside the current project"
             end
-            local path = childPath(normalized_directory, values.file_name)
+            local path = FileSystemUtils.join(normalized_directory, values.file_name)
             if love.filesystem.getInfo(path) then return false, "A file with that name already exists" end
             local source, reason = EditorTemplateRegistry.render(definition, values, {
                 editor = self.editor, workspace = self.workspace, path = path
@@ -345,7 +336,7 @@ function EditorFileBrowser:renameNode(node, old_name)
         return false
     end
     local old_path = node.data.path
-    local destination = childPath(dirname(old_path), node.name)
+    local destination = FileSystemUtils.join(FileSystemUtils.getDirname(old_path), node.name)
     local moved, reason = self.workspace:rename(old_path, destination)
     if not moved then
         node.name = old_name
@@ -362,7 +353,7 @@ function EditorFileBrowser:moveNode(node, old_parent)
     if node.data.path == self.workspace.virtual_root then return self:refresh(node.data.path) end
     local destination_parent = node.parent and node.parent.data and node.parent.data.path
     if not destination_parent then return self:refresh(node.data.path) end
-    local destination = childPath(destination_parent, node.name)
+    local destination = FileSystemUtils.join(destination_parent, node.name)
     if destination == node.data.path then return true end
     local moved, reason = self.workspace:rename(node.data.path, destination)
     if not moved then self.editor:addError("Could not move " .. node.name, reason, "filesystem") end
@@ -386,6 +377,13 @@ function EditorFileBrowser:openContextMenu(node, tree, x, y)
     local items = {}
     if node.data.type == "file" then
         table.insert(items, { label = "Open", action = function() self:activateNode(node) end })
+        for _, item in ipairs(EditorPlugins:getFileContextMenuItems(node.data, {
+            browser = self,
+            node = node,
+            tree = tree
+        })) do
+            table.insert(items, item)
+        end
         table.insert(items, { label = "Open in VS Code", action = function() self:openInVSCode(node) end })
     end
     table.insert(items, { label = node.data.type == "directory" and "Open in File Explorer"

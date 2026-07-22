@@ -1,4 +1,13 @@
+--- Describes a reusable group of related properties.
 ---@class EditorPropertyGroup : Class
+---@field id string?
+---@field indexed boolean
+---@field name string?
+---@field order table
+---@field owner any
+---@field primary any
+---@field properties table
+---@field registry any
 ---@overload fun(id: string, options?: table, owner?: EditorPropertySet): EditorPropertyGroup
 local EditorPropertyGroup = Class()
 
@@ -76,10 +85,17 @@ function EditorPropertyGroup:addInstance(properties, property_types)
             local instance_definition = TableUtils.copy(definition, true)
             instance_definition.group_id = self.id
             instance_definition.group_index = index
-            self.owner:addProperty(key, definition.type, instance_definition)
+            if properties[key] == nil then
+                self.owner:addProperty(key, definition.type, instance_definition)
+            else
+                self.owner:registerProperty(key, definition.type, instance_definition)
+                property_types[key] = definition.type
+            end
             self.owner.definitions[key].custom = nil
         else
-            properties[key] = self.registry:getDefault(definition.type, definition)
+            if properties[key] == nil then
+                properties[key] = self.registry:getDefault(definition.type, definition)
+            end
             property_types[key] = definition.type
         end
     end

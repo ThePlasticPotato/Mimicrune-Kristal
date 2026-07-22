@@ -1,4 +1,13 @@
+--- Stores a group of positioned maps for world editing.
 ---@class EditorWorld : Class
+---@field __editor_property_types table
+---@field data table
+---@field id string?
+---@field map_lookup table<string, table>
+---@field maps table
+---@field name string?
+---@field primary_map_id string?
+---@field properties table
 ---@overload fun(id?: string): EditorWorld
 local EditorWorld = Class()
 
@@ -44,7 +53,7 @@ end
 
 function EditorWorld:addMap(id, x, y, options)
     options = options or {}
-    if not id or not Registry.getMap(id) and not Registry.getMapData(id) then return nil end
+    if not Registry.hasMap(id) then return nil end
     local entry = self.map_lookup[id]
     if entry then
         if x ~= nil then entry.x = x end

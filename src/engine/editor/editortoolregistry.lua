@@ -1,4 +1,7 @@
+--- Handles tools for the top toolbar.
 ---@class EditorToolRegistry : Class
+---@field order table
+---@field tools table
 ---@overload fun(): EditorToolRegistry
 local EditorToolRegistry = Class()
 

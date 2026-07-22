@@ -1,4 +1,9 @@
+--- Registers commands that can be run from the editor, similar to those you'd find in an IDE
 ---@class EditorCommandRegistry : Class
+---@field commands table
+---@field order table
+---@field provider_order table
+---@field providers table
 ---@overload fun(): EditorCommandRegistry
 local EditorCommandRegistry = Class()
 

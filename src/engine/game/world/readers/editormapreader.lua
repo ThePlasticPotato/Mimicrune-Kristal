@@ -1,3 +1,4 @@
+--- Loads editor-format maps into the game world.
 ---@class EditorMapReader : MapReader
 ---@overload fun(map: Map): EditorMapReader
 local EditorMapReader, super = Class(MapReader)
@@ -42,22 +43,27 @@ end
 
 function EditorMapReader:read(data)
     local map = self.map
-    local depth = map.depth_per_layer
-    local event_depths, object_depths, marker_depths, tile_depths = {}, {}, {}, {}
-    local spawn_depth, battle_border_depth
+    local object_depths, tile_depths = {}, {}
+    local spawn_depth, battle_border_depth, maximum_depth
     MapUtils.walkLayers(data.layers, function(layer)
         if Registry.layer_types:getLayerKind(layer) == "group" then
             return layer.visible ~= false
         elseif layer.visible ~= false then
-            local layer_depth = layer._editor_depth_override or depth
+            local layer_depth = tonumber(layer._editor_depth_offset) or 0
+            maximum_depth = maximum_depth and math.max(maximum_depth, layer_depth) or layer_depth
             local type_id = layer._editor_type_id or layer.type
             local kind = Registry.layer_types:getLayerKind(layer)
             map.layers[layer.name] = layer_depth
             if kind == "object" then
-                table.insert(object_depths, layer_depth)
-                if type_id == "objects" then table.insert(event_depths, layer_depth) end
-                if type_id == "markers" then table.insert(marker_depths, layer_depth) end
-                if layer.properties and layer.properties.spawn then spawn_depth = layer_depth end
+                if type_id == "objects" then
+                    table.insert(object_depths, layer_depth)
+                    for _, object in ipairs(layer.objects or {}) do
+                        local object_type = map:getObjectType(object)
+                        if Registry.getEditorObjectRuntimeType(object_type) == "player" then
+                            spawn_depth = layer_depth
+                        end
+                    end
+                end
             elseif kind == "tile" then
                 if type_id == "battleborder" then
                     battle_border_depth = battle_border_depth or layer_depth
@@ -68,29 +74,19 @@ function EditorMapReader:read(data)
             if not Kristal.callEvent(KRISTAL_EVENT.loadLayer, map, layer, layer_depth) then
                 map:loadLayer(layer, layer_depth)
             end
-            if not (layer.properties and layer.properties.thin) then depth = depth + map.depth_per_layer end
         end
     end)
 
     map.object_layer = spawn_depth
-    if not map.object_layer and #marker_depths > 0 and #event_depths > 0 then
-        local marker_depth = marker_depths[#marker_depths]
-        for _, event_depth in ipairs(event_depths) do
-            if not map.object_layer
-                or math.abs(marker_depth - event_depth) <= math.abs(marker_depth - map.object_layer) then
-                map.object_layer = event_depth
-            end
-        end
-    end
-    map.object_layer = map.object_layer or event_depths[#event_depths]
-        or marker_depths[#marker_depths] or object_depths[#object_depths] or 1
+    map.object_layer = map.object_layer or object_depths[#object_depths] or 1
 
-    map.tile_layer = 0
+    local tile_layer
     for _, tile_depth in ipairs(tile_depths) do
-        if tile_depth < map.object_layer and tile_depth > map.tile_layer then
-            map.tile_layer = tile_depth
+        if tile_depth < map.object_layer and (tile_layer == nil or tile_depth > tile_layer) then
+            tile_layer = tile_depth
         end
     end
+    map.tile_layer = tile_layer or 0
     map.battle_fader_layer = battle_border_depth
         and (battle_border_depth - map.depth_per_layer / 2)
         or (map.object_layer - map.depth_per_layer / 2)
@@ -114,7 +110,7 @@ function EditorMapReader:read(data)
             object:addFX(fx, id_or_reason)
         end
     end
-    map.next_layer = depth
+    map.next_layer = (maximum_depth or 0) + map.depth_per_layer
     return true
 end
 

@@ -1,4 +1,8 @@
+--- Stores document providers and selects one for each document.
 ---@class EditorDocumentProviders : Class
+---@field editor Editor
+---@field order table
+---@field providers table
 ---@overload fun(editor: Editor): EditorDocumentProviders
 local EditorDocumentProviders = Class()
 

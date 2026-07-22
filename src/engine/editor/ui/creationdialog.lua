@@ -1,7 +1,43 @@
+--- Displays a form for creating project files and editor data.
 ---@class EditorCreationDialog : EditorControl
+---@field editor Editor
+---@field title string
+---@field templates table[]
+---@field common_fields table[]
+---@field context table
+---@field on_create function?
+---@field on_cancel function?
+---@field template_list EditorItemList
+---@field search EditorSearchBar
+---@field form EditorControl
+---@field scrollbar EditorScrollbar
+---@field create_button EditorButton
+---@field cancel_button EditorButton
+---@field error_label DialogLabel
+---@field field_tooltip EditorTooltip
+---@field inputs table<string, EditorControl>
+---@field focusables EditorControl[]
+---@field form_rows table[]
+---@field template_values table
+---@field template table?
+---@field focused_control EditorControl?
+---@field captured_control EditorControl?
+---@field error_message string?
+---@field form_scroll number
+---@field form_content_height number
+---@field panel_x number
+---@field panel_y number
+---@field panel_width number
+---@field panel_height number
 ---@overload fun(editor: Editor, options: table): EditorCreationDialog
 local EditorCreationDialog, super = Class(EditorControl)
 
+---@class DialogLabel : EditorControl
+---@field label string
+---@field description string?
+---@field header boolean
+---@field code_name string?
+---@overload fun(label: string, description?: string, header?: boolean, code_name?: string): DialogLabel
 local DialogLabel, label_super = Class(EditorControl)
 
 function DialogLabel:init(label, description, header, code_name)
@@ -24,39 +60,12 @@ function DialogLabel:drawSelf()
     end
 end
 
-local DialogFieldTooltip, tooltip_super = Class(EditorControl)
-
-function DialogFieldTooltip:init()
-    tooltip_super.init(self, 0, 0, 0, 26)
-    self.enabled = false
-    self.visible = false
-end
-
-function DialogFieldTooltip:setCodeName(code_name, x, y, maximum_width, maximum_height)
-    self.code_name = tostring(code_name)
-    local font = EditorFont.get(14)
-    local prefix = ""
-    self.prefix = prefix
-    self.width = font:getWidth(prefix .. self.code_name) + 16
-    self.x = MathUtils.clamp(x, 4, math.max(4, maximum_width - self.width - 4))
-    self.y = MathUtils.clamp(y, 4, math.max(4, maximum_height - self.height - 4))
-    self.visible = true
-end
-
-function DialogFieldTooltip:drawSelf()
-    love.graphics.setLineWidth(1)
-    Draw.setColor(0.075, 0.075, 0.09, 0.98)
-    love.graphics.rectangle("fill", 0, 0, self.width, self.height, 3)
-    Draw.setColor(0.42, 0.48, 0.62, 1)
-    love.graphics.rectangle("line", 0.5, 0.5, self.width - 1, self.height - 1, 3)
-    local font = EditorFont.get(14)
-    love.graphics.setFont(font)
-    Draw.setColor(0.68, 0.69, 0.74, 1)
-    love.graphics.print(self.prefix, 8, 5)
-    Draw.setColor(0.52, 0.72, 1, 1)
-    love.graphics.print(self.code_name, 8 + font:getWidth(self.prefix), 5)
-end
-
+---@class DialogChoice : EditorButton
+---@field field table
+---@field choices table[]
+---@field value any
+---@field on_changed function?
+---@overload fun(field: table, value?: any, on_changed?: function): DialogChoice
 local DialogChoice, choice_super = Class(EditorButton)
 
 function DialogChoice:init(field, value, on_changed)
@@ -68,6 +77,14 @@ function DialogChoice:init(field, value, on_changed)
     self:updateLabel()
 end
 
+---@class DialogVector : EditorControl
+---@field field table
+---@field size number
+---@field value table?
+---@field on_changed function?
+---@field inputs EditorTextInput[]
+---@field labels string[]
+---@overload fun(field: table, value?: table, on_changed?: function): DialogVector
 local DialogVector, vector_super = Class(EditorControl)
 
 function DialogVector:init(field, value, on_changed)
@@ -118,13 +135,11 @@ function DialogVector:drawSelf()
 end
 
 function DialogChoice:getChoiceValue(choice)
-    if type(choice) == "table" then return choice.value ~= nil and choice.value or choice.id end
-    return choice
+    return EditorChoiceUtils.getValue(choice)
 end
 
 function DialogChoice:getChoiceLabel(choice)
-    if type(choice) == "table" then return tostring(choice.label or choice.name or self:getChoiceValue(choice)) end
-    return tostring(choice)
+    return EditorChoiceUtils.getLabel(choice)
 end
 
 function DialogChoice:updateLabel()
@@ -191,7 +206,7 @@ function EditorCreationDialog:init(editor, options)
     self.error_label.visible = false
     self.create_button = self:addChild(EditorButton(options.create_label or "Create", function() self:submit() end))
     self.cancel_button = self:addChild(EditorButton("Cancel", function() self:cancel() end))
-    self.field_tooltip = self:addChild(DialogFieldTooltip())
+    self.field_tooltip = self:addChild(EditorTooltip())
 
     local items = {}
     for _, definition in ipairs(self.templates) do
@@ -253,6 +268,17 @@ function EditorCreationDialog:addRow(field, value, on_changed)
         control = self.form:addChild(EditorColorInput(self.editor, value, {
             on_submit = on_changed
         }))
+    elseif field.control == "path" or field.type == "asset_path" or field.type == "script_path" then
+        local options = TableUtils.copy(Registry.getEditorPropertyType(field.type or "string"), true)
+        for key, option in pairs(field) do options[key] = option end
+        options.on_submit = on_changed
+        control = self.form:addChild(EditorPathInput(self.editor, value, options))
+    elseif field.type == "asset_path_list" then
+        local options = TableUtils.copy(field, true)
+        options.on_changed = on_changed
+        options.on_request_focus = function(input) self:setFocus(input) end
+        control = self.form:addChild(EditorPathListInput(self.editor, value, options))
+        height = math.max(height, (control.preferred_height or 120) + 6)
     elseif field.type == "table" then
         control = self.form:addChild(EditorTableInput(self.editor, value, {
             maximum_visible_rows = field.maximum_visible_rows or 4,
@@ -331,12 +357,13 @@ function EditorCreationDialog:layoutForm()
     local y = 4 - self.form_scroll
     local input_x = math.min(190, math.floor(self.form.width * 0.42))
     for _, row in ipairs(self.form_rows) do
-        if row.field and row.field.type == "table" then
+        if row.field and (row.field.type == "table" or row.field.type == "asset_path_list") then
             row.height = math.max(row.minimum_height or 0, (row.control.preferred_height or 90) + 6)
         end
         row.label:setBounds(6, y, math.max(80, input_x - 14), row.height)
         if row.control then
-            local control_height = row.field and row.field.type == "table" and row.height - 6
+            local control_height = row.field
+                and (row.field.type == "table" or row.field.type == "asset_path_list") and row.height - 6
                 or row.field and (row.field.type == "value" or row.field.multiline) and row.height - 6 or 28
             row.control:setBounds(input_x, y + 2, math.max(80, self.form.width - input_x - 8), control_height)
         end
@@ -384,7 +411,7 @@ function EditorCreationDialog:updateFieldTooltip()
             local _, local_y = target:toLocal(mouse_x, mouse_y)
             if local_y >= 0 and local_y < 25 then
                 local dialog_x, dialog_y = self:toLocal(mouse_x, mouse_y)
-                self.field_tooltip:setCodeName(target.code_name, dialog_x + 12, dialog_y + 14,
+                self.field_tooltip:setText(target.code_name, dialog_x + 12, dialog_y + 14,
                     self.width, self.height)
             end
             return
@@ -439,6 +466,7 @@ function EditorCreationDialog:onKeyPressed(key, is_repeat)
     if (key == "return" or key == "kpenter") and not is_repeat
         and self.focused_control and self.focused_control.accepts_text_input
         and not self.focused_control.multiline then
+        self.focused_control:onKeyPressed(key, is_repeat)
         return self:submit()
     end
     if self.focused_control and self.focused_control:onKeyPressed(key, is_repeat) then return true end

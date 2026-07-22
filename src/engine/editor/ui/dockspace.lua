@@ -1,4 +1,35 @@
+--- Manages docked editor panels.
 ---@class EditorDockSpace : Class
+---@field active_panel EditorPanel?
+---@field captured_control any
+---@field context_menu any
+---@field dock_preview any
+---@field drag_offset_x number
+---@field drag_offset_y number
+---@field drag_source_stack any
+---@field dragging_panel any
+---@field editor Editor
+---@field floating table
+---@field floating_resize number?
+---@field focused_control any
+---@field height number
+---@field minimum_center_height number
+---@field minimum_center_width number
+---@field panel_order table
+---@field panels table
+---@field pending_drag any
+---@field region_stacks table
+---@field sizes table
+---@field splitter_drag any
+---@field splitters table
+---@field stack_serial number
+---@field stack_splitter_drag any
+---@field stack_splitters table
+---@field stacks table
+---@field theme table
+---@field y number
+---@field width number
+---@field x number
 ---@overload fun(editor: Editor): EditorDockSpace
 local EditorDockSpace = Class()
 
@@ -48,6 +79,7 @@ function EditorDockSpace:init(editor)
     self.minimum_center_height = 120
     self.floating = {}
     self.focused_control = nil
+    self.active_panel = nil
     self.captured_control = nil
     self.pending_drag = nil
     self.dragging_panel = nil
@@ -56,9 +88,12 @@ function EditorDockSpace:init(editor)
     self.drag_offset_y = 0
     self.dock_preview = nil
     self.splitter_drag = nil
+    self.stack_splitter_drag = nil
     self.floating_resize = nil
+    self.tab_close_mouse_button = nil
     self.context_menu = nil
     self.splitters = {}
+    self.stack_splitters = {}
     self.theme = {
         workspace = { 0.055, 0.055, 0.065, 1 },
         panel = { 0.105, 0.105, 0.12, 1 },
@@ -135,8 +170,10 @@ function EditorDockSpace:setPanelVisible(panel, visible, region)
             local _, removed_active = stack:removePanel(panel)
             local active = removed_active and stack:getActivePanel()
             if active and active.on_activate then active.on_activate(active) end
+            if self.active_panel == panel then self.active_panel = active end
         end
         self:removeFloating(panel)
+        if self.active_panel == panel then self.active_panel = nil end
         self:removeEmptySplitStacks()
         self:layout()
     end
@@ -152,8 +189,10 @@ function EditorDockSpace:unregisterPanel(panel)
         local _, removed_active = stack:removePanel(panel)
         local active = removed_active and stack:getActivePanel()
         if active and active.on_activate then active.on_activate(active) end
+        if self.active_panel == panel then self.active_panel = active end
     end
     self:removeFloating(panel)
+    if self.active_panel == panel then self.active_panel = nil end
     self.panels[panel.id] = nil
     for index, candidate in ipairs(self.panel_order) do
         if candidate == panel then table.remove(self.panel_order, index) break end
@@ -164,14 +203,14 @@ function EditorDockSpace:unregisterPanel(panel)
     return true
 end
 
-function EditorDockSpace:dockPanel(panel, target)
+function EditorDockSpace:dockPanel(panel, target, index)
     if type(target) == "string" then
         target = self.stacks[target] or self.stacks[target:match("^[^:]+")]
     end
     assert(target, "Unknown editor dock target")
     self:removeFloating(panel)
     panel.last_region = target.id
-    target:addPanel(panel)
+    target:addPanel(panel, index)
     self:removeEmptySplitStacks()
     self:layout()
 end
@@ -185,6 +224,9 @@ function EditorDockSpace:dockPanelSplit(panel, target, side)
     local insert_index = (side == "top" or side == "left") and target_index or target_index + 1
     self:removeFloating(panel)
     local stack = self:createStack(target.region, nil, insert_index)
+    local target_weight = math.max(0.01, target.layout_weight or 1)
+    target.layout_weight = target_weight / 2
+    stack.layout_weight = target_weight / 2
     panel.last_region = stack.id
     stack:addPanel(panel)
     self:removeEmptySplitStacks()
@@ -221,6 +263,8 @@ function EditorDockSpace:setFocus(control)
     if self.focused_control == control then return end
     if self.focused_control then self.focused_control:onBlur() end
     self.focused_control = control
+    local panel = self:getPanelForControl(control)
+    if panel then self.active_panel = panel end
     if control and control.focusable then control:onFocus() end
 end
 
@@ -244,18 +288,45 @@ function EditorDockSpace:layoutRegion(region, rect)
     end
     local horizontal = region == "top" or region == "bottom"
     local gap = #visible > 1 and SPLITTER_SIZE or 0
+    local extent = horizontal and rect.width or rect.height
+    local available = math.max(0, extent - gap * (#visible - 1))
+    local minimum = available >= #visible * 80 and 80 or 0
+    local remaining_extent = available
+    local remaining_weight = 0
+    for _, stack in ipairs(visible) do
+        stack.layout_weight = math.max(0.01, tonumber(stack.layout_weight) or 1)
+        remaining_weight = remaining_weight + stack.layout_weight
+    end
     local cursor = horizontal and rect.x or rect.y
-    local finish = cursor + (horizontal and rect.width or rect.height)
     for index, stack in ipairs(visible) do
         local remaining = #visible - index + 1
-        local size = index == #visible and (finish - cursor)
-            or math.floor((finish - cursor - gap * (remaining - 1)) / remaining)
+        local size
+        if index == #visible then
+            size = remaining_extent
+        else
+            size = math.floor(remaining_extent * stack.layout_weight / remaining_weight + 0.5)
+            size = MathUtils.clamp(size, minimum,
+                math.max(minimum, remaining_extent - minimum * (remaining - 1)))
+        end
         if horizontal then
             stack.x, stack.y, stack.width, stack.height = cursor, rect.y, math.max(0, size), rect.height
         else
             stack.x, stack.y, stack.width, stack.height = rect.x, cursor, rect.width, math.max(0, size)
         end
         self:layoutStackContent(stack)
+        remaining_extent = math.max(0, remaining_extent - size)
+        remaining_weight = math.max(0, remaining_weight - stack.layout_weight)
+        if index < #visible then
+            table.insert(self.stack_splitters, {
+                region = region,
+                before = stack,
+                after = visible[index + 1],
+                horizontal = horizontal,
+                rect = horizontal
+                    and { x = cursor + size, y = rect.y, width = gap, height = rect.height }
+                    or { x = rect.x, y = cursor + size, width = rect.width, height = gap }
+            })
+        end
         cursor = cursor + size + gap
     end
 end
@@ -279,6 +350,7 @@ function EditorDockSpace:layout()
         right = { x = self.x + self.width - right, y = middle_y, width = right, height = middle_h },
         center = { x = middle_x, y = middle_y, width = math.max(0, middle_w), height = math.max(0, middle_h) }
     }
+    self.stack_splitters = {}
     for region, rect in pairs(rects) do self:layoutRegion(region, rect) end
     self.splitters = {}
     if top > 0 then self.splitters.top = { x = self.x, y = self.y + top, width = self.width, height = SPLITTER_SIZE } end
@@ -502,7 +574,9 @@ end
 function EditorDockSpace:activateAdjacentTab(stack, direction)
     local index = MathUtils.clamp(stack.active_index + direction, 1, #stack.panels)
     if index == stack.active_index then return false end
-    stack:setActivePanel(stack.panels[index], true)
+    local panel = stack.panels[index]
+    stack:setActivePanel(panel, true)
+    self.active_panel = panel
     self:layoutStackContent(stack)
     return true
 end
@@ -525,9 +599,44 @@ function EditorDockSpace:getControlAt(x, y)
     end
 end
 
+function EditorDockSpace:getPanelForControl(control)
+    while control do
+        for _, panel in ipairs(self.panel_order) do
+            if panel.visible and panel.content == control then return panel end
+        end
+        control = control.parent
+    end
+end
+
+function EditorDockSpace:getActivePanel()
+    local focused_panel = self:getPanelForControl(self.focused_control)
+    if self:isPanelDisplayed(focused_panel) then return focused_panel end
+    if self:isPanelDisplayed(self.active_panel) then return self.active_panel end
+
+    local document_panel = self.editor.active_document and self.editor.active_document.panel
+    if self:isPanelDisplayed(document_panel) then return document_panel end
+    if self:isPanelDisplayed(self.editor.game_panel) then return self.editor.game_panel end
+
+    for index = #self.floating, 1, -1 do
+        if self:isPanelDisplayed(self.floating[index]) then return self.floating[index] end
+    end
+    local center = self.stacks.center and self.stacks.center:getActivePanel()
+    if self:isPanelDisplayed(center) then return center end
+    for _, stack in ipairs(self:getStacks()) do
+        local panel = stack:getActivePanel()
+        if self:isPanelDisplayed(panel) then return panel end
+    end
+end
+
 function EditorDockSpace:getSplitterAt(x, y)
     for region, rect in pairs(self.splitters) do
         if pointInRect(x, y, rect) then return region end
+    end
+end
+
+function EditorDockSpace:getStackSplitterAt(x, y)
+    for _, splitter in ipairs(self.stack_splitters) do
+        if pointInRect(x, y, splitter.rect) then return splitter end
     end
 end
 
@@ -567,10 +676,16 @@ end
 
 function EditorDockSpace:getCursorType(x, y)
     if self.floating_resize then return self.floating_resize.cursor_type end
+    if self.stack_splitter_drag then
+        return self.stack_splitter_drag.horizontal and "resize_hori" or "resize_vert"
+    end
     if self.splitter_drag then return self:getSplitterCursor(self.splitter_drag.region) end
     if self.dragging_panel or self.pending_drag then return "resize_all" end
     if self.context_menu then
         self:updateContextMenuHover(x, y, false)
+        if self.context_menu.search_input and self.context_menu.search_input:containsPoint(x, y) then
+            return self.context_menu.search_input.cursor_type or "type"
+        end
         if pointInRect(x, y, self.context_menu.rect)
             or (self.context_menu.submenu_rect and pointInRect(x, y, self.context_menu.submenu_rect)) then
             return "select"
@@ -584,6 +699,8 @@ function EditorDockSpace:getCursorType(x, y)
 
     local _, _, floating_cursor = self:getFloatingResizeAt(x, y)
     if floating_cursor then return floating_cursor end
+    local stack_splitter = self:getStackSplitterAt(x, y)
+    if stack_splitter then return stack_splitter.horizontal and "resize_hori" or "resize_vert" end
     local splitter = self:getSplitterAt(x, y)
     if splitter then return self:getSplitterCursor(splitter) end
     if self:getTabNavigationAt(x, y) then return "select" end
@@ -680,10 +797,11 @@ function EditorDockSpace:layoutContextMenu(menu)
     menu.selected_index = selected
     local maximum_scroll = math.max(0, #filtered - menu.maximum_rows)
     menu.scroll = MathUtils.clamp(menu.scroll or 0, 0, maximum_scroll)
-    if selected then
+    if selected and menu.ensure_selection_visible ~= false then
         if selected <= menu.scroll then menu.scroll = selected - 1 end
         if selected > menu.scroll + menu.maximum_rows then menu.scroll = selected - menu.maximum_rows end
     end
+    menu.ensure_selection_visible = false
     menu.items = {}
     local first = menu.scroll + 1
     local last = math.min(#filtered, first + menu.maximum_rows - 1)
@@ -699,12 +817,22 @@ function EditorDockSpace:layoutContextMenu(menu)
     for index, item in ipairs(menu.items) do
         item.rect = {
             x = menu_x, y = menu_y + search_height + (index - 1) * 28,
-            width = menu.width, height = 28
+            width = menu.width - (maximum_scroll > 0 and 10 or 0), height = 28
         }
     end
     menu.rect = { x = menu_x, y = menu_y, width = menu.width, height = height }
     menu.search_rect = menu.searchable
         and { x = menu_x, y = menu_y, width = menu.width, height = search_height } or nil
+    if menu.search_input then
+        menu.search_input:setBounds(menu_x, menu_y, menu.width, search_height)
+    end
+    menu.scrollbar.visible = maximum_scroll > 0
+    if menu.scrollbar.visible then
+        menu.scrollbar.page = MathUtils.clamp(menu.maximum_rows / math.max(1, #filtered), 0, 1)
+        menu.scrollbar:setBounds(menu_x + menu.width - 10, menu_y + search_height,
+            10, row_count * 28)
+        menu.scrollbar:setValue(menu.scroll / maximum_scroll, true)
+    end
     menu.empty_rect = #menu.items == 0
         and { x = menu_x, y = menu_y + search_height, width = menu.width, height = 28 } or nil
     menu.selected_item = selected and filtered[selected] or nil
@@ -714,10 +842,11 @@ end
 function EditorDockSpace:openContextMenu(items, x, y, owner, options)
     if not items or #items == 0 then return false end
     options = options or {}
+    self:closeContextMenu()
     local font = EditorFont.get(16)
     local width = options.width or 140
     for _, item in ipairs(items) do width = math.max(width, font:getWidth(item.label) + (item.checked and 38 or 24)) end
-    self.context_menu = {
+    local menu = {
         owner = owner,
         all_items = items,
         items = {},
@@ -728,11 +857,54 @@ function EditorDockSpace:openContextMenu(items, x, y, owner, options)
         query = "",
         scroll = 0,
         selected_index = options.searchable == true and 1 or nil,
+        ensure_selection_visible = true,
         maximum_rows = options.maximum_rows or 12,
         submenu = nil,
         submenu_rect = nil
     }
-    self:layoutContextMenu(self.context_menu)
+    menu.scrollbar = EditorScrollbar({
+        width = 10,
+        on_changed = function(value)
+            if self.context_menu ~= menu then return end
+            local maximum = math.max(0, #menu.filtered_items - menu.maximum_rows)
+            local scroll = MathUtils.round(value * maximum)
+            if scroll == menu.scroll then return end
+            menu.scroll = scroll
+            menu.ensure_selection_visible = false
+            self:layoutContextMenu(menu)
+        end
+    })
+    if menu.searchable then
+        menu.search_input = EditorSearchBar({
+            editor = self.editor,
+            font = font,
+            placeholder = menu.placeholder,
+            submit_feedback = false,
+            on_changed = function(query)
+                if self.context_menu ~= menu then return end
+                menu.query = query
+                menu.scroll = 0
+                menu.selected_index = 1
+                menu.ensure_selection_visible = true
+                self:layoutContextMenu(menu)
+            end
+        })
+    end
+    self.context_menu = menu
+    self:layoutContextMenu(menu)
+    if menu.search_input then self:setFocus(menu.search_input) end
+    return true
+end
+
+function EditorDockSpace:closeContextMenu()
+    local menu = self.context_menu
+    if not menu then return false end
+    if menu.search_input then
+        if self.captured_control == menu.search_input then self.captured_control = nil end
+        if self.focused_control == menu.search_input then self:setFocus(nil) end
+    end
+    if self.captured_control == menu.scrollbar then self.captured_control = nil end
+    self.context_menu = nil
     return true
 end
 
@@ -803,6 +975,13 @@ function EditorDockSpace:closePanelFromContext(panel)
     end
 end
 
+function EditorDockSpace:closeActivePanel()
+    local panel = self:getActivePanel()
+    if not panel then return false end
+    self:closePanelFromContext(panel)
+    return true
+end
+
 function EditorDockSpace:drawContextMenu()
     local menu = self.context_menu
     if not menu then return end
@@ -812,16 +991,7 @@ function EditorDockSpace:drawContextMenu()
     local mouse_x, mouse_y = self.editor:getMousePosition()
     self:updateContextMenuHover(mouse_x, mouse_y, false)
     if menu.searchable then
-        local search = menu.search_rect
-        love.graphics.setColor(self.theme.tab_inactive)
-        love.graphics.rectangle("fill", search.x, search.y, search.width, search.height)
-        love.graphics.setColor(self.theme.text)
-        local label = menu.query ~= "" and menu.query or menu.placeholder
-        love.graphics.print(label, search.x + 8,
-            search.y + math.floor((search.height - font:getHeight()) / 2))
-        love.graphics.setColor(self.theme.border)
-        love.graphics.line(search.x, search.y + search.height - 0.5,
-            search.x + search.width, search.y + search.height - 0.5)
+        menu.search_input:draw()
     end
     if menu.empty_rect then
         local empty = menu.empty_rect
@@ -846,17 +1016,7 @@ function EditorDockSpace:drawContextMenu()
                 rect.y + math.floor((rect.height - font:getHeight()) / 2))
         end
     end
-    if #menu.filtered_items > menu.maximum_rows then
-        local list_top = menu.rect.y + (menu.searchable and 30 or 0)
-        local list_height = menu.rect.height - (menu.searchable and 30 or 0)
-        local maximum = #menu.filtered_items - menu.maximum_rows
-        local thumb_height = math.max(18, list_height * menu.maximum_rows / #menu.filtered_items)
-        local thumb_y = list_top + (list_height - thumb_height) * menu.scroll / maximum
-        love.graphics.setColor(0.18, 0.18, 0.21, 1)
-        love.graphics.rectangle("fill", menu.rect.x + menu.rect.width - 6, list_top, 6, list_height)
-        love.graphics.setColor(0.48, 0.52, 0.62, 1)
-        love.graphics.rectangle("fill", menu.rect.x + menu.rect.width - 5, thumb_y, 4, thumb_height)
-    end
+    if menu.scrollbar.visible then menu.scrollbar:draw() end
     local rect = menu.rect
     love.graphics.setColor(self.theme.border)
     love.graphics.rectangle("line", rect.x + 0.5, rect.y + 0.5, rect.width - 1, rect.height - 1)
@@ -898,27 +1058,51 @@ end
 function EditorDockSpace:onMousePressed(x, y, button, presses)
     if self.context_menu then
         local menu = self.context_menu
-        if button == 1 and menu.search_rect and pointInRect(x, y, menu.search_rect) then return true end
+        if button == 1 and menu.search_input and menu.search_input:containsPoint(x, y) then
+            self:setFocus(menu.search_input)
+            local local_x, local_y = menu.search_input:toLocal(x, y)
+            if menu.search_input:onMousePressed(local_x, local_y, button, presses) then
+                self.captured_control = menu.search_input
+            end
+            return true
+        end
+        if button == 1 and menu.scrollbar.visible and menu.scrollbar:containsPoint(x, y) then
+            local local_x, local_y = menu.scrollbar:toLocal(x, y)
+            if menu.scrollbar:onMousePressed(local_x, local_y, button, presses) then
+                self.captured_control = menu.scrollbar
+            end
+            return true
+        end
         if button == 1 then
             local item = self:getContextMenuItemAt(x, y)
             if item and item.children then
                 self:openContextSubmenu(menu, item)
                 return true
             elseif item and item.enabled and item.action then
-                self.context_menu = nil
+                self:closeContextMenu()
                 item.action()
                 return true
             elseif item then
                 return true
             end
         end
-        self.context_menu = nil
+        self:closeContextMenu()
         if button == 1 then return true end
     end
     if button == 2 then
         local panel = self:getTabAt(x, y)
         if panel then
+            self.active_panel = panel
             self:openPanelContextMenu(panel, x, y)
+            return true
+        end
+    end
+    if button == 3 then
+        local panel = self:getTabAt(x, y)
+        if panel then
+            self.active_panel = panel
+            self.tab_close_mouse_button = button
+            self:closePanelFromContext(panel)
             return true
         end
     end
@@ -930,6 +1114,7 @@ function EditorDockSpace:onMousePressed(x, y, button, presses)
         end
         local resizing_panel, resize_edges, resize_cursor = self:getFloatingResizeAt(x, y)
         if resizing_panel then
+            self.active_panel = resizing_panel
             local rect = resizing_panel.floating
             self.floating_resize = {
                 panel = resizing_panel,
@@ -941,6 +1126,25 @@ function EditorDockSpace:onMousePressed(x, y, button, presses)
             }
             return true
         end
+        local stack_splitter = self:getStackSplitterAt(x, y)
+        if stack_splitter then
+            local before_size = stack_splitter.horizontal
+                and stack_splitter.before.width or stack_splitter.before.height
+            local after_size = stack_splitter.horizontal
+                and stack_splitter.after.width or stack_splitter.after.height
+            self.stack_splitter_drag = {
+                horizontal = stack_splitter.horizontal,
+                before = stack_splitter.before,
+                after = stack_splitter.after,
+                start_x = x,
+                start_y = y,
+                before_size = before_size,
+                after_size = after_size,
+                weight = (stack_splitter.before.layout_weight or 1)
+                    + (stack_splitter.after.layout_weight or 1)
+            }
+            return true
+        end
         local splitter = self:getSplitterAt(x, y)
         if splitter then
             self.splitter_drag = { region = splitter, start_x = x, start_y = y, start_size = self.sizes[splitter] }
@@ -948,6 +1152,7 @@ function EditorDockSpace:onMousePressed(x, y, button, presses)
         end
         local panel, rect, stack = self:getTabAt(x, y)
         if panel then
+            self.active_panel = panel
             if stack then
                 stack:setActivePanel(panel, true)
             elseif panel.on_activate then
@@ -958,6 +1163,8 @@ function EditorDockSpace:onMousePressed(x, y, button, presses)
             return true
         end
     end
+    local panel = self:getPanelAt(x, y)
+    if panel then self.active_panel = panel end
     local target = self:getControlAt(x, y)
     if target then
         if target.focusable then self:setFocus(target) elseif self.focused_control then self:setFocus(nil) end
@@ -973,6 +1180,13 @@ function EditorDockSpace:onMousePressed(x, y, button, presses)
 end
 
 function EditorDockSpace:onMouseMoved(x, y, dx, dy)
+    local captured = self.captured_control
+    if captured and self.context_menu and (captured == self.context_menu.search_input
+        or captured == self.context_menu.scrollbar) then
+        local local_x, local_y = captured:toLocal(x, y)
+        captured:onMouseMoved(local_x, local_y, dx, dy)
+        return true
+    end
     if self.context_menu then
         self:updateContextMenuHover(x, y, true)
         if pointInRect(x, y, self.context_menu.rect)
@@ -1005,6 +1219,18 @@ function EditorDockSpace:onMouseMoved(x, y, dx, dy)
         self:layout()
         return true
     end
+    if self.stack_splitter_drag then
+        local drag = self.stack_splitter_drag
+        local combined = drag.before_size + drag.after_size
+        local minimum = math.min(80, combined / 2)
+        local delta = drag.horizontal and (x - drag.start_x) or (y - drag.start_y)
+        local before_size = MathUtils.clamp(drag.before_size + delta, minimum, combined - minimum)
+        local fraction = combined > 0 and before_size / combined or 0.5
+        drag.before.layout_weight = math.max(0.01, drag.weight * fraction)
+        drag.after.layout_weight = math.max(0.01, drag.weight * (1 - fraction))
+        self:layout()
+        return true
+    end
     if self.splitter_drag then
         local drag = self.splitter_drag
         local delta = (drag.region == "left" and x - drag.start_x)
@@ -1029,6 +1255,7 @@ function EditorDockSpace:onMouseMoved(x, y, dx, dy)
                     height = math.max(panel.preferred_height, stack.height) }
             end
             self:floatPanel(panel, panel_rect)
+            if panel.on_activate then panel.on_activate(panel) end
             self.dragging_panel = panel
             self.drag_offset_x = drag.offset_x
             self.drag_offset_y = drag.offset_y
@@ -1045,9 +1272,10 @@ function EditorDockSpace:onMouseMoved(x, y, dx, dy)
         self:layout()
         return true
     end
-    if self.captured_control then
-        local local_x, local_y = self.captured_control:toLocal(x, y)
-        self.captured_control:onMouseMoved(local_x, local_y, dx, dy)
+    captured = self.captured_control
+    if captured then
+        local local_x, local_y = captured:toLocal(x, y)
+        captured:onMouseMoved(local_x, local_y, dx, dy)
         return true
     end
     return false
@@ -1058,8 +1286,16 @@ function EditorDockSpace:isDockingSuppressed()
 end
 
 function EditorDockSpace:onMouseReleased(x, y, button, presses)
+    if button == self.tab_close_mouse_button then
+        self.tab_close_mouse_button = nil
+        return true
+    end
     if button == 1 and self.floating_resize then
         self.floating_resize = nil
+        return true
+    end
+    if button == 1 and self.stack_splitter_drag then
+        self.stack_splitter_drag = nil
         return true
     end
     if button == 1 and self.splitter_drag then
@@ -1071,7 +1307,10 @@ function EditorDockSpace:onMouseReleased(x, y, button, presses)
             if self.dock_preview.split_target then
                 self:dockPanelSplit(self.dragging_panel, self.dock_preview.split_target, self.dock_preview.side)
             else
-                self:dockPanel(self.dragging_panel, self.dock_preview.stack)
+                self:dockPanel(self.dragging_panel, self.dock_preview.stack, self.dock_preview.tab_index)
+            end
+            if self.dragging_panel.stack then
+                self.dragging_panel.stack:setActivePanel(self.dragging_panel, true)
             end
         end
         self.dragging_panel = nil
@@ -1092,6 +1331,29 @@ function EditorDockSpace:onMouseReleased(x, y, button, presses)
 end
 
 function EditorDockSpace:getDockTarget(x, y, moving_panel)
+    for _, stack in ipairs(self:getStacks()) do
+        local view = stack.tab_view_rect
+        if not view and stack == self.drag_source_stack then
+            view = { x = stack.x, y = stack.y, width = stack.width, height = HEADER_HEIGHT }
+        end
+        if view and pointInRect(x, y, view) then
+            local insertion = #stack.panels + 1
+            local marker_x = view.x + view.width
+            for index, rect in ipairs(stack.tab_rects) do
+                if x < rect.x + rect.width / 2 then
+                    insertion = index
+                    marker_x = rect.x
+                    break
+                end
+            end
+            marker_x = MathUtils.clamp(marker_x, view.x, view.x + view.width)
+            return {
+                stack = stack,
+                tab_index = insertion,
+                rect = { x = marker_x - 2, y = view.y + 2, width = 4, height = view.height - 4 }
+            }
+        end
+    end
     local targets = {
         left = { x = self.x, y = self.y, width = math.min(self.sizes.left, self.width / 2), height = self.height },
         right = { x = self.x + self.width - math.min(self.sizes.right, self.width / 2), y = self.y,
@@ -1162,10 +1424,10 @@ function EditorDockSpace:onWheelMoved(x, y)
     if self.context_menu and pointInRect(mouse_x, mouse_y, self.context_menu.rect) then
         local menu = self.context_menu
         local maximum = math.max(0, #menu.filtered_items - menu.maximum_rows)
-        local scroll = MathUtils.clamp(menu.scroll - y, 0, maximum)
+        local scroll = MathUtils.round(MathUtils.clamp(menu.scroll - y, 0, maximum))
         if scroll ~= menu.scroll then
             menu.scroll = scroll
-            menu.selected_index = math.min(#menu.filtered_items, scroll + 1)
+            menu.ensure_selection_visible = false
             self:layoutContextMenu(menu)
         end
         return true
@@ -1194,13 +1456,7 @@ function EditorDockSpace:onKeyPressed(key, is_repeat)
     if self.context_menu and self.context_menu.searchable then
         local menu = self.context_menu
         if key == "escape" then
-            self.context_menu = nil
-        elseif key == "backspace" then
-            local offset = utf8.offset(menu.query, -1)
-            menu.query = offset and menu.query:sub(1, offset - 1) or ""
-            menu.scroll = 0
-            menu.selected_index = 1
-            self:layoutContextMenu(menu)
+            self:closeContextMenu()
         elseif key == "up" or key == "down" then
             local count = #menu.filtered_items
             if count > 0 then
@@ -1210,6 +1466,7 @@ function EditorDockSpace:onKeyPressed(key, is_repeat)
                     index = ((index - 1 + direction) % count) + 1
                     if menu.filtered_items[index].enabled then
                         menu.selected_index = index
+                        menu.ensure_selection_visible = true
                         break
                     end
                 end
@@ -1217,10 +1474,10 @@ function EditorDockSpace:onKeyPressed(key, is_repeat)
             end
         elseif (key == "return" or key == "kpenter") and menu.selected_item then
             local item = menu.selected_item
-            self.context_menu = nil
+            self:closeContextMenu()
             if item.enabled and item.action then item.action() end
         else
-            return false
+            return menu.search_input:onKeyPressed(key, is_repeat) == true
         end
         return true
     end
@@ -1242,12 +1499,7 @@ end
 
 function EditorDockSpace:onTextInput(text)
     if self.context_menu and self.context_menu.searchable then
-        local menu = self.context_menu
-        menu.query = menu.query .. tostring(text or "")
-        menu.scroll = 0
-        menu.selected_index = 1
-        self:layoutContextMenu(menu)
-        return true
+        return self.context_menu.search_input:onTextInput(text) == true
     end
     if self.focused_control then return self.focused_control:onTextInput(text) end
 end
@@ -1261,6 +1513,7 @@ function EditorDockSpace:captureLayout()
             if not stack:isEmpty() then
                 local stack_layout = {
                     id = stack.id,
+                    weight = stack.layout_weight,
                     active = stack:getActivePanel() and stack:getActivePanel().id,
                     panels = {}
                 }
@@ -1289,6 +1542,7 @@ function EditorDockSpace:restoreLayout(layout)
         for _, panel in ipairs(stack.panels) do panel.stack = nil end
         stack.panels = {}
         stack.active_index = 1
+        stack.layout_weight = 1
     end
     for _, region in ipairs(REGIONS) do
         local base = self.stacks[region]
@@ -1320,6 +1574,7 @@ function EditorDockSpace:restoreLayout(layout)
             for stack_index, stack_layout in ipairs(saved_stacks) do
                 local stack = stack_index == 1 and self.stacks[region]
                     or self:createStack(region, stack_layout.id)
+                stack.layout_weight = tonumber(stack_layout.weight) or 1
                 for _, id in ipairs(stack_layout.panels or {}) do
                     local panel = self.panels[id]
                     if panel and panel.visible then

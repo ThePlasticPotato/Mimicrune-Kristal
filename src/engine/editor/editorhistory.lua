@@ -1,7 +1,15 @@
+--- Records editor changes and provides undo and redo.
 ---@class EditorHistory : Class
+---@field commands table
+---@field editor Editor
+---@field index number
+---@field limit number
+---@field serial number
+---@field transaction table?
 ---@overload fun(editor: table): EditorHistory
 local EditorHistory = Class()
 
+--- Describes an undoable command backed by callbacks.
 ---@class EditorHistoryCallbackCommand
 ---@field owners? table|table[] Owners whose dirty revisions and editor UI should be updated.
 ---@field metadata? table

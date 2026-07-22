@@ -1,4 +1,13 @@
+--- Displays project source files and images in read-only mode.
 ---@class EditorSourceViewer : EditorControl
+---@field active_document EditorFileDocument|EditorImageDocument|nil
+---@field clip boolean
+---@field documents table
+---@field editor Editor
+---@field image_preview EditorImagePreview
+---@field input EditorSourceInput
+---@field tab_rects table
+---@field workspace EditorProjectWorkspace
 ---@overload fun(editor: Editor, workspace: EditorProjectWorkspace): EditorSourceViewer
 local EditorSourceViewer, super = Class(EditorControl)
 
@@ -13,6 +22,7 @@ function EditorSourceViewer:init(editor, workspace)
     self.active_document = nil
     self.tab_rects = {}
     self.clip = true
+    self.focusable = true
     self.input = self:addChild(EditorSourceInput())
     self.image_preview = self:addChild(EditorImagePreview())
 end
@@ -90,9 +100,10 @@ function EditorSourceViewer:restoreSession(session)
 end
 
 function EditorSourceViewer:onMousePressed(x, y, button)
-    if y >= TAB_HEIGHT or button ~= 1 then return false end
+    if y >= TAB_HEIGHT or button ~= 1 and button ~= 3 then return false end
     for _, tab in ipairs(self.tab_rects) do
         if x >= tab.x and x < tab.x + tab.width then
+            if button == 3 then return self:closeDocument(tab.document) end
             if x >= tab.x + tab.width - 22 then return self:closeDocument(tab.document) end
             self:setActiveDocument(tab.document)
             return true

@@ -1,4 +1,9 @@
+--- Selects and draws the current editor cursor.
 ---@class EditorCursor : Class
+---@field custom_cursors table
+---@field custom_enabled boolean
+---@field system_cursors table
+---@field type string?
 ---@overload fun(): EditorCursor
 local EditorCursor = Class()
 
@@ -44,6 +49,7 @@ function EditorCursor:setCustomEnabled(enabled)
 end
 
 function EditorCursor:setType(cursor_type)
+    love.mouse.setVisible(true)
     local cursors = self.custom_enabled and self.custom_cursors or self.system_cursors
     if not CURSORS[cursor_type] or not cursors[cursor_type] then
         cursor_type = "default"

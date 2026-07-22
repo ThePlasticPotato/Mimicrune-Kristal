@@ -1,4 +1,7 @@
+--- Built in implementation for viewing file/image documents.\
+--- Can be replaced by things like the Code Editor plugin's writable version.
 ---@class EditorSourceDocumentProvider : EditorDocumentProvider
+---@field viewer EditorSourceViewer
 ---@overload fun(editor: Editor, viewer: EditorSourceViewer): EditorSourceDocumentProvider
 local EditorSourceDocumentProvider, super = Class(EditorDocumentProvider)
 
@@ -22,6 +25,11 @@ end
 
 function EditorSourceDocumentProvider:close(document)
     return self.viewer:closeDocument(document)
+end
+
+function EditorSourceDocumentProvider:closeActive()
+    if not self.viewer.active_document then return nil end
+    return self.viewer:closeDocument(self.viewer.active_document)
 end
 
 function EditorSourceDocumentProvider:isFocused()

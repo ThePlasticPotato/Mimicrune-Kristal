@@ -1,4 +1,11 @@
+--- Displays and manages maps in the current project.
 ---@class EditorMapBrowser : EditorControl
+---@field editor Editor
+---@field list EditorTreeList
+---@field new_folder_button EditorButton
+---@field new_map_button EditorButton
+---@field search EditorSearchBar
+---@field tree EditorTreeList
 ---@overload fun(editor: table): EditorMapBrowser
 local EditorMapBrowser, super = Class(EditorControl)
 
@@ -72,7 +79,10 @@ function EditorMapBrowser:selectNode(node)
     local property_set = EditorPropertySet(property_values, property_types)
     if node.type == "map" then
         property_set:registerProperty("name", "string")
-        property_set:registerProperty("music", "string")
+        property_set:registerProperty("music", "asset_path", {
+            name = "Music", asset_registry = "music",
+            path_root = "assets/music", strip_extension = true
+        })
         property_set:registerProperty("keepmusic", "boolean", { name = "Keep Music" })
         property_set:registerProperty("light", "boolean")
         property_set:registerProperty("border", "string")
@@ -148,7 +158,12 @@ function EditorMapBrowser:getRegisteredMapIds()
     return ids
 end
 
-function EditorMapBrowser:refresh()
+function EditorMapBrowser:refresh(options)
+    options = options or {}
+    local previous_node = self.tree.selected_node
+    local previous_id = previous_node and previous_node.registry_id
+    local previous_folder = previous_node and previous_node.type == "folder"
+        and nodeRegistryId(previous_node) or nil
     self.tree:clear()
     local folders = { [""] = self.tree.root }
     local maps = {}
@@ -174,8 +189,15 @@ function EditorMapBrowser:refresh()
         maps[id] = node
     end
     self.tree:sort()
-    local current_id = Game.world and Game.world.map and Game.world.map.id
-    if current_id and maps[current_id] then self.tree:selectNode(maps[current_id]) end
+    local current_id = previous_id or not previous_folder and Game.world and Game.world.map and Game.world.map.id
+    local selected_node = current_id and maps[current_id] or previous_folder and folders[previous_folder]
+    if selected_node then
+        if options.silent then
+            self.tree.selected_node = selected_node
+        else
+            self.tree:selectNode(selected_node)
+        end
+    end
 end
 
 function EditorMapBrowser:createFolder(parent)
@@ -190,7 +212,7 @@ function EditorMapBrowser:createMap(parent)
     local prefix = parent and not parent.root and nodeRegistryId(parent) or ""
     local id = prefix ~= "" and (prefix .. "/new_map") or "new_map"
     local index, candidate = 1, id
-    while Registry.getMap(candidate) or Registry.getMapData(candidate) do
+    while Registry.hasMap(candidate) do
         index = index + 1
         candidate = id .. "_" .. index
     end
@@ -206,7 +228,8 @@ function EditorMapBrowser:createMap(parent)
             local document, reason = self.editor:createNewMap(values.id, values.name, {
                 width = values.width, height = values.height,
                 grid_width = values.grid_width, grid_height = values.grid_height,
-                background_color = color
+                background_color = color,
+                default_layers = values.default_layers
             })
             if not document then return false, reason end
             self:refresh()

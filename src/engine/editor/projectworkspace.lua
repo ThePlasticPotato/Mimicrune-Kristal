@@ -1,20 +1,13 @@
+--- Provides access to project files and open file documents.
 ---@class EditorProjectWorkspace : Class
+---@field document_order table
+---@field documents table
+---@field editor Editor
+---@field file_types EditorFileTypeRegistry
+---@field real_root string
+---@field virtual_root string
 ---@overload fun(editor: Editor, file_types: EditorFileTypeRegistry): EditorProjectWorkspace
 local EditorProjectWorkspace = Class()
-
-local function join(path, name)
-    return path == "" and name or (path .. "/" .. name)
-end
-
-local function normalizeRealPath(path)
-    path = tostring(path or ""):gsub("\\", "/"):gsub("/+$", "")
-    return love.system.getOS() == "Windows" and path:lower() or path
-end
-
-local function isWithin(path, root)
-    path, root = normalizeRealPath(path), normalizeRealPath(root)
-    return path == root or StringUtils.startsWith(path, root .. "/")
-end
 
 function EditorProjectWorkspace:init(editor, file_types)
     self.editor = editor
@@ -53,7 +46,7 @@ function EditorProjectWorkspace:scan(path)
         if not items then return nil, reason end
         for _, name in ipairs(items) do
             if name ~= ".git" and name ~= ".kristal-tmp" and name ~= ".kristal-backup" then
-                local child = self:scan(join(path, name))
+                local child = self:scan(FileSystemUtils.join(path, name))
                 if child then table.insert(node.children, child) end
             end
         end
@@ -77,15 +70,17 @@ function EditorProjectWorkspace:openDocument(path)
     end
     local contents, reason = ProjectFileSystem.readFile(path)
     if not contents then return nil, reason end
-    local document
-    if file_type.id == "text" then
+    local document = self.editor.document_providers:createDocument(self, path, contents, file_type, {
+        read_only = false,
+        persistent = true
+    })
+    if document then
+        -- Handled by a registered document provider.
+    elseif file_type.id == "text" then
         if contents:find("\0", 1, true) or not utf8.len(contents) then
             return nil, "The file is not valid UTF-8 text", "unsupported"
         end
-        document = self.editor.document_providers:createDocument(self, path, contents, file_type, {
-            read_only = false,
-            persistent = true
-        }) or EditorFileDocument(self, path, contents)
+        document = EditorFileDocument(self, path, contents)
     elseif file_type.id == "image" then
         local loaded, image = pcall(function()
             local file_data = love.filesystem.newFileData(contents, path:match("([^/]+)$") or "image")
@@ -104,9 +99,9 @@ function EditorProjectWorkspace:openDocument(path)
 end
 
 function EditorProjectWorkspace:findDocumentByRealPath(real_path)
-    local normalized = normalizeRealPath(real_path)
+    local normalized = FileSystemUtils.normalizeRealPath(real_path)
     for _, document in ipairs(self.document_order) do
-        if normalizeRealPath(document.real_path) == normalized then return document end
+        if FileSystemUtils.normalizeRealPath(document.real_path) == normalized then return document end
     end
 end
 
@@ -119,7 +114,7 @@ end
 function EditorProjectWorkspace:isEngineMainPath(real_path)
     local engine_root = self:getEngineRoot()
     return engine_root ~= nil
-        and normalizeRealPath(real_path) == normalizeRealPath(engine_root .. "/main.lua")
+        and FileSystemUtils.normalizeRealPath(real_path) == FileSystemUtils.normalizeRealPath(engine_root .. "/main.lua")
 end
 
 function EditorProjectWorkspace:resolveEngineMainDefinition(real_path, range)
@@ -167,11 +162,11 @@ end
 
 function EditorProjectWorkspace:getDisplayPath(real_path)
     real_path = tostring(real_path or ""):gsub("\\", "/")
-    if isWithin(real_path, self.real_root) then
+    if FileSystemUtils.isPathWithin(real_path, self.real_root) then
         return real_path:sub(#self.real_root + 2)
     end
     local engine_root = self:getEngineRoot()
-    if engine_root and isWithin(real_path, engine_root) then
+    if engine_root and FileSystemUtils.isPathWithin(real_path, engine_root) then
         return "Kristal/" .. real_path:sub(#engine_root + 2)
     end
     return real_path
@@ -181,7 +176,7 @@ function EditorProjectWorkspace:openDocumentByRealPath(real_path)
     real_path = tostring(real_path or ""):gsub("\\", "/")
     local existing = self:findDocumentByRealPath(real_path)
     if existing then return existing end
-    if isWithin(real_path, self.real_root) then
+    if FileSystemUtils.isPathWithin(real_path, self.real_root) then
         local relative_path = real_path:sub(#self.real_root + 2)
         return self:openDocument(relative_path)
     end
@@ -198,7 +193,7 @@ function EditorProjectWorkspace:openDocumentByRealPath(real_path)
         return nil, "The language server target is not valid UTF-8 text"
     end
     local relative_path = self:getDisplayPath(real_path)
-    local path = "@external/" .. normalizeRealPath(real_path)
+    local path = "@external/" .. FileSystemUtils.normalizeRealPath(real_path)
     local document = EditorFileDocument(self, path, contents, {
         real_path = real_path,
         relative_path = relative_path,

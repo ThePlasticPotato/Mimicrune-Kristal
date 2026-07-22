@@ -1,9 +1,48 @@
+--- Displays an editable map or editor world.
 ---@class EditorMapView : EditorGameView
+---@field active_map_id string?
+---@field object_paint_stroke any
+---@field object_region_drag any
+---@field object_interaction_drag table
+---@field explosions table
+---@field is_game_preview boolean
+---@field is_map_view boolean
+---@field map_drag table
+---@field object_drag table
+---@field polygon_build any
+---@field polygon_vertex_drag table
+---@field rotation_drag table
+---@field selected_world_map_id string?
+---@field selection_marquee table
+---@field shape_drag table
+---@field tile_selection any
+---@field tile_selection_drag any
+---@field tile_shape_drag any
+---@field tile_stroke table
 ---@overload fun(editor?: table, document?: EditorMapDocument): EditorMapView
 local EditorMapView, super = Class(EditorGameView)
 
 local function pointsEqual(a, b)
     return a and b and a.x == b.x and a.y == b.y
+end
+
+local function tileKey(column, row)
+    return column .. ":" .. row
+end
+
+local function rasterLine(x0, y0, x1, y1)
+    local result = {}
+    local dx, sx = math.abs(x1 - x0), x0 < x1 and 1 or -1
+    local dy, sy = -math.abs(y1 - y0), y0 < y1 and 1 or -1
+    local error_value = dx + dy
+    while true do
+        table.insert(result, { x0, y0 })
+        if x0 == x1 and y0 == y1 then break end
+        local doubled = 2 * error_value
+        if doubled >= dy then error_value, x0 = error_value + dy, x0 + sx end
+        if doubled <= dx then error_value, y0 = error_value + dx, y0 + sy end
+    end
+    return result
 end
 
 local EXPLOSION_DURATION = 0.8
@@ -15,6 +54,9 @@ function EditorMapView:init(editor, document)
     self.is_game_preview = false
     self.is_map_view = true
     self.explosions = {}
+    self.tile_selection = nil
+    self.tile_selection_drag = nil
+    self.tile_shape_drag = nil
 end
 
 function EditorMapView:setCanvas() end
@@ -92,10 +134,19 @@ function EditorMapView:focusMap(map_id)
     return true
 end
 
+function EditorMapView:getFocusedMapId()
+    if self.document and self.document.map_lookup[self.active_map_id] then return self.active_map_id end
+    return self.document and self.document.primary_map_id
+end
+
 function EditorMapView:selectWorldMap(entry)
     self.selected_world_map_id = entry and entry.id or nil
     self.active_map_id = entry and entry.id or self.active_map_id
     self.editor:selectMapObjects({})
+    if entry and self.editor.layers_browser
+        and self.editor.active_document == self.document then
+        self.editor.layers_browser:setDocument(self.document, entry.id)
+    end
     local world = self.document and self.document.world
     if entry and world and Registry.getEditorWorld(world.id) and self.editor.world_browser then
         self.editor.active_world_id = world.id
@@ -128,13 +179,12 @@ function EditorMapView:drawDocument()
     love.graphics.translate(-primary.x, -primary.y)
     local selected_object = self.editor and self.editor.selected_map_object
     local active_map_id = selected_object and selected_object.document == document and selected_object.map_id
-        or self.active_map_id
-        or document.primary_map_id
+        or self:getFocusedMapId()
     for _, entry in ipairs(document.maps) do
         if entry.id ~= active_map_id then
             love.graphics.push()
             love.graphics.translate(entry.x, entry.y)
-            document:drawPreview(entry, 1 / self.view_zoom)
+            document:drawPreview(entry, 1 / self.view_zoom, false)
             love.graphics.pop()
         end
     end
@@ -142,7 +192,7 @@ function EditorMapView:drawDocument()
     if active_entry then
         love.graphics.push()
         love.graphics.translate(active_entry.x, active_entry.y)
-        document:drawPreview(active_entry, 1 / self.view_zoom)
+        document:drawPreview(active_entry, 1 / self.view_zoom, true)
         love.graphics.pop()
     end
     love.graphics.setLineWidth(2 / self.view_zoom)
@@ -151,8 +201,10 @@ function EditorMapView:drawDocument()
         if entry.width and entry.height then
             local selected = self.editor and self.editor.active_tool == "world_select"
                 and self.selected_world_map_id == entry.id
-            love.graphics.setLineWidth((selected and 3 or 2) / self.view_zoom)
-            Draw.setColor(selected and { 1, 0.84, 0.2, 0.95 } or { 1, 1, 1, 0.4 })
+            local focused = active_map_id == entry.id
+            love.graphics.setLineWidth((selected and 3 or focused and 2.5 or 2) / self.view_zoom)
+            Draw.setColor(selected and { 1, 0.84, 0.2, 0.95 }
+                or focused and { 0.45, 0.72, 1, 0.9 } or { 1, 1, 1, 0.4 })
             love.graphics.rectangle("line", entry.x, entry.y, entry.width, entry.height)
             if self.editor and self.editor.show_tile_grid then
                 self:drawTileGrid(entry.x, entry.y, entry.width, entry.height,
@@ -160,12 +212,15 @@ function EditorMapView:drawDocument()
             end
         end
     end
+    self:drawTileSelection()
+    self:drawTileToolPreview()
     self:drawObjectLinks()
     self:drawSelectedObject()
     self:drawSelectionMarquee()
     self:drawShapePreview()
     self:drawExplosions()
     self:drawTerrainBrushPreview()
+    self:drawTileBrushPreview()
     love.graphics.pop()
 end
 
@@ -202,7 +257,9 @@ function EditorMapView:drawObjectLinks()
         local target = self.document:findObjectAt(x2, y2, { all_layers = true })
         if target and target.data ~= source.data then
             x2, y2 = self.document:getObjectWorldCenter(target)
-            Draw.setColor(1, 0.84, 0.2, 0.95)
+            local definition = drag.definition or drag.control and drag.control.options
+            local allowed = self.editor:isObjectReferenceTargetAllowed(target, definition)
+            Draw.setColor(allowed and { 1, 0.84, 0.2, 0.95 } or { 1, 0.25, 0.25, 0.95 })
             love.graphics.circle("line", x2, y2, 7 / self.view_zoom)
         else
             Draw.setColor(0.72, 0.82, 1, 0.8)
@@ -267,8 +324,18 @@ end
 function EditorMapView:getTileEditTarget(world_x, world_y)
     local entry = self.document:getMapAt(world_x, world_y)
     if not entry then return nil, "Move the cursor inside a map before editing tiles" end
+    local selected_uid = self.document:getSelectedLayer(entry.id)
+    local selected_layer = selected_uid and self.document:findEditableLayer(selected_uid, entry.id)
+    local selected_type = selected_layer and Registry.getLayerType(selected_layer._editor_type_id)
+    if selected_type and selected_type.kind == "tile"
+        and self.document:isLayerLocked(selected_layer, entry.id) then
+        return nil, "Unlock the selected tile layer before editing tiles"
+    end
     local layer = self.document:getSelectedTileLayer(entry.id)
     if not layer then return nil, "Select a tile layer before editing tiles" end
+    if self.document:isLayerLocked(layer, entry.id) then
+        return nil, "Unlock the selected tile layer before editing tiles"
+    end
     local tile_width, tile_height = self.document:getTileLayerCellSize(layer, entry.id)
     local offset_x, offset_y = layer.offsetx or 0, layer.offsety or 0
     local column = math.floor((world_x - entry.x - offset_x) / tile_width)
@@ -290,6 +357,272 @@ function EditorMapView:getTilePaintSource()
         return nil, nil, "Select a tile in the Tile Palette before painting"
     end
     return palette, tileset
+end
+
+function EditorMapView:beginTileDrag(tool, world_x, world_y)
+    local target, reason = self:getTileEditTarget(world_x, world_y)
+    if not target then
+        self.editor:addWarning(reason, nil, "tile_editing")
+        return true
+    end
+    if tool ~= "tile_select_rect" and tool ~= "tile_stamp" then
+        local palette
+        palette, _, reason = self:getTilePaintSource()
+        if not palette then
+            self.editor:addWarning(reason, nil, "tile_editing")
+            return true
+        end
+    end
+    local drag = {
+        tool = tool, target = target,
+        start_column = target.column, start_row = target.row,
+        current_column = target.column, current_row = target.row,
+        selection_mode = self:getTileSelectionMode()
+    }
+    if tool == "tile_select_rect" or tool == "tile_stamp" then
+        self.tile_selection_drag = drag
+    else
+        self.tile_shape_drag = drag
+    end
+    self.editor:clearDiagnostics("tile_editing")
+    return true
+end
+
+function EditorMapView:continueTileDrag(world_x, world_y)
+    local drag = self.tile_selection_drag or self.tile_shape_drag
+    if not drag then return false end
+    local target = self:getTileEditTarget(world_x, world_y)
+    if target and target.map_id == drag.target.map_id and target.layer == drag.target.layer then
+        drag.current_column, drag.current_row = target.column, target.row
+    end
+    return true
+end
+
+function EditorMapView:captureTileStamp(drag)
+    local target = drag.target
+    local tileset_id = target.layer.tileset
+    if tileset_id then self.editor:setActiveTileset(tileset_id) end
+    local palette = self.editor.tile_palette
+    local tileset = palette and palette.document
+    if not tileset then return false, "Select the tileset used by this layer before capturing a stamp" end
+    if target.layer.tileset and tileset.id ~= target.layer.tileset then
+        return false, "Could not open tileset '" .. tostring(target.layer.tileset) .. "' for this layer"
+    end
+    local left, right = math.min(drag.start_column, drag.current_column),
+        math.max(drag.start_column, drag.current_column)
+    local top, bottom = math.min(drag.start_row, drag.current_row),
+        math.max(drag.start_row, drag.current_row)
+    local stamp = {}
+    for row = top, bottom do
+        local stamp_row = {}
+        for column = left, right do
+            local tile_id = self.document:getTileIdForLayer(target.layer, column, row,
+                target.map_id, tileset.id)
+            table.insert(stamp_row, tile_id == nil and false or tile_id)
+        end
+        table.insert(stamp, stamp_row)
+    end
+    palette.selection_start, palette.selection_end = nil, nil
+    palette.stamp = stamp
+    self.editor:setActiveTool("tile_brush")
+    if self.editor.message_bar then
+        self.editor.message_bar:setStatus(string.format("Captured %dx%d tile stamp", right - left + 1, bottom - top + 1))
+    end
+    return true
+end
+
+function EditorMapView:finishTileDrag()
+    local drag = self.tile_selection_drag or self.tile_shape_drag
+    self.tile_selection_drag, self.tile_shape_drag = nil, nil
+    if not drag then return false end
+    local cells = self:getTileDragCells(drag)
+    if drag.tool == "tile_select_rect" then
+        local selected = {}
+        for _, cell in ipairs(cells) do selected[tileKey(cell[1], cell[2])] = true end
+        return self:applyTileSelection(drag.target, selected, drag.selection_mode)
+    elseif drag.tool == "tile_stamp" then
+        local success, reason = self:captureTileStamp(drag)
+        if reason then self.editor:addWarning(reason, nil, "tile_editing") end
+        return success
+    end
+    self.editor:beginHistoryTransaction(drag.tool == "tile_brush_line" and "Paint Tile Line"
+        or drag.tool == "tile_shape_ellipse" and "Paint Tile Ellipse" or "Paint Tile Rectangle",
+        self.document)
+    local changed, reason = false, nil
+    for _, cell in ipairs(cells) do
+        local target = {
+            entry = drag.target.entry, map_id = drag.target.map_id, layer = drag.target.layer,
+            column = cell[1], row = cell[2], width = drag.target.width, height = drag.target.height
+        }
+        local cell_changed
+        cell_changed, reason = self:paintTileAnchor(target, false, false,
+            drag.tool == "tile_brush_line" and nil or 1)
+        if cell_changed then changed = true end
+        if reason then break end
+    end
+    if changed then
+        self.editor:markHistoryChanged()
+        self.editor:commitHistoryTransaction()
+    else
+        self.editor:cancelHistoryTransaction()
+    end
+    if reason then self.editor:addWarning(reason, nil, "tile_editing") end
+    return true
+end
+
+function EditorMapView:getTileSelection(target)
+    local selection = self.tile_selection
+    if not selection or not target or selection.map_id ~= target.map_id
+        or selection.layer ~= target.layer then return nil end
+    return selection
+end
+
+function EditorMapView:isTileSelected(target, column, row)
+    local selection = self:getTileSelection(target)
+    return not selection or selection.cells[tileKey(column, row)] == true
+end
+
+function EditorMapView:applyTileSelection(target, cells, mode)
+    local previous = self:getTileSelection(target)
+    local result = mode == "replace" and {} or TableUtils.copy(previous and previous.cells or {})
+    if mode == "subtract" then
+        for key in pairs(cells) do result[key] = nil end
+    elseif mode == "intersect" then
+        for key in pairs(result) do if not cells[key] then result[key] = nil end end
+    else
+        for key in pairs(cells) do result[key] = true end
+    end
+    self.tile_selection = { map_id = target.map_id, layer = target.layer, cells = result }
+    self.editor:selectMapObjects({})
+    return true
+end
+
+function EditorMapView:getTileSelectionMode()
+    if Input.shift() and Input.ctrl() then return "intersect" end
+    if Input.ctrl() then return "subtract" end
+    if Input.shift() then return "add" end
+    return "replace"
+end
+
+function EditorMapView:selectMatchingTiles(target, connected)
+    local value = self.document:getEncodedTile(target.layer, target.column, target.row, target.map_id)
+    local cells, visited = {}, {}
+    if connected then
+        local queue, index = { { target.column, target.row } }, 1
+        while index <= #queue do
+            local point = queue[index]
+            index = index + 1
+            local column, row = point[1], point[2]
+            local key = tileKey(column, row)
+            if not visited[key] then
+                visited[key] = true
+                if column >= 0 and row >= 0 and column < target.width and row < target.height
+                    and self.document:getEncodedTile(target.layer, column, row, target.map_id) == value then
+                    cells[key] = true
+                    table.insert(queue, { column - 1, row })
+                    table.insert(queue, { column + 1, row })
+                    table.insert(queue, { column, row - 1 })
+                    table.insert(queue, { column, row + 1 })
+                end
+            end
+        end
+    else
+        for row = 0, target.height - 1 do
+            for column = 0, target.width - 1 do
+                if self.document:getEncodedTile(target.layer, column, row, target.map_id) == value then
+                    cells[tileKey(column, row)] = true
+                end
+            end
+        end
+    end
+    return self:applyTileSelection(target, cells, self:getTileSelectionMode())
+end
+
+function EditorMapView:getTileRect(target, column, row)
+    local tile_width, tile_height = self.document:getTileLayerCellSize(target.layer, target.map_id)
+    return target.entry.x + (target.layer.offsetx or 0) + column * tile_width,
+        target.entry.y + (target.layer.offsety or 0) + row * tile_height,
+        tile_width, tile_height
+end
+
+function EditorMapView:drawTileCells(target, cells, fill_alpha)
+    if not target then return end
+    love.graphics.setLineWidth(2 / self.view_zoom)
+    for _, cell in ipairs(cells) do
+        local x, y, width, height = self:getTileRect(target, cell[1], cell[2])
+        Draw.setColor(0.28, 0.66, 1, fill_alpha or 0.14)
+        love.graphics.rectangle("fill", x, y, width, height)
+        Draw.setColor(0.52, 0.82, 1, 0.95)
+        love.graphics.rectangle("line", x, y, width, height)
+    end
+end
+
+function EditorMapView:drawTileSelection()
+    local selection = self.tile_selection
+    if not selection then return end
+    local entry = self.document.map_lookup[selection.map_id]
+    if not entry then return end
+    local width, height = self.document:getTileLayerGridSize(selection.layer, selection.map_id)
+    local target = { entry = entry, map_id = selection.map_id, layer = selection.layer,
+        width = width, height = height }
+    local cells = {}
+    for key in pairs(selection.cells) do
+        local column, row = key:match("^(-?%d+):(-?%d+)$")
+        table.insert(cells, { tonumber(column), tonumber(row) })
+    end
+    self:drawTileCells(target, cells, 0.10)
+end
+
+function EditorMapView:getTileDragCells(drag)
+    local x1, y1 = drag.start_column, drag.start_row
+    local x2, y2 = drag.current_column, drag.current_row
+    if drag.tool == "tile_brush_line" then return rasterLine(x1, y1, x2, y2) end
+    local left, right = math.min(x1, x2), math.max(x1, x2)
+    local top, bottom = math.min(y1, y2), math.max(y1, y2)
+    local cells = {}
+    for row = top, bottom do
+        for column = left, right do
+            local include = true
+            if drag.tool == "tile_shape_ellipse" then
+                local rx, ry = math.max(0.5, (right - left + 1) / 2), math.max(0.5, (bottom - top + 1) / 2)
+                local cx, cy = (left + right + 1) / 2, (top + bottom + 1) / 2
+                include = ((column + 0.5 - cx) / rx) ^ 2 + ((row + 0.5 - cy) / ry) ^ 2 <= 1
+            end
+            if include then table.insert(cells, { column, row }) end
+        end
+    end
+    return cells
+end
+
+function EditorMapView:drawTileToolPreview()
+    local drag = self.tile_selection_drag or self.tile_shape_drag
+    if not drag then return end
+    local cells = self:getTileDragCells(drag)
+    if drag.tool == "tile_brush_line" then
+        cells = self:expandTileBrushAnchors(drag.target, cells, false)
+    end
+    self:drawTileCells(drag.target, cells, 0.16)
+end
+
+function EditorMapView:deleteTileSelection()
+    local selection = self.tile_selection
+    if not selection or not next(selection.cells) then return false end
+    if self.document:isLayerLocked(selection.layer, selection.map_id) then return true end
+    self.editor:beginHistoryTransaction("Delete Selected Tiles", self.document)
+    local changed = false
+    for key in pairs(selection.cells) do
+        local column, row = key:match("^(-?%d+):(-?%d+)$")
+        if self.document:setEncodedTile(selection.layer, tonumber(column), tonumber(row), 0,
+            selection.map_id, true) then changed = true end
+    end
+    if changed then
+        self.document:invalidatePreview(selection.map_id)
+        self.editor:markHistoryChanged()
+        self.editor:commitHistoryTransaction()
+    else
+        self.editor:cancelHistoryTransaction()
+    end
+    return true
 end
 
 function EditorMapView:getTerrainPaintSource()
@@ -412,7 +745,7 @@ function EditorMapView:rebuildTerrain(map_id, bounds, layer)
 end
 
 function EditorMapView:getTerrainBrushCells(target)
-    local size = self.editor and self.editor:getTerrainBrushSize() or 1
+    local size = self.editor and self.editor:getBrushSize() or 1
     local first = -math.floor((size - 1) / 2)
     local cells = {}
     for y = first, first + size - 1 do
@@ -421,6 +754,65 @@ function EditorMapView:getTerrainBrushCells(target)
             if column >= 0 and row >= 0 and column < target.width and row < target.height then
                 table.insert(cells, { column, row })
             end
+        end
+    end
+    return cells
+end
+
+function EditorMapView:getTileBrushOffsets(round_brush, size_override)
+    local palette = self.editor and self.editor.tile_palette
+    local size = size_override or self.editor and self.editor:getBrushSize() or 1
+    local stamp_height, stamp_width = 1, 1
+    if palette and not palette.random_mode and #palette.stamp > 0 then
+        stamp_height = #palette.stamp
+        for _, row in ipairs(palette.stamp) do stamp_width = math.max(stamp_width, #row) end
+    end
+    local width, height = stamp_width, stamp_height
+    local first_x, first_y = 0, 0
+    if size > 1 then
+        width, height = math.max(size, stamp_width), math.max(size, stamp_height)
+        first_x = -math.floor((width - 1) / 2)
+        first_y = -math.floor((height - 1) / 2)
+    end
+    local result = {}
+    for y = 0, height - 1 do
+        for x = 0, width - 1 do
+            local include = true
+            if round_brush then
+                local rx, ry = math.max(0.5, width / 2), math.max(0.5, height / 2)
+                include = ((x + 0.5 - width / 2) / rx) ^ 2
+                    + ((y + 0.5 - height / 2) / ry) ^ 2 <= 1
+            end
+            if include then table.insert(result, {
+                x = first_x + x, y = first_y + y,
+                pattern_x = x, pattern_y = y
+            }) end
+        end
+    end
+    return result
+end
+
+function EditorMapView:getTileBrushCells(target, round_brush, size_override)
+    local result = {}
+    for _, offset in ipairs(self:getTileBrushOffsets(round_brush, size_override)) do
+        local column, row = target.column + offset.x, target.row + offset.y
+        if column >= 0 and row >= 0 and column < target.width and row < target.height then
+            table.insert(result, { column, row })
+        end
+    end
+    return result
+end
+
+function EditorMapView:expandTileBrushAnchors(target, anchors, round_brush, size_override)
+    local cells, seen = {}, {}
+    for _, anchor in ipairs(anchors) do
+        local brush_target = {
+            entry = target.entry, map_id = target.map_id, layer = target.layer,
+            column = anchor[1], row = anchor[2], width = target.width, height = target.height
+        }
+        for _, cell in ipairs(self:getTileBrushCells(brush_target, round_brush, size_override)) do
+            local key = tileKey(cell[1], cell[2])
+            if not seen[key] then seen[key] = true table.insert(cells, cell) end
         end
     end
     return cells
@@ -496,6 +888,19 @@ function EditorMapView:drawTerrainBrushPreview()
     end
 end
 
+function EditorMapView:drawTileBrushPreview()
+    local tool = self.editor and self.editor.active_tool
+    if (tool ~= "tile_brush" and tool ~= "tile_brush_round")
+        or self.editor.live_document == self.document then return end
+    local mouse_x, mouse_y = self.editor:getMousePosition()
+    local local_x, local_y = self:toLocal(mouse_x, mouse_y)
+    if local_x < 0 or local_y < 0 or local_x >= self.width or local_y >= self.height then return end
+    local world_x, world_y = self:getMapCoordinates(local_x, local_y)
+    local target = self:getTileEditTarget(world_x, world_y)
+    if not target then return end
+    self:drawTileCells(target, self:getTileBrushCells(target, tool == "tile_brush_round"), 0.16)
+end
+
 function EditorMapView:encodePaintTile(target, tileset, tile_id)
     local encoded, reason = self.document:encodeTileForLayer(
         target.layer, target.map_id, tileset.id, tile_id)
@@ -503,35 +908,27 @@ function EditorMapView:encodePaintTile(target, tileset, tile_id)
     return encoded
 end
 
-function EditorMapView:paintTileAnchor(target, erase)
+function EditorMapView:paintTileAnchor(target, erase, round_brush, size_override)
     local changed = false
     if erase then
-        changed = self.document:setEncodedTile(target.layer, target.column, target.row,
-            0, target.map_id, true)
+        if self:isTileSelected(target, target.column, target.row) then
+            changed = self.document:setEncodedTile(target.layer, target.column, target.row,
+                0, target.map_id, true)
+        end
     else
         local palette, tileset, reason = self:getTilePaintSource()
         if not palette then return false, reason end
-        if palette.random_mode then
-            local tile_id = palette:getRandomTile()
-            local encoded
-            encoded, reason = self:encodePaintTile(target, tileset, tile_id)
-            if not encoded then return false, reason end
-            changed = self.document:setEncodedTile(target.layer, target.column, target.row,
-                encoded, target.map_id, true)
-        else
-            for stamp_y, stamp_row in ipairs(palette.stamp) do
-                for stamp_x, tile_id in ipairs(stamp_row) do
-                    if tile_id ~= false then
-                        local column, row = target.column + stamp_x - 1, target.row + stamp_y - 1
-                        if column >= 0 and row >= 0 and column < target.width and row < target.height then
-                            local encoded
-                            encoded, reason = self:encodePaintTile(target, tileset, tile_id)
-                            if not encoded then return changed, reason end
-                            if self.document:setEncodedTile(target.layer, column, row,
-                                encoded, target.map_id, true) then changed = true end
-                        end
-                    end
-                end
+        for _, offset in ipairs(self:getTileBrushOffsets(round_brush, size_override)) do
+            local column, row = target.column + offset.x, target.row + offset.y
+            local tile_id = palette.random_mode and palette:getRandomTile()
+                or palette:getPaintTile(offset.pattern_x, offset.pattern_y)
+            if tile_id ~= false and tile_id ~= nil and self:isTileSelected(target, column, row)
+                and column >= 0 and row >= 0 and column < target.width and row < target.height then
+                local encoded
+                encoded, reason = self:encodePaintTile(target, tileset, tile_id)
+                if not encoded then return changed, reason end
+                if self.document:setEncodedTile(target.layer, column, row,
+                    encoded, target.map_id, true) then changed = true end
             end
         end
     end
@@ -554,6 +951,7 @@ function EditorMapView:fillTiles(target)
         if not visited[key] then
             visited[key] = true
             if column >= 0 and row >= 0 and column < target.width and row < target.height
+                and self:isTileSelected(target, column, row)
                 and self.document:getEncodedTile(target.layer, column, row, target.map_id) == original then
                 local tile_id = palette:getPaintTile(column - target.column, row - target.row)
                 if tile_id ~= false and tile_id ~= nil then
@@ -622,7 +1020,7 @@ function EditorMapView:beginTileEdit(tool, world_x, world_y, erase_terrain)
     if tool == "terrain_brush" then
         changed, reason = self:paintTerrainAnchor(target, erase_terrain)
     else
-        changed, reason = self:paintTileAnchor(target, tool == "eraser")
+        changed, reason = self:paintTileAnchor(target, tool == "eraser", tool == "tile_brush_round")
     end
     self.tile_stroke.changed = changed
     if changed then self.editor:markHistoryChanged() end
@@ -642,7 +1040,8 @@ function EditorMapView:continueTileEdit(world_x, world_y)
         if stroke.tool == "terrain_brush" then
             changed, reason = self:paintTerrainAnchor(target, stroke.terrain_erase)
         else
-            changed, reason = self:paintTileAnchor(target, stroke.tool == "eraser")
+            changed, reason = self:paintTileAnchor(target, stroke.tool == "eraser",
+                stroke.tool == "tile_brush_round")
         end
         if changed then
             stroke.changed = true
@@ -665,7 +1064,8 @@ function EditorMapView:continueTileEdit(world_x, world_y)
             if stroke.tool == "terrain_brush" then
                 changed, reason = self:paintTerrainAnchor(anchor, stroke.terrain_erase)
             else
-                changed, reason = self:paintTileAnchor(anchor, stroke.tool == "eraser")
+                changed, reason = self:paintTileAnchor(anchor, stroke.tool == "eraser",
+                    stroke.tool == "tile_brush_round")
             end
             if changed then
                 stroke.changed = true
@@ -733,6 +1133,66 @@ function EditorMapView:getResizeCursor(selection, corner)
     return math.sin(angle * 2) >= 0 and "resize_diag_l" or "resize_diag_r"
 end
 
+---@param selection table
+---@param world_x number
+---@param world_y number
+---@return number, number
+function EditorMapView:getObjectLocalCoordinates(selection, world_x, world_y)
+    local object_x, object_y = self.document:getObjectWorldPosition(selection)
+    local rotation = -math.rad(selection.data.rotation or 0)
+    local dx, dy = world_x - object_x, world_y - object_y
+    return dx * math.cos(rotation) - dy * math.sin(rotation),
+        dx * math.sin(rotation) + dy * math.cos(rotation)
+end
+
+---@param selection table
+---@return EditorObjectInteractionContext
+function EditorMapView:getEditorInteractionContext(selection)
+    return {
+        document = self.document,
+        selection = selection,
+        snap = not Input.ctrl(),
+        tile_width = selection.entry.tile_width or 40,
+        tile_height = selection.entry.tile_height or 40,
+        view = self,
+        view_zoom = self.view_zoom
+    }
+end
+
+---@return table?, EditorObject?
+function EditorMapView:getSelectedInteractionObject()
+    local selections = self.editor and self.editor:getSelectedMapObjects(self.document) or {}
+    if #selections ~= 1 then return nil end
+    local selection = selections[1]
+    local object = self.document:getEditorObject(selection)
+    if not object then return nil end
+    return selection, object
+end
+
+---@param world_x number
+---@param world_y number
+---@return table?, EditorObject?, EditorObjectInteraction?
+function EditorMapView:getEditorInteractionAt(world_x, world_y)
+    local selection, object = self:getSelectedInteractionObject()
+    if not selection then return nil end
+    local local_x, local_y = self:getObjectLocalCoordinates(selection, world_x, world_y)
+    local interaction = object:getEditorInteraction(local_x, local_y,
+        self:getEditorInteractionContext(selection))
+    if interaction then return selection, object, interaction end
+end
+
+function EditorMapView:drawEditorObjectSelection()
+    local selection, object = self:getSelectedInteractionObject()
+    if not selection then return end
+    local object_x, object_y = self.document:getObjectWorldPosition(selection)
+    love.graphics.push()
+    love.graphics.translate(object_x, object_y)
+    love.graphics.rotate(math.rad(selection.data.rotation or 0))
+    object:drawEditorSelection(self:getEditorInteractionContext(selection))
+    love.graphics.pop()
+    Draw.setColor(1, 1, 1, 1)
+end
+
 function EditorMapView:openPolygonVertexContext(selection, index, x, y)
     local points = self.document:getPointShape(selection)
     local shape = StringUtils.titleCase(selection.data.shape or "polygon")
@@ -780,18 +1240,15 @@ function EditorMapView:drawSelectedObject()
                 and selection.data.polyline
                 and #selection.data.polyline >= 2) then
             local points = selection.data.polygon or selection.data.polyline
-            local coordinates = {}
-            for _, point in ipairs(points) do
-                table.insert(coordinates, point.x or point[1] or 0)
-                table.insert(coordinates, point.y or point[2] or 0)
-            end
+            local coordinates = MapUtils.collectPointCoordinates(points)
             if selection.data.polygon then
                 love.graphics.polygon("line", coordinates)
             else
                 for _, edge in ipairs(MapUtils.getPolylineEdges(selection.data, #points)) do
                     local first, second = points[edge[1]], points[edge[2]]
-                    love.graphics.line(first.x or first[1] or 0, first.y or first[2] or 0,
-                        second.x or second[1] or 0, second.y or second[2] or 0)
+                    local x1, y1 = MapUtils.getPointCoordinates(first)
+                    local x2, y2 = MapUtils.getPointCoordinates(second)
+                    love.graphics.line(x1, y1, x2, y2)
                 end
             end
             if #selections == 1 then
@@ -817,6 +1274,7 @@ function EditorMapView:drawSelectedObject()
         Draw.setColor(1, 0.86, 0.2, 0.7)
         love.graphics.rectangle("line", min_x, min_y, max_x - min_x, max_y - min_y)
     end
+    self:drawEditorObjectSelection()
     local handle_x, handle_y, anchor_x, anchor_y = self:getRotationHandle(selections)
     Draw.setColor(1, 0.86, 0.2, 0.8)
     love.graphics.line(anchor_x, anchor_y, handle_x, handle_y)
@@ -864,7 +1322,7 @@ function EditorMapView:drawShapePreview()
         end
         return
     end
-    local drag = self.event_region_drag or self.shape_drag
+    local drag = self.object_region_drag or self.shape_drag
     if not drag then return end
     local x, y = math.min(drag.start_x, drag.current_x), math.min(drag.start_y, drag.current_y)
     local width, height = math.abs(drag.current_x - drag.start_x), math.abs(drag.current_y - drag.start_y)
@@ -939,30 +1397,30 @@ function EditorMapView:cancelPolygon()
     return true
 end
 
-function EditorMapView:cancelEventRegion()
-    if not self.event_region_drag then return false end
-    self.event_region_drag = nil
+function EditorMapView:cancelObjectRegion()
+    if not self.object_region_drag then return false end
+    self.object_region_drag = nil
     self.editor:cancelHistoryTransaction()
     return true
 end
 
-function EditorMapView:cancelEventPaint()
-    if not self.event_paint_stroke then return false end
-    self.event_paint_stroke = nil
+function EditorMapView:cancelObjectPaint()
+    if not self.object_paint_stroke then return false end
+    self.object_paint_stroke = nil
     self.editor:cancelHistoryTransaction()
     return true
 end
 
-function EditorMapView:getEventPaintCell(event_id, world_x, world_y)
+function EditorMapView:getObjectPaintCell(object_id, world_x, world_y)
     local entry = self.document:getMapAt(world_x, world_y)
-    if not entry then return nil, "Paint events within a map's bounds" end
+    if not entry then return nil, "Paint objects within a map's bounds" end
     local layer = self.document:getSelectedObjectLayer(entry.id)
-    if not layer then return nil, "Select an object layer before placing an event" end
+    if not layer then return nil, "Select an object layer before placing an object" end
     local tile_width, tile_height = entry.tile_width or 40, entry.tile_height or 40
     local base_x = entry.x + (layer.offsetx or 0)
     local base_y = entry.y + (layer.offsety or 0)
-    local event_class = Registry.getEditorEvent(event_id)
-    local point = event_class and event_class.placement_shape == "point"
+    local object_class = Registry.getEditorObject(object_id)
+    local point = object_class and object_class.placement_shape == "point"
     local local_x, local_y = world_x - base_x, world_y - base_y
     local cell_x = point and MathUtils.round(local_x / tile_width) or math.floor(local_x / tile_width)
     local cell_y = point and MathUtils.round(local_y / tile_height) or math.floor(local_y / tile_height)
@@ -974,13 +1432,13 @@ function EditorMapView:getEventPaintCell(event_id, world_x, world_y)
     }
 end
 
-function EditorMapView:placeEventPaintCell(stroke, cell)
+function EditorMapView:placeObjectPaintCell(stroke, cell)
     if stroke.visited[cell.key] then return false end
     stroke.visited[cell.key] = true
     local world_x = cell.base_x + (cell.x + (cell.point and 0 or 0.5)) * cell.tile_width
     local world_y = cell.base_y + (cell.y + (cell.point and 0 or 0.5)) * cell.tile_height
     local object, layer_or_reason, map_id = self.document:addEditorObject(
-        stroke.event_id, cell.entry.id, world_x, world_y, { free = false })
+        stroke.object_id, cell.entry.id, world_x, world_y, { free = false })
     if not object then
         stroke.error = layer_or_reason
         return false
@@ -992,23 +1450,23 @@ function EditorMapView:placeEventPaintCell(stroke, cell)
     return true
 end
 
-function EditorMapView:beginEventPaint(event_id, world_x, world_y)
-    local cell, reason = self:getEventPaintCell(event_id, world_x, world_y)
+function EditorMapView:beginObjectPaint(object_id, world_x, world_y)
+    local cell, reason = self:getObjectPaintCell(object_id, world_x, world_y)
     if not cell then
-        self.editor:addWarning(reason, nil, "event_placement")
+        self.editor:addWarning(reason, nil, "object_placement")
         return true
     end
-    self.editor:beginHistoryTransaction("Paint Events", self.document)
-    local stroke = { event_id = event_id, visited = {}, changed = false, last_cell = cell }
-    self.event_paint_stroke = stroke
-    self:placeEventPaintCell(stroke, cell)
+    self.editor:beginHistoryTransaction("Paint Objects", self.document)
+    local stroke = { object_id = object_id, visited = {}, changed = false, last_cell = cell }
+    self.object_paint_stroke = stroke
+    self:placeObjectPaintCell(stroke, cell)
     return true
 end
 
-function EditorMapView:continueEventPaint(world_x, world_y)
-    local stroke = self.event_paint_stroke
+function EditorMapView:continueObjectPaint(world_x, world_y)
+    local stroke = self.object_paint_stroke
     if not stroke then return false end
-    local cell = self:getEventPaintCell(stroke.event_id, world_x, world_y)
+    local cell = self:getObjectPaintCell(stroke.object_id, world_x, world_y)
     if not cell then return true end
     local last = stroke.last_cell
     if last and last.entry == cell.entry and last.layer == cell.layer then
@@ -1021,14 +1479,14 @@ function EditorMapView:continueEventPaint(world_x, world_y)
             step.x, step.y = x0, y0
             step.key = table.concat({ cell.entry.id,
                 cell.layer._editor_uid or cell.layer.id or cell.layer.name, x0, y0 }, ":")
-            self:placeEventPaintCell(stroke, step)
+            self:placeObjectPaintCell(stroke, step)
             if x0 == x1 and y0 == y1 then break end
             local doubled = 2 * error_value
             if doubled >= dy then error_value, x0 = error_value + dy, x0 + sx end
             if doubled <= dx then error_value, y0 = error_value + dx, y0 + sy end
         end
     else
-        self:placeEventPaintCell(stroke, cell)
+        self:placeObjectPaintCell(stroke, cell)
     end
     stroke.last_cell = cell
     return true
@@ -1054,7 +1512,38 @@ end
 
 function EditorMapView:drawPreview()
     self:drawDocument()
-    self:drawCursorAndCoordinates()
+    if self.document and self.document.editor_world then
+        self:drawWorldFocusIndicator()
+    else
+        self:drawCursorAndCoordinates()
+    end
+end
+
+function EditorMapView:drawWorldFocusIndicator()
+    local focused_map_id = self:getFocusedMapId()
+    if not focused_map_id then return end
+    local lines = { "Focused map: " .. tostring(focused_map_id) }
+    local mouse_x, mouse_y = self.editor:getMousePosition()
+    local global_x, global_y = self:getGlobalPosition()
+    local x, y = mouse_x - global_x, mouse_y - global_y
+    if love.window.hasMouseFocus() and x >= 0 and y >= 0 and x < self.width and y < self.height then
+        local map_x, map_y = self:getMapCoordinates(x, y)
+        table.insert(lines, string.format("World: (%i, %i)",
+            MathUtils.round(map_x), MathUtils.round(map_y)))
+    end
+    local font = EditorFont.get(16)
+    love.graphics.setFont(font)
+    local width = 0
+    for _, line in ipairs(lines) do width = math.max(width, font:getWidth(line)) end
+    Draw.setColor(0, 0, 0, 0.75)
+    love.graphics.rectangle("fill", 6, 6, width + 12, #lines * font:getHeight() + 8)
+    for index, line in ipairs(lines) do
+        local line_y = 10 + (index - 1) * font:getHeight()
+        Draw.setColor(0, 0, 0, 1)
+        love.graphics.print(line, 13, line_y + 1)
+        Draw.setColor(1, 1, 1, 1)
+        love.graphics.print(line, 12, line_y)
+    end
 end
 
 function EditorMapView:drawTerrainRuleDebug()
@@ -1070,9 +1559,10 @@ function EditorMapView:drawTerrainRuleDebug()
     love.graphics.setFont(font)
     local width = math.min(self.width - 16, font:getWidth(text) + 12)
     Draw.setColor(0.04, 0.04, 0.05, 0.86)
-    love.graphics.rectangle("fill", 8, 30, width, font:getHeight() + 8)
+    local top = self.document and self.document.editor_world and 52 or 30
+    love.graphics.rectangle("fill", 8, top, width, font:getHeight() + 8)
     Draw.setColor(0.82, 0.86, 0.92, 1)
-    love.graphics.printf(text, 14, 34, math.max(0, width - 12), "left")
+    love.graphics.printf(text, 14, top + 4, math.max(0, width - 12), "left")
 end
 
 function EditorMapView:drawSelf()
@@ -1080,7 +1570,6 @@ function EditorMapView:drawSelf()
     love.graphics.rectangle("fill", 0, 0, self.width, self.height)
     self:drawPreview()
     self:drawTerrainRuleDebug()
-    self:drawScaleReadout()
     Draw.setColor(1, 1, 1, 1)
 end
 
@@ -1088,6 +1577,44 @@ function EditorMapView:onFocus()
     if self.editor and not self.editor.suppress_panel_activation then
         self.editor:activateMapDocument(self.document, { select_panel = false })
     end
+end
+
+function EditorMapView:canManipulateObjectSelection()
+    local tool = self.editor and self.editor.tool_registry:get(self.editor.active_tool)
+    return tool and tool.uses_object_selection == true
+end
+
+function EditorMapView:beginObjectMove(selection, world_x, world_y)
+    if Input.shift() then
+        self.editor:selectMapObject(selection, true)
+        return true
+    end
+    if not self.editor:isMapObjectSelected(selection) then
+        self.editor:selectMapObject(selection)
+    end
+    local snapshots = {}
+    for _, selected in ipairs(self.editor:getSelectedMapObjects(self.document)) do
+        table.insert(snapshots, {
+            selection = selected,
+            x = selected.data.x or 0,
+            y = selected.data.y or 0,
+            width = selected.data.width or 0,
+            height = selected.data.height or 0
+        })
+    end
+    self.object_drag = {
+        selection = selection,
+        selections = snapshots,
+        resize = false,
+        start_x = world_x,
+        start_y = world_y,
+        object_x = selection.data.x or 0,
+        object_y = selection.data.y or 0,
+        width = selection.data.width or 0,
+        height = selection.data.height or 0
+    }
+    self.editor:beginHistoryTransaction("Move Objects", self.document)
+    return true
 end
 
 function EditorMapView:onMousePressed(x, y, button, presses)
@@ -1101,6 +1628,7 @@ function EditorMapView:onMousePressed(x, y, button, presses)
     if button == 1 or button == 2 then
         local world_x, world_y = self:getMapCoordinates(x, y)
         local tool = self.editor.active_tool
+        local can_manipulate_objects = self:canManipulateObjectSelection()
         if tool == "link" then
             if button == 2 then
                 return self.editor:cancelObjectLink() or true
@@ -1144,8 +1672,21 @@ function EditorMapView:onMousePressed(x, y, button, presses)
             return true
         end
         if button == 1 and (tool == "tile_brush" or tool == "terrain_brush"
-            or tool == "tile_fill") then
+            or tool == "tile_brush_round" or tool == "tile_fill") then
             return self:beginTileEdit(tool, world_x, world_y)
+        end
+        if button == 1 and (tool == "tile_brush_line" or tool == "tile_shape_rect"
+            or tool == "tile_shape_ellipse" or tool == "tile_select_rect" or tool == "tile_stamp") then
+            return self:beginTileDrag(tool, world_x, world_y)
+        end
+        if button == 1 and (tool == "tile_select_wand" or tool == "tile_select_same") then
+            local target, reason = self:getTileEditTarget(world_x, world_y)
+            if not target then
+                self.editor:addWarning(reason, nil, "tile_editing")
+                return true
+            end
+            self.editor:clearDiagnostics("tile_editing")
+            return self:selectMatchingTiles(target, tool == "tile_select_wand")
         end
         if button == 2 and tool == "terrain_brush" then
             return self:beginTileEdit(tool, world_x, world_y, true)
@@ -1156,7 +1697,26 @@ function EditorMapView:onMousePressed(x, y, button, presses)
                 return self:beginTileEdit(tool, world_x, world_y)
             end
         end
-        if button == 1 and tool == "select" then
+        if button == 1 and can_manipulate_objects then
+            local interaction_selection, interaction_object, interaction =
+                self:getEditorInteractionAt(world_x, world_y)
+            if interaction_selection then
+                local local_x, local_y = self:getObjectLocalCoordinates(
+                    interaction_selection, world_x, world_y)
+                local context = self:getEditorInteractionContext(interaction_selection)
+                if not interaction_object:beginEditorInteraction(
+                    interaction, local_x, local_y, context) then return true end
+                self.object_interaction_drag = {
+                    selection = interaction_selection,
+                    object = interaction_object,
+                    interaction = interaction,
+                    changed = false
+                }
+                self.editor:beginHistoryTransaction(interaction.name or "Edit Object", self.document)
+                return true
+            end
+        end
+        if button == 1 and can_manipulate_objects then
             local vertex_selection, vertex_index = self:getPolygonVertexAt(world_x, world_y)
             if vertex_selection then
                 self.polygon_vertex_drag = { selection = vertex_selection, index = vertex_index }
@@ -1165,7 +1725,7 @@ function EditorMapView:onMousePressed(x, y, button, presses)
                 return true
             end
         end
-        if button == 2 and tool == "select" then
+        if button == 2 and can_manipulate_objects then
             local vertex_selection, vertex_index = self:getPolygonVertexAt(world_x, world_y)
             if vertex_selection and vertex_selection.data.shape ~= "line" then
                 local global_x, global_y = self:getGlobalPosition()
@@ -1173,7 +1733,7 @@ function EditorMapView:onMousePressed(x, y, button, presses)
                     global_x + x, global_y + y)
             end
         end
-        if button == 1 and tool == "select" and self:isRotationHandleAt(world_x, world_y) then
+        if button == 1 and can_manipulate_objects and self:isRotationHandleAt(world_x, world_y) then
             local selections = self.editor:getSelectedMapObjects(self.document)
             local min_x, min_y, max_x, max_y = self:getSelectionBounds(selections)
             local center_x, center_y = (min_x + max_x) / 2, (min_y + max_y) / 2
@@ -1195,7 +1755,7 @@ function EditorMapView:onMousePressed(x, y, button, presses)
             self.editor:beginHistoryTransaction("Rotate Objects", self.document)
             return true
         end
-        if button == 1 and tool == "select" then
+        if button == 1 and can_manipulate_objects then
             local resize_selection, resize_corner = self:getSelectedResizeCornerAt(world_x, world_y)
             if resize_selection then
                 local object_x, object_y = self.document:getObjectWorldPosition(resize_selection)
@@ -1219,9 +1779,8 @@ function EditorMapView:onMousePressed(x, y, button, presses)
                 return true
             end
         end
-        local selecting_existing_event = tool == "object"
-            and self.editor.placement_event_id and not Input.alt()
-        local selection = (button == 2 or tool ~= "object" or selecting_existing_event)
+        local selecting_existing_object = tool == "object" and not Input.alt()
+        local selection = (button == 2 or tool ~= "object" or selecting_existing_object)
             and self.document:findObjectAt(world_x, world_y) or nil
         if selection then selection.view = self end
         if button == 2 then
@@ -1231,37 +1790,32 @@ function EditorMapView:onMousePressed(x, y, button, presses)
             end
             return false
         end
-        if button == 1 and selecting_existing_event and selection then
-            self.editor:selectMapObject(selection)
-            self.editor:setActiveTool("select")
-            return true
+        if button == 1 and selecting_existing_object and selection then
+            return self:beginObjectMove(selection, world_x, world_y)
         end
-        if tool == "object" and self.editor.placement_tile then
-            local tile = self.editor.placement_tile
-            return self.editor:placeTileObject(self, tile.tileset, tile.tile_id, world_x, world_y)
-        elseif tool == "object" and self.editor.placement_event_id then
-            local event_class = Registry.getEditorEvent(self.editor.placement_event_id)
-            if event_class and event_class.placement_shape == "region" then
+        if tool == "object" and self.editor.placement_object_id then
+            local object_class = Registry.getEditorObject(self.editor.placement_object_id)
+            if object_class and object_class.placement_shape == "region" then
                 local entry = self.document:getMapAt(world_x, world_y) or self.document:getPrimaryMap()
                 if not self.document:getSelectedObjectLayer(entry.id) then
-                    self.editor:addWarning("Select an object layer before placing an event",
-                        nil, "event_placement")
+                    self.editor:addWarning("Select an object layer before placing an object",
+                        nil, "object_placement")
                     return true
                 end
                 world_x, world_y = self:snapToMapGrid(entry, world_x, world_y)
-                self.event_region_drag = {
-                    event_id = self.editor.placement_event_id,
+                self.object_region_drag = {
+                    object_id = self.editor.placement_object_id,
                     map_id = entry.id,
                     start_x = world_x, start_y = world_y,
                     current_x = world_x, current_y = world_y
                 }
-                self.editor:beginHistoryTransaction("Place Event Region", self.document)
+                self.editor:beginHistoryTransaction("Place Object Region", self.document)
                 return true
             end
             if Input.alt() then
-                return self:beginEventPaint(self.editor.placement_event_id, world_x, world_y)
+                return self:beginObjectPaint(self.editor.placement_object_id, world_x, world_y)
             end
-            return self.editor:placeEvent(self, self.editor.placement_event_id, world_x, world_y)
+            return self.editor:placeObject(self, self.editor.placement_object_id, world_x, world_y)
         elseif tool == "shape" and self.editor.shape_mode ~= "point"
             and self.editor.shape_mode ~= "line" and self.editor.shape_mode ~= "polygon"
             and self.editor.shape_mode ~= "polyline" then
@@ -1323,37 +1877,8 @@ function EditorMapView:onMousePressed(x, y, button, presses)
             self.editor:selectMapObject(selection)
             return selection and self.editor:deleteSelectedMapObject(false) or true
         end
-        if selection and tool == "select" then
-            if Input.shift() then
-                self.editor:selectMapObject(selection, true)
-                return true
-            elseif not self.editor:isMapObjectSelected(selection) then
-                self.editor:selectMapObject(selection)
-            end
-            local selections = self.editor:getSelectedMapObjects(self.document)
-            local snapshots = {}
-            for _, selected in ipairs(selections) do
-                table.insert(snapshots, {
-                    selection = selected,
-                    x = selected.data.x or 0,
-                    y = selected.data.y or 0,
-                    width = selected.data.width or 0,
-                    height = selected.data.height or 0
-                })
-            end
-            self.object_drag = {
-                selection = selection,
-                selections = snapshots,
-                resize = false,
-                start_x = world_x,
-                start_y = world_y,
-                object_x = selection.data.x or 0,
-                object_y = selection.data.y or 0,
-                width = selection.data.width or 0,
-                height = selection.data.height or 0
-            }
-            self.editor:beginHistoryTransaction("Move Objects", self.document)
-            return true
+        if selection and can_manipulate_objects then
+            return self:beginObjectMove(selection, world_x, world_y)
         end
         if not selection and tool == "select" then
             local entry = self.document:getMapAt(world_x, world_y)
@@ -1385,8 +1910,23 @@ function EditorMapView:onMouseMoved(x, y, dx, dy)
         return self.editor.game_preview:onMouseMoved(x, y, dx, dy)
     end
     local world_x, world_y = self:getMapCoordinates(x, y)
+    if self.object_interaction_drag then
+        local drag = self.object_interaction_drag
+        local local_x, local_y = self:getObjectLocalCoordinates(drag.selection, world_x, world_y)
+        local changed = drag.object:updateEditorInteraction(drag.interaction, local_x, local_y,
+            self:getEditorInteractionContext(drag.selection))
+        if changed then
+            drag.changed = true
+            self.document:invalidatePreview(drag.selection.map_id)
+            self.editor:markHistoryChanged()
+        end
+        return true
+    end
+    if self.tile_selection_drag or self.tile_shape_drag then
+        return self:continueTileDrag(world_x, world_y)
+    end
     if self.tile_stroke then return self:continueTileEdit(world_x, world_y) end
-    if self.event_paint_stroke then return self:continueEventPaint(world_x, world_y) end
+    if self.object_paint_stroke then return self:continueObjectPaint(world_x, world_y) end
     if self.polygon_build then
         local entry = self.document.map_lookup[self.polygon_build.map_id]
         if entry then world_x, world_y = self:snapPointShapeToMapGrid(entry, world_x, world_y) end
@@ -1401,10 +1941,10 @@ function EditorMapView:onMouseMoved(x, y, dx, dy)
         end
         return true
     end
-    if self.event_region_drag then
-        local entry = self.document.map_lookup[self.event_region_drag.map_id]
+    if self.object_region_drag then
+        local entry = self.document.map_lookup[self.object_region_drag.map_id]
         if entry then world_x, world_y = self:snapToMapGrid(entry, world_x, world_y) end
-        self.event_region_drag.current_x, self.event_region_drag.current_y = world_x, world_y
+        self.object_region_drag.current_x, self.object_region_drag.current_y = world_x, world_y
         return true
     end
     if self.shape_drag then
@@ -1510,6 +2050,24 @@ function EditorMapView:onMouseReleased(x, y, button, presses)
     if self.editor and self.editor.live_document == self.document then
         return self.editor.game_preview:onMouseReleased(x, y, button, presses)
     end
+    if button == 1 and self.object_interaction_drag then
+        local drag = self.object_interaction_drag
+        self.object_interaction_drag = nil
+        local world_x, world_y = self:getMapCoordinates(x, y)
+        local local_x, local_y = self:getObjectLocalCoordinates(drag.selection, world_x, world_y)
+        drag.object:endEditorInteraction(drag.interaction, local_x, local_y, drag.changed,
+            self:getEditorInteractionContext(drag.selection))
+        if drag.changed then
+            self.editor:commitHistoryTransaction()
+            self.editor:selectMapObjects({ drag.selection }, drag.selection)
+        else
+            self.editor:cancelHistoryTransaction()
+        end
+        return true
+    end
+    if button == 1 and (self.tile_selection_drag or self.tile_shape_drag) then
+        return self:finishTileDrag()
+    end
     if self.tile_stroke and button == self.tile_stroke.button then
         local changed = self.tile_stroke.changed
         self.tile_stroke = nil
@@ -1520,35 +2078,35 @@ function EditorMapView:onMouseReleased(x, y, button, presses)
         end
         return true
     end
-    if button == 1 and self.event_paint_stroke then
-        local stroke = self.event_paint_stroke
-        self.event_paint_stroke = nil
+    if button == 1 and self.object_paint_stroke then
+        local stroke = self.object_paint_stroke
+        self.object_paint_stroke = nil
         if stroke.changed then
             self.editor:commitHistoryTransaction()
             if stroke.selection then self.editor:selectMapObject(stroke.selection) end
-            self.editor:clearDiagnostics("event_placement")
+            self.editor:clearDiagnostics("object_placement")
         else
             self.editor:cancelHistoryTransaction()
-            if stroke.error then self.editor:addWarning(stroke.error, nil, "event_placement") end
+            if stroke.error then self.editor:addWarning(stroke.error, nil, "object_placement") end
         end
         return true
     end
-    if button == 1 and self.event_region_drag then
-        local drag = self.event_region_drag
-        self.event_region_drag = nil
+    if button == 1 and self.object_region_drag then
+        local drag = self.object_region_drag
+        self.object_region_drag = nil
         local x1, y1 = math.min(drag.start_x, drag.current_x), math.min(drag.start_y, drag.current_y)
         local x2, y2 = math.max(drag.start_x, drag.current_x), math.max(drag.start_y, drag.current_y)
         local object, layer_or_reason, map_id = self.document:addEditorRegion(
-            drag.event_id, drag.map_id, x1, y1, x2 - x1, y2 - y1)
+            drag.object_id, drag.map_id, x1, y1, x2 - x1, y2 - y1)
         if not object then
             self.editor:cancelHistoryTransaction()
-            self.editor:addWarning(layer_or_reason, nil, "event_placement")
+            self.editor:addWarning(layer_or_reason, nil, "object_placement")
             return true
         end
         local selection = self.document:getObjectSelection(map_id, layer_or_reason, object)
         selection.view = self
         self.editor:selectMapObject(selection)
-        self.editor:clearDiagnostics("event_placement")
+        self.editor:clearDiagnostics("object_placement")
         self.editor:markHistoryChanged()
         self.editor:commitHistoryTransaction()
         self.editor:setActiveTool("select")
@@ -1632,18 +2190,36 @@ function EditorMapView:getCursorType(x, y)
     if self.editor and self.editor.live_document == self.document then
         return self.editor.game_preview:getCursorType(x, y)
     end
+    if self.object_interaction_drag then return self.object_interaction_drag.interaction.cursor or "resize_all" end
     if self.object_drag then return self.object_drag.resize_cursor or "grab" end
     if self.map_drag or self.dragging_canvas then return "grab" end
     if self.polygon_vertex_drag then return "resize_all" end
     if self.rotation_drag then return "resize_all" end
-    if self.tile_stroke then return "crosshair" end
+    if self.tile_stroke or self.tile_selection_drag or self.tile_shape_drag then return "crosshair" end
     if self.editor and self.editor.active_tool == "link" then return "link" end
     if self.editor and self.editor.active_tool == "world_select" then
         local world_x, world_y = self:getMapCoordinates(x, y)
         return self.document:getMapAt(world_x, world_y) and "grab" or "default"
     end
+    local world_x, world_y = self:getMapCoordinates(x, y)
+    if self:canManipulateObjectSelection() then
+        local _, _, interaction = self:getEditorInteractionAt(world_x, world_y)
+        if interaction then return interaction.cursor or "resize_all" end
+        local resize_selection, resize_corner = self:getSelectedResizeCornerAt(world_x, world_y)
+        if resize_selection then return self:getResizeCursor(resize_selection, resize_corner) end
+        if self:getPolygonVertexAt(world_x, world_y) then return "resize_all" end
+        if self:isRotationHandleAt(world_x, world_y) then return "resize_all" end
+        local selection = self.document:findObjectAt(world_x, world_y)
+        if selection then
+            return self.editor:isMapObjectSelected(selection) and "grab" or "select"
+        end
+    end
     if self.editor and (self.editor.active_tool == "object" or self.editor.active_tool == "shape"
         or self.editor.active_tool == "tile_brush" or self.editor.active_tool == "terrain_brush"
+        or self.editor.active_tool == "tile_brush_round" or self.editor.active_tool == "tile_brush_line"
+        or self.editor.active_tool == "tile_shape_rect" or self.editor.active_tool == "tile_shape_ellipse"
+        or self.editor.active_tool == "tile_select_rect" or self.editor.active_tool == "tile_select_wand"
+        or self.editor.active_tool == "tile_select_same" or self.editor.active_tool == "tile_stamp"
         or self.editor.active_tool == "tile_fill") then
         return "crosshair"
     end
@@ -1651,17 +2227,6 @@ function EditorMapView:getCursorType(x, y)
         local world_x, world_y = self:getMapCoordinates(x, y)
         local entry = self.document:getMapAt(world_x, world_y)
         if entry and self.document:getSelectedTileLayer(entry.id) then return "crosshair" end
-    end
-    local world_x, world_y = self:getMapCoordinates(x, y)
-    if self.editor and self.editor.active_tool == "select" then
-        local resize_selection, resize_corner = self:getSelectedResizeCornerAt(world_x, world_y)
-        if resize_selection then return self:getResizeCursor(resize_selection, resize_corner) end
-    end
-    if self.editor and self.editor.active_tool == "select" and self:getPolygonVertexAt(world_x, world_y) then
-        return "resize_all"
-    end
-    if self.editor and self.editor.active_tool == "select" and self:isRotationHandleAt(world_x, world_y) then
-        return "resize_all"
     end
     local selection = self.document:findObjectAt(world_x, world_y)
     if selection then
@@ -1671,8 +2236,8 @@ function EditorMapView:getCursorType(x, y)
 end
 
 function EditorMapView:onKeyPressed(key, is_repeat)
-    if not is_repeat and key == "escape" and self.editor and self.editor.placement_event_id then
-        self:cancelEventRegion()
+    if not is_repeat and key == "escape" and self.editor and self.editor.placement_object_id then
+        self:cancelObjectRegion()
         self.editor:setActiveTool("select")
         return true
     end
@@ -1686,6 +2251,10 @@ function EditorMapView:onKeyPressed(key, is_repeat)
             return true
         end
         if key == "return" or key == "kpenter" then return self:finishPointShape() end
+    end
+    if not is_repeat and key == "escape" and self.tile_selection then
+        self.tile_selection = nil
+        return true
     end
     return super.onKeyPressed(self, key, is_repeat)
 end

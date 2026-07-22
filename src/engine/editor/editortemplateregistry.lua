@@ -1,3 +1,4 @@
+--- Registers templates used to create editor data and project files.
 ---@class EditorTemplateRegistry
 local EditorTemplateRegistry = {}
 
@@ -210,6 +211,23 @@ end
 
 function EditorTemplateRegistry.coerce(field, value)
     if field.type == "boolean" then return value == true end
+    if field.type == "asset_path_list" then
+        if type(value) == "string" then value = { value } end
+        if value == nil then value = {} end
+        if type(value) ~= "table" then return nil, field.name .. " must be a list of asset paths" end
+        local result = {}
+        for index, path in ipairs(value) do
+            if type(path) ~= "string" then
+                return nil, field.name .. " entry " .. index .. " must be an asset path"
+            end
+            path = path:match("^%s*(.-)%s*$"):gsub("\\", "/"):gsub("^%./", "")
+            result[index] = path
+        end
+        while result[#result] == "" do table.remove(result) end
+        if #result == 0 and field.required ~= true then return nil end
+        if #result == 0 then return nil, field.name .. " requires at least one asset path" end
+        return result
+    end
     if field.type == "table" then
         if value == nil and field.nullable then return nil end
         if type(value) ~= "table" then return nil, field.name .. " must be a table" end
@@ -251,8 +269,8 @@ function EditorTemplateRegistry.coerce(field, value)
         return value
     end
     if field.type == "choice" then
-        for _, choice in ipairs(type(field.choices) == "function" and field.choices(field) or field.choices or {}) do
-            local choice_value = type(choice) == "table" and (choice.value ~= nil and choice.value or choice.id) or choice
+        for _, choice in ipairs(EditorChoiceUtils.resolve(field.choices, field)) do
+            local choice_value = EditorChoiceUtils.getValue(choice)
             if tostring(choice_value) == tostring(value) then return choice_value end
         end
         return nil, field.name .. " has an unknown option"
@@ -269,13 +287,12 @@ end
 function EditorTemplateRegistry.registerBuiltins(registry)
     local register = function(id, definition) registry.registerEditorTemplate(id, definition) end
     local validId = function(value)
-        return value:match("^[%w_%-/]+$") ~= nil,
-            "IDs may only contain letters, numbers, underscores, dashes, and slashes"
+        return EditorProjectIO.validateContentId("content", value)
     end
 
     register("core:map", {
         name = "Map", kind = "map", category = "Editor Data",
-        description = "Create a native Kristal map.",
+        description = "Create a new map.",
         variables = {
             variable("id", "ID", "string", "new_map", { validate = validId }),
             variable("name", "Name", "string", "New Map"),
@@ -283,7 +300,8 @@ function EditorTemplateRegistry.registerBuiltins(registry)
             variable("height", "Grid Height", "integer", 12, { minimum = 1 }),
             variable("grid_width", "Tile Width", "integer", 40, { minimum = 1 }),
             variable("grid_height", "Tile Height", "integer", 40, { minimum = 1 }),
-            variable("background_color", "Background", "color", "#00000000")
+            variable("background_color", "Background", "color", "#00000000"),
+            variable("default_layers", "Default Layers", "boolean", true)
         }
     })
     register("core:world", {
@@ -297,12 +315,15 @@ function EditorTemplateRegistry.registerBuiltins(registry)
     })
     register("core:tileset", {
         name = "Tileset", kind = "tileset", category = "Editor Data",
-        description = "Create a native Kristal tileset.",
+        description = "Create a new tileset.",
         variables = {
             variable("id", "ID", "string", "new_tileset", { validate = validId }),
             variable("name", "Name", "string", "New Tileset"),
-            variable("image", "Image", "string", "", { required = false,
-                description = "Asset path, or leave empty for a blank tileset." }),
+            variable("image", "Images", "asset_path_list", { "" }, { required = false,
+                path_kind = "asset", asset_categories = { "sprites" },
+                extensions = { "png", "jpg", "jpeg", "bmp", "tga", "webp" },
+                maximum_visible_rows = 5,
+                description = "Add one image for a spritesheet, or one image per tile for a multi-image tileset." }),
             variable("tile_width", "Tile Width", "integer", 40, { minimum = 1 }),
             variable("tile_height", "Tile Height", "integer", 40, { minimum = 1 }),
             variable("tile_columns", "Columns", "integer", 1, { minimum = 1 }),

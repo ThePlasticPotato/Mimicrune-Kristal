@@ -1,4 +1,11 @@
+--- Provides a clickable editor button.
 ---@class EditorButton : EditorControl
+---@field cursor_type string
+---@field focusable boolean
+---@field focused boolean
+---@field label string?
+---@field on_pressed function?
+---@field pressed boolean
 ---@overload fun(label?: string, on_pressed?: function): EditorButton
 local EditorButton, super = Class(EditorControl)
 
@@ -41,6 +48,7 @@ end
 
 function EditorButton:drawSelf()
     local font = EditorFont.get(16)
+    local previous_line_width = love.graphics.getLineWidth()
     love.graphics.setFont(font)
     if not self.enabled then
         Draw.setColor(0.11, 0.11, 0.13, 1)
@@ -54,7 +62,9 @@ function EditorButton:drawSelf()
     love.graphics.rectangle("fill", 0, 0, self.width, self.height)
     Draw.setColor(self.focused and 0.55 or 0.32, self.focused and 0.68 or 0.32,
         self.focused and 0.90 or 0.37, 1)
+    love.graphics.setLineWidth(1)
     love.graphics.rectangle("line", 0.5, 0.5, self.width - 1, self.height - 1)
+    love.graphics.setLineWidth(previous_line_width)
     Draw.setColor(self.enabled and { 0.90, 0.90, 0.92, 1 } or { 0.42, 0.42, 0.45, 1 })
     love.graphics.print(self.label, math.floor((self.width - font:getWidth(self.label)) / 2),
         math.floor((self.height - font:getHeight()) / 2))

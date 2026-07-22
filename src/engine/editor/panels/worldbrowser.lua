@@ -1,4 +1,13 @@
+--- Displays and edits worlds in the current project.
 ---@class EditorWorldBrowser : EditorControl
+---@field add_map_button EditorButton
+---@field edit_button EditorButton
+---@field editor Editor
+---@field list EditorItemList
+---@field maps_list EditorItemList
+---@field new_button EditorButton
+---@field save_button EditorButton
+---@field search EditorSearchBar
 ---@overload fun(editor: table): EditorWorldBrowser
 local EditorWorldBrowser, super = Class(EditorControl)
 
@@ -33,7 +42,13 @@ function EditorWorldBrowser:selectWorldMap(entry)
     local world = self.editor.active_editor_world
     if not world or not entry then return false end
     local document = self.editor:findWorldDocument(world.id)
-    if document and document.map_view then document.map_view.selected_world_map_id = entry.id end
+    if document and document.map_view then
+        document.map_view.selected_world_map_id = entry.id
+        document.map_view.active_map_id = entry.id
+        if self.editor.active_document == document and self.editor.layers_browser then
+            self.editor.layers_browser:setDocument(document, entry.id)
+        end
+    end
     self.editor:setPropertiesTarget({
         title = "World Map: " .. entry.id,
         world_id = world.id,

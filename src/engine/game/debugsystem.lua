@@ -1137,6 +1137,8 @@ end
 
 function DebugSystem:isInGame()
     return Kristal.getState() == Game
+        or Game.stage ~= nil and self.selection_environment_owner ~= nil
+            and self:getStage() == Game.stage
 end
 
 function DebugSystem:registerDefaults()

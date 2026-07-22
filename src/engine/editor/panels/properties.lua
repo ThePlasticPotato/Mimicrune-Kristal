@@ -1,4 +1,17 @@
+--- Displays properties for the current editor selection.
 ---@class EditorPropertiesPanel : EditorControl
+---@field add_button EditorButton
+---@field clip boolean
+---@field content_height number
+---@field editor Editor
+---@field generated_controls table
+---@field layout_rows table
+---@field property_header_y number
+---@field property_tooltip EditorTooltip
+---@field scroll_y number
+---@field scrollbar EditorScrollbar
+---@field target any
+---@field target_history_started any
 ---@overload fun(editor: table): EditorPropertiesPanel
 local EditorPropertiesPanel, super = Class(EditorControl)
 
@@ -10,20 +23,6 @@ end
 
 local function displayPropertyValue(property_type, value)
     return Registry.editor_properties:getDisplayValue(property_type, value)
-end
-
-local function choiceValueAndLabel(choice)
-    if type(choice) ~= "table" then return choice, choice end
-    local value = choice.value ~= nil and choice.value or choice.id
-    return value, choice.label or choice.name or value
-end
-
-local function choiceLabel(choices, value)
-    for _, choice in ipairs(choices or {}) do
-        local choice_value, label = choiceValueAndLabel(choice)
-        if choice_value == value then return label end
-    end
-    return value
 end
 
 function EditorPropertiesPanel:init(editor)
@@ -41,6 +40,7 @@ function EditorPropertiesPanel:init(editor)
         width = 12,
         on_changed = function(value) self.scroll_y = self:getMaxScroll() * value end
     }))
+    self.property_tooltip = self:addChild(EditorTooltip())
 end
 
 function EditorPropertiesPanel:clearGeneratedControls()
@@ -125,11 +125,13 @@ end
 function EditorPropertiesPanel:createChoiceControl(name, definition, value)
     local choices = Registry.editor_properties:getChoices(definition)
     local button
-    button = EditorButton(displayValue(choiceLabel(choices, value)), function()
+    local _, current_label = EditorChoiceUtils.find(choices, value)
+    button = EditorButton(displayValue(current_label or value), function()
         local items = {}
         choices = Registry.editor_properties:getChoices(definition)
         for _, choice in ipairs(choices) do
-            local choice_value, choice_label = choiceValueAndLabel(choice)
+            local choice_value = EditorChoiceUtils.getValue(choice)
+            local choice_label = EditorChoiceUtils.getLabel(choice)
             table.insert(items, {
                 label = tostring(choice_label),
                 checked = choice_value == self:getPropertyValue(name, definition),
@@ -150,18 +152,24 @@ end
 
 function EditorPropertiesPanel:createValueControl(name, definition, value)
     local property_type = self:getPropertyType(name, definition, value)
-    local control_type = Registry.getEditorPropertyType(property_type).control or "text"
+    local property_type_definition = Registry.getEditorPropertyType(property_type)
+    local control_type = definition and definition.control or property_type_definition.control or "text"
     if control_type == "color" then
         return self:addGeneratedControl(EditorColorInput(self.editor, value, {
             on_submit = function(color) return self:setPropertyValue(name, color, definition) end
         }))
+    elseif control_type == "path" then
+        local options = TableUtils.copy(property_type_definition, true)
+        for key, option in pairs(definition or {}) do options[key] = option end
+        options.on_submit = function(path) return self:setPropertyValue(name, path, definition) end
+        return self:addGeneratedControl(EditorPathInput(self.editor, value, options))
     elseif control_type == "object_reference"
         or control_type == "marker_reference" and type(value) == "table" then
-        return self:addGeneratedControl(EditorObjectReferenceControl(self.editor, value, {
-            on_changed = function(reference)
-                self:setPropertyValue(name, reference, definition)
-            end
-        }))
+        local options = TableUtils.copy(definition or {}, true)
+        options.on_changed = function(reference)
+            return self:setPropertyValue(name, reference, definition)
+        end
+        return self:addGeneratedControl(EditorObjectReferenceControl(self.editor, value, options))
     elseif control_type == "table" or type(value) == "table" then
         return self:addGeneratedControl(EditorTableInput(self.editor, value, {
             on_changed = function(table_value)
@@ -208,11 +216,16 @@ function EditorPropertiesPanel:createSectionValueControl(section, definition)
         return self:addGeneratedControl(EditorColorInput(self.editor, value, {
             on_submit = function(color) return changed(color) end
         }))
+    elseif property_type.control == "path" or definition.control == "path" then
+        local options = TableUtils.copy(property_type, true)
+        for key, option in pairs(definition) do options[key] = option end
+        options.on_submit = function(path) return changed(path) end
+        return self:addGeneratedControl(EditorPathInput(self.editor, value, options))
     elseif property_type.control == "object_reference"
         or property_type.control == "marker_reference" and type(value) == "table" then
-        return self:addGeneratedControl(EditorObjectReferenceControl(self.editor, value, {
-            on_changed = function(reference) changed(reference) end
-        }))
+        local options = TableUtils.copy(definition, true)
+        options.on_changed = function(reference) return changed(reference) end
+        return self:addGeneratedControl(EditorObjectReferenceControl(self.editor, value, options))
     elseif property_type.control == "table" or type(value) == "table" then
         return self:addGeneratedControl(EditorTableInput(self.editor, value, {
             on_changed = function(table_value) return changed(table_value) end
@@ -224,8 +237,8 @@ function EditorPropertiesPanel:createSectionValueControl(section, definition)
         button = EditorButton(displayValue(value), function()
             local items = {}
             for _, choice in ipairs(Registry.editor_properties:getChoices(definition)) do
-                local choice_value = type(choice) == "table" and (choice.value ~= nil and choice.value or choice.id) or choice
-                table.insert(items, { label = tostring(type(choice) == "table" and (choice.label or choice.name or choice_value) or choice),
+                local choice_value = EditorChoiceUtils.getValue(choice)
+                table.insert(items, { label = EditorChoiceUtils.getLabel(choice),
                     action = function()
                         if changed(choice_value) then button.label = displayValue(choice_value) end
                     end })
@@ -268,11 +281,13 @@ function EditorPropertiesPanel:rebuild()
         local value_control
         if field.choices then
             local button
+            local _, current_label = EditorChoiceUtils.find(field.choices, field.get())
             button = self:addGeneratedControl(EditorButton(
-                displayValue(choiceLabel(field.choices, field.get())), function()
+                displayValue(current_label or field.get()), function()
                 local items = {}
                 for _, choice in ipairs(field.choices) do
-                    local choice_value, choice_label = choiceValueAndLabel(choice)
+                    local choice_value = EditorChoiceUtils.getValue(choice)
+                    local choice_label = EditorChoiceUtils.getLabel(choice)
                     table.insert(items, {
                         label = tostring(choice_label),
                         checked = choice_value == field.get(),
@@ -292,6 +307,20 @@ function EditorPropertiesPanel:rebuild()
             value_control = self:addGeneratedControl(EditorColorInput(self.editor, field.get(), {
                 on_submit = function(value) return setField(value, true) end
             }))
+            value_control.enabled = field.readonly ~= true
+        elseif field.control == "path" or field.type == "asset_path" or field.type == "script_path" then
+            local options = TableUtils.copy(Registry.getEditorPropertyType(field.type or "string"), true)
+            for key, option in pairs(field) do options[key] = option end
+            options.on_submit = function(value) return setField(value, true) end
+            value_control = self:addGeneratedControl(EditorPathInput(self.editor, field.get(), options))
+            value_control.enabled = field.readonly ~= true
+        elseif field.control == "path_list" or field.type == "asset_path_list" then
+            local options = TableUtils.copy(field, true)
+            options.on_changed = function(value) return setField(value, true) end
+            options.on_request_focus = function(input)
+                if self.editor.dockspace then self.editor.dockspace:setFocus(input) end
+            end
+            value_control = self:addGeneratedControl(EditorPathListInput(self.editor, field.get(), options))
             value_control.enabled = field.readonly ~= true
         else
             local input = self:addGeneratedControl(EditorTextInput({
@@ -343,7 +372,7 @@ function EditorPropertiesPanel:rebuild()
         local name_input = self:addGeneratedControl(EditorTextInput(definition.custom and {
             on_submit = function(value) self:renameProperty(name, value) end
         } or nil))
-        name_input:setValue(name, true)
+        name_input:setValue(definition.custom and name or definition.name or name, true)
         name_input.enabled = definition.custom == true and definition.unavailable ~= true
         local value_control = self:createValueControl(name, definition, value)
         value_control.enabled = definition.unavailable ~= true
@@ -396,6 +425,8 @@ function EditorPropertiesPanel:rebuild()
             })
         end
     end
+    self:removeChild(self.property_tooltip)
+    self:addChild(self.property_tooltip)
 end
 
 function EditorPropertiesPanel:getPropertyValue(name, definition)
@@ -560,7 +591,8 @@ function EditorPropertiesPanel:update(dt)
     for _, row in ipairs(self.layout_rows) do
         if row.kind == "standard" then
             row.label_y = y
-            local control_height = row.value_control.multiline and 96 or 28
+            local control_height = row.value_control.preferred_height
+                or (row.value_control.multiline and 96 or 28)
             row.value_control:setBounds(padding, y + 18, width, control_height)
             y = y + control_height + 26
         elseif row.kind == "standard_pair" then
@@ -620,6 +652,31 @@ function EditorPropertiesPanel:update(dt)
     self.scrollbar.value = max_scroll == 0 and 0 or self.scroll_y / max_scroll
     self.scrollbar:setBounds(self.width - self.scrollbar.width, 28, self.scrollbar.width, math.max(0, self.height - 28))
     super.update(self, dt)
+    self:updatePropertyTooltip()
+end
+
+function EditorPropertiesPanel:updatePropertyTooltip()
+    self.property_tooltip.visible = false
+    local mouse_x, mouse_y = self.editor:getMousePosition()
+    local panel_x, panel_y = self:getGlobalPosition()
+    for _, row in ipairs(self.layout_rows) do
+        local definition = row.definition
+        if row.kind == "property" and definition and definition.custom ~= true
+            and definition.name and definition.name ~= row.property_name
+            and row.name_input.visible and row.name_input:containsPoint(mouse_x, mouse_y) then
+            local x, y = self:toLocal(mouse_x, mouse_y)
+            self.property_tooltip:setText(row.property_name, x + 12, y + 14,
+                self.width, self.height, "Property ID: ")
+            return
+        elseif row.kind == "fx_property" and definition and definition.name ~= definition.id
+            and row.label_y and mouse_x >= panel_x and mouse_x < panel_x + self.width
+            and mouse_y >= panel_y + row.label_y and mouse_y < panel_y + row.label_y + 18 then
+            local x, y = self:toLocal(mouse_x, mouse_y)
+            self.property_tooltip:setText(definition.id, x + 12, y + 14,
+                self.width, self.height, "Property ID: ")
+            return
+        end
+    end
 end
 
 function EditorPropertiesPanel:drawSelf()

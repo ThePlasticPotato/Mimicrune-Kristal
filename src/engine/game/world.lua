@@ -889,7 +889,7 @@ function World:spawnPlayer(...)
     self.player = Player(chara, x, y)
     self.player.z = z
     self.player.last_safe_z = z
-    self.player.layer = self.map.object_layer
+    MapUtils.addLayerOffset(self.player, self.map.object_layer)
     self.player:setFacing(facing)
     self.player:setState(state)
     self:addChild(self.player)
@@ -1002,7 +1002,7 @@ function World:spawnFollower(chara, options)
         end
         follower = Follower(chara, x, y)
         follower.z = self.player and self.player.z or 0
-        follower.layer = self.map.object_layer
+        MapUtils.addLayerOffset(follower, self.map.object_layer)
         if self.player then
             follower:setFacing(self.player:getFacing())
         end
@@ -1121,7 +1121,11 @@ end
 ---@param layer? string|number  The layer to place the object on
 ---@return T
 function World:spawnObject(obj, layer)
-    obj.layer = self:parseLayer(layer)
+    if type(layer) == "number" or WORLD_LAYERS[layer] ~= nil then
+        obj.layer = self:parseLayer(layer)
+    else
+        MapUtils.addLayerOffset(obj, self.map.layers[layer] or self.map.object_layer)
+    end
     self:addChild(obj)
     return obj
 end
@@ -1338,8 +1342,8 @@ function World:loadMap(...)
 
     self:setupMap(map, unpack(args))
 
-    if self.map.markers["spawn"] then
-        local spawn = self.map.markers["spawn"]
+    local spawn = self.map.player_spawn or self.map.markers["spawn"]
+    if spawn then
         self.camera:setPosition(spawn.center_x, spawn.center_y)
     end
 
@@ -1641,6 +1645,16 @@ function World:sortChildren()
         local a_pos, b_pos = positions[a], positions[b]
         local ax, ay = a_pos.x, a_pos.y
         local bx, by = b_pos.x, b_pos.y
+        local a_map_layer, b_map_layer = a.map_layer == true, b.map_layer == true
+        if a.layer == b.layer and a_map_layer ~= b_map_layer then
+            return a_map_layer
+        end
+        if a.layer == b.layer and a_map_layer and b_map_layer then
+            local a_id = a.map_layer_sort_id or ""
+            local b_id = b.map_layer_sort_id or ""
+            if a_id ~= b_id then return a_id < b_id end
+            return false
+        end
         -- Sort children by Y position, or by follower index if it's a follower/player (so the player is always on top)
         return a.layer < b.layer or
             (a.layer == b.layer and (math.floor(ay) < math.floor(by) or

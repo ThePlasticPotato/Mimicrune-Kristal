@@ -1,9 +1,19 @@
+--- A representation of a loaded map in the editor.
 ---@class EditorMapDocument : EditorDocument
+---@field editable_layers table
+---@field map_lookup table<string, table>
+---@field maps table
+---@field next_layer_uid number
+---@field next_object_uid number
+---@field previous_world_id string?
+---@field primary_map_id string?
+---@field selected_layers table
+---@field world EditorWorld
 ---@overload fun(editor: table, map_id?: string): EditorMapDocument
 local EditorMapDocument, super = Class(EditorDocument)
 
-local function flattenLayers(layers, result, parent)
-    result = result or {}
+local function convertLegacyLayerTree(layers, parent)
+    local result = {}
     parent = parent or {
         offsetx = 0,
         offsety = 0,
@@ -19,7 +29,11 @@ local function flattenLayers(layers, result, parent)
         layer.parallaxx = (layer.parallaxx or 1) * parent.parallaxx
         layer.parallaxy = (layer.parallaxy or 1) * parent.parallaxy
         if layer.type == "group" then
-            flattenLayers(layer.layers, result, layer)
+            local children = layer.layers
+            layer.layers = convertLegacyLayerTree(children, layer)
+            layer.offsetx, layer.offsety = 0, 0
+            layer.parallaxx, layer.parallaxy = 1, 1
+            table.insert(result, layer)
         else
             table.insert(result, layer)
         end
@@ -155,9 +169,23 @@ function EditorMapDocument:save(path, options, map_id)
 end
 
 function EditorMapDocument:adoptSavedMapData(id, data)
+    local selected_uid = self.selected_layers[id]
+    local selected_layer = selected_uid and self:findEditableLayer(selected_uid, id)
+    local selected_id = selected_layer and selected_layer.id
+    local selected_name = selected_layer and selected_layer.name
     self.editable_layers[id] = nil
     self.selected_layers[id] = nil
     self:getEditableLayers(id)
+    if selected_layer then
+        for _, entry in ipairs(self:getFlatEditableLayers(id, false)) do
+            local layer = entry.layer
+            if (selected_id and layer.id == selected_id)
+                or (not selected_id and selected_name and layer.name == selected_name) then
+                self.selected_layers[id] = layer._editor_uid
+                break
+            end
+        end
+    end
     self:invalidatePreview(id)
 end
 
@@ -169,24 +197,39 @@ function EditorMapDocument:getEditableLayers(id)
         local data = Registry.getMapData(id)
         local reader_class = Registry.getMapReader(id)
         local legacy = reader_class and reader_class.LEGACY_FORMAT
-        local layers = legacy and flattenLayers(data and data.layers or {})
+        local layers = legacy and convertLegacyLayerTree(data and data.layers or {})
             or TableUtils.copy(data and data.layers or {}, true)
+        local legacy_spawn_layer
+        if legacy then
+            local spawn_layer = TiledUtils.getSpawnLayer(TiledUtils.flattenLayers(layers, true))
+            legacy_spawn_layer = spawn_layer and (spawn_layer._tiled_source or spawn_layer)
+        end
         MapUtils.walkLayers(layers, function(layer)
             layer._editor_uid = self.next_layer_uid
             self.next_layer_uid = self.next_layer_uid + 1
             layer.properties = layer.properties or {}
             local layer_type = legacy
-                and Registry.layer_types:getLegacyTiledType(layer)
+                and (layer.type == "group" and Registry.getLayerType("folder")
+                    or Registry.layer_types:getLegacyTiledType(layer))
                 or Registry.getLayerType(layer._editor_type_id or layer.type or "default")
+            if legacy then
+                for _, object in ipairs(layer.objects or {}) do
+                    object.type = Registry.layer_types:getLegacyTiledObjectType(layer, object)
+                        or object.type
+                end
+            end
             layer._editor_type_id = layer_type and layer_type.id or "default"
             layer._editor_kind_id = layer.kind or (layer_type and layer_type.kind) or "object"
             layer._editor_visible = layer.visible ~= false
+            layer._editor_locked = layer.locked == true
+            layer.blend_mode = layer.blend_mode or layer.blendmode or "normal"
             if layer._editor_kind_id == "group" then
                 layer.layers = layer.layers or {}
                 if layer._editor_expanded == nil then layer._editor_expanded = true end
             end
             setupLayerProperties(layer)
         end)
+        if legacy then EditorFormat.assignLegacyLayerDepthOffsets(layers, legacy_spawn_layer) end
         MapUtils.walkObjects(layers, function(object)
             local object_id = tonumber(object.id)
             if object_id and object_id >= 1 and object_id % 1 == 0 then
@@ -201,18 +244,28 @@ end
 
 function EditorMapDocument:getFlatEditableLayers(id, visible_only)
     local result = {}
-    local function append(layers, depth, parent, ancestors_visible)
+    local function append(layers, depth, parent, ancestors_visible, ancestors_locked)
         for _, layer in ipairs(layers or {}) do
             local visible = ancestors_visible and layer._editor_visible ~= false
-            table.insert(result, { layer = layer, depth = depth, parent = parent, visible = visible })
+            local locked = ancestors_locked or layer._editor_locked == true
+            table.insert(result, { layer = layer, depth = depth, parent = parent,
+                visible = visible, locked = locked })
             local expanded = not visible_only or layer._editor_expanded ~= false
             if expanded and layer.layers then
-                append(layer.layers, depth + 1, layer, visible)
+                append(layer.layers, depth + 1, layer, visible, locked)
             end
         end
     end
-    append(self:getEditableLayers(id), 0, nil, true)
+    append(self:getEditableLayers(id), 0, nil, true, false)
     return result
+end
+
+function EditorMapDocument:isLayerLocked(layer, id)
+    if not layer then return false end
+    for _, entry in ipairs(self:getFlatEditableLayers(id, false)) do
+        if entry.layer == layer then return entry.locked end
+    end
+    return layer._editor_locked == true
 end
 
 function EditorMapDocument:getAllEditableLayers(id)
@@ -277,7 +330,8 @@ function EditorMapDocument:invalidatePreview(id)
     return true
 end
 
-function EditorMapDocument:createEditableLayer(type_id, id, parent_uid)
+function EditorMapDocument:createEditableLayer(type_id, id, parent_uid, options)
+    options = options or {}
     id = id or self.primary_map_id
     local data = Registry.getMapData(id)
     if not data then return nil end
@@ -293,10 +347,11 @@ function EditorMapDocument:createEditableLayer(type_id, id, parent_uid)
     local used, index = {}, 1
     for _, entry in ipairs(self:getFlatEditableLayers(id)) do used[(entry.layer.name or ""):lower()] = true end
     local layer_type = Registry.getLayerType(type_id or "tile") or Registry.getLayerType("default")
-    local name = "New " .. (layer_type and layer_type.name or "Layer")
+    local base_name = options.name or "New " .. (layer_type and layer_type.name or "Layer")
+    local name = base_name
     while used[name:lower()] do
         index = index + 1
-        name = "New " .. (layer_type and layer_type.name or "Layer") .. " " .. index
+        name = base_name .. " " .. index
     end
     local kind = layer_type and layer_type.kind or "object"
     local used_ids = {}
@@ -315,14 +370,17 @@ function EditorMapDocument:createEditableLayer(type_id, id, parent_uid)
         height = data.height or 12,
         visible = true,
         _editor_visible = true,
+        _editor_locked = false,
+        _editor_depth_offset = tonumber(options.depth) or 0,
         opacity = 1,
+        blend_mode = "normal",
         offsetx = 0,
         offsety = 0,
         parallaxx = 1,
         parallaxy = 1,
-        properties = {},
+        properties = TableUtils.copy(options.properties or {}, true),
         _editor_property_types = {},
-        color = TableUtils.copy(layer_type and layer_type.color or { 0.8, 0.8, 0.82, 1 }, true)
+        color = TableUtils.copy(options.color or (layer_type and layer_type.color) or { 0.8, 0.8, 0.82, 1 }, true)
     }
     self.next_layer_uid = self.next_layer_uid + 1
     if kind == "tile" then
@@ -463,8 +521,9 @@ function EditorMapDocument:getSelectedObjectLayer(id)
     local fallback
     for _, layer in ipairs(self:getAllEditableLayers(id)) do
         local layer_type = Registry.getLayerType(layer._editor_type_id)
-        if layer._editor_uid == selected and layer_type and layer_type.kind == "object" then return layer end
-        if layer_type and layer_type.kind == "object" and (not fallback or layer._editor_type_id == "objects") then
+        if layer._editor_uid == selected and layer_type and layer_type.id == "objects"
+            and not self:isLayerLocked(layer, id) then return layer end
+        if layer_type and layer_type.id == "objects" and not self:isLayerLocked(layer, id) then
             fallback = layer
         end
     end
@@ -478,8 +537,8 @@ function EditorMapDocument:getSelectedTileLayer(id)
     for _, layer in ipairs(self:getAllEditableLayers(id)) do
         local layer_type = Registry.getLayerType(layer._editor_type_id)
         if layer_type and layer_type.kind == "tile" then
-            if layer._editor_uid == selected then return layer end
-            fallback = fallback or layer
+            if layer._editor_uid == selected and not self:isLayerLocked(layer, id) then return layer end
+            if not self:isLayerLocked(layer, id) then fallback = fallback or layer end
         end
     end
     return selected == nil and fallback or nil
@@ -617,20 +676,20 @@ function EditorMapDocument:getMapAt(world_x, world_y)
     end
 end
 
-function EditorMapDocument:addEditorObject(event_id, map_id, world_x, world_y, options)
+function EditorMapDocument:addEditorObject(object_id, map_id, world_x, world_y, options)
     options = options or {}
     local positioned_entry = self:getMapAt(world_x, world_y)
     map_id = map_id or (positioned_entry and positioned_entry.id) or self.primary_map_id
     local entry = self.map_lookup[map_id]
     local layer = self:getSelectedObjectLayer(map_id)
-    if not entry or not layer then return nil, "Select an object layer before placing an event" end
+    if not entry or not layer then return nil, "Select an object layer before placing an object" end
     local free = options.free
     if free == nil then free = Input.ctrl() end
     local tile_width, tile_height = entry.tile_width or 40, entry.tile_height or 40
     local local_x = world_x - entry.x - (layer.offsetx or 0)
     local local_y = world_y - entry.y - (layer.offsety or 0)
-    local event_class = Registry.getEditorEvent(event_id)
-    local point = event_class and event_class.placement_shape == "point"
+    local object_class = Registry.getEditorObject(object_id)
+    local point = object_class and object_class.placement_shape == "point"
     local shape = point and "point" or "rectangle"
     if point then
         if not free then
@@ -645,8 +704,8 @@ function EditorMapDocument:addEditorObject(event_id, map_id, world_x, world_y, o
         local_y = math.floor(local_y / tile_height) * tile_height
     end
     local object = {
-        type = event_id,
-        name = event_id,
+        type = object_id,
+        name = object_id,
         shape = shape,
         x = local_x,
         y = local_y,
@@ -663,16 +722,16 @@ function EditorMapDocument:addEditorObject(event_id, map_id, world_x, world_y, o
     return object, layer, map_id
 end
 
-function EditorMapDocument:addEditorRegion(event_id, map_id, world_x, world_y, width, height)
+function EditorMapDocument:addEditorRegion(object_id, map_id, world_x, world_y, width, height)
     local positioned_entry = self:getMapAt(world_x, world_y)
     map_id = map_id or (positioned_entry and positioned_entry.id) or self.primary_map_id
     local entry = self.map_lookup[map_id]
     local layer = self:getSelectedObjectLayer(map_id)
-    if not entry or not layer then return nil, "Select an object layer before placing an event" end
+    if not entry or not layer then return nil, "Select an object layer before placing an object" end
     if width <= 0 or height <= 0 then return nil, "Drag a region with a non-zero width and height" end
     local object = {
-        type = event_id,
-        name = event_id,
+        type = object_id,
+        name = object_id,
         shape = "rectangle",
         x = world_x - entry.x - (layer.offsetx or 0),
         y = world_y - entry.y - (layer.offsety or 0),
@@ -833,7 +892,7 @@ function EditorMapDocument:getPointShapeWorldPoint(selection, index)
     if not point then return nil end
     local origin_x, origin_y = self:getObjectWorldPosition(selection)
     local rotation = math.rad(selection.data.rotation or 0)
-    local x, y = point.x or point[1] or 0, point.y or point[2] or 0
+    local x, y = MapUtils.getPointCoordinates(point)
     return origin_x + x * math.cos(rotation) - y * math.sin(rotation),
         origin_y + x * math.sin(rotation) + y * math.cos(rotation)
 end
@@ -844,7 +903,7 @@ function EditorMapDocument:normalizePointShape(selection)
     if not points or #points == 0 then return false end
     local min_x, min_y, max_x, max_y
     for _, point in ipairs(points) do
-        local x, y = point.x or point[1] or 0, point.y or point[2] or 0
+        local x, y = MapUtils.getPointCoordinates(point)
         min_x, min_y = min_x and math.min(min_x, x) or x, min_y and math.min(min_y, y) or y
         max_x, max_y = max_x and math.max(max_x, x) or x, max_y and math.max(max_y, y) or y
     end
@@ -853,8 +912,9 @@ function EditorMapDocument:normalizePointShape(selection)
         data.x = (data.x or 0) + min_x * math.cos(rotation) - min_y * math.sin(rotation)
         data.y = (data.y or 0) + min_x * math.sin(rotation) + min_y * math.cos(rotation)
         for _, point in ipairs(points) do
-            point.x = (point.x or point[1] or 0) - min_x
-            point.y = (point.y or point[2] or 0) - min_y
+            local x, y = MapUtils.getPointCoordinates(point)
+            point.x = x - min_x
+            point.y = y - min_y
             point[1], point[2] = nil, nil
         end
         max_x, max_y = max_x - min_x, max_y - min_y
@@ -1039,7 +1099,7 @@ function EditorMapDocument:findObjectAt(world_x, world_y, options)
             local layer_entry = layers[layer_index]
             local layer = layer_entry.layer
             local layer_type = Registry.getLayerType(layer._editor_type_id)
-            if layer_entry.visible and layer_type and layer_type.kind == "object"
+            if layer_entry.visible and not layer_entry.locked and layer_type and layer_type.kind == "object"
                 and (options.all_layers or self:isLayerSelectable(layer, entry.id)) then
                 local x = world_x - entry.x - (layer.offsetx or 0)
                 local y = world_y - entry.y - (layer.offsety or 0)
@@ -1060,8 +1120,8 @@ function EditorMapDocument:findObjectAt(world_x, world_y, options)
                         local tolerance = math.max(10, thickness / 2 + 4)
                         for _, edge in ipairs(MapUtils.getPolylineEdges(object, #object.polyline)) do
                             local first, second = object.polyline[edge[1]], object.polyline[edge[2]]
-                            local x1, y1 = first.x or first[1] or 0, first.y or first[2] or 0
-                            local x2, y2 = second.x or second[1] or 0, second.y or second[2] or 0
+                            local x1, y1 = MapUtils.getPointCoordinates(first)
+                            local x2, y2 = MapUtils.getPointCoordinates(second)
                             local vx, vy = x2 - x1, y2 - y1
                             local length_squared = vx * vx + vy * vy
                             local amount = length_squared == 0 and 0
@@ -1079,38 +1139,6 @@ function EditorMapDocument:findObjectAt(world_x, world_y, options)
             end
         end
     end
-end
-
-function EditorMapDocument:addTileObject(tileset_id, tile_id, map_id, world_x, world_y)
-    local positioned_entry = self:getMapAt(world_x, world_y)
-    map_id = map_id or (positioned_entry and positioned_entry.id) or self.primary_map_id
-    local entry = self.map_lookup[map_id]
-    local layer = self:getSelectedObjectLayer(map_id)
-    local tileset = Registry.getTileset(tileset_id)
-    if not entry or not layer then return nil, "Select an object layer before placing a tile object" end
-    if not tileset then return nil, "Unknown tileset '" .. tostring(tileset_id) .. "'" end
-    local width, height = tileset:getTileSize(tile_id)
-    local local_x = world_x - entry.x - (layer.offsetx or 0)
-    local local_y = world_y - entry.y - (layer.offsety or 0)
-    if not Input.ctrl() then
-        local grid_width, grid_height = entry.tile_width or 40, entry.tile_height or 40
-        local_x = math.floor(local_x / grid_width) * grid_width
-        local_y = math.floor(local_y / grid_height) * grid_height
-    else
-        local_x, local_y = local_x - width / 2, local_y - height / 2
-    end
-    local origin = Tileset.ORIGINS[tileset.object_alignment] or Tileset.ORIGINS.unspecified
-    local object = {
-        name = "", type = "", tileset = tileset_id, tile_id = tile_id,
-        x = local_x + origin[1] * width, y = local_y + origin[2] * height,
-        width = width, height = height, rotation = 0, visible = true,
-        properties = {}, __editor_property_types = {}
-    }
-    self:getObjectId(object)
-    layer.objects = layer.objects or {}
-    table.insert(layer.objects, object)
-    self:invalidatePreview(map_id)
-    return object, layer, map_id
 end
 
 function EditorMapDocument:getObjectLocalRect(selection)
@@ -1137,21 +1165,26 @@ function EditorMapDocument:getObjectLocalRect(selection)
 end
 
 function EditorMapDocument:getEditorObjectType(data, map_id)
-    local event_type = data and data.type
     local reader = map_id and Registry.getMapReader(map_id)
-    if reader and reader.LEGACY_FORMAT and (event_type == nil or event_type == "") then
-        event_type = data.class
-        if event_type == nil or event_type == "" then event_type = data.name end
+    return data and MapUtils.getObjectType(data, reader and reader.LEGACY_FORMAT)
+end
+
+---@param selection table
+---@return EditorObject?
+function EditorMapDocument:getEditorObject(selection)
+    if not selection or selection.document ~= self then return nil end
+    local preview = self:getPreview(selection.entry)
+    for _, object in ipairs(preview and preview.editor_objects or {}) do
+        if object.data == selection.data then return object end
     end
-    return type(event_type) == "string" and event_type:lower() or event_type
 end
 
 function EditorMapDocument:getObjectScalingMode(selection)
     local data = selection and selection.data
     if not data or data.gid or data.tileset and data.tile_id ~= nil then return "resize" end
-    local event_type = self:getEditorObjectType(data, selection.map_id)
-    local event_class = event_type and Registry.getEditorEvent(event_type)
-    return event_class and event_class.scaling_mode or EditorEvent.scaling_mode
+    local object_type = self:getEditorObjectType(data, selection.map_id)
+    local object_class = object_type and Registry.getEditorObject(object_type)
+    return object_class and object_class.scaling_mode or EditorObject.scaling_mode
 end
 
 function EditorMapDocument:getObjectWorldCorners(selection)
@@ -1188,7 +1221,7 @@ function EditorMapDocument:findObjectsInRect(x1, y1, x2, y2, options)
         for _, layer_entry in ipairs(self:getFlatEditableLayers(entry.id, false)) do
             local layer = layer_entry.layer
             local layer_type = Registry.getLayerType(layer._editor_type_id)
-            if layer_entry.visible and layer_type and layer_type.kind == "object"
+            if layer_entry.visible and not layer_entry.locked and layer_type and layer_type.kind == "object"
                 and (options.all_layers or self:isLayerSelectable(layer, entry.id)) then
                 for _, object in ipairs(layer.objects or {}) do
                     if object.visible ~= false then
@@ -1250,13 +1283,13 @@ end
 
 function EditorMapDocument:getObjectReferenceValues(selection)
     local data = selection.data
-    local event_id = self:getEditorObjectType(data, selection.map_id)
+    local object_id = self:getEditorObjectType(data, selection.map_id)
     local result = {}
-    local success, event = pcall(Registry.createEditorEvent, event_id, data, { map_id = selection.map_id })
-    if success and event then
-        for _, definition in ipairs(event.property_set:getProperties()) do
+    local success, object = pcall(Registry.createEditorObject, object_id, data, { map_id = selection.map_id })
+    if success and object then
+        for _, definition in ipairs(object.property_set:getProperties()) do
             if definition.type == "object_reference" or definition.type == "marker_reference" then
-                local value = event.property_set.values[definition.id]
+                local value = object.property_set.values[definition.id]
                 if value ~= nil then table.insert(result, value) end
             end
         end
@@ -1276,14 +1309,12 @@ function EditorMapDocument:findMarkerSelection(map_id, marker)
     if not self.map_lookup[map_id] or reference.object_id == nil then return nil end
     for _, layer_entry in ipairs(self:getFlatEditableLayers(map_id, false)) do
         local layer = layer_entry.layer
-        local marker_layer = layer._editor_type_id == "markers" or layer.type == "markers"
-            or tostring(layer.name or ""):lower() == "markers"
-        if marker_layer then
-            for _, object in ipairs(layer.objects or {}) do
-                if tostring(object.id) == tostring(reference.object_id)
-                    or tostring(object.name) == tostring(reference.object_id) then
-                    return self:getObjectSelection(map_id, layer, object)
-                end
+        for _, object in ipairs(layer.objects or {}) do
+            local object_type = self:getEditorObjectType(object, map_id)
+            if (object_type == "marker" or object_type == "player")
+                and (tostring(object.id) == tostring(reference.object_id)
+                    or tostring(object.name) == tostring(reference.object_id)) then
+                return self:getObjectSelection(map_id, layer, object)
             end
         end
     end
@@ -1369,8 +1400,7 @@ function EditorMapDocument:createPreview(entry)
     local root = Object()
     local map = Map(root, data)
     map.id = entry.id
-    local depth = map.depth_per_layer
-    local editor_events = {}
+    local editor_objects = {}
     local editor_overlays = {}
     local drawable_layers = {}
     local layer_lookup = {}
@@ -1383,7 +1413,7 @@ function EditorMapDocument:createPreview(entry)
         layer_lookup[layer._editor_uid] = layer
         layer_visibility[layer._editor_uid] = tree_entry.visible
         layer_parent[layer._editor_uid] = tree_entry.parent and tree_entry.parent._editor_uid or false
-        local layer_depth = layer._editor_depth_override or depth
+        local layer_depth = tonumber(layer._editor_depth_offset) or 0
         map.layers[layer.name] = layer_depth
         if layer._editor_kind_id == "group" then
             -- no-op
@@ -1391,25 +1421,28 @@ function EditorMapDocument:createPreview(entry)
             map:loadTiles(layer, layer_depth)
             local drawable = map.tile_layers[#map.tile_layers]
             drawable.visible = true
+            drawable.tile_opacity = 1
             drawable_layers[drawable] = layer._editor_uid
         elseif layer.type == "imagelayer" and layer.image then
             map:loadImage(layer, layer_depth)
             local drawable = map.image_layers[layer.name]
             drawable.visible = true
+            drawable.alpha = 1
             drawable_layers[drawable] = layer._editor_uid
         elseif layer.type == "objectgroup" then
             local layer_type = layer_registry:get(layer._editor_type_id)
                 or (reader_class and reader_class.LEGACY_FORMAT and layer_registry:getLegacyTiledType(layer))
-            if layer_type and (layer_type.id == "objects" or layer_type.id == "controllers") then
+            if layer_type and layer_type.id == "objects" then
                 local layer_color = layer_registry:getLayerColor(layer, layer_type)
                 for _, object in ipairs(layer.objects or {}) do
-                    local event_id = self:getEditorObjectType(object, entry.id)
-                    table.insert(editor_events, Registry.createEditorEvent(event_id, object, {
+                    local object_id = self:getEditorObjectType(object, entry.id)
+                    table.insert(editor_objects, Registry.createEditorObject(object_id, object, {
                         depth = layer_depth,
                         layer_uid = layer._editor_uid,
                         layer = layer,
                         layer_type = layer_type,
                         layer_color = layer_color,
+                        layer_tint = layer.tint or layer.tintcolor,
                         offset_x = layer.offsetx or 0,
                         offset_y = layer.offsety or 0,
                         map_id = entry.id,
@@ -1421,9 +1454,6 @@ function EditorMapDocument:createPreview(entry)
                 table.insert(editor_overlays, EditorLayerOverlay(layer, layer_type, layer_depth))
             end
         end
-        if layer._editor_kind_id ~= "group" and not layer.properties.thin then
-            depth = depth + map.depth_per_layer
-        end
     end
     root:updateChildList()
     entry.width = map.width * map.tile_width
@@ -1433,7 +1463,7 @@ function EditorMapDocument:createPreview(entry)
     return {
         root = root,
         map = map,
-        editor_events = editor_events,
+        editor_objects = editor_objects,
         editor_overlays = editor_overlays,
         drawable_layers = drawable_layers,
         layer_lookup = layer_lookup,
@@ -1462,11 +1492,13 @@ function EditorMapDocument:getPreview(entry)
     return entry.preview
 end
 
-function EditorMapDocument:drawPreview(entry, outline_width)
+function EditorMapDocument:drawPreview(entry, outline_width, map_selected)
     local preview = self:getPreview(entry)
     if not preview then return false end
     local map = preview.map
-    Draw.setColor(map.bg_color or { 0, 0, 0, 0 })
+    local darken = not self.editor or self.editor.darken_unselected_layers ~= false
+    local map_alpha = darken and map_selected == false and 0.35 or 1
+    Draw.setColor(map.bg_color or { 0, 0, 0, 0 }, map_alpha)
     love.graphics.rectangle("fill", 0, 0, entry.width, entry.height)
     Draw.setColor(1, 1, 1, 1)
     local drawables = {}
@@ -1474,57 +1506,91 @@ function EditorMapDocument:drawPreview(entry, outline_width)
     local function layerState(uid)
         local layer = uid and preview.layer_lookup[uid]
         if layer and (layer._editor_visible == false or preview.layer_visibility[uid] == false) then return false, 0 end
-        local darken = not self.editor or self.editor.darken_unselected_layers ~= false
         local selected = selected_uid == nil or selected_uid == uid
         local parent_uid = uid and preview.layer_parent[uid]
         while not selected and parent_uid do
             selected = selected_uid == parent_uid
             parent_uid = preview.layer_parent[parent_uid]
         end
-        return true, (not darken or selected) and 1 or 0.35
+        local opacity = layer and (layer.opacity == nil and 1 or layer.opacity) or 1
+        local tint = layer and (layer.tint or layer.tintcolor)
+        if tint and tint[4] ~= nil then opacity = opacity * (tint[4] > 1 and tint[4] / 255 or tint[4]) end
+        local selection_alpha = not darken or map_selected == false or selected
+        return true, (selection_alpha and 1 or 0.35) * opacity * map_alpha
     end
     for index, child in ipairs(preview.root.children) do
         local uid = preview.drawable_layers[child]
         local layer_visible, alpha = layerState(uid)
         if child.visible and child.parent == preview.root and layer_visible then
             table.insert(drawables, {
-                layer = child.layer or 0, index = index, value = child, object = true, alpha = alpha
+                layer = child.layer or 0, index = index, sort_kind = 1,
+                value = child, object = true, alpha = alpha
             })
         end
     end
     local offset = #drawables
-    for index, event in ipairs(preview.editor_events or {}) do
-        local layer_visible, alpha = layerState(event.layer_uid)
-        if event.visible and layer_visible then
-            table.insert(drawables, { layer = event.layer or 0, index = offset + index, value = event, alpha = alpha })
+    for index, object in ipairs(preview.editor_objects or {}) do
+        local layer_visible, alpha = layerState(object.layer_uid)
+        if object.visible and layer_visible then
+            local _, sort_y = object:getSortPosition()
+            table.insert(drawables, {
+                layer = object.layer or 0, index = offset + index, sort_kind = 2,
+                sort_y = sort_y, value = object, alpha = alpha
+            })
         end
     end
-    offset = offset + #(preview.editor_events or {})
+    offset = offset + #(preview.editor_objects or {})
     for index, overlay in ipairs(preview.editor_overlays or {}) do
         local layer_visible, alpha = layerState(overlay.layer_uid)
         if overlay.visible and layer_visible then
             table.insert(drawables, {
-                layer = overlay.layer or 0, index = offset + index, value = overlay, alpha = alpha
+                layer = overlay.layer or 0, index = offset + index, sort_kind = 3,
+                value = overlay, alpha = alpha
             })
         end
     end
     table.sort(drawables, function(a, b)
-        if a.layer == b.layer then return a.index < b.index end
+        if a.layer == b.layer then
+            if a.sort_kind ~= b.sort_kind then return a.sort_kind < b.sort_kind end
+            if a.sort_kind == 1 then
+                local a_id = a.value.map_layer_sort_id or ""
+                local b_id = b.value.map_layer_sort_id or ""
+                if a_id ~= b_id then return a_id < b_id end
+            end
+            if a.sort_y ~= nil and b.sort_y ~= nil and math.floor(a.sort_y) ~= math.floor(b.sort_y) then
+                return math.floor(a.sort_y) < math.floor(b.sort_y)
+            end
+            return a.index < b.index
+        end
         return a.layer < b.layer
     end)
     for _, drawable in ipairs(drawables) do
+        local source_layer = drawable.value.layer_uid and preview.layer_lookup[drawable.value.layer_uid]
+            or drawable.object and preview.layer_lookup[preview.drawable_layers[drawable.value]]
+        local blend_mode = source_layer and source_layer.blend_mode
+        local old_blend, old_alpha_mode
+        if blend_mode and blend_mode ~= "normal" then
+            old_blend, old_alpha_mode = love.graphics.getBlendMode()
+            if blend_mode == "multiply" or blend_mode == "darken" or blend_mode == "lighten" then
+                love.graphics.setBlendMode(blend_mode, "premultiplied")
+            else
+                love.graphics.setBlendMode(blend_mode)
+            end
+        end
         if drawable.object then
             local old_alpha = drawable.value.alpha
             drawable.value.alpha = (old_alpha or 1) * drawable.alpha
             drawable.value:fullDraw()
             drawable.value.alpha = old_alpha
         else
-            drawable.value:draw(drawable.alpha, outline_width)
+            drawable.value:draw(drawable.alpha, outline_width,
+                selected_uid == drawable.value.layer_uid)
         end
+        if old_blend then love.graphics.setBlendMode(old_blend, old_alpha_mode) end
     end
-    for _, event in ipairs(preview.editor_events or {}) do
-        local layer_visible, alpha = layerState(event.layer_uid)
-        if event.visible and layer_visible then event:drawBounds(alpha, outline_width) end
+    for _, object in ipairs(preview.editor_objects or {}) do
+        local layer_visible, alpha = layerState(object.layer_uid)
+        if object.visible and layer_visible then object:drawBounds(alpha, outline_width) end
     end
     Draw.setColor(1, 1, 1, 1)
     return true

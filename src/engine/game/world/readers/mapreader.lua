@@ -1,3 +1,5 @@
+--- Defines shared operations for loading map data.\
+--- Currently implemented by the Tiled legacy set and the new Editor format set.
 ---@class MapReader : Class
 ---@overload fun(map: Map): MapReader
 local MapReader = Class()
@@ -13,10 +15,13 @@ end
 
 function operations.loadTiles(self, layer, depth)
     local tilelayer = self:createTileLayer(layer)
+    tilelayer.map_layer = true
+    tilelayer.map_layer_sort_id = tostring(layer.id or layer.name or "")
     tilelayer:setPosition(layer.offsetx or 0, layer.offsety or 0)
     tilelayer.z = tonumber(layer.properties and layer.properties.z) or 0
     tilelayer.depth = math.max(tonumber(layer.properties and layer.properties.depth) or 0, 0)
-    tilelayer.layer = depth
+    MapUtils.addLayerOffset(tilelayer, depth)
+    tilelayer.blend_mode = layer.blend_mode or layer.blendmode
     self.world:addChild(tilelayer)
     table.insert(self.tile_layers, tilelayer)
     if self:isLayerType(layer, "battleborder") then
@@ -88,9 +93,13 @@ function operations.loadImage(self, layer, depth)
         error("Map \"" .. self.data.id .. "\" failed to load image layer \"" .. layer.name .. "\"\n" .. texture_result)
     end
     local sprite = Sprite(texture_result, layer.offsetx, layer.offsety)
+    sprite.map_layer = true
+    sprite.map_layer_sort_id = tostring(layer.id or layer.name or "")
     sprite:setParallax(layer.parallaxx, layer.parallaxy)
-    sprite.alpha = layer.opacity
-    sprite.layer = depth
+    sprite.alpha = (layer.opacity == nil and 1 or layer.opacity)
+        * (layer.tintcolor and (layer.tintcolor[4] or 255) / 255 or 1)
+    sprite.blend_mode = layer.blend_mode or layer.blendmode
+    MapUtils.addLayerOffset(sprite, depth)
     if layer.tintcolor then
         sprite:setColor(layer.tintcolor[1] / 255, layer.tintcolor[2] / 255, layer.tintcolor[3] / 255)
     end
@@ -167,70 +176,88 @@ function operations.loadShapes(self, layer)
     end
 end
 
+---@param source table
+---@param layer table
+---@return table
+local function createMarkerData(source, layer)
+    local v = TableUtils.copy(source, true)
+    v.width = v.width or 0
+    v.height = v.height or 0
+    local rotation = math.rad(tonumber(v.rotation) or 0)
+    local half_width, half_height = v.width / 2, v.height / 2
+    v.center_x = v.x + half_width * math.cos(rotation) - half_height * math.sin(rotation)
+    v.center_y = v.y + half_width * math.sin(rotation) + half_height * math.cos(rotation)
+
+    v.x = v.x + (layer.offsetx or 0)
+    v.y = v.y + (layer.offsety or 0)
+    v.center_x = v.center_x + (layer.offsetx or 0)
+    v.center_y = v.center_y + (layer.offsety or 0)
+    v.player_state = v.properties["player_state"] or "WALK"
+    return v
+end
+
+function operations.loadMarker(self, source, layer)
+    local v = createMarkerData(source, layer)
+    if v.name ~= nil then self.markers[v.name] = v end
+    self.markers_by_id[v.id] = v
+    return v
+end
+
+function operations.loadPlayerSpawn(self, source, layer)
+    local v = createMarkerData(source, layer)
+    self.player_spawn = v
+    self.markers_by_id[v.id] = v
+    return v
+end
+
 function operations.loadMarkers(self, layer)
-    for _, source in ipairs(layer.objects) do
-        local v = TableUtils.copy(source, true)
-        v.width = v.width or 0
-        v.height = v.height or 0
-        local rotation = math.rad(tonumber(v.rotation) or 0)
-        local half_width, half_height = v.width / 2, v.height / 2
-        v.center_x = v.x + half_width * math.cos(rotation) - half_height * math.sin(rotation)
-        v.center_y = v.y + half_width * math.sin(rotation) + half_height * math.cos(rotation)
+    for _, source in ipairs(layer.objects) do operations.loadMarker(self, source, layer) end
+end
 
-        v.x = v.x + (layer.offsetx or 0)
-        v.y = v.y + (layer.offsety or 0)
-        v.center_x = v.center_x + (layer.offsetx or 0)
-        v.center_y = v.center_y + (layer.offsety or 0)
+function operations.loadPath(self, v, layer)
+    local ox, oy = layer.offsetx or 0, layer.offsety or 0
+    local path = {}
+    if v.shape == "ellipse" then
+        path.shape = "ellipse"
+        path.x = v.x + v.width / 2 + ox
+        path.y = v.y + v.height / 2 + oy
+        path.rx = v.width / 2
+        path.ry = v.height / 2
 
-        v.player_state = v.properties["player_state"] or "WALK"
-
-        if v.name ~= nil then
-            self.markers[v.name] = v
+        -- Roughly calculte ellipse perimeter bc the actual calculation is hard
+        path.length = 2 * math.pi * ((path.rx + path.ry) / 2)
+        path.closed = true
+    else
+        path.shape = "line"
+        path.x = v.x
+        path.y = v.y
+        local points = TableUtils.copy(v.polygon or v.polyline or {})
+        if v.shape == "rectangle" then
+            points = { { x = 0, y = 0 }, { x = v.width, y = 0 },
+                { x = v.width, y = v.height }, { x = 0, y = v.height }, { x = 0, y = 0 } }
+            path.closed = true
+        else
+            if v.shape ~= "polyline" then
+                table.insert(points, points[1])
+                path.closed = true
+            end
         end
-
-        self.markers_by_id[v.id] = v
+        for i, point in ipairs(points) do
+            points[i] = { x = v.x + point.x + ox, y = v.y + point.y + oy }
+        end
+        path.points = points
+        path.length = 0
+        for i = 1, #points - 1 do
+            path.length = path.length
+                + MathUtils.dist(points[i].x, points[i].y, points[i + 1].x, points[i + 1].y)
+        end
     end
+    self.paths[v.name] = path
+    return path
 end
 
 function operations.loadPaths(self, layer)
-    local ox, oy = layer.offsetx or 0, layer.offsety or 0
-    for _, v in ipairs(layer.objects) do
-        local path = {}
-        if v.shape == "ellipse" then
-            path.shape = "ellipse"
-            path.x = v.x + v.width / 2 + ox
-            path.y = v.y + v.height / 2 + oy
-            path.rx = v.width / 2
-            path.ry = v.height / 2
-
-            -- Roughly calculte ellipse perimeter bc the actual calculation is hard
-            path.length = 2 * math.pi * ((path.rx + path.ry) / 2)
-            path.closed = true
-        else
-            path.shape = "line"
-            path.x = v.x
-            path.y = v.y
-            local points = TableUtils.copy(v.polygon or v.polyline or {})
-            if v.shape == "rectangle" then
-                points = { { x = 0, y = 0 }, { x = v.width, y = 0 }, { x = v.width, y = v.height }, { x = 0, y = v.height }, { x = 0, y = 0 } }
-                path.closed = true
-            else
-                if v.shape ~= "polyline" then
-                    table.insert(points, points[1])
-                    path.closed = true
-                end
-            end
-            for i, point in ipairs(points) do
-                points[i] = { x = v.x + point.x + ox, y = v.y + point.y + oy }
-            end
-            path.points = points
-            path.length = 0
-            for i = 1, #points - 1 do
-                path.length = path.length + MathUtils.dist(points[i].x, points[i].y, points[i + 1].x, points[i + 1].y)
-            end
-        end
-        self.paths[v.name] = path
-    end
+    for _, source in ipairs(layer.objects) do operations.loadPath(self, source, layer) end
 end
 
 function operations.shouldLoadObject(self, data, layer)
@@ -271,126 +298,139 @@ function operations.getObjectType(self, data)
     return nil
 end
 
-function operations.loadObjects(self, layer, depth, layer_type)
-    local parent = layer_type == "controllers" and self.world.controller_parent or self.world
+function operations.loadRuntimeObject(self, source, layer, depth, layer_type, runtime_type)
+    local v = TableUtils.copy(source, true)
+    v.width = v.width or 0
+    v.height = v.height or 0
+    local rotation = math.rad(tonumber(v.rotation) or 0)
+    local half_width, half_height = v.width / 2, v.height / 2
+    v.center_x = v.x + half_width * math.cos(rotation) - half_height * math.sin(rotation)
+    v.center_y = v.y + half_width * math.sin(rotation) + half_height * math.cos(rotation)
 
+    -- Get width/height of the full polygon (usable when a polygon is not supported on an object)
+    if v.polygon then
+        local min_x, max_x, min_y, max_y = 0, 0, 0, 0
+        for _, point in ipairs(v.polygon) do
+            min_x = math.min(point.x, min_x)
+            max_x = math.max(point.x, max_x)
+            min_y = math.min(point.y, min_y)
+            max_y = math.max(point.y, max_y)
+        end
+
+        v.width = max_x - min_x
+        v.height = max_y - min_y
+        local center_x, center_y = (min_x + max_x) / 2, (min_y + max_y) / 2
+        v.center_x = v.x + center_x * math.cos(rotation) - center_y * math.sin(rotation)
+        v.center_y = v.y + center_x * math.sin(rotation) + center_y * math.cos(rotation)
+    end
+
+    if v.gid then
+        local tx, ty, tw, th = self:getTileObjectRect(v)
+        v.center_x = tx + tw / 2
+        v.center_y = ty + th / 2
+    end
+
+    local obj_type = self:getObjectType(v)
+    local uid = self:getUniqueID() .. "#" .. tostring(v.properties["uid"] or v.id)
+    if not Game:getFlag(uid .. ":dont_load") and self:shouldLoadObject(v, layer) then
+        local runtime_context = {
+            layer_type = layer_type,
+            layer = layer,
+            depth = depth,
+            reader = self.reader
+        }
+        local obj
+        if runtime_type == "controller" then
+            obj = self:loadController(obj_type, v, runtime_context)
+        else
+            obj = self:loadObject(obj_type, v, runtime_context)
+        end
+        if obj then
+            obj.rotation = rotation
+            local old_scale_x, old_scale_y = obj.scale_x or 1, obj.scale_y or 1
+            local scale_x = old_scale_x * (v.scale_x or 1)
+            local scale_y = old_scale_y * (v.scale_y or 1)
+            if scale_x ~= old_scale_x or scale_y ~= old_scale_y then
+                local origin_x, origin_y = obj:getScaleOriginExact()
+                local offset_x = origin_x * (scale_x - old_scale_x)
+                local offset_y = origin_y * (scale_y - old_scale_y)
+                obj.x = obj.x + offset_x * math.cos(rotation) - offset_y * math.sin(rotation)
+                obj.y = obj.y + offset_x * math.sin(rotation) + offset_y * math.cos(rotation)
+            end
+            obj:setScale(scale_x, scale_y)
+            obj.x = obj.x + (layer.offsetx or 0)
+            obj.y = obj.y + (layer.offsety or 0)
+            obj:setParallax((obj.parallax_x or 1) * layer.parallaxx, (obj.parallax_y or 1) * layer.parallaxy)
+            if not obj.object_id then obj.object_id = v.id end
+            if not obj.unique_id then obj.unique_id = v.properties["uid"] end
+            MapUtils.addLayerOffset(obj, depth)
+            obj.alpha = (obj.alpha or 1) * (layer.opacity == nil and 1 or layer.opacity)
+                * (layer.tintcolor and (layer.tintcolor[4] or 255) / 255 or 1)
+            obj.blend_mode = layer.blend_mode or layer.blendmode
+            if layer.tintcolor then
+                local red = (layer.tintcolor[1] or 255) / 255
+                local green = (layer.tintcolor[2] or 255) / 255
+                local blue = (layer.tintcolor[3] or 255) / 255
+                obj:setColor((obj.color[1] or 1) * red, (obj.color[2] or 1) * green,
+                    (obj.color[3] or 1) * blue)
+            end
+            obj.layer_name = layer.name
+            obj.data = v
+            local height_properties = TableUtils.mergeMany(layer.properties or {}, v.properties or {})
+            obj.z = tonumber(height_properties.z) or obj.z
+            obj.depth = math.max(tonumber(height_properties.depth) or obj.depth, 0)
+            obj.height_sensitive = height_properties.height_sensitive or false
+            obj.height_occluder = height_properties.height_occluder or false
+            obj.occlusion_depth = math.max(tonumber(height_properties.occlusion_depth) or obj.depth, 0)
+            obj.occlusion_mode = height_properties.occlusion_mode or "fade"
+            if obj.collider then
+                obj.collider.z = tonumber(height_properties.collision_z) or obj.collider.z
+                local collision_depth = tonumber(height_properties.collision_depth)
+                if collision_depth == nil and height_properties.depth ~= nil then
+                    collision_depth = tonumber(height_properties.depth)
+                end
+                if collision_depth ~= nil then
+                    obj.collider.depth = math.max(collision_depth, 0)
+                end
+                if height_properties.supports ~= nil then
+                    obj.collider.supports = height_properties.supports
+                elseif obj.collider.depth > 0 then
+                    obj.collider.supports = true
+                end
+                obj.collider.one_way = height_properties.one_way or height_properties.oneway or false
+            end
+            if (v.gid or v.tileset and v.tile_id ~= nil) and obj.applyTileObject then
+                obj:applyTileObject(v, self)
+            end
+
+            local parent = runtime_type == "controller" and self.world.controller_parent or self.world
+            parent:addChild(obj)
+            table.insert(self.events, obj)
+            self.events_by_name[v.name] = self.events_by_name[v.name] or {}
+            table.insert(self.events_by_name[v.name], obj)
+            table.insert(self.events_by_layer[layer.name], obj)
+            if v.id then
+                self.events_by_id[v.id] = obj
+                self.next_object_id = math.max(self.next_object_id, v.id)
+            end
+        end
+    end
+end
+
+function operations.loadObjects(self, layer, depth, layer_type)
     self.events_by_layer[layer.name] = {}
     for _, source in ipairs(layer.objects) do
-        local v = TableUtils.copy(source, true)
-        v.width = v.width or 0
-        v.height = v.height or 0
-        local rotation = math.rad(tonumber(v.rotation) or 0)
-        local half_width, half_height = v.width / 2, v.height / 2
-        v.center_x = v.x + half_width * math.cos(rotation) - half_height * math.sin(rotation)
-        v.center_y = v.y + half_width * math.sin(rotation) + half_height * math.cos(rotation)
-
-        -- Get width/height of the full polygon (usable when a polygon is not supported on an object)
-        if v.polygon then
-            local min_x, max_x, min_y, max_y = 0, 0, 0, 0
-            for _, point in ipairs(v.polygon) do
-                min_x = math.min(point.x, min_x)
-                max_x = math.max(point.x, max_x)
-                min_y = math.min(point.y, min_y)
-                max_y = math.max(point.y, max_y)
-            end
-
-            v.width = max_x - min_x
-            v.height = max_y - min_y
-            local center_x, center_y = (min_x + max_x) / 2, (min_y + max_y) / 2
-            v.center_x = v.x + center_x * math.cos(rotation) - center_y * math.sin(rotation)
-            v.center_y = v.y + center_x * math.sin(rotation) + center_y * math.cos(rotation)
-        end
-
-        if v.gid then
-            local tx, ty, tw, th = self:getTileObjectRect(v)
-            v.center_x = tx + tw / 2
-            v.center_y = ty + th / 2
-        end
-
-        local obj_type = self:getObjectType(v)
-
-        local uid = self:getUniqueID() .. "#" .. tostring(v.properties["uid"] or v.id)
-        if not Game:getFlag(uid .. ":dont_load") then
-            if self:shouldLoadObject(v, layer) then
-                local obj
-                local runtime_context = {
-                    layer_type = layer_type,
-                    layer = layer,
-                    depth = depth,
-                    reader = self.reader
-                }
-                if layer_type == "controllers" then
-                    obj = self:loadController(obj_type, v, runtime_context)
-                else
-                    obj = self:loadObject(obj_type, v, runtime_context)
-                end
-                if obj then
-                    obj.rotation = rotation
-                    local old_scale_x, old_scale_y = obj.scale_x or 1, obj.scale_y or 1
-                    local scale_x = old_scale_x * (v.scale_x or 1)
-                    local scale_y = old_scale_y * (v.scale_y or 1)
-                    if scale_x ~= old_scale_x or scale_y ~= old_scale_y then
-                        local origin_x, origin_y = obj:getScaleOriginExact()
-                        local offset_x = origin_x * (scale_x - old_scale_x)
-                        local offset_y = origin_y * (scale_y - old_scale_y)
-                        obj.x = obj.x + offset_x * math.cos(rotation) - offset_y * math.sin(rotation)
-                        obj.y = obj.y + offset_x * math.sin(rotation) + offset_y * math.cos(rotation)
-                    end
-                    obj:setScale(scale_x, scale_y)
-                    obj.x = obj.x + (layer.offsetx or 0)
-                    obj.y = obj.y + (layer.offsety or 0)
-                    obj:setParallax((obj.parallax_x or 1) * layer.parallaxx, (obj.parallax_y or 1) * layer.parallaxy)
-                    if not obj.object_id then
-                        obj.object_id = v.id
-                    end
-                    if not obj.unique_id then
-                        obj.unique_id = v.properties["uid"]
-                    end
-                    obj.layer = depth
-                    obj.layer_name = layer.name
-                    obj.data = v
-                    local height_properties = TableUtils.mergeMany(layer.properties or {}, v.properties or {})
-                    obj.z = tonumber(height_properties.z) or obj.z
-                    obj.depth = math.max(tonumber(height_properties.depth) or obj.depth, 0)
-                    obj.height_sensitive = height_properties.height_sensitive or false
-                    obj.height_occluder = height_properties.height_occluder or false
-                    obj.occlusion_depth = math.max(tonumber(height_properties.occlusion_depth) or obj.depth, 0)
-                    obj.occlusion_mode = height_properties.occlusion_mode or "fade"
-                    if obj.collider then
-                        obj.collider.z = tonumber(height_properties.collision_z) or obj.collider.z
-                        local collision_depth = tonumber(height_properties.collision_depth)
-                        if collision_depth == nil and height_properties.depth ~= nil then
-                            collision_depth = tonumber(height_properties.depth)
-                        end
-                        if collision_depth ~= nil then
-                            obj.collider.depth = math.max(collision_depth, 0)
-                        end
-                        if height_properties.supports ~= nil then
-                            obj.collider.supports = height_properties.supports
-                        elseif obj.collider.depth > 0 then
-                            obj.collider.supports = true
-                        end
-                        obj.collider.one_way = height_properties.one_way or height_properties.oneway or false
-                    end
-
-                    if (v.gid or v.tileset and v.tile_id ~= nil) and obj.applyTileObject then
-                        obj:applyTileObject(v, self)
-                    end
-
-                    parent:addChild(obj)
-
-                    table.insert(self.events, obj)
-
-                    self.events_by_name[v.name] = self.events_by_name[v.name] or {}
-                    table.insert(self.events_by_name[v.name], obj)
-                    table.insert(self.events_by_layer[layer.name], obj)
-
-                    if v.id then
-                        self.events_by_id[v.id] = obj
-                        self.next_object_id = math.max(self.next_object_id, v.id)
-                    end
-                end
-            end
+        local source_type = self:getObjectType(source)
+        local runtime_type = layer_type == "controllers" and "controller"
+            or Registry.getEditorObjectRuntimeType(source_type)
+        if runtime_type == "marker" then
+            operations.loadMarker(self, source, layer)
+        elseif runtime_type == "player" then
+            operations.loadPlayerSpawn(self, source, layer)
+        elseif runtime_type == "path" then
+            operations.loadPath(self, source, layer)
+        else
+            operations.loadRuntimeObject(self, source, layer, depth, layer_type, runtime_type)
         end
     end
 end
@@ -406,7 +446,7 @@ end
 
 function operations.loadObject(self, name, data, context)
 
-    -- Check the events
+    -- Check registered object loaders
     local loaded = Kristal.callEvent(KRISTAL_EVENT.loadObject, self.world, name, data)
     if loaded ~= nil then
         if type(loaded) == "boolean" then -- don't load the object if it returns true
@@ -418,15 +458,15 @@ function operations.loadObject(self, name, data, context)
         end
     end
 
-    local editor_event_class = Registry.getEditorEvent(name)
+    local editor_object_class = Registry.getEditorObject(name)
     local tile_object = data.gid or data.tileset and data.tile_id ~= nil
-    if editor_event_class or tile_object then
-        local editor_event = Registry.createEditorEvent(name, data, {
+    if editor_object_class or tile_object then
+        local editor_object = Registry.createEditorObject(name, data, {
             map = self,
             map_id = self.id,
             runtime = true
         })
-        return editor_event:createObject(self, context)
+        return editor_object:createObject(self, context)
     end
 
     if Game.event_registry and Game.event_registry:has(name) then
@@ -439,7 +479,7 @@ function operations.loadObject(self, name, data, context)
         return loaded
     end
 
-    Kristal.Console:warn("No event with ID '" .. tostring(name) .. "' found")
+    Kristal.Console:warn("No object with ID '" .. tostring(name) .. "' found")
 end
 
 function operations.loadController(self, name, data, context)
@@ -468,14 +508,14 @@ function operations.loadController(self, name, data, context)
             end
         end
     end
-    local editor_event_class = Registry.getEditorEvent(name)
-    if editor_event_class then
-        local editor_event = Registry.createEditorEvent(name, data, {
+    local editor_object_class = Registry.getEditorObject(name)
+    if editor_object_class then
+        local editor_object = Registry.createEditorObject(name, data, {
             map = self,
             map_id = self.id,
             runtime = true
         })
-        return editor_event:createObject(self, context)
+        return editor_object:createObject(self, context)
     end
 end
 

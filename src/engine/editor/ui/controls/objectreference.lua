@@ -1,4 +1,18 @@
+--- Edits a reference to an object in a map.
 ---@class EditorObjectReferenceControl : EditorControl
+---@field clip boolean
+---@field cursor_type string
+---@field dragging table|false
+---@field editor Editor
+---@field focusable boolean
+---@field focused boolean
+---@field on_changed function?
+---@field open_picker_on_release boolean
+---@field options table
+---@field pending_drag boolean
+---@field press_x number?
+---@field press_y number?
+---@field value EditorObjectReference|string|table|nil
 ---@overload fun(editor: table, value?: any, options?: table): EditorObjectReferenceControl
 local EditorObjectReferenceControl, super = Class(EditorControl)
 
@@ -8,9 +22,11 @@ function EditorObjectReferenceControl:init(editor, value, options)
     self.editor = editor
     self.value = value
     self.on_changed = options.on_changed
+    self.options = TableUtils.copy(options, true)
     self.focusable = true
     self.focused = false
     self.cursor_type = "link"
+    self.clip = true
 end
 
 function EditorObjectReferenceControl:setValue(value)
@@ -24,15 +40,32 @@ function EditorObjectReferenceControl:getLabel()
         end
         return EditorObjectReference.from(self.value):getLabel()
     end
-    if self.value == nil or self.value == "" then return "Drag to an object..." end
+    if self.value == nil or self.value == "" then return "Drag or double-click..." end
     return tostring(self.value)
 end
 
 function EditorObjectReferenceControl:onFocus() self.focused = true end
 function EditorObjectReferenceControl:onBlur() self.focused = false end
 
-function EditorObjectReferenceControl:onMousePressed(x, y, button)
+function EditorObjectReferenceControl:openPicker()
+    if not self.editor then return false end
+    local options = TableUtils.copy(self.options, true)
+    options.title = options.title or (options.allowed_types and #options.allowed_types == 1
+        and options.allowed_types[1] == "marker" and "Choose Marker Reference" or "Choose Object Reference")
+    options.on_apply = function(value)
+        self.value = value
+        if self.on_changed then return self.on_changed(value, self) end
+    end
+    return self.editor:openObjectReferencePicker(self.value, options) ~= nil
+end
+
+function EditorObjectReferenceControl:onMousePressed(x, y, button, presses)
     if button ~= 1 then return false end
+    if presses and presses >= 2 then
+        self.open_picker_on_release = true
+        self.pending_drag = false
+        return true
+    end
     self.press_x, self.press_y = x, y
     self.pending_drag = true
     return true
@@ -48,6 +81,10 @@ end
 
 function EditorObjectReferenceControl:onMouseReleased(_, _, button)
     if button ~= 1 then return false end
+    if self.open_picker_on_release then
+        self.open_picker_on_release = false
+        return self:openPicker()
+    end
     local was_dragging = self.dragging
     self.pending_drag, self.dragging = false, false
     if was_dragging then
@@ -59,6 +96,11 @@ function EditorObjectReferenceControl:onMouseReleased(_, _, button)
         end
     end
     return true
+end
+
+function EditorObjectReferenceControl:onKeyPressed(key)
+    if key == "return" or key == "kpenter" or key == "space" then return self:openPicker() end
+    return false
 end
 
 function EditorObjectReferenceControl:drawSelf()

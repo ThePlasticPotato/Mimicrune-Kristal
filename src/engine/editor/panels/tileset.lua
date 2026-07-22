@@ -1,4 +1,36 @@
+--- Displays and edits a tileset and its tiles.
 ---@class EditorTilesetPanel : EditorControl
+---@field add_button EditorButton
+---@field animation_clock number
+---@field animation_play_button EditorButton
+---@field animation_playing boolean
+---@field animation_preview_rect any
+---@field animation_source_tile_id string?
+---@field animation_target_tile any
+---@field collision_drag any
+---@field collision_snap boolean
+---@field collision_snap_button EditorButton
+---@field document any
+---@field editor Editor
+---@field list EditorItemList
+---@field mode string
+---@field mode_buttons table
+---@field properties EditorPropertiesPanel
+---@field selected_item any
+---@field terrain_any_button EditorButton
+---@field terrain_expansion table
+---@field terrain_is_button EditorButton
+---@field terrain_not_button EditorButton
+---@field terrain_paint_changed boolean
+---@field terrain_paint_mode string
+---@field terrain_painted_rule any
+---@field terrain_painted_slots any
+---@field terrain_rule_lookup table
+---@field tile any
+---@field tile_grid EditorTilePalette
+---@field zoom_in_button EditorButton
+---@field zoom_label_button EditorButton
+---@field zoom_out_button EditorButton
 ---@overload fun(editor: table): EditorTilesetPanel
 local EditorTilesetPanel, super = Class(EditorControl)
 
@@ -57,18 +89,6 @@ local function pointSegmentDistance(x, y, x1, y1, x2, y2)
     local amount = MathUtils.clamp(((x - x1) * dx + (y - y1) * dy) / length_squared, 0, 1)
     local closest_x, closest_y = x1 + dx * amount, y1 + dy * amount
     return math.sqrt((x - closest_x) ^ 2 + (y - closest_y) ^ 2)
-end
-
-local function pointInPolygon(x, y, points)
-    local inside, previous = false, points[#points]
-    for _, point in ipairs(points) do
-        local px, py = point.x or point[1] or 0, point.y or point[2] or 0
-        local qx, qy = previous.x or previous[1] or 0, previous.y or previous[2] or 0
-        if (py > y) ~= (qy > y)
-            and x < (qx - px) * (y - py) / (qy - py) + px then inside = not inside end
-        previous = point
-    end
-    return inside
 end
 
 function EditorTilesetPanel:init(editor)
@@ -250,14 +270,14 @@ function EditorTilesetPanel:resolveViewSelection(selection)
     end
 end
 
-function EditorTilesetPanel:setTile(tile)
+function EditorTilesetPanel:setTile(tile, source)
     self.tile = tile
     if self.mode == "animation" then
         self.animation_target_tile = tile
         self.animation_source_tile_id = tile and tile.id or nil
         self.animation_clock = 0
     end
-    self.tile_grid:setSelectedTile(tile)
+    if self.tile_grid ~= source then self.tile_grid:setSelectedTile(tile) end
     if self.mode ~= "tileset" then self:rebuild() end
 end
 
@@ -362,14 +382,14 @@ function EditorTilesetPanel:collisionShapeContains(shape, x, y, tolerance)
         local nx, ny = (local_x - width / 2) / (width / 2), (local_y - height / 2) / (height / 2)
         return nx * nx + ny * ny <= 1
     elseif shape_type == "polygon" then
-        return pointInPolygon(local_x, local_y, shape.polygon or {})
+        return MapUtils.pointInPolygon(local_x, local_y, shape.polygon or {})
     elseif shape_type == "line" or shape_type == "polyline" then
         local points = shape.polyline or {}
         for _, edge in ipairs(MapUtils.getPolylineEdges(shape, #points)) do
             local first, second = points[edge[1]], points[edge[2]]
-            if pointSegmentDistance(local_x, local_y,
-                first.x or first[1] or 0, first.y or first[2] or 0,
-                second.x or second[1] or 0, second.y or second[2] or 0) <= tolerance then
+            local x1, y1 = MapUtils.getPointCoordinates(first)
+            local x2, y2 = MapUtils.getPointCoordinates(second)
+            if pointSegmentDistance(local_x, local_y, x1, y1, x2, y2) <= tolerance then
                 return true
             end
         end
@@ -400,7 +420,7 @@ function EditorTilesetPanel:findCollisionVertex(shape, x, y, tolerance)
     if not points then return nil end
     local local_x, local_y = self:collisionLocalPoint(shape, x, y)
     for index, point in ipairs(points) do
-        local point_x, point_y = point.x or point[1] or 0, point.y or point[2] or 0
+        local point_x, point_y = MapUtils.getPointCoordinates(point)
         if (local_x - point_x) ^ 2 + (local_y - point_y) ^ 2 <= tolerance ^ 2 then
             return index
         end
@@ -629,6 +649,19 @@ function EditorTilesetPanel:getItems()
     return {}
 end
 
+function EditorTilesetPanel:drawAnimationTilePreview(tile_id, x, y, width, height, alpha)
+    local tileset = self.document and self.document.tileset
+    if not tileset or tile_id == nil then return end
+    local tile_width, tile_height = tileset:getTileSize(tile_id)
+    if not tile_width or not tile_height or tile_width <= 0 or tile_height <= 0 then return end
+    local padding = math.min(2, width / 2, height / 2)
+    local scale = math.min(math.max(0, width - padding * 2) / tile_width,
+        math.max(0, height - padding * 2) / tile_height)
+    Draw.setColor(1, 1, 1, alpha or 1)
+    tileset:drawStaticTile(tile_id, x + width / 2, y + height / 2,
+        0, scale, scale, tile_width / 2, tile_height / 2)
+end
+
 function EditorTilesetPanel:refreshList(selected)
     if self.mode == "terrain" then self:ensureTerrainItemVisible(selected) end
     local items = {}
@@ -662,11 +695,7 @@ function EditorTilesetPanel:refreshList(selected)
         if self.mode == "animation" then
             local tile_id = value.tile_id or value.tileid
             list_item.preview = function(x, y, width, height, alpha)
-                Draw.setColor(1, 1, 1, alpha or 1)
-                if self.document.tileset then
-                    self.document.tileset:drawGridTile(tile_id, x, y, width, height,
-                        nil, nil, nil, true)
-                end
+                self:drawAnimationTilePreview(tile_id, x, y, width, height, alpha)
             end
         end
         if self.mode == "terrain" and value.has_children then
@@ -934,11 +963,7 @@ function EditorTilesetPanel:drawCollisionShape(shape, x, y, scale, selected)
     elseif shape_type == "ellipse" and width > 0 and height > 0 then
         love.graphics.ellipse("fill", width / 2, height / 2, width / 2, height / 2)
     elseif shape_type == "polygon" and #(shape.polygon or {}) >= 3 then
-        local coordinates = {}
-        for _, point in ipairs(shape.polygon) do
-            table.insert(coordinates, point.x or point[1] or 0)
-            table.insert(coordinates, point.y or point[2] or 0)
-        end
+        local coordinates = MapUtils.collectPointCoordinates(shape.polygon)
         love.graphics.polygon("fill", coordinates)
     end
     Draw.setColor(selected and { 1, 0.84, 0.24, 1 } or { 0.22, 0.88, 1, 0.9 })
@@ -949,11 +974,7 @@ function EditorTilesetPanel:drawCollisionShape(shape, x, y, scale, selected)
     elseif shape_type == "ellipse" and width > 0 and height > 0 then
         love.graphics.ellipse("line", width / 2, height / 2, width / 2, height / 2)
     elseif shape_type == "polygon" and #(shape.polygon or {}) >= 3 then
-        local coordinates = {}
-        for _, point in ipairs(shape.polygon) do
-            table.insert(coordinates, point.x or point[1] or 0)
-            table.insert(coordinates, point.y or point[2] or 0)
-        end
+        local coordinates = MapUtils.collectPointCoordinates(shape.polygon)
         love.graphics.polygon("line", coordinates)
         if selected then
             for index = 1, #coordinates, 2 do
@@ -964,13 +985,14 @@ function EditorTilesetPanel:drawCollisionShape(shape, x, y, scale, selected)
         local points = shape.polyline or {}
         for _, edge in ipairs(MapUtils.getPolylineEdges(shape, #points)) do
             local first, second = points[edge[1]], points[edge[2]]
-            love.graphics.line(first.x or first[1] or 0, first.y or first[2] or 0,
-                second.x or second[1] or 0, second.y or second[2] or 0)
+            local x1, y1 = MapUtils.getPointCoordinates(first)
+            local x2, y2 = MapUtils.getPointCoordinates(second)
+            love.graphics.line(x1, y1, x2, y2)
         end
         if selected then
             for _, point in ipairs(points) do
-                love.graphics.circle("fill", point.x or point[1] or 0,
-                    point.y or point[2] or 0, 3 / scale)
+                local point_x, point_y = MapUtils.getPointCoordinates(point)
+                love.graphics.circle("fill", point_x, point_y, 3 / scale)
             end
         end
     else
@@ -1641,9 +1663,8 @@ function EditorTilesetPanel:drawSelf()
         love.graphics.rectangle("fill", preview.x, preview.y, preview.width, preview.height)
         local frame_id = self:getAnimationPreviewFrame()
         if frame_id ~= nil and self.document and self.document.tileset then
-            Draw.setColor(1, 1, 1, 1)
-            self.document.tileset:drawGridTile(frame_id, preview.x, preview.y,
-                preview.width, preview.height, nil, nil, nil, true)
+            self:drawAnimationTilePreview(frame_id, preview.x, preview.y,
+                preview.width, preview.height)
         end
         Draw.setColor(0.46, 0.72, 1, 1)
         love.graphics.rectangle("line", preview.x + 0.5, preview.y + 0.5,

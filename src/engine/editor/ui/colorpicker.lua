@@ -1,23 +1,31 @@
+--- Displays a modal color picker for editor fields.
 ---@class EditorColorPicker : EditorControl
+---@field alpha boolean
+---@field alpha_mesh love.Mesh
+---@field alpha_rect table
+---@field apply_button EditorButton
+---@field cancel_button EditorButton
+---@field captured_control EditorControl?
+---@field drag_mode string?
+---@field editor Editor
+---@field focused_control EditorControl?
+---@field hex_input EditorTextInput
+---@field hue number
+---@field hue_mesh love.Mesh
+---@field hue_rect table
+---@field on_apply function?
+---@field panel_height number
+---@field panel_width number
+---@field panel_x number
+---@field panel_y number
+---@field preview_rect table
+---@field saturation number
+---@field saturation_mesh love.Mesh
+---@field sv_rect table
+---@field value number
+---@field value_mesh love.Mesh
 ---@overload fun(editor: Editor, value?: string|table, on_apply?: function): EditorColorPicker
 local EditorColorPicker, super = Class(EditorControl)
-
-local function pointIn(rect, x, y)
-    return x >= rect.x and y >= rect.y and x < rect.x + rect.width and y < rect.y + rect.height
-end
-
-local function checkerboard(rect, size)
-    size = size or 8
-    for row = 0, math.ceil(rect.height / size) - 1 do
-        for column = 0, math.ceil(rect.width / size) - 1 do
-            local value = (row + column) % 2 == 0 and 0.72 or 0.42
-            Draw.setColor(value, value, value, 1)
-            love.graphics.rectangle("fill", rect.x + column * size, rect.y + row * size,
-                math.min(size, rect.width - column * size),
-                math.min(size, rect.height - row * size))
-        end
-    end
-end
 
 local function newGradientMesh(vertices, usage)
     return love.graphics.newMesh(vertices, "strip", usage or "dynamic")
@@ -26,6 +34,11 @@ end
 local function drawGradientMesh(mesh, rect)
     Draw.setColor(1, 1, 1, 1)
     love.graphics.draw(mesh, rect.x, rect.y, 0, rect.width, rect.height)
+end
+
+local function quantizeChannel(value)
+    local byte = math.floor(MathUtils.clamp(value, 0, 1) * 255 + 0.000001)
+    return byte / 255
 end
 
 local function newHueMesh()
@@ -54,10 +67,14 @@ function EditorColorPicker:init(editor, value, on_apply)
     }))
     self.apply_button = self:addChild(EditorButton("Apply", function() self:apply() end))
     self.cancel_button = self:addChild(EditorButton("Cancel", function() self:cancel() end))
-    self.sv_mesh = newGradientMesh({
-        { 0, 0, 0, 0, 1, 1, 1, 1 }, { 0, 1, 0, 1, 0, 0, 0, 1 },
-        { 1, 0, 1, 0, 1, 0, 0, 1 }, { 1, 1, 1, 1, 0, 0, 0, 1 }
-    })
+    self.saturation_mesh = newGradientMesh({
+        { 0, 0, 0, 0, 1, 1, 1, 1 }, { 0, 1, 0, 1, 1, 1, 1, 1 },
+        { 1, 0, 1, 0, 1, 1, 1, 0 }, { 1, 1, 1, 1, 1, 1, 1, 0 }
+    }, "static")
+    self.value_mesh = newGradientMesh({
+        { 0, 0, 0, 0, 0, 0, 0, 0 }, { 0, 1, 0, 1, 0, 0, 0, 1 },
+        { 1, 0, 1, 0, 0, 0, 0, 0 }, { 1, 1, 1, 1, 0, 0, 0, 1 }
+    }, "static")
     self.hue_mesh = newHueMesh()
     self.alpha_mesh = newGradientMesh({
         { 0, 0, 0, 0, 1, 1, 1, 0 }, { 0, 1, 0, 1, 1, 1, 1, 0 },
@@ -72,18 +89,20 @@ end
 
 function EditorColorPicker:getColor()
     local red, green, blue = ColorUtils.HSVToRGB(self.hue, self.saturation, self.value)
-    return { red, green, blue, self.alpha }
+    return {
+        quantizeChannel(red), quantizeChannel(green), quantizeChannel(blue),
+        quantizeChannel(self.alpha)
+    }
 end
 
 function EditorColorPicker:updateHex()
-    local hue_red, hue_green, hue_blue = ColorUtils.HSVToRGB(self.hue, 1, 1)
-    self.sv_mesh:setVertex(3, 1, 0, 1, 0, hue_red, hue_green, hue_blue, 1)
-    local red, green, blue = ColorUtils.HSVToRGB(self.hue, self.saturation, self.value)
+    local color = self:getColor()
+    local red, green, blue = color[1], color[2], color[3]
     self.alpha_mesh:setVertex(1, 0, 0, 0, 0, red, green, blue, 0)
     self.alpha_mesh:setVertex(2, 0, 1, 0, 1, red, green, blue, 0)
     self.alpha_mesh:setVertex(3, 1, 0, 1, 0, red, green, blue, 1)
     self.alpha_mesh:setVertex(4, 1, 1, 1, 1, red, green, blue, 1)
-    self.hex_input:setValue(ColorUtils.RGBAToHex(self:getColor()), true)
+    self.hex_input:setValue(ColorUtils.RGBAToHex(color), true)
 end
 
 function EditorColorPicker:setHex(value)
@@ -154,9 +173,9 @@ function EditorColorPicker:onMousePressed(x, y, button, _, presses)
         return true
     end
     self:setFocus(nil)
-    if pointIn(self.sv_rect, x, y) then self.drag_mode = "sv"
-    elseif pointIn(self.hue_rect, x, y) then self.drag_mode = "hue"
-    elseif pointIn(self.alpha_rect, x, y) then self.drag_mode = "alpha"
+    if MathUtils.pointInRect(x, y, self.sv_rect) then self.drag_mode = "sv"
+    elseif MathUtils.pointInRect(x, y, self.hue_rect) then self.drag_mode = "hue"
+    elseif MathUtils.pointInRect(x, y, self.alpha_rect) then self.drag_mode = "alpha"
     elseif x < self.panel_x or y < self.panel_y
         or x >= self.panel_x + self.panel_width or y >= self.panel_y + self.panel_height then
         return self:cancel()
@@ -217,8 +236,8 @@ function EditorColorPicker:onWheelMoved()
 end
 
 function EditorColorPicker:getCursorType(x, y)
-    if pointIn(self.sv_rect, x, y) then return "crosshair" end
-    if pointIn(self.hue_rect, x, y) or pointIn(self.alpha_rect, x, y) then return "select" end
+    if MathUtils.pointInRect(x, y, self.sv_rect) then return "crosshair" end
+    if MathUtils.pointInRect(x, y, self.hue_rect) or MathUtils.pointInRect(x, y, self.alpha_rect) then return "select" end
     local target = self:getControlAt(x, y)
     return target and target.cursor_type or "default"
 end
@@ -236,7 +255,12 @@ function EditorColorPicker:drawSelf()
     Draw.setColor(0.94, 0.94, 0.97, 1)
     love.graphics.print("Choose Color", self.panel_x + 18, self.panel_y + 14)
 
-    drawGradientMesh(self.sv_mesh, self.sv_rect)
+    local hue_red, hue_green, hue_blue = ColorUtils.HSVToRGB(self.hue, 1, 1)
+    Draw.setColor(hue_red, hue_green, hue_blue, 1)
+    love.graphics.rectangle("fill", self.sv_rect.x, self.sv_rect.y,
+        self.sv_rect.width, self.sv_rect.height)
+    drawGradientMesh(self.saturation_mesh, self.sv_rect)
+    drawGradientMesh(self.value_mesh, self.sv_rect)
     Draw.setColor(1, 1, 1, 1)
     love.graphics.circle("line", self.sv_rect.x + self.saturation * self.sv_rect.width,
         self.sv_rect.y + (1 - self.value) * self.sv_rect.height, 6)
@@ -246,14 +270,14 @@ function EditorColorPicker:drawSelf()
     love.graphics.rectangle("line", self.hue_rect.x + self.hue * self.hue_rect.width - 2,
         self.hue_rect.y - 2, 4, self.hue_rect.height + 4)
 
-    checkerboard(self.alpha_rect)
+    Draw.checkerboard(self.alpha_rect.x, self.alpha_rect.y, self.alpha_rect.width, self.alpha_rect.height)
     local color = self:getColor()
     drawGradientMesh(self.alpha_mesh, self.alpha_rect)
     Draw.setColor(1, 1, 1, 1)
     love.graphics.rectangle("line", self.alpha_rect.x + self.alpha * self.alpha_rect.width - 2,
         self.alpha_rect.y - 2, 4, self.alpha_rect.height + 4)
 
-    checkerboard(self.preview_rect)
+    Draw.checkerboard(self.preview_rect.x, self.preview_rect.y, self.preview_rect.width, self.preview_rect.height)
     Draw.setColor(color)
     love.graphics.rectangle("fill", self.preview_rect.x, self.preview_rect.y,
         self.preview_rect.width, self.preview_rect.height)

@@ -1,28 +1,21 @@
+--- Draws hitboxes and shapes for a layer in the editor/game preview.
 ---@class EditorLayerOverlay : Class
+---@field color number[]
+---@field layer number
+---@field layer_type table?
+---@field layer_uid string?
+---@field source_layer table
+---@field visible boolean
 ---@overload fun(layer: table, layer_type?: table, depth?: number): EditorLayerOverlay
 local EditorLayerOverlay = Class()
 
 function EditorLayerOverlay:init(layer, layer_type, depth)
     self.source_layer = layer
     self.layer_uid = layer._editor_uid
-    self.layer = depth or 0
+    MapUtils.addLayerOffset(self, depth)
     self.layer_type = layer_type
     self.color = Registry.layer_types:getLayerColor(layer, layer_type)
     self.visible = true
-end
-
-local function pointCoordinates(point)
-    return point.x or point[1] or 0, point.y or point[2] or 0
-end
-
-local function collectPoints(points)
-    local result = {}
-    for _, point in ipairs(points or {}) do
-        local x, y = pointCoordinates(point)
-        table.insert(result, x)
-        table.insert(result, y)
-    end
-    return result
 end
 
 function EditorLayerOverlay:drawObject(object, alpha, line_width)
@@ -44,7 +37,7 @@ function EditorLayerOverlay:drawObject(object, alpha, line_width)
     Draw.setColor(color[1] or 1, color[2] or 1, color[3] or 1, 0.14 * alpha)
     if points then
         if #points >= 3 and object.polygon then
-            love.graphics.polygon("fill", collectPoints(points))
+            love.graphics.polygon("fill", MapUtils.collectPointCoordinates(points))
         end
     elseif object.shape == "ellipse" and width > 0 and height > 0 then
         love.graphics.ellipse("fill", width / 2, height / 2, width / 2, height / 2)
@@ -55,14 +48,14 @@ function EditorLayerOverlay:drawObject(object, alpha, line_width)
     Draw.setColor(color[1] or 1, color[2] or 1, color[3] or 1,
         math.min(color[4] or 1, 0.9) * alpha)
     if points then
-        local coordinates = collectPoints(points)
+        local coordinates = MapUtils.collectPointCoordinates(points)
         if object.polygon and #coordinates >= 6 then
             love.graphics.polygon("line", coordinates)
         elseif #coordinates >= 4 then
             for _, edge in ipairs(MapUtils.getPolylineEdges(object, #points)) do
                 local first, second = points[edge[1]], points[edge[2]]
-                local x1, y1 = pointCoordinates(first)
-                local x2, y2 = pointCoordinates(second)
+                local x1, y1 = MapUtils.getPointCoordinates(first)
+                local x2, y2 = MapUtils.getPointCoordinates(second)
                 love.graphics.line(x1, y1, x2, y2)
             end
         end
@@ -78,7 +71,7 @@ function EditorLayerOverlay:drawObject(object, alpha, line_width)
     love.graphics.pop()
 end
 
-function EditorLayerOverlay:draw(alpha, line_width)
+function EditorLayerOverlay:draw(alpha, line_width, selected)
     if not self.visible then return end
     alpha = alpha or 1
     local previous_width = love.graphics.getLineWidth()
