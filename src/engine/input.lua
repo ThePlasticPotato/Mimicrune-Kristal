@@ -104,7 +104,7 @@ Input.order = {
     -- Deltarune binds
     "down", "right", "up", "left", "confirm", "cancel", "menu",
     -- Mimicrune binds
-    "attack", "dash",
+    "attack", "dash", "jump",
     -- Kristal binds
     "console", "debug_menu", "object_selector", "fast_forward", "editor", "editor_view", "editor_command_palette", "editor_delete", "editor_tool_select", "editor_tool_world_select", "editor_tool_object",
     "editor_tool_shape", "editor_tool_tile_brush", "editor_tool_terrain_brush", "editor_tool_tile_fill", "editor_tool_eraser"
@@ -233,7 +233,8 @@ function Input.resetBinds(gamepad, mod_id)
             ["instant-heal"] = {"h", "1"},
             ["instant-tonic"] = {"t", "2"},
             ["instant-purify"] = {"p", "3"},
-            ["dash"] = {"e", "space"},
+            ["dash"] = {"e", "x"},
+            ["jump"] = {"space"},
             ["console"] = {"`"},
             ["debug_menu"] = {{"shift", "`"}},
             ["object_selector"] = {{"ctrl", "o"}},
@@ -266,6 +267,7 @@ function Input.resetBinds(gamepad, mod_id)
             ["instant-tonic"] = {"gamepad:dpup"},
             ["instant-purify"] = {"gamepad:dpright"},
             ["dash"] = {"gamepad:leftstick"},
+            ["jump"] = {"gamepad:leftshoulder"},
             ["console"] = {},
             ["debug_menu"] = {},
             ["object_selector"] = {},
@@ -334,7 +336,8 @@ function Input.resetBinds(gamepad, mod_id)
             ["instant-heal"] = {"h", "1"},
             ["instant-tonic"] = {"t", "2"},
             ["instant-purify"] = {"p", "3"},
-            ["dash"] = {"e", "space"},
+            ["dash"] = {"e", "x"},
+            ["jump"] = {"space"},
             ["console"] = {"`"},
             ["debug_menu"] = {{"shift", "`"}},
             ["object_selector"] = {{"ctrl", "o"}},
@@ -396,6 +399,7 @@ function Input.resetBinds(gamepad, mod_id)
             ["menu"] = {"gamepad:y"},
             ["attack"] = {"gamepad:x"},
             ["dash"] = {"gamepad:leftstick"},
+            ["jump"] = {"gamepad:leftshoulder"},
             ["instant-heal"] = {"gamepad:dpleft"},
             ["instant-tonic"] = {"gamepad:dpup"},
             ["instant-purify"] = {"gamepad:dpright"},
@@ -1553,6 +1557,12 @@ end
 ---@return boolean
 function Input.isDash(key)
     return Input.is("dash", key)
+end
+
+---@param key string
+---@return boolean
+function Input.isJump(key)
+    return Input.is("jump", key)
 end
 
 ---@param key string

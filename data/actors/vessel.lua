@@ -12,6 +12,7 @@ function actor:init()
 
     -- Hitbox for this actor in the overworld (optional, uses width and height by default)
     self.hitbox = {0, 25, 19, 14}
+    self.collision_depth = 20
 
     -- A table that defines where the Soul should be placed on this actor if they are a player.
     -- First value is x, second value is y.
@@ -39,6 +40,9 @@ function actor:init()
     self.animations = {
         -- Movement animations
         ["slide"]               = {"slide", 4/30, true},
+        ["jump"]                = {"jump", 1/15, false},
+        ["fall"]                = {"fall", 1/10, true},
+        ["landed"]              = {"landed", 1/15, false},
 
         -- Battle animations
         ["battle/idle"]         = {"battle/idle", 1/6, true},
@@ -71,6 +75,8 @@ function actor:init()
         ["jump_fall"]           = {"fall", 1/5, true},
         ["jump_ball"]           = {"ball", 1/15, true},
         ["jump_ball_slow"]      = {"ball", 4/30, true},
+
+        ["dash"]   = {"dash", 1/15, true},
     }
 
     if Game.chapter == 1 then
@@ -151,6 +157,10 @@ function actor:init()
         ["sit"] = {-3, 0},
 
         ["t_pose"] = {-4, 0},
+
+        ["dash"] = {-17, -12};
+        ["run"] = {-5, -2};
+        ["jump"] = {-1, -1};
     }
 end
 

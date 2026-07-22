@@ -475,7 +475,7 @@ function World:onKeyPressed(key)
         if key == "s" then
             local save_pos = nil
             if Input.shift() then
-                save_pos = { self.player.x, self.player.y }
+                save_pos = { self.player.x, self.player.y, self.player.z }
             end
             if Game:getConfig("smallSaveMenu") then
                 self:openMenu(SimpleSaveMenu(Game.save_id, save_pos))
@@ -518,7 +518,12 @@ function World:onKeyPressed(key)
     if Game.lock_movement then return end
 
     if self.state == "GAMEPLAY" then
-        if Input.isConfirm(key) and self:canInteract() then
+        if Input.isJump(key) and self.player:canJump() then
+            if self.player:jump() then
+                Input.clear("jump")
+                Input.clear("dash")
+            end
+        elseif Input.isConfirm(key) and self:canInteract() then
             if self.player:interact() then
                 Input.clear("confirm")
             end
@@ -603,6 +608,179 @@ function World:checkCollisions(collider, enemy_check)
     return #collided_with > 0, collided_with
 end
 
+--- Checks whether the input collider overlaps anything in both XY and Z.
+---@param collider Collider
+---@param enemy_check? boolean
+---@return boolean collided
+---@return Object? with
+function World:checkCollision3D(collider, enemy_check)
+    Object.startCache()
+    for _, other in ipairs(self:getCollision(enemy_check)) do
+        local collider_bottom = collider:getZBounds()
+        local _, other_top = other:getZBounds()
+        local standing_on_surface = other.supports and math.abs(collider_bottom - other_top) < 0.001
+        if not other.one_way and not standing_on_surface
+            and collider:collidesWith3D(other) and collider ~= other then
+            Object.endCache()
+            return true, other.parent
+        end
+    end
+    Object.endCache()
+    return false
+end
+
+--- Returns all world collisions that overlap the input collider in XY and Z.
+---@param collider Collider
+---@param enemy_check? boolean
+---@return boolean collided
+---@return Object[] collisions
+function World:checkCollisions3D(collider, enemy_check)
+    local collided_with = {}
+    Object.startCache()
+    for _, other in ipairs(self:getCollision(enemy_check)) do
+        local collider_bottom = collider:getZBounds()
+        local _, other_top = other:getZBounds()
+        local standing_on_surface = other.supports and math.abs(collider_bottom - other_top) < 0.001
+        if not other.one_way and not standing_on_surface
+            and collider:collidesWith3D(other) and collider ~= other then
+            table.insert(collided_with, other.parent)
+        end
+    end
+    Object.endCache()
+    return #collided_with > 0, collided_with
+end
+
+--- Whether an XY footprint is currently over an explicit pit region.
+---@param collider Collider
+---@return boolean
+function World:isOverPit(collider)
+    if not self.map or not self.map.pits then return false end
+    Object.startCache()
+    for _, pit in ipairs(self.map.pits) do
+        if collider:collidesWith(pit) then
+            Object.endCache()
+            return true
+        end
+    end
+    Object.endCache()
+    return false
+end
+
+--- Whether the implicit z=0 ground exists beneath an XY footprint.
+---@param collider Collider
+---@return boolean
+function World:hasImplicitGroundAt(collider)
+    return not self:isOverPit(collider)
+end
+
+--- Finds a supporting surface at a specific elevation.
+---@param collider Collider XY support probe
+---@param z number Desired surface elevation
+---@param tolerance? number
+---@return number? surface_z
+---@return Collider? surface
+function World:getSupportAt(collider, z, tolerance)
+    tolerance = tolerance or 0.5
+    local best_z, best_surface
+
+    Object.startCache()
+    for _, surface in ipairs(self:getCollision(false)) do
+        if surface.supports and collider:collidesWith(surface) then
+            local _, top = surface:getZBounds()
+            if math.abs(top - z) <= tolerance and (not best_z or top > best_z) then
+                best_z, best_surface = top, surface
+            end
+        end
+    end
+    Object.endCache()
+
+    if math.abs(z) <= tolerance and self:hasImplicitGroundAt(collider) then
+        if not best_z or best_z <= 0 then
+            return 0, nil
+        end
+    end
+
+    return best_z, best_surface
+end
+
+--- Finds the highest support surface crossed during a downward Z sweep.
+---@param collider Collider XY support probe
+---@param old_z number
+---@param new_z number
+---@return number? surface_z
+---@return Collider? surface
+function World:getLandingSurface(collider, old_z, new_z)
+    if new_z > old_z then return nil end
+
+    local best_z, best_surface
+    Object.startCache()
+    for _, surface in ipairs(self:getCollision(false)) do
+        if surface.supports and collider:collidesWith(surface) then
+            local _, top = surface:getZBounds()
+            if top <= old_z and top >= new_z and (not best_z or top > best_z) then
+                best_z, best_surface = top, surface
+            end
+        end
+    end
+    Object.endCache()
+
+    if old_z >= 0 and new_z <= 0 and self:hasImplicitGroundAt(collider) then
+        if not best_z or best_z < 0 then
+            return 0, nil
+        end
+    end
+
+    return best_z, best_surface
+end
+
+--- Finds the lowest solid underside crossed during an upward Z sweep.
+---@param collider Collider XY body footprint
+---@param old_top number
+---@param new_top number
+---@return number? ceiling_z
+---@return Collider? surface
+function World:getCeilingSurface(collider, old_top, new_top)
+    if new_top < old_top then return nil end
+
+    local best_z, best_surface
+    Object.startCache()
+    for _, surface in ipairs(self:getCollision(false)) do
+        if not surface.one_way and collider:collidesWith(surface) then
+            local bottom, top = surface:getZBounds()
+            if surface.depth > 0 and bottom >= old_top and bottom <= new_top
+                and (not best_z or bottom < best_z) then
+                best_z, best_surface = bottom, surface
+            end
+        end
+    end
+    Object.endCache()
+    return best_z, best_surface
+end
+
+--- Finds the highest ground at or below a requested elevation.
+---@param collider Collider XY support probe
+---@param maximum_z number
+---@return number? surface_z
+---@return Collider? surface
+function World:getGroundZAt(collider, maximum_z)
+    local best_z, best_surface
+    Object.startCache()
+    for _, surface in ipairs(self:getCollision(false)) do
+        if surface.supports and collider:collidesWith(surface) then
+            local _, top = surface:getZBounds()
+            if top <= maximum_z and (not best_z or top > best_z) then
+                best_z, best_surface = top, surface
+            end
+        end
+    end
+    Object.endCache()
+
+    if maximum_z >= 0 and self:hasImplicitGroundAt(collider) and (not best_z or best_z < 0) then
+        return 0, nil
+    end
+    return best_z, best_surface
+end
+
 --- Whether the world has a currently active cutscene
 ---@return boolean?
 function World:hasCutscene()
@@ -665,7 +843,7 @@ function World:showText(text, after)
 end
 
 --- Spawns the player into the world
----@overload fun(self: World, x: number, y: number, chara: string|Actor, party?: string)
+---@overload fun(self: World, x: number, y: number, chara: string|Actor, party?: string, z?: number)
 ---@overload fun(self: World, marker: string, chara: string|Actor, party?: string)
 ---@param ... unknown   Arguments detailing how the player spawns
 ---|"x, y, chara"   # The coordinates of the player spawn and the Actor (instance or id) to use for the player
@@ -674,7 +852,7 @@ end
 function World:spawnPlayer(...)
     local args = { ... }
 
-    local x, y = 0, 0
+    local x, y, z = 0, 0, 0
     local state = "WALK"
     local chara = self.player and self.player.actor
     local party
@@ -683,6 +861,7 @@ function World:spawnPlayer(...)
             x, y = args[1], args[2]
             chara = args[3] or chara
             party = args[4]
+            z = args[5] or 0
         elseif type(args[1]) == "string" or type(args[1]) == "table" then
             local data
             x, y, data = self.map:getMarker(args[1])
@@ -691,6 +870,7 @@ function World:spawnPlayer(...)
 
             if data ~= nil then
                 state = data.player_state or "WALK"
+                z = tonumber(data.z or data.properties and data.properties.z) or 0
             end
         end
     end
@@ -707,10 +887,13 @@ function World:spawnPlayer(...)
     end
 
     self.player = Player(chara, x, y)
+    self.player.z = z
+    self.player.last_safe_z = z
     self.player.layer = self.map.object_layer
     self.player:setFacing(facing)
     self.player:setState(state)
     self:addChild(self.player)
+    self.player:setPlatformingEnabled(self.map.platforming)
 
     if party then
         self.player.party = party
@@ -818,6 +1001,7 @@ function World:spawnFollower(chara, options)
             y = self.player.y
         end
         follower = Follower(chara, x, y)
+        follower.z = self.player and self.player.z or 0
         follower.layer = self.map.object_layer
         if self.player then
             follower:setFacing(self.player:getFacing())
@@ -826,6 +1010,7 @@ function World:spawnFollower(chara, options)
     if options["x"] or options["y"] then
         follower:setPosition(options["x"] or follower.x, options["y"] or follower.y)
     end
+    if options["z"] ~= nil then follower.z = options["z"] end
     if options["index"] then
         table.insert(self.followers, options["index"], follower)
     else
@@ -862,7 +1047,7 @@ function World:spawnParty(marker, party, extra, facing)
 
         if type(marker) == "table" and marker[1] ~= nil and marker[2] ~= nil then
             -- It's a position table...
-            self:spawnPlayer(marker[1], marker[2], party[1]:getActor(), party[1].id)
+            self:spawnPlayer(marker[1], marker[2], party[1]:getActor(), party[1].id, marker[3])
         else
             if not self.map:hasMarker(marker) then
                 marker = "spawn"
@@ -1121,12 +1306,15 @@ function World:loadMap(...)
     local args = { ... }
     -- x, y, facing, callback
     local map = table.remove(args, 1)
-    local marker, x, y, facing, callback
+    local marker, x, y, z, facing, callback
     if type(args[1]) == "string" or type(args[1]) == "table" then
         marker = table.remove(args, 1)
     elseif type(args[1]) == "number" then
         x = table.remove(args, 1)
         y = table.remove(args, 1)
+        if type(args[1]) == "number" then
+            z = table.remove(args, 1)
+        end
     else
         marker = "spawn"
     end
@@ -1164,7 +1352,7 @@ function World:loadMap(...)
     if marker then
         self:spawnParty(marker, nil, nil, facing)
     else
-        self:spawnParty({ x, y }, nil, nil, facing)
+        self:spawnParty({ x, y, z }, nil, nil, facing)
     end
 
     self:setState("GAMEPLAY")
@@ -1520,7 +1708,14 @@ function World:update()
         for _, obj in ipairs(self.children) do
             if not obj.solid and (obj.onCollide or obj.onEnter or obj.onExit) then
                 for _, char in ipairs(self.stage:getObjects(Character)) do
-                    if obj:collidesWith(char) and self:shouldCharacterCollide(char) then
+                    local height_collision = obj.height_sensitive and char.use_3d_collision
+                    local is_colliding
+                    if height_collision then
+                        is_colliding = obj:collidesWith3D(char)
+                    else
+                        is_colliding = obj:collidesWith(char)
+                    end
+                    if is_colliding and self:shouldCharacterCollide(char) then
                         if not obj:includes(OverworldSoul) then
                             table.insert(collided, { obj, char })
                         end
@@ -1585,6 +1780,27 @@ function World:update()
 
     self.map:update()
 
+    if self.player then
+        local _, player_sort_y = self.player:getSortPosition()
+        for _, obj in ipairs(self.children) do
+            if obj.height_occluder and obj.collider then
+                local _, object_sort_y = obj:getSortPosition()
+                local occlusion_top = obj:getFullZ() + (obj.occlusion_depth or obj.depth or 0)
+                local covered = self.player.platforming_enabled
+                    and obj:collidesWith(self.player)
+                    and player_sort_y <= object_sort_y
+                    and self.player.z < occlusion_top
+                local hidden_alpha = obj.occlusion_mode == "hide" and 0 or 0.35
+                local target = covered and hidden_alpha or 1
+                obj.height_occlusion_alpha = MathUtils.approach(
+                    obj.height_occlusion_alpha or 1,
+                    target,
+                    0.12 * DTMULT
+                )
+            end
+        end
+    end
+
     -- Always sort
     self.update_child_list = true
     super.update(self)
@@ -1618,6 +1834,9 @@ function World:draw()
         end
         for _, collision in ipairs(self.map.enemy_collision) do
             collision:draw(0, 1, 1, 0.5)
+        end
+        for _, pit in ipairs(self.map.pits or {}) do
+            pit:draw(1, 0.25, 0.25, 0.65)
         end
     end
 end

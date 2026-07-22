@@ -552,7 +552,11 @@ function Game:load(data, index, fade)
     -- Load the map if we have one
     if map then
         if data.spawn_position then
-            self.world:loadMap(map, data.spawn_position[1], data.spawn_position[2], data.spawn_facing)
+            if data.spawn_position[3] ~= nil then
+                self.world:loadMap(map, data.spawn_position[1], data.spawn_position[2], data.spawn_position[3], data.spawn_facing)
+            else
+                self.world:loadMap(map, data.spawn_position[1], data.spawn_position[2], data.spawn_facing)
+            end
         else
             self.world:loadMap(map, data.spawn_marker or "spawn", data.spawn_facing)
         end

@@ -26,6 +26,7 @@ function TiledMapReader:initialize(data)
     map.keep_music = data.properties and data.properties["keepmusic"]
     map.light = data.properties and data.properties["light"] or false
     map.border = data.properties and data.properties["border"]
+    map.platforming = data.properties and data.properties["platforming"] or false
 
     if data.backgroundcolor then
         local bgc = data.backgroundcolor

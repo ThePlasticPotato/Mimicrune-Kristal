@@ -15,12 +15,62 @@ function Collider:init(parent, x, y, mode)
 
     self.x = x or 0
     self.y = y or 0
+    self.z = 0
+    self.depth = 0
 
     mode = mode or {}
     self.invert = mode.invert or false
     self.inside = mode.inside or false
 
     self.collidable = true
+end
+
+--- Gets the collider's Z position in world coordinates.
+---@return number z
+function Collider:getWorldZ()
+    if self.parent and self.parent.getFullZ then
+        return self.parent:getFullZ() + self.z
+    end
+    return self.z
+end
+
+--- Gets the collider's bottom and top Z bounds in world coordinates.
+---@return number bottom
+---@return number top
+function Collider:getZBounds()
+    local bottom = self:getWorldZ()
+    return bottom, bottom + self.depth
+end
+
+function Collider:setZ(z)
+    self.z = z or 0
+end
+
+function Collider:setDepth(depth)
+    self.depth = math.max(depth or 0, 0)
+end
+
+--- Checks whether this collider's Z range overlaps another collider's Z range.
+--- Positive-depth ranges use half-open bounds so touching platform tops do not
+--- count as side collisions.
+---@param other Object|Collider
+---@return boolean
+function Collider:collidesZ(other)
+    other = self:getOtherCollider(other)
+    if not other then return false end
+
+    local a_bottom, a_top = self:getZBounds()
+    local b_bottom, b_top = other:getZBounds()
+
+    if self.depth == 0 and other.depth == 0 then
+        return a_bottom == b_bottom
+    elseif self.depth == 0 then
+        return a_bottom >= b_bottom and a_bottom < b_top
+    elseif other.depth == 0 then
+        return b_bottom >= a_bottom and b_bottom < a_top
+    end
+
+    return math.max(a_bottom, b_bottom) < math.min(a_top, b_top)
 end
 
 function Collider:collidableCheck(other)
@@ -97,6 +147,16 @@ end
 
 function Collider:collidesWith(other)
     return self:applyInvert(other, false)
+end
+
+--- Performs a 3d collision check.
+---@param other Object|Collider
+---@return boolean collided
+function Collider:collidesWith3D(other)
+    other = self:getOtherCollider(other)
+    if not self:collidableCheck(other) then return false end
+    if not self:collidesZ(other) then return false end
+    return self:collidesWith(other)
 end
 
 function Collider:clicked(button)

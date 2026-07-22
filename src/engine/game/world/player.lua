@@ -26,6 +26,29 @@ function Player:init(chara, x, y)
     self.state_manager:addState("CLIMB", self.climb_state)
     self.state_manager:addState("CLIMB_DISMOUNT", { update = self.updateClimbDismount, enter = self.beginClimbDismount, leave = self.endClimbDismount })
 
+    self.height_state_manager = StateManager("GROUNDED", self, false)
+    self.height_state_manager:addState("GROUNDED", { update = self.updateHeightGrounded })
+    self.height_state_manager:addState("JUMP", { enter = self.beginHeightJump, update = self.updateHeightJump })
+    self.height_state_manager:addState("FALL", { enter = self.beginHeightFall, update = self.updateHeightFall })
+    self.height_state_manager:addState("LAND", { enter = self.beginHeightLand, update = self.updateHeightLand, leave = self.endHeightLand })
+    self.height_state_manager:addState("SUSPENDED")
+
+    self.platforming_enabled = false
+    self.z_velocity = 0
+    self.ground_z = 0
+    self.ground_collider = nil
+    self.jump_strength = 7
+    self.z_gravity = 0.6
+    self.max_fall_speed = 12
+    self.land_time = 5 / 30
+    self.land_timer = 0
+    self.pit_fall_limit = -80
+    self.last_safe_x = self.x
+    self.last_safe_y = self.y
+    self.last_safe_z = self.z
+    self.height_animation = nil
+    self.shadow_z = 0
+
     self.force_run = false
     self.force_walk = false
     self.run_timer = 0
@@ -51,6 +74,7 @@ function Player:init(chara, x, y)
 
     self.last_move_x = self.x
     self.last_move_y = self.y
+    self.last_move_z = self.z
 
     self.idle_timer = 0
 
@@ -119,6 +143,10 @@ end
 function Player:getDebugInfo()
     local info = super.getDebugInfo(self)
     table.insert(info, "State: " .. self.state_manager.state)
+    table.insert(info, "Height state: " .. self.height_state_manager.state)
+    table.insert(info, "Z: " .. tostring(self.z))
+    table.insert(info, "Z velocity: " .. tostring(self.z_velocity))
+    table.insert(info, "Platforming: " .. (self.platforming_enabled and "True" or "False"))
 
     self.state_manager:call("getDebugInfo", info)
 
@@ -201,6 +229,8 @@ end
 function Player:setActor(actor)
     super.setActor(self, actor)
 
+    self.collider.depth = actor.collision_depth or 20
+
     local hx, hy, hw, hh = self.collider.x, self.collider.y, self.collider.width, self.collider.height
 
     self.interact_collider = {
@@ -216,6 +246,9 @@ function Player:setActor(actor)
         ["up"] = Hitbox(self, hx, hy - 38, hw, hh / 2 + 38),
         ["down"] = Hitbox(self, hx, hy + hh / 2, hw, hh / 2 + 28)
     }
+
+    -- A small footprint prevents a single edge pixel from supporting the player.
+    self.support_collider = Hitbox(self, hx + hw * 0.25, hy + hh * 0.5, hw * 0.5, hh * 0.5)
 end
 
 function Player:interact()
@@ -228,7 +261,13 @@ function Player:interact()
     Object.startCache()
     local interactables = {}
     for _, obj in ipairs(self.world.children) do
-        if obj.onInteract and obj:collidesWith(col) then
+        local collided
+        if obj.height_sensitive and self.platforming_enabled then
+            collided = obj:collidesWith3D(col)
+        else
+            collided = obj:collidesWith(col)
+        end
+        if obj.onInteract and collided then
             local rx, ry = obj:getRelativePos(obj.width / 2, obj.height / 2, self.parent)
             table.insert(interactables, { obj = obj, dist = MathUtils.dist(self.x, self.y, rx, ry) })
         end
@@ -585,7 +624,13 @@ function Player:attack()
     local col = self.attack_collider[self.facing]
     local attackables = {}
     for _, obj in ipairs(self.world.children) do
-        if obj.onHit and obj:collidesWith(col) then
+        local collided
+        if obj.height_sensitive and self.platforming_enabled then
+            collided = obj:collidesWith3D(col)
+        else
+            collided = obj:collidesWith(col)
+        end
+        if obj.onHit and collided then
             local rx, ry = obj:getRelativePos(obj.width / 2, obj.height / 2, self.parent)
             table.insert(attackables, { obj = obj, dist = Utils.dist(self.x, self.y, rx, ry) })
         end
@@ -598,8 +643,208 @@ function Player:attack()
     return hit_anything
 end
 
+function Player:isPlatformingEnabled()
+    return self.platforming_enabled
+end
+
+function Player:setPlatformingEnabled(enabled)
+    self.platforming_enabled = enabled or false
+    self.use_3d_collision = self.platforming_enabled
+
+    if not self.platforming_enabled then
+        self.z = 0
+        self.z_velocity = 0
+        self.ground_z = 0
+        self.ground_collider = nil
+        self.height_state_manager:setState("GROUNDED")
+        self:restoreGroundAnimation()
+        return
+    end
+
+    local ground_z, ground = self.world:getGroundZAt(self.support_collider, self.z)
+    if ground_z then
+        self.z = ground_z
+        self.ground_z = ground_z
+        self.ground_collider = ground
+        self.height_state_manager:setState("GROUNDED")
+    elseif self.world:isOverPit(self.support_collider) then
+        self.height_state_manager:setState("FALL")
+    end
+end
+
+function Player:getHeightState()
+    return self.height_state_manager.state
+end
+
+function Player:isGrounded()
+    local state = self:getHeightState()
+    return state == "GROUNDED" or state == "LAND"
+end
+
+function Player:isJumping()
+    return self:getHeightState() == "JUMP"
+end
+
+function Player:isFalling()
+    return self:getHeightState() == "FALL"
+end
+
+function Player:canJump()
+    if not self.platforming_enabled or not self:isGrounded() then return false end
+    if not self:isMovementEnabled() or self.jumping then return false end
+    if self:isClimbing() or self:isSliding() then return false end
+    return true
+end
+
+function Player:jump(strength)
+    if not self:canJump() then return false end
+    self.height_state_manager:setState("JUMP", strength or self.jump_strength)
+    return true
+end
+
+function Player:setHeightAnimation(animation)
+    self.height_animation = animation
+    if self.actor:getAnimation(animation) then
+        self:setAnimation(animation)
+    end
+end
+
+function Player:restoreGroundAnimation()
+    self.height_animation = nil
+    if self.state_manager.state == "RUN" then
+        self:setWalkSprite(self.actor:getRunSprite())
+    else
+        self:resetSprite()
+    end
+end
+
+function Player:beginHeightJump(last_state, strength)
+    self.z_velocity = strength or self.jump_strength
+    self.ground_collider = nil
+    self:setHeightAnimation("jump")
+    Assets.playSound("jump", 0.7)
+end
+
+function Player:updateHeightGrounded()
+    local support_z, support = self.world:getSupportAt(self.support_collider, self.z)
+    if support_z then
+        self.z = support_z
+        self.ground_z = support_z
+        self.ground_collider = support
+        self.z_velocity = 0
+        if not self.world:isOverPit(self.support_collider) then
+            self.last_safe_x = self.x
+            self.last_safe_y = self.y
+            self.last_safe_z = self.z
+        end
+    else
+        self.height_state_manager:setState("FALL")
+    end
+end
+
+function Player:updateHeightJump()
+    local old_z = self.z
+    self.z_velocity = self.z_velocity - self.z_gravity * DTMULT
+    local new_z = self.z + self.z_velocity * DTMULT
+
+    if self.z_velocity > 0 then
+        local ceiling_z = self.world:getCeilingSurface(
+            self.collider,
+            old_z + self.collider.depth,
+            new_z + self.collider.depth
+        )
+        if ceiling_z then
+            self.z = ceiling_z - self.collider.depth
+            self.z_velocity = 0
+            self.height_state_manager:setState("FALL")
+            return
+        end
+    end
+
+    self.z = new_z
+    if self.z_velocity <= 0 then
+        self.height_state_manager:setState("FALL")
+    end
+end
+
+function Player:beginHeightFall(last_state)
+    if last_state == "GROUNDED" or last_state == "LAND" then
+        self.z_velocity = math.min(self.z_velocity, 0)
+    end
+    self.ground_collider = nil
+    self:setHeightAnimation("fall")
+end
+
+function Player:updateHeightFall()
+    local old_z = self.z
+    self.z_velocity = math.max(self.z_velocity - self.z_gravity * DTMULT, -self.max_fall_speed)
+    local new_z = self.z + self.z_velocity * DTMULT
+    local landing_z, landing = self.world:getLandingSurface(self.support_collider, old_z, new_z)
+
+    if landing_z then
+        self.z = landing_z
+        self.ground_z = landing_z
+        self.ground_collider = landing
+        self.z_velocity = 0
+        self.height_state_manager:setState("LAND")
+    else
+        self.z = new_z
+        if self.z <= self.pit_fall_limit then
+            self:recoverFromPit()
+        end
+    end
+end
+
+function Player:beginHeightLand()
+    self.land_timer = self.land_time
+    self:setHeightAnimation("landed")
+end
+
+function Player:updateHeightLand()
+    local support_z, support = self.world:getSupportAt(self.support_collider, self.z)
+    if not support_z then
+        self.height_state_manager:setState("FALL")
+        return
+    end
+
+    self.z = support_z
+    self.ground_z = support_z
+    self.ground_collider = support
+    self.land_timer = MathUtils.approach(self.land_timer, 0, DT)
+    if self.land_timer == 0 then
+        self.height_state_manager:setState("GROUNDED")
+    end
+end
+
+function Player:endHeightLand(new_state)
+    if new_state == "GROUNDED" then
+        self:restoreGroundAnimation()
+    end
+end
+
+function Player:recoverFromPit()
+    self:setPosition(self.last_safe_x, self.last_safe_y)
+    self.z = self.last_safe_z or 0
+    self.z_velocity = 0
+    self.ground_z = self.z
+    self.ground_collider = nil
+    self.height_state_manager:setState("GROUNDED")
+    self:restoreGroundAnimation()
+    self:resetFollowerHistory()
+end
+
+function Player:updateHeight()
+    if not self.platforming_enabled then return end
+    if self.jumping or self:isClimbing() then return end
+    self.height_state_manager:update()
+    self.shadow_z = self.world:getGroundZAt(self.support_collider, self.z)
+end
+
 function Player:setState(state, ...)
     self.state_manager:setState(state, ...)
+    if self.height_state_manager and self.height_animation then
+        self:setHeightAnimation(self.height_animation)
+    end
 end
 
 function Player:resetFollowerHistory()
@@ -630,7 +875,7 @@ function Player:alignFollowers(facing, x, y, dist)
         offset_y = -1
     end
 
-    self.history = { { x = x, y = y, time = self.history_time } }
+    self.history = { { x = x, y = y, z = self.z, time = self.history_time } }
     for i = 1, Game.max_followers do
         local idist = dist and (i * dist) or (((i * FOLLOW_DELAY) / (1 / 30)) * 4)
         table.insert(
@@ -638,6 +883,7 @@ function Player:alignFollowers(facing, x, y, dist)
             {
                 x = x + (offset_x * idist),
                 y = y + (offset_y * idist),
+                z = self.z,
                 facing = facing,
                 time = self.history_time - (i * FOLLOW_DELAY)
             }
@@ -761,6 +1007,8 @@ function Player:updateWalk()
 end
 
 function Player:onMapLoad()
+    self:setPlatformingEnabled(Game.world.map.platforming)
+
     if self:isClimbing() then
         Game.world:detachFollowers()
         self:cancelFollowerTweens()
@@ -1126,10 +1374,10 @@ end
 
 function Player:updateHistory()
     if #self.history == 0 then
-        table.insert(self.history, { x = self.x, y = self.y, time = 0 })
+        table.insert(self.history, { x = self.x, y = self.y, z = self.z, time = 0 })
     end
 
-    local moved = self.x ~= self.last_move_x or self.y ~= self.last_move_y
+    local moved = self.x ~= self.last_move_x or self.y ~= self.last_move_y or self.z ~= self.last_move_z
 
     local auto = self.auto_moving
 
@@ -1142,10 +1390,12 @@ function Player:updateHistory()
             {
                 x = self.x,
                 y = self.y,
+                z = self.z,
                 facing = self:getFacing(),
                 time = self.history_time,
                 state = self.state_manager.state,
                 state_args = self.state_manager.args,
+                height_state = self.height_state_manager.state,
                 auto = auto
             }
         )
@@ -1161,6 +1411,7 @@ function Player:updateHistory()
 
     self.last_move_x = self.x
     self.last_move_y = self.y
+    self.last_move_z = self.z
 end
 
 function Player:processJump()
@@ -1201,6 +1452,8 @@ function Player:update()
     end
 
     self.state_manager:update()
+
+    self:updateHeight()
 
     self:updateHistory()
 
@@ -1247,6 +1500,17 @@ function Player:drawDebug()
 end
 
 function Player:draw()
+    if self.platforming_enabled and self.shadow_z and self.z > self.shadow_z + 0.5 then
+        local height = self.z - self.shadow_z
+        local alpha = MathUtils.clamp(0.45 - height / 240, 0.12, 0.45)
+        love.graphics.push()
+        love.graphics.translate(0, height / self.scale_y)
+        Draw.setColor(0, 0, 0, alpha)
+        love.graphics.ellipse("fill", self.width / 2, self.height - 2, 6, 2.5)
+        love.graphics.pop()
+        Draw.setColor(self:getDrawColor())
+    end
+
     self.state_manager:call("drawUnderPlayer")
 
     local r, g, b, a = self:getColor()

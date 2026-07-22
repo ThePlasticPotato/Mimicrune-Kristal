@@ -37,6 +37,7 @@ function Follower:init(chara, x, y, target)
     self.blush_timer = 0
 
     self.blushing = false
+    self.height_state = "GROUNDED"
 end
 
 function Follower:onRemove(parent)
@@ -148,9 +149,10 @@ end
 
 function Follower:getTargetPosition()
     local follow_delay = self:getFollowDelay()
-    local tx, ty, facing, state, args = self.x, self.y, self:getFacing(), nil, {}
+    local tx, ty, tz, facing, state, args, height_state = self.x, self.y, self.z, self:getFacing(), nil, {}, "GROUNDED"
     for i, entry in ipairs(self.history) do
-        tx, ty, facing, state, args = entry.x, entry.y, entry.facing, entry.state, entry.state_args
+        tx, ty, tz = entry.x, entry.y, entry.z or 0
+        facing, state, args, height_state = entry.facing, entry.state, entry.state_args, entry.height_state or "GROUNDED"
         local upper = self.history_time - entry.time
         if upper > follow_delay then
             if i > 1 then
@@ -161,16 +163,17 @@ function Follower:getTargetPosition()
 
                 tx = MathUtils.lerp(prev.x, entry.x, t)
                 ty = MathUtils.lerp(prev.y, entry.y, t)
+                tz = MathUtils.lerp(prev.z or 0, entry.z or 0, t)
             end
             break
         end
     end
-    return tx, ty, facing, state, args
+    return tx, ty, tz, facing, state, args, height_state
 end
 
 function Follower:moveToTarget(speed)
     if self:getTarget() and self:getTarget().history then
-        local tx, ty, facing, state, args = self:getTargetPosition()
+        local tx, ty, tz, facing, state, args, height_state = self:getTargetPosition()
         local dx, dy = tx - self.x, ty - self.y
 
         if speed then
@@ -179,6 +182,20 @@ function Follower:moveToTarget(speed)
         end
 
         self:move(dx, dy)
+        self.z = tz
+
+        if height_state ~= self.height_state then
+            self.height_state = height_state
+            if height_state == "JUMP" and self.actor:getAnimation("jump") then
+                self:setAnimation("jump")
+            elseif height_state == "FALL" and self.actor:getAnimation("fall") then
+                self:setAnimation("fall")
+            elseif height_state == "LAND" and self.actor:getAnimation("landed") then
+                self:setAnimation("landed")
+            elseif height_state == "GROUNDED" then
+                self:resetSprite()
+            end
+        end
 
         if facing and (not speed or (dx == 0 and dy == 0)) then
             self:setFacing(facing)
@@ -203,8 +220,8 @@ function Follower:interpolateHistory()
 
     local new_facing = Utils.facingFromAngle(Utils.angle(self.x, self.y, target.x, target.y))
     self.history = {
-        { x = target.x, y = target.y, facing = new_facing, time = self.history_time, state = target.state, state_args = target.state_manager.args },
-        { x = self.x, y = self.y, facing = new_facing, time = self.history_time - self:getFollowDelay(), state = self.state, state_args = target.state_manager.args }
+        { x = target.x, y = target.y, z = target.z, facing = new_facing, time = self.history_time, state = target.state, state_args = target.state_manager.args, height_state = target.height_state_manager and target.height_state_manager.state },
+        { x = self.x, y = self.y, z = self.z, facing = new_facing, time = self.history_time - self:getFollowDelay(), state = self.state, state_args = target.state_manager.args, height_state = self.height_state }
     }
 end
 
@@ -251,7 +268,7 @@ function Follower:updateHistory(moved, auto)
     if moved or auto_move then
         self.history_time = self.history_time + DT
 
-        table.insert(self.history, 1, { x = target.x, y = target.y, facing = target.facing, time = self.history_time, state = target.state, state_args = target.state_manager.args, auto = auto })
+        table.insert(self.history, 1, { x = target.x, y = target.y, z = target.z, facing = target.facing, time = self.history_time, state = target.state, state_args = target.state_manager.args, height_state = target.height_state_manager and target.height_state_manager.state, auto = auto })
         while (self.history_time - self.history[#self.history].time) > (Game.max_followers * FOLLOW_DELAY) do
             table.remove(self.history, #self.history)
         end
@@ -295,7 +312,7 @@ function Follower:update()
     self:updateIndex()
 
     if #self.history == 0 then
-        table.insert(self.history, { x = self.x, y = self.y, time = 0 })
+        table.insert(self.history, { x = self.x, y = self.y, z = self.z, time = 0, height_state = self.height_state })
     end
 
     if self.run_settling then

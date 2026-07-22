@@ -32,6 +32,19 @@ function ColliderGroup:collidesWith(other)
     return super.collidesWith(self, other)
 end
 
+function ColliderGroup:collidesWith3D(other)
+    other = self:getOtherCollider(other)
+    if not self:collidableCheck(other) then return false end
+
+    for _, collider in ipairs(self.colliders) do
+        if collider:collidesWith3D(other) then
+            return self:applyInvert(other, true)
+        end
+    end
+
+    return super.collidesWith(self, other)
+end
+
 function ColliderGroup:drawFor(obj, r, g, b, a)
     for _, collider in ipairs(self.colliders) do
         collider:drawFor(obj, r, g, b, a)

@@ -4,8 +4,10 @@
 ---@class Object : Class
 ---@field x      number The horizontal position of the object, relative to its parent.
 ---@field y      number The vertical position of the object, relative to its parent.
+---@field z      number The 'height' of the object, relative to its parent.
 ---@field width  number The width of the object.
 ---@field height number The height of the object.
+---@field depth  number The 'depth' of the object (3D Height)
 ---
 ---@field init_x   number  The horizontal position of the object when it was created.
 ---@field init_y   number  The vertical position of the object when it was created.
@@ -183,18 +185,22 @@ function Object:init(x, y, width, height)
     -- Intitialize this object's position (optional args)
     self.x = x or 0
     self.y = y or 0
+    self.z = 0
 
     -- Save the initial position
     self.init_x = self.x
     self.init_y = self.y
+    self.init_z = self.z
 
     -- Save the previous position
     self.last_x = self.x
-    self.last_x = self.y
+    self.last_y = self.y
+    self.last_z = self.z
 
     -- Initialize this object's size
     self.width = width or 0
     self.height = height or 0
+    self.depth = 0
 
     self:resetPhysics()
     self:resetGraphics()
@@ -202,6 +208,7 @@ function Object:init(x, y, width, height)
     -- Various draw properties
     self.color = { 1, 1, 1 }
     self.alpha = 1
+    self.height_occlusion_alpha = 1
     self.scale_x = 1
     self.scale_y = 1
     self.rotation = 0
@@ -680,6 +687,20 @@ function Object:collidesWith(other)
     return false
 end
 
+--- Whether this object is colliding with another object or collider in XYZ.
+---@param other Object|Collider
+---@return boolean collided
+function Object:collidesWith3D(other)
+    if other and self.collidable and self.collider then
+        if isClass(other) and other:includes(Object) then
+            return other.collidable and other.collider and self.collider:collidesWith3D(other.collider) or false
+        else
+            return self.collider:collidesWith3D(other)
+        end
+    end
+    return false
+end
+
 --- Sets the object's `x` and `y` values to the specified position.
 ---@param x number The value to set `x` to.
 ---@param y number The value to set `y` to.
@@ -691,6 +712,53 @@ end
 ---@return number x The `x` position of the object.
 ---@return number y The `y` position of the object.
 function Object:getPosition() return self.x, self.y end
+
+--- Sets the object's ground position and elevation.
+---@param x number
+---@param y number
+---@param z number
+function Object:setPosition3D(x, y, z)
+    self.x = x or 0
+    self.y = y or 0
+    self.z = z or 0
+end
+
+--- Returns the object's ground position and elevation.
+---@return number x
+---@return number y
+---@return number z
+function Object:getPosition3D()
+    return self.x, self.y, self.z
+end
+
+--- Sets the object's elevation relative to its parent.
+---@param z number
+function Object:setZ(z)
+    self.z = z or 0
+end
+
+--- Returns the object's elevation relative to its parent.
+---@return number z
+function Object:getZ()
+    return self.z
+end
+
+--- Returns the object's elevation relative to its stage.
+---@return number z
+function Object:getFullZ()
+    if self.parent and self.parent.getFullZ then
+        return self.parent:getFullZ() + self.z
+    end
+    return self.z
+end
+
+function Object:setDepth(depth)
+    self.depth = math.max(depth or 0, 0)
+end
+
+function Object:getDepth()
+    return self.depth
+end
 
 --- Sets the object's `width` and `height` values to the specified size.
 ---@param width   number The value to set `width` to.
@@ -1095,7 +1163,10 @@ end
 --- By default, returns an empty table.
 ---@return table info A list of strings to display if the object is selected by the Object Selection debug feature.
 function Object:getDebugInfo()
-    return {}
+    return {
+        "Position: " .. tostring(self.x) .. ", " .. tostring(self.y) .. ", " .. tostring(self.z),
+        "Depth: " .. tostring(self.depth)
+    }
 end
 
 --- *(Override)* Defines options that can be used when selecting the object with the Object Selection debug feature. \
@@ -1248,11 +1319,12 @@ end
 ---@return number a The object's draw alpha.
 function Object:getDrawColor()
     local r, g, b = unpack(self.color)
+    local alpha = self.alpha * (self.height_occlusion_alpha or 1)
     if self.inherit_color and self.parent then
         local pr, pg, pb, pa = self.parent:getDrawColor()
-        return r * pr, g * pg, b * pb, self.alpha * pa
+        return r * pr, g * pg, b * pb, alpha * pa
     else
-        return r, g, b, self.alpha
+        return r, g, b, alpha
     end
 end
 
@@ -1376,6 +1448,18 @@ function Object:applyTransformTo(transform, floor_x, floor_y)
             transform:translate(MathUtils.floorToMultiple(shake_x, floor_x), MathUtils.floorToMultiple(shake_y, floor_y))
         end
     end
+end
+
+--- Applies the object's draw transform, including its projected Z offset.
+function Object:applyVisualTransformTo(transform, floor_x, floor_y)
+    if self.z ~= 0 then
+        if floor_x then
+            transform:translate(0, -MathUtils.floorToMultiple(self.z, floor_y))
+        else
+            transform:translate(0, -self.z)
+        end
+    end
+    self:applyTransformTo(transform, floor_x, floor_y)
 end
 
 function Object:createTransform()
@@ -1656,6 +1740,7 @@ function Object:fullUpdate()
     end
     self.last_x = self.x
     self.last_y = self.y
+    self.last_z = self.z
     self:update()
     if used_timescale then
         DT = last_dt
@@ -1667,7 +1752,7 @@ end
 function Object:preDraw(dont_transform)
     if not dont_transform then
         local transform = love.graphics.getTransformRef()
-        self:applyTransformTo(transform, 1 / CURRENT_SCALE_X, 1 / CURRENT_SCALE_Y)
+        self:applyVisualTransformTo(transform, 1 / CURRENT_SCALE_X, 1 / CURRENT_SCALE_Y)
         love.graphics.replaceTransform(transform)
 
         self._last_draw_scale_x = CURRENT_SCALE_X
@@ -1767,7 +1852,7 @@ function Object:fullDraw(no_children, dont_transform)
             love.graphics.push()
             if not dont_transform then
                 local current_transform = love.graphics.getTransformRef()
-                self:applyTransformTo(current_transform)
+                self:applyVisualTransformTo(current_transform)
                 love.graphics.replaceTransform(current_transform)
             end
             if fx_screen then

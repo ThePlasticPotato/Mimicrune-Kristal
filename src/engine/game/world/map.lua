@@ -63,6 +63,7 @@ function Map:init(world, data)
     self.collision = {}
     self.enemy_collision = {}
     self.block_collision = {}
+    self.pits = {}
     self.tile_layers = {}
     self.image_layers = {}
     self.shape_layers = {}
@@ -101,6 +102,8 @@ function Map:init(world, data)
     self.battle_fader_layer = 0.5
     self.tile_layer = 0
     self.layers = {}
+
+    self.platforming = false
 
     self.timer = Timer()
 end

@@ -14,6 +14,8 @@ end
 function operations.loadTiles(self, layer, depth)
     local tilelayer = self:createTileLayer(layer)
     tilelayer:setPosition(layer.offsetx or 0, layer.offsety or 0)
+    tilelayer.z = tonumber(layer.properties and layer.properties.z) or 0
+    tilelayer.depth = math.max(tonumber(layer.properties and layer.properties.depth) or 0, 0)
     tilelayer.layer = depth
     self.world:addChild(tilelayer)
     table.insert(self.tile_layers, tilelayer)
@@ -104,6 +106,8 @@ function operations.loadImage(self, layer, depth)
         sprite.height = SCREEN_HEIGHT
     end
     sprite:setScale(layer.properties["scalex"] or 1, layer.properties["scaley"] or 1)
+    sprite.z = tonumber(layer.properties.z) or 0
+    sprite.depth = math.max(tonumber(layer.properties.depth) or 0, 0)
     self.world:addChild(sprite)
     self.image_layers[layer.name] = sprite
     if self:isLayerType(layer, "battleborder") then
@@ -113,7 +117,13 @@ function operations.loadImage(self, layer, depth)
 end
 
 function operations.loadCollision(self, layer)
-    TableUtils.merge(self.collision, self:loadHitboxes(layer))
+    for _, collider in ipairs(self:loadHitboxes(layer)) do
+        if collider.pit then
+            table.insert(self.pits, collider)
+        else
+            table.insert(self.collision, collider)
+        end
+    end
 end
 
 function operations.loadEnemyCollision(self, layer)
@@ -132,7 +142,8 @@ function operations.loadHitboxes(self, layer)
     local hitboxes = {}
     local ox, oy = layer.offsetx or 0, layer.offsety or 0
     for _, v in ipairs(layer.objects) do
-        local hitbox = MapUtils.colliderFromShape(self.world, v, v.x + ox, v.y + oy, v.properties)
+        local properties = TableUtils.mergeMany(layer.properties or {}, v.properties or {})
+        local hitbox = MapUtils.colliderFromShape(self.world, v, v.x + ox, v.y + oy, properties)
         if hitbox then
             table.insert(hitboxes, hitbox)
 
@@ -338,6 +349,29 @@ function operations.loadObjects(self, layer, depth, layer_type)
                     obj.layer = depth
                     obj.layer_name = layer.name
                     obj.data = v
+                    local height_properties = TableUtils.mergeMany(layer.properties or {}, v.properties or {})
+                    obj.z = tonumber(height_properties.z) or obj.z
+                    obj.depth = math.max(tonumber(height_properties.depth) or obj.depth, 0)
+                    obj.height_sensitive = height_properties.height_sensitive or false
+                    obj.height_occluder = height_properties.height_occluder or false
+                    obj.occlusion_depth = math.max(tonumber(height_properties.occlusion_depth) or obj.depth, 0)
+                    obj.occlusion_mode = height_properties.occlusion_mode or "fade"
+                    if obj.collider then
+                        obj.collider.z = tonumber(height_properties.collision_z) or obj.collider.z
+                        local collision_depth = tonumber(height_properties.collision_depth)
+                        if collision_depth == nil and height_properties.depth ~= nil then
+                            collision_depth = tonumber(height_properties.depth)
+                        end
+                        if collision_depth ~= nil then
+                            obj.collider.depth = math.max(collision_depth, 0)
+                        end
+                        if height_properties.supports ~= nil then
+                            obj.collider.supports = height_properties.supports
+                        elseif obj.collider.depth > 0 then
+                            obj.collider.supports = true
+                        end
+                        obj.collider.one_way = height_properties.one_way or height_properties.oneway or false
+                    end
 
                     if (v.gid or v.tileset and v.tile_id ~= nil) and obj.applyTileObject then
                         obj:applyTileObject(v, self)

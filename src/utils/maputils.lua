@@ -235,7 +235,27 @@ function MapUtils.colliderFromShape(parent, data, x, y, properties)
     elseif data.shape == "point" or data.point == true then
         collider = PointCollider(parent, x, y, mode)
     end
-    if collider and properties.enabled == false then collider.collidable = false end
+    if collider then
+        collider.z = tonumber(properties.z) or 0
+        collider.depth = math.max(tonumber(properties.depth) or 0, 0)
+        collider.supports = properties.supports
+        if collider.supports == nil then
+            collider.supports = collider.depth > 0
+        end
+        collider.one_way = properties.one_way or properties.oneway or false
+        collider.pit = properties.pit or false
+        if properties.enabled == false then collider.collidable = false end
+        if collider:includes(ColliderGroup) then
+            for _, child in ipairs(collider.colliders) do
+                child.z = collider.z
+                child.depth = collider.depth
+                child.supports = collider.supports
+                child.one_way = collider.one_way
+                child.pit = collider.pit
+                child.collidable = collider.collidable
+            end
+        end
+    end
     return collider
 end
 

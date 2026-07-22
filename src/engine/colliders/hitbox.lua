@@ -9,6 +9,7 @@ function Hitbox:init(parent, x, y, width, height, mode)
 
     self.width = width or 0
     self.height = height or 0
+    self.depth = 0
 end
 
 function Hitbox:collidesWith(other)

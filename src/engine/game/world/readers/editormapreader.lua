@@ -21,6 +21,7 @@ function EditorMapReader:initialize(data)
     map.keep_music = properties.keep_music
     map.light = properties.light or false
     map.border = properties.border
+    map.platforming = properties.platforming or false
     map.bg_color = TableUtils.copy(data.background_color or { 0, 0, 0, 0 }, true)
 
     local added = {}

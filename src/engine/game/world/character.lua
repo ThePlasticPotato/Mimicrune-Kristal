@@ -34,6 +34,8 @@ function Character:init(actor, x, y)
     self.noclip = true
 
     self.enemy_collision = false
+    -- When enabled, character movement opts into World:checkCollision3D.
+    self.use_3d_collision = false
 
     self.spin_timer = 0
     self.spin_speed = 0
@@ -106,6 +108,7 @@ function Character:setActor(actor)
     self.height = actor:getHeight()
 
     self.collider = Hitbox(self, self.actor:getHitbox())
+    self.collider.depth = self.actor.collision_depth or 0
 
     if self.sprite then
         self.sprite:remove()
@@ -204,6 +207,12 @@ function Character:doMoveAmount(type, amount, other_amount)
     end
 
     local other = type == "x" and "y" or "x"
+    local function checkCollision()
+        if self.use_3d_collision then
+            return self.world:checkCollision3D(self.collider, self.enemy_collision)
+        end
+        return self.world:checkCollision(self.collider, self.enemy_collision)
+    end
 
     local sign = MathUtils.sign(amount)
     for i = 1, math.ceil(math.abs(amount)) do
@@ -219,12 +228,12 @@ function Character:doMoveAmount(type, amount, other_amount)
 
         if (not self.noclip) and (not NOCLIP) then
             Object.startCache()
-            local collided, target = self.world:checkCollision(self.collider, self.enemy_collision)
+            local collided, target = checkCollision()
             if collided and not (other_amount > 0) then
                 for j = 1, 2 do
                     Object.uncache(self)
                     self[other] = self[other] - j
-                    collided, target = self.world:checkCollision(self.collider, self.enemy_collision)
+                    collided, target = checkCollision()
                     if not collided then break end
                 end
             end
@@ -233,7 +242,7 @@ function Character:doMoveAmount(type, amount, other_amount)
                 for j = 1, 2 do
                     Object.uncache(self)
                     self[other] = self[other] + j
-                    collided, target = self.world:checkCollision(self.collider, self.enemy_collision)
+                    collided, target = checkCollision()
                     if not collided then break end
                 end
             end
@@ -631,6 +640,7 @@ end
 
 function Character:convertToFollower(index, save)
     local follower = Follower(self.actor, self.x, self.y)
+    follower.z = self.z
     follower.layer = self.layer
     follower:setFacing(self:getFacing())
     self.world:spawnFollower(follower, { index = index, party = self.party })
@@ -644,6 +654,7 @@ end
 function Character:convertToPlayer()
     self.world:spawnPlayer(self.x, self.y, self.actor, self.party)
     local player = self.world.player
+    player.z = self.z
     player:setLayer(self.layer)
     player:setFacing(self:getFacing())
     self:remove()
@@ -652,6 +663,7 @@ end
 
 function Character:convertToNPC(properties)
     local npc = NPC(self.actor, self.x, self.y, properties)
+    npc.z = self.z
     npc.layer = self.layer
     npc.party = self.party
     npc:setFacing(self:getFacing())
@@ -662,6 +674,7 @@ end
 
 function Character:convertToCharacter()
     local character = Character(self.actor, self.x, self.y)
+    character.z = self.z
     character.layer = self.layer
     character.party = self.party
     character:setFacing(self:getFacing())
@@ -672,6 +685,7 @@ end
 
 function Character:convertToEnemy(properties)
     local enemy = ChaserEnemy(self.actor, self.x, self.y, properties)
+    enemy.z = self.z
     enemy.layer = self.layer
     enemy.party = self.party
     enemy:setFacing(self:getFacing())
