@@ -1207,9 +1207,12 @@ function Editor:onKeyPressed(key, is_repeat)
     end
     if key == "space" and not is_repeat and self.live_document
         and not editing_text then
-        self.consumed_editor_keys[key] = true
-        self:toggleGamePreviewPaused()
-        return true
+        local game_input_active = self.preview_controller:canForwardGameKeyboardInput()
+        if Input.shift() or self.game_preview_paused or not game_input_active then
+            self.consumed_editor_keys[key] = true
+            self:toggleGamePreviewPaused()
+            return true
+        end
     end
     if key == "g" and not is_repeat
         and not editing_text then

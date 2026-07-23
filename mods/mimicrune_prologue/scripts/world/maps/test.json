@@ -1,0 +1,510 @@
+{
+  "version": 1,
+  "kristal_version": "0.11.0-dev",
+  "id": "test",
+  "name": "TestMap",
+  "width": 16,
+  "height": 12,
+  "grid_width": 40,
+  "grid_height": 40,
+  "background_color": [
+    0,
+    0,
+    0,
+    0
+  ],
+  "layers": [
+    {
+      "id": "backtiles",
+      "name": "BackTiles",
+      "color": [
+        0.8,
+        0.8,
+        0.82,
+        1
+      ],
+      "x": 0,
+      "y": 0,
+      "type": "tile",
+      "kind": "tile",
+      "depth": -0.1,
+      "alpha": 1,
+      "visible": true,
+      "parallax_x": 1,
+      "parallax_y": 1,
+      "properties": [],
+      "tileset": "depths",
+      "tileset_columns": 13,
+      "tileset_rows": 5,
+      "chunks": [
+        {
+          "x": 0,
+          "y": 0,
+          "tile_data": [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 6, 7, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 19, 20, 21, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 32, 33, 34, 0, 0, 1, 2, 3, 0, 0, 0, 0, 0, 0,
+            0, 0, 45, 46, 47, 0, 0, 14, 15, 16, 0, 0, 0, 0, 0, 0,
+            0, 0, 45, 46, 47, 0, 0, 27, 28, 29, 0, 0, 0, 0, 0, 0,
+            0, 0, 45, 46, 47, 0, 0, 40, 41, 42, 0, 0, 0, 0, 0, 0,
+            0, 0, 45, 46, 47, 0, 0, 40, 41, 42, 0, 0, 0, 0, 0, 0,
+            0, 0, 45, 46, 47, 0, 0, 40, 41, 42, 0, 0, 0, 0, 0, 0,
+            0, 0, 45, 46, 47, 0, 0, 40, 41, 42, 0, 0, 0, 0, 0, 0,
+            0, 0, 45, 46, 47, 0, 0, 40, 41, 42, 0, 0, 0, 0, 0, 0,
+            0, 0, 45, 46, 47, 0, 0, 40, 41, 42, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tiles",
+      "name": "Tiles",
+      "color": [
+        0.8,
+        0.8,
+        0.82,
+        1
+      ],
+      "x": 0,
+      "y": 0,
+      "type": "tile",
+      "kind": "tile",
+      "depth": 0,
+      "alpha": 1,
+      "visible": true,
+      "parallax_x": 1,
+      "parallax_y": 1,
+      "properties": [],
+      "tileset": "depths",
+      "tileset_columns": 13,
+      "tileset_rows": 5,
+      "chunks": [
+        {
+          "x": 0,
+          "y": 0,
+          "tile_data": [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 7, 8, 0, 0, 0, 0,
+            0, 0, 1, 2, 2, 2, 2, 3, 0, 19, 20, 21, 0, 0, 0, 0,
+            0, 0, 14, 15, 15, 15, 15, 16, 0, 32, 33, 34, 0, 0, 0, 0,
+            0, 0, 27, 28, 28, 28, 28, 29, 0, 45, 46, 47, 0, 0, 0, 0,
+            0, 0, 40, 41, 41, 41, 41, 42, 0, 45, 46, 47, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+          ]
+        }
+      ]
+    },
+    {
+      "id": "collision",
+      "name": "Collision",
+      "color": [
+        0,
+        0,
+        1,
+        1
+      ],
+      "x": 0,
+      "y": 0,
+      "type": "collision",
+      "kind": "object",
+      "depth": 0,
+      "alpha": 1,
+      "visible": true,
+      "parallax_x": 1,
+      "parallax_y": 1,
+      "properties": [],
+      "objects": [
+        {
+          "id": 3,
+          "name": "rectangle",
+          "x": 360,
+          "y": 320,
+          "width": 120,
+          "height": 120,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "depth",
+              "type": "number",
+              "value": 40
+            },
+            {
+              "name": "z",
+              "type": "number",
+              "value": 0
+            },
+            {
+              "name": "collision_role",
+              "type": "choice",
+              "value": "solid"
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "name": "rectangle",
+          "x": 280,
+          "y": 200,
+          "width": 120,
+          "height": 120,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "depth",
+              "type": "number",
+              "value": 80
+            },
+            {
+              "name": "z",
+              "type": "number",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "id": 5,
+          "name": "rectangle",
+          "x": 80,
+          "y": 160,
+          "width": 120,
+          "height": 160,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "depth",
+              "type": "number",
+              "value": 120
+            },
+            {
+              "name": "collision_role",
+              "type": "choice",
+              "value": "wall"
+            }
+          ]
+        },
+        {
+          "id": 6,
+          "name": "rectangle",
+          "x": 320,
+          "y": 320,
+          "width": 40,
+          "height": 160,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "collision_role",
+              "type": "choice",
+              "value": "pit"
+            },
+            {
+              "name": "pit",
+              "type": "boolean",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": 7,
+          "name": "rectangle",
+          "x": 80,
+          "y": 160,
+          "width": 120,
+          "height": 120,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "collision_role",
+              "type": "choice",
+              "value": "solid"
+            },
+            {
+              "name": "z",
+              "type": "number",
+              "value": 120
+            }
+          ]
+        },
+        {
+          "id": 8,
+          "name": "rectangle",
+          "x": 0,
+          "y": 520,
+          "width": 80,
+          "height": 160,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "collision_role",
+              "type": "choice",
+              "value": "pit"
+            },
+            {
+              "name": "pit",
+              "type": "boolean",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": 9,
+          "name": "rectangle",
+          "x": 480,
+          "y": 280,
+          "width": 160,
+          "height": 200,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "pit",
+              "type": "boolean",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": 10,
+          "name": "rectangle",
+          "x": 200,
+          "y": 240,
+          "width": 80,
+          "height": 80,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "pit",
+              "type": "boolean",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": 11,
+          "name": "rectangle",
+          "x": 80,
+          "y": 440,
+          "width": 240,
+          "height": 40,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "pit",
+              "type": "boolean",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": 13,
+          "name": "rectangle",
+          "x": 400,
+          "y": 200,
+          "width": 240,
+          "height": 80,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "pit",
+              "type": "boolean",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": 14,
+          "name": "rectangle",
+          "x": 280,
+          "y": 80,
+          "width": 120,
+          "height": 40,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "pit",
+              "type": "boolean",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": 15,
+          "name": "rectangle",
+          "x": 80,
+          "y": 0,
+          "width": 120,
+          "height": 40,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "pit",
+              "type": "boolean",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": 16,
+          "name": "rectangle",
+          "x": 80,
+          "y": 320,
+          "width": 240,
+          "height": 120,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "depth",
+              "type": "number",
+              "value": 40
+            },
+            {
+              "name": "z",
+              "type": "number",
+              "value": -40
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "markers",
+      "name": "Markers",
+      "color": [
+        0.49,
+        0,
+        1,
+        1
+      ],
+      "x": 0,
+      "y": 0,
+      "type": "objects",
+      "kind": "object",
+      "depth": 0,
+      "alpha": 1,
+      "visible": true,
+      "parallax_x": 1,
+      "parallax_y": 1,
+      "properties": [],
+      "objects": []
+    },
+    {
+      "id": "objects",
+      "name": "Objects",
+      "color": [
+        1,
+        0,
+        1,
+        1
+      ],
+      "x": 0,
+      "y": 0,
+      "type": "objects",
+      "kind": "object",
+      "depth": 0,
+      "alpha": 1,
+      "visible": true,
+      "parallax_x": 1,
+      "parallax_y": 1,
+      "properties": [],
+      "objects": [
+        {
+          "id": 1,
+          "name": "Player",
+          "type": "player",
+          "x": 120,
+          "y": 360,
+          "width": 0,
+          "height": 0,
+          "shape": {
+            "type": "point",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "z",
+              "type": "number",
+              "value": 40
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "properties": [
+    {
+      "name": "platforming",
+      "type": "boolean",
+      "value": true
+    },
+    {
+      "name": "empty_tile_pit",
+      "type": "boolean",
+      "value": true
+    }
+  ]
+}

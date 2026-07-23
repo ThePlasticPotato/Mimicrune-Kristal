@@ -55,6 +55,8 @@ function Map:init(world, data)
     self.light = false
     self.border = nil
     self.bg_color = { 0, 0, 0, 0 }
+    self.platforming = false
+    self.empty_tile_pit = false
 
     self.tilesets = {}
     self.tileset_gids = {}
@@ -103,8 +105,6 @@ function Map:init(world, data)
     self.battle_fader_layer = 0.5
     self.tile_layer = 0
     self.layers = {}
-
-    self.platforming = false
 
     self.timer = Timer()
 end

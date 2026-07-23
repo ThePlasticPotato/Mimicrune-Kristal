@@ -15,7 +15,8 @@ function AfterImage:init(sprite, fade, speed)
     love.graphics.push()
     love.graphics.origin()
     love.graphics.clear()
-    love.graphics.applyTransform(self.sprite:getFullTransform())
+    local visual_transform = self.sprite:getFullVisualTransform()
+    love.graphics.applyTransform(visual_transform)
     Draw.setColor(self.sprite:getDrawColor())
     self.sprite:draw()
     love.graphics.pop()
@@ -24,8 +25,12 @@ function AfterImage:init(sprite, fade, speed)
     local sox, soy = self.sprite:getScaleOrigin()
     local rox, roy = self.sprite:getRotationOrigin()
 
-    local sox_p, soy_p = self.sprite:localToScreenPos(sox * self.sprite.width, soy * self.sprite.height)
-    local rox_p, roy_p = self.sprite:localToScreenPos(rox * self.sprite.width, roy * self.sprite.height)
+    local sox_p, soy_p = visual_transform:transformPoint(
+        sox * self.sprite.width, soy * self.sprite.height
+    )
+    local rox_p, roy_p = visual_transform:transformPoint(
+        rox * self.sprite.width, roy * self.sprite.height
+    )
 
     self:setScaleOrigin(sox_p / SCREEN_WIDTH, soy_p / SCREEN_HEIGHT)
     self:setRotationOrigin(rox_p / SCREEN_WIDTH, roy_p / SCREEN_HEIGHT)

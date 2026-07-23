@@ -31,18 +31,34 @@ function Player:init(chara, x, y)
     self.height_state_manager:addState("JUMP", { enter = self.beginHeightJump, update = self.updateHeightJump })
     self.height_state_manager:addState("FALL", { enter = self.beginHeightFall, update = self.updateHeightFall })
     self.height_state_manager:addState("LAND", { enter = self.beginHeightLand, update = self.updateHeightLand, leave = self.endHeightLand })
+    self.height_state_manager:addState("PIT_RECOVER", {
+        enter = self.beginHeightPitRecovery,
+        update = self.updateHeightPitRecovery,
+        leave = self.endHeightPitRecovery
+    })
     self.height_state_manager:addState("SUSPENDED")
 
     self.platforming_enabled = false
     self.z_velocity = 0
     self.ground_z = 0
     self.ground_collider = nil
-    self.jump_strength = 7
+    self.departed_ground_collider = nil
+    self.fall_through_colliders = {}
+    self.jump_strength = self.actor.jump_strength or 7
+    self.jump_windup = self.actor.jump_windup or 0
+    self.jump_windup_timer = 0
+    self.pending_jump_strength = nil
     self.z_gravity = 0.6
     self.max_fall_speed = 12
     self.land_time = 5 / 30
     self.land_timer = 0
     self.pit_fall_limit = -80
+    self.pit_recovery_out_time = 26 / 30
+    self.pit_recovery_hold_time = 4 / 30
+    self.pit_recovery_in_time = 26 / 30
+    self.pit_recovery_timer = 0
+    self.pit_recovery_progress = 0
+    self.pit_recovery_teleported = false
     self.last_safe_x = self.x
     self.last_safe_y = self.y
     self.last_safe_z = self.z
@@ -217,6 +233,9 @@ end
 
 ---@param parent World
 function Player:onRemove(parent)
+    if parent and parent.removeFX then
+        parent:removeFX("pit_recovery")
+    end
     super.onRemove(self, parent)
 
     self.state_manager:call("remove")
@@ -489,6 +508,16 @@ function Player:updateRun()
     end
 end
 
+--- Airborne contact with the side of a platform can be temporary: continued
+--- horizontal movement should carry the player over it once their Z clears
+--- the top. Only grounded wall collisions cancel run momentum and splat.
+---@return boolean
+function Player:hasGroundedMovementCollision()
+    local collided = self.last_collided_x or self.last_collided_y
+    if not collided then return false end
+    return not (self.platforming_enabled and not self:isGrounded())
+end
+
 function Player:handleMomentumMovement()
 
     local sign = function (number)
@@ -569,9 +598,13 @@ function Player:handleMomentumMovement()
     
     self:move(walk_x + self.run_momentum[1], walk_y + self.run_momentum[2], speed * DTMULT)
 
-    if not running or self.last_collided_x or self.last_collided_y then
+    local grounded_collision = self:hasGroundedMovementCollision()
+    if not running or grounded_collision then
         self.run_timer = 0
-        if ((self.last_collided_x and math.abs(self.run_momentum[1]) > 0.85) or (self.last_collided_y and math.abs(self.run_momentum[2]) > 0.85)) and Game:isLight() then
+        if grounded_collision
+            and ((self.last_collided_x and math.abs(self.run_momentum[1]) > 0.85)
+                or (self.last_collided_y and math.abs(self.run_momentum[2]) > 0.85))
+            and Game:isLight() then
             local slide_position = {self.last_collided_x and -self.run_momentum[1] * 8 or 0, self.last_collided_y and -self.run_momentum[2] * 8 or 0}
             self:setState("WALK")
             self.splatted = true
@@ -654,14 +687,20 @@ function Player:setPlatformingEnabled(enabled)
     if not self.platforming_enabled then
         self.z = 0
         self.z_velocity = 0
+        self.jump_windup_timer = 0
+        self.pending_jump_strength = nil
         self.ground_z = 0
         self.ground_collider = nil
+        self.departed_ground_collider = nil
+        self.fall_through_colliders = {}
         self.height_state_manager:setState("GROUNDED")
         self:restoreGroundAnimation()
         return
     end
 
-    local ground_z, ground = self.world:getGroundZAt(self.support_collider, self.z)
+    local ground_z, ground = self.world:getGroundZAt(
+        self.support_collider, self.z, self.collider
+    )
     if ground_z then
         self.z = ground_z
         self.ground_z = ground_z
@@ -689,6 +728,10 @@ function Player:isFalling()
     return self:getHeightState() == "FALL"
 end
 
+function Player:isPitRecovering()
+    return self:getHeightState() == "PIT_RECOVER"
+end
+
 function Player:canJump()
     if not self.platforming_enabled or not self:isGrounded() then return false end
     if not self:isMovementEnabled() or self.jumping then return false end
@@ -702,8 +745,13 @@ function Player:jump(strength)
     return true
 end
 
+function Player:isDashAnimationActive()
+    return self.state_manager.state == "DASH"
+end
+
 function Player:setHeightAnimation(animation)
     self.height_animation = animation
+    if self:isDashAnimationActive() then return end
     if self.actor:getAnimation(animation) then
         self:setAnimation(animation)
     end
@@ -711,6 +759,7 @@ end
 
 function Player:restoreGroundAnimation()
     self.height_animation = nil
+    if self:isDashAnimationActive() then return end
     if self.state_manager.state == "RUN" then
         self:setWalkSprite(self.actor:getRunSprite())
     else
@@ -719,9 +768,18 @@ function Player:restoreGroundAnimation()
 end
 
 function Player:beginHeightJump(last_state, strength)
-    self.z_velocity = strength or self.jump_strength
-    self.ground_collider = nil
+    self.z_velocity = 0
+    self.pending_jump_strength = strength or self.jump_strength
+    self.jump_windup_timer = self.jump_windup
     self:setHeightAnimation("jump")
+    if self.jump_windup_timer <= 0 then self:launchHeightJump() end
+end
+
+function Player:launchHeightJump()
+    self.z_velocity = self.pending_jump_strength or self.jump_strength
+    self.pending_jump_strength = nil
+    self.jump_windup_timer = 0
+    self.ground_collider = nil
     Assets.playSound("jump", 0.7)
 end
 
@@ -743,6 +801,12 @@ function Player:updateHeightGrounded()
 end
 
 function Player:updateHeightJump()
+    if self.pending_jump_strength then
+        self.jump_windup_timer = MathUtils.approach(self.jump_windup_timer, 0, DT)
+        if self.jump_windup_timer > 0 then return end
+        self:launchHeightJump()
+    end
+
     local old_z = self.z
     self.z_velocity = self.z_velocity - self.z_gravity * DTMULT
     local new_z = self.z + self.z_velocity * DTMULT
@@ -768,18 +832,203 @@ function Player:updateHeightJump()
 end
 
 function Player:beginHeightFall(last_state)
+    local previous_ground = self.ground_collider
+    self.jump_windup_timer = 0
+    self.pending_jump_strength = nil
     if last_state == "GROUNDED" or last_state == "LAND" then
         self.z_velocity = math.min(self.z_velocity, 0)
+        if previous_ground then
+            self.departed_ground_collider = previous_ground
+        end
     end
     self.ground_collider = nil
     self:setHeightAnimation("fall")
+end
+
+local function addHeightCollisionIgnore(ignored, collider)
+    if not collider then return ignored end
+    if not ignored then return collider end
+    if isClass(ignored) then ignored = { [ignored] = true } end
+    ignored[collider] = true
+    return ignored
+end
+
+--- The departing platform may be ignored once the support point has cleared
+--- it, while the player's wider body is still trailing across the edge.
+---@return Collider?
+function Player:getDepartedGroundCollisionIgnore()
+    local surface = self.departed_ground_collider
+    if not surface or not self.platforming_enabled then return nil end
+
+    if self.world:isSupportOver(self.support_collider, surface) then return nil end
+
+    -- Projected overlap can disappear and then return as Z decreases, so a
+    -- geometric expiry can pin an upward ledge departure midway through its
+    -- fall. Keep the old platform exempt for the complete airborne departure;
+    -- moving the support point back over it still restores collision above.
+    local state = self:getHeightState()
+    if state == "JUMP" or state == "FALL" then return surface end
+
+    if not self.collider:collidesWith(surface) then return nil end
+
+    return surface
+end
+
+--- Colliders that landing and shadow validation may safely disregard.
+---@return Collider|table<Collider, boolean>?
+function Player:getHeightCollisionIgnore()
+    local ignored = self:getDepartedGroundCollisionIgnore()
+    for wall in pairs(self.fall_through_colliders or {}) do
+        if not self.world:isSupportOver(self.support_collider, wall) then
+            ignored = addHeightCollisionIgnore(ignored, wall)
+        end
+    end
+    return ignored
+end
+
+--- Colliders entered through vertical motion must not trap horizontal escape.
+---@return Collider|table<Collider, boolean>?
+function Player:getMovementHeightCollisionIgnore()
+    local ignored = self:getDepartedGroundCollisionIgnore()
+    local grounded = Player.isGrounded(self)
+    for wall in pairs(self.fall_through_colliders or {}) do
+        -- Airborne players must be able to escape a wall entered through Z.
+        -- Once landed beyond its face, keep ignoring only while the support
+        -- point remains outside; a reverse step into the wall must collide.
+        if not grounded or not self.world:isSupportOver(self.support_collider, wall) then
+            ignored = addHeightCollisionIgnore(ignored, wall)
+        end
+    end
+    return ignored
+end
+
+--- Returns the lowest foot Z occupied during the current movement/height
+--- frame. Horizontal movement is processed before height, so using only the
+--- current Z would let a well-timed dash enter a platform just before the same
+--- frame drops the player below its top.
+---@return number
+function Player:getMovementCollisionZ()
+    if not self.platforming_enabled or self.pending_jump_strength then
+        return self.z
+    end
+
+    local state = self:getHeightState()
+    if state ~= "JUMP" and state ~= "FALL" then return self.z end
+
+    local next_velocity = self.z_velocity - self.z_gravity * DTMULT
+    if state == "FALL" then
+        next_velocity = math.max(next_velocity, -self.max_fall_speed)
+    end
+    return math.min(self.z, self.z + next_velocity * DTMULT)
+end
+
+--- Validates the committed result of a movement state as a final safeguard
+--- against fast, multi-axis movement ending beneath an elevated support.
+---@param start_x number
+---@param start_y number
+---@return boolean valid
+function Player:validateHeightMovement(start_x, start_y)
+    if not self.platforming_enabled or self.noclip or NOCLIP
+        or (self.x == start_x and self.y == start_y) then
+        return true
+    end
+
+    Object.uncache(self)
+    local collided = self.world:checkMovementCollision3D(
+        self.collider, self.enemy_collision,
+        self:getMovementHeightCollisionIgnore(), self:getMovementCollisionZ()
+    )
+    if not collided then return true end
+
+    local moved_x, moved_y = self.x ~= start_x, self.y ~= start_y
+    self:setPosition(start_x, start_y)
+    Object.uncache(self)
+    self.last_collided_x = self.last_collided_x or moved_x
+    self.last_collided_y = self.last_collided_y or moved_y
+    return false
+end
+
+--- Records non-supporting walls entered because Z changed, rather than
+--- because the player moved horizontally into them.
+function Player:updateFallThroughColliders()
+    Object.startCache()
+    for _, wall in ipairs(self.world:getCollision(false)) do
+        if not wall.one_way and not wall.supports
+            and self.collider:collidesWith3D(wall) then
+            self.fall_through_colliders[wall] = true
+        end
+    end
+    Object.endCache()
+end
+
+--- Expires the ledge exception using the player's committed position. This
+--- must stay separate from getHeightCollisionIgnore(), since movement tests
+--- temporary positions while resolving collisions.
+function Player:updateDepartedGroundCollision()
+    local surface = self.departed_ground_collider
+    if surface then
+        local state = self:getHeightState()
+        local airborne = state == "JUMP" or state == "FALL"
+        local returned_to_surface = self:isGrounded()
+            and self.world:isSupportOver(self.support_collider, surface)
+        if returned_to_surface
+            or (not airborne and not self.collider:collidesWith(surface)) then
+            self.departed_ground_collider = nil
+        end
+    end
+    for wall in pairs(self.fall_through_colliders or {}) do
+        if not self.collider:collidesWith(wall) then
+            self.fall_through_colliders[wall] = nil
+        end
+    end
+end
+
+--- Sweeps the screen-space descent below z=0 against base ground. A tall wall
+--- can separate an elevated footprint from the lower floor in map Y even
+--- though that floor is directly below the ledge in the rendered projection.
+--- On contact, the excess visual drop is converted into map Y so setting Z to
+--- zero does not snap the player back up the wall.
+---@param old_z number
+---@param new_z number
+---@return number? landing_z
+---@return Collider? surface
+function Player:tryProjectedBaseLanding(old_z, new_z)
+    if new_z >= 0 then return nil end
+
+    local original_y = self.y
+    local sweep_start = math.min(old_z, 0)
+    local distance = sweep_start - new_z
+    local steps = math.max(1, math.ceil(distance))
+
+    for step = 1, steps do
+        local sample_z = sweep_start - math.min(distance, step)
+        self.y = original_y - sample_z
+        Object.uncache(self)
+
+        local ground_z, ground = self.world:getGroundZAt(
+            self.support_collider, 0, self.collider, self:getHeightCollisionIgnore()
+        )
+        if ground_z and math.abs(ground_z) < 0.001 then
+            return 0, ground
+        end
+    end
+
+    self.y = original_y
+    Object.uncache(self)
+    return nil
 end
 
 function Player:updateHeightFall()
     local old_z = self.z
     self.z_velocity = math.max(self.z_velocity - self.z_gravity * DTMULT, -self.max_fall_speed)
     local new_z = self.z + self.z_velocity * DTMULT
-    local landing_z, landing = self.world:getLandingSurface(self.support_collider, old_z, new_z)
+    local ignored_surface = self:getHeightCollisionIgnore()
+    local landing_z, landing = self.world:getLandingSurface(self.support_collider,
+        old_z, new_z, self.collider, ignored_surface, self.departed_ground_collider)
+
+    if not landing_z then
+        landing_z, landing = self:tryProjectedBaseLanding(old_z, new_z)
+    end
 
     if landing_z then
         self.z = landing_z
@@ -789,6 +1038,12 @@ function Player:updateHeightFall()
         self.height_state_manager:setState("LAND")
     else
         self.z = new_z
+        self:updateFallThroughColliders()
+        -- Once the player is this far below the base plane, every ordinary
+        -- landing surface has already been missed. This is also an out-of-
+        -- bounds fallback for wall-only ledge footprints: those are not pits,
+        -- but must not allow Z to decrease forever when the player stops
+        -- moving before reaching the adjacent lower floor.
         if self.z <= self.pit_fall_limit then
             self:recoverFromPit()
         end
@@ -823,21 +1078,86 @@ function Player:endHeightLand(new_state)
 end
 
 function Player:recoverFromPit()
+    if self:isPitRecovering() then return end
+    self.height_state_manager:setState("PIT_RECOVER")
+end
+
+function Player:beginHeightPitRecovery()
+    self.z_velocity = 0
+    self.jump_windup_timer = 0
+    self.pending_jump_strength = nil
+    self.ground_collider = nil
+    self.departed_ground_collider = nil
+    self.fall_through_colliders = {}
+    self.pit_recovery_timer = 0
+    self.pit_recovery_progress = 0
+    self.pit_recovery_teleported = false
+
+    self.world:removeFX("pit_recovery")
+    self.world:addFX(ShaderFX("goner_bleed", {
+        progress = function() return self.pit_recovery_progress end,
+        time = function() return Kristal.getTime() end
+    }, false), "pit_recovery")
+end
+
+function Player:teleportFromPit()
     self:setPosition(self.last_safe_x, self.last_safe_y)
     self.z = self.last_safe_z or 0
     self.z_velocity = 0
+    local ground_z, ground = self.world:getSupportAt(self.support_collider, self.z)
+    if ground_z then self.z = ground_z end
     self.ground_z = self.z
-    self.ground_collider = nil
-    self.height_state_manager:setState("GROUNDED")
-    self:restoreGroundAnimation()
+    self.ground_collider = ground
     self:resetFollowerHistory()
+end
+
+function Player:updateHeightPitRecovery()
+    self.pit_recovery_timer = self.pit_recovery_timer + DT
+    local out_end = self.pit_recovery_out_time
+    local hold_end = out_end + self.pit_recovery_hold_time
+    local recovery_end = hold_end + self.pit_recovery_in_time
+
+    if self.pit_recovery_timer < out_end then
+        self.pit_recovery_progress = self.pit_recovery_timer / out_end
+    elseif self.pit_recovery_timer < hold_end then
+        self.pit_recovery_progress = 1
+    else
+        if not self.pit_recovery_teleported then
+            self.pit_recovery_teleported = true
+            self:teleportFromPit()
+        end
+        self.pit_recovery_progress = 1 - MathUtils.clamp(
+            (self.pit_recovery_timer - hold_end) / self.pit_recovery_in_time, 0, 1)
+    end
+
+    if self.pit_recovery_timer >= recovery_end then
+        self.height_state_manager:setState("GROUNDED")
+    end
+end
+
+function Player:endHeightPitRecovery()
+    self.world:removeFX("pit_recovery")
+    self.pit_recovery_progress = 0
+    self:restoreGroundAnimation()
 end
 
 function Player:updateHeight()
     if not self.platforming_enabled then return end
     if self.jumping or self:isClimbing() then return end
+    self:updateDepartedGroundCollision()
     self.height_state_manager:update()
-    self.shadow_z = self.world:getGroundZAt(self.support_collider, self.z)
+    self.shadow_z = self.world:getGroundZAt(self.support_collider, self.z,
+        self.collider, self:getHeightCollisionIgnore())
+end
+
+--- Keeps a completed, non-looping jump animation on its anticipation-free
+--- final frame until the height state changes to FALL.
+function Player:holdJumpAnimationFrame()
+    if not self:isDashAnimationActive()
+        and self.height_state_manager.state == "JUMP" and self.height_animation == "jump"
+        and not self.sprite.playing and self.sprite.frames then
+        self.sprite:setFrame(#self.sprite.frames)
+    end
 end
 
 function Player:setState(state, ...)
@@ -939,6 +1259,7 @@ function Player:isMovementEnabled()
         and Game.world.door_delay == 0
         and not self.attacking
         and not self.splatted
+        and not self:isPitRecovering()
 end
 
 function Player:handleMovement()
@@ -1451,7 +1772,9 @@ function Player:update()
         self.run_transition_grace = MathUtils.approach(self.run_transition_grace, 0, DT)
     end
 
+    local movement_start_x, movement_start_y = self.x, self.y
     self.state_manager:update()
+    self:validateHeightMovement(movement_start_x, movement_start_y)
 
     self:updateHeight()
 
@@ -1486,6 +1809,7 @@ function Player:update()
     outlinefx:setAlpha(self.battle_alpha)
 
     super.update(self)
+    self:holdJumpAnimationFrame()
 end
 
 function Player:preDraw(dont_transform)
@@ -1499,9 +1823,13 @@ function Player:drawDebug()
     col:draw(1, 1, 0, 0.5)
 end
 
+function Player:shouldDrawHeightShadow()
+    return self.platforming_enabled and self.shadow_z ~= nil
+end
+
 function Player:draw()
-    if self.platforming_enabled and self.shadow_z and self.z > self.shadow_z + 0.5 then
-        local height = self.z - self.shadow_z
+    if self:shouldDrawHeightShadow() then
+        local height = math.max(self.z - self.shadow_z, 0)
         local alpha = MathUtils.clamp(0.45 - height / 240, 0.12, 0.45)
         love.graphics.push()
         love.graphics.translate(0, height / self.scale_y)

@@ -180,6 +180,113 @@ function EditorGameView:drawEventBounds(offset_x, offset_y, view_zoom)
     end
 end
 
+local function drawDashedLine(x1, y1, x2, y2, dash_length)
+    local dx, dy = x2 - x1, y2 - y1
+    local length = math.sqrt(dx * dx + dy * dy)
+    if length == 0 then return end
+
+    local nx, ny = dx / length, dy / length
+    for distance = 0, length, dash_length * 2 do
+        local finish = math.min(length, distance + dash_length)
+        love.graphics.line(
+            x1 + nx * distance, y1 + ny * distance,
+            x1 + nx * finish, y1 + ny * finish
+        )
+    end
+end
+
+local function drawDashedLoop(points, dash_length)
+    if #points < 2 then return end
+    for index, point in ipairs(points) do
+        local next_point = points[index % #points + 1]
+        drawDashedLine(point[1], point[2], next_point[1], next_point[2], dash_length)
+    end
+end
+
+local function drawDashedCircle(x, y, radius, dash_length)
+    if radius <= 0 then return end
+    local circumference = math.pi * radius * 2
+    local segment_count = math.max(12, math.ceil(circumference / dash_length))
+    if segment_count % 2 ~= 0 then segment_count = segment_count + 1 end
+    for index = 0, segment_count - 1, 2 do
+        local angle_1 = index / segment_count * math.pi * 2
+        local angle_2 = (index + 1) / segment_count * math.pi * 2
+        love.graphics.line(
+            x + math.cos(angle_1) * radius, y + math.sin(angle_1) * radius,
+            x + math.cos(angle_2) * radius, y + math.sin(angle_2) * radius
+        )
+    end
+end
+
+local function drawColliderDepth(collision, dash_length)
+    if collision:includes(ColliderGroup) then
+        for _, child in ipairs(collision.colliders) do
+            drawColliderDepth(child, dash_length)
+        end
+        return
+    end
+    local bottom_z = collision:getWorldZ()
+    local depth = math.max(collision.depth or 0, 0)
+    local role = collision.collision_role
+        or (collision.pit and "pit")
+        or (collision.one_way and collision.supports and "surface")
+        or (collision.supports and "solid") or "wall"
+    if bottom_z == 0 and depth == 0 and role == "wall" then return end
+
+    local role_colors = {
+        wall = { 1, 0.55, 0.2 }, solid = { 0.2, 0.9, 1 },
+        surface = { 0.25, 1, 0.45 }, pit = { 1, 0.25, 0.25 }
+    }
+    local role_color = role_colors[role] or role_colors.wall
+    Draw.setColor(role_color[1], role_color[2], role_color[3], 0.9)
+    local anchor_x, anchor_y
+
+    if collision:includes(Hitbox) then
+        local width = MathUtils.absClamp(collision.width, 1, math.huge)
+        local height = MathUtils.absClamp(collision.height, 1, math.huge)
+        local footprint = {
+            { collision.x, collision.y },
+            { collision.x + width, collision.y },
+            { collision.x + width, collision.y + height },
+            { collision.x, collision.y + height }
+        }
+        drawDashedLoop(footprint, dash_length)
+        anchor_x, anchor_y = collision.x + width, collision.y
+    elseif collision:includes(PolygonCollider) then
+        local footprint = {}
+        anchor_x, anchor_y = -math.huge, math.huge
+        for _, point in ipairs(collision.points) do
+            table.insert(footprint, { point[1], point[2] })
+            anchor_x, anchor_y = math.max(anchor_x, point[1]), math.min(anchor_y, point[2])
+        end
+        drawDashedLoop(footprint, dash_length)
+    elseif collision:includes(LineCollider) then
+        drawDashedLine(collision.x, collision.y, collision.x2, collision.y2, dash_length)
+        anchor_x, anchor_y = math.max(collision.x, collision.x2), math.min(collision.y, collision.y2)
+    elseif collision:includes(CircleCollider) then
+        drawDashedCircle(collision.x, collision.y, collision.radius, dash_length)
+        anchor_x, anchor_y = collision.x + collision.radius, collision.y - collision.radius
+    elseif collision:includes(PointCollider) then
+        love.graphics.points(collision.x, collision.y)
+        anchor_x, anchor_y = collision.x, collision.y
+    end
+
+    if anchor_x and anchor_y then
+        local ruler_x = anchor_x + dash_length * 1.4
+        local bottom_y, top_y = anchor_y - bottom_z, anchor_y - bottom_z - depth
+        love.graphics.line(ruler_x, anchor_y, ruler_x, top_y)
+        love.graphics.line(ruler_x - 3, anchor_y, ruler_x + 3, anchor_y)
+        love.graphics.line(ruler_x - 3, bottom_y, ruler_x + 3, bottom_y)
+        love.graphics.line(ruler_x - 3, top_y, ruler_x + 3, top_y)
+        local role_names = { wall = "WALL", solid = "SOLID", surface = "SURFACE", pit = "PIT" }
+        local top_z = bottom_z + depth
+        local label = role == "pit" and "PIT"
+            or depth == 0 and string.format("%s z=%g", role_names[role], bottom_z)
+            or string.format("%s %g..%g", role_names[role], bottom_z, top_z)
+        love.graphics.print(label, ruler_x + 5, math.min(anchor_y, top_y) - 6)
+    end
+end
+
 function EditorGameView:drawCollision(collision, offset_x, offset_y, view_zoom, r, g, b, a)
     love.graphics.push()
     love.graphics.origin()
@@ -187,6 +294,13 @@ function EditorGameView:drawCollision(collision, offset_x, offset_y, view_zoom, 
     love.graphics.scale(view_zoom or 1, view_zoom or 1)
     if collision.parent then love.graphics.applyTransform(collision.parent:getFullTransform()) end
     collision:draw(r, g, b, a)
+    if (collision.depth and collision.depth > 0) or collision:getWorldZ() ~= 0
+        or collision.supports or collision.pit or collision:includes(ColliderGroup) then
+        Draw.setColor(r, g, b, (a or 1) * 0.8)
+        love.graphics.setLineWidth(1 / (view_zoom or 1))
+        drawColliderDepth(collision, 5 / (view_zoom or 1))
+        Draw.setColor(1, 1, 1, 1)
+    end
     love.graphics.pop()
 end
 
@@ -201,6 +315,9 @@ function EditorGameView:drawCollisionBounds(offset_x, offset_y, view_zoom)
     end
     for _, collision in ipairs(map.block_collision) do
         self:drawCollision(collision, offset_x, offset_y, view_zoom, 1, 0.35, 0, 0.9)
+    end
+    for _, collision in ipairs(map.pits or {}) do
+        self:drawCollision(collision, offset_x, offset_y, view_zoom, 1, 0.25, 0.25, 0.9)
     end
 end
 

@@ -1509,6 +1509,18 @@ function Object:getFullTransform(i)
     end
 end
 
+--- Returns the complete draw transform, including the projected Z offset of
+--- this object and every parent in its hierarchy.
+---@return love.Transform transform
+function Object:getFullVisualTransform()
+    local transform = love.math.newTransform()
+    local hierarchy = self:getHierarchy()
+    for index = #hierarchy, 1, -1 do
+        hierarchy[index]:applyVisualTransformTo(transform)
+    end
+    return transform
+end
+
 ---@return table hierarchy A table of all parents between this object and its stage (inclusive).
 function Object:getHierarchy()
     local tbl = { self }

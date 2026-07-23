@@ -86,6 +86,12 @@ function EditorMapBrowser:selectNode(node)
         property_set:registerProperty("keepmusic", "boolean", { name = "Keep Music" })
         property_set:registerProperty("light", "boolean")
         property_set:registerProperty("border", "string")
+        property_set:registerProperty("platforming", "boolean", {
+            name = "Platforming", default = false
+        })
+        property_set:registerProperty("empty_tile_pit", "boolean", {
+            name = "Empty Tiles Are Pits", default = false
+        })
     end
     local reader_class = node.registry_id and Registry.getMapReader(node.registry_id)
     local fields = {

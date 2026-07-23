@@ -237,6 +237,27 @@ function MapUtils.getPolylineEdges(data, point_count)
     return result
 end
 
+---@param properties? table
+---@param depth? number
+---@return "wall"|"solid"|"surface"|"pit" role
+function MapUtils.getCollisionRole(properties, depth)
+    properties = properties or {}
+    local role = properties.collision_role or properties.height_role
+    if role == "wall" or role == "solid" or role == "surface" or role == "pit" then
+        return role
+    end
+    if properties.pit == true then return "pit" end
+    if properties.platform == true or properties.one_way_surface == true
+        or properties.one_way == true or properties.oneway == true then
+        return "surface"
+    end
+    depth = math.max(tonumber(depth ~= nil and depth or properties.depth) or 0, 0)
+    if properties.supports == false then return "wall" end
+    if properties.supports == true then return "solid" end
+    if depth > 0 then return "solid" end
+    return "wall"
+end
+
 --- Creates a collider from the runtime shape representation shared by map readers.
 ---@param parent Object
 ---@param data table
@@ -304,19 +325,30 @@ function MapUtils.colliderFromShape(parent, data, x, y, properties)
         collider = PointCollider(parent, x, y, mode)
     end
     if collider then
+        local role = MapUtils.getCollisionRole(properties)
         collider.z = tonumber(properties.z) or 0
         collider.depth = math.max(tonumber(properties.depth) or 0, 0)
-        collider.supports = properties.supports
-        if collider.supports == nil then
-            collider.supports = collider.depth > 0
+        collider.collision_role = role
+        if role == "wall" then
+            collider.supports = false
+            collider.one_way = false
+        elseif role == "solid" then
+            collider.supports = true
+            collider.one_way = false
+        elseif role == "surface" then
+            collider.supports = true
+            collider.one_way = true
+        else
+            collider.supports = false
+            collider.one_way = true
         end
-        collider.one_way = properties.one_way or properties.oneway or false
-        collider.pit = properties.pit or false
+        collider.pit = role == "pit"
         if properties.enabled == false then collider.collidable = false end
         if collider:includes(ColliderGroup) then
             for _, child in ipairs(collider.colliders) do
                 child.z = collider.z
                 child.depth = collider.depth
+                child.collision_role = collider.collision_role
                 child.supports = collider.supports
                 child.one_way = collider.one_way
                 child.pit = collider.pit

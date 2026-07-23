@@ -20,6 +20,7 @@ function operations.loadTiles(self, layer, depth)
     tilelayer:setPosition(layer.offsetx or 0, layer.offsety or 0)
     tilelayer.z = tonumber(layer.properties and layer.properties.z) or 0
     tilelayer.depth = math.max(tonumber(layer.properties and layer.properties.depth) or 0, 0)
+    tilelayer.provides_ground = not layer.properties or layer.properties.ground ~= false
     MapUtils.addLayerOffset(tilelayer, depth)
     tilelayer.blend_mode = layer.blend_mode or layer.blendmode
     self.world:addChild(tilelayer)

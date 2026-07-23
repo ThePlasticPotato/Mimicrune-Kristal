@@ -80,14 +80,30 @@ function EditorObject:init(data, options)
     self.properties = data.properties
     self.property_types = data.__editor_property_types
     self.property_set = EditorPropertySet(data.properties, data.__editor_property_types)
+    self.layer_type = options.layer_type
     self:registerProperty("uid", "string", { name = "Unique ID" })
     self:registerProperty("cond", "string", { name = "Load Condition" })
     self:registerProperty("flagcheck", "string", { name = "Load Flag" })
     self:registerProperty("flagvalue", "value", { name = "Load Flag Value" })
+    self:registerProperty("z", "number", { name = "Z", default = 0 })
+    self:registerProperty("depth", "number", { name = "Depth", default = 0 })
+    if self.layer_type and self.layer_type.id == "collision" then
+        self:registerProperty("z", "number", { name = "Bottom Z", default = 0 })
+        self:registerProperty("depth", "number", { name = "Solid Height", default = 0 })
+        self:registerProperty("collision_role", "choice", {
+            name = "Collision Role", default = "auto", choices = {
+                { value = "auto", label = "Auto (Legacy)" },
+                { value = "wall", label = "Wall" },
+                { value = "solid", label = "Solid Platform" },
+                { value = "surface", label = "One-Way Surface" },
+                { value = "pit", label = "Pit" }
+            }
+        })
+        self:registerProperty("pit", "boolean", { name = "Pit", default = false })
+    end
     self.id = options.object_id
     MapUtils.addLayerOffset(self, options.depth)
     self.layer_uid = options.layer_uid
-    self.layer_type = options.layer_type
     self.layer_color = options.layer_color or { 1, 1, 1, 1 }
     self.layer_tint = options.layer_tint or { 1, 1, 1, 1 }
     if math.max(self.layer_tint[1] or 0, self.layer_tint[2] or 0,

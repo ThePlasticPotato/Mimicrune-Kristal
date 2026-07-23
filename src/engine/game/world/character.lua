@@ -209,7 +209,19 @@ function Character:doMoveAmount(type, amount, other_amount)
     local other = type == "x" and "y" or "x"
     local function checkCollision()
         if self.use_3d_collision then
-            return self.world:checkCollision3D(self.collider, self.enemy_collision)
+            local ignored
+            if self.getMovementHeightCollisionIgnore then
+                ignored = self:getMovementHeightCollisionIgnore()
+            elseif self.getHeightCollisionIgnore then
+                ignored = self:getHeightCollisionIgnore()
+            end
+            local movement_z
+            if self.getMovementCollisionZ then
+                movement_z = self:getMovementCollisionZ()
+            end
+            return self.world:checkMovementCollision3D(
+                self.collider, self.enemy_collision, ignored, movement_z
+            )
         end
         return self.world:checkCollision(self.collider, self.enemy_collision)
     end

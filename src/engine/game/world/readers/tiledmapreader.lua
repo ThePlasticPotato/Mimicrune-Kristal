@@ -28,6 +28,8 @@ function TiledMapReader:initialize(data)
     map.light = data.properties and data.properties["light"] or false
     map.border = data.properties and data.properties["border"]
     map.platforming = data.properties and data.properties["platforming"] or false
+    map.empty_tile_pit = data.properties and (data.properties["empty_tile_pit"] == true
+        or data.properties["empty_tiles_are_pits"] == true) or false
 
     if data.backgroundcolor then
         local bgc = data.backgroundcolor

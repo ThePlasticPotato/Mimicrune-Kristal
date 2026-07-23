@@ -32,6 +32,12 @@ local function imageProperties(properties)
     properties:registerProperty("scaley", "number", { name = "Scale Y", default = 1 })
 end
 
+local function tileProperties(properties)
+    properties:registerProperty("ground", "boolean", {
+        name = "Provides Ground", default = true
+    })
+end
+
 local DEFAULT_KINDS = {
     {
         id = "group",
@@ -47,6 +53,7 @@ local DEFAULT_KINDS = {
     },
     {
         id = "tile",
+        properties = tileProperties,
         format = {
             "default",
             "tileset",

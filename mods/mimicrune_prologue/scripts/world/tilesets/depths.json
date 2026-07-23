@@ -1,0 +1,145 @@
+{
+  "version": 1,
+  "kristal_version": "0.11.0-dev",
+  "id": "depths",
+  "name": "Depths",
+  "image": "assets/sprites/tilesets/depths.png",
+  "tile_width": 20,
+  "tile_height": 20,
+  "tile_count": 65,
+  "tile_rows": 4,
+  "tile_columns": 13,
+  "spacing": 0,
+  "margin": 0,
+  "render_size": "grid",
+  "fill_mode": "stretch",
+  "tiles": [
+    {
+      "id": 0,
+      "properties": []
+    },
+    {
+      "id": 12,
+      "properties": []
+    },
+    {
+      "id": 49,
+      "properties": []
+    },
+    {
+      "id": 10,
+      "properties": []
+    },
+    {
+      "id": 28,
+      "properties": []
+    },
+    {
+      "id": 14,
+      "properties": []
+    },
+    {
+      "id": 13,
+      "properties": []
+    },
+    {
+      "id": 55,
+      "properties": []
+    },
+    {
+      "id": 2,
+      "properties": []
+    },
+    {
+      "id": 26,
+      "properties": []
+    },
+    {
+      "id": 52,
+      "properties": []
+    },
+    {
+      "id": 1,
+      "properties": []
+    },
+    {
+      "id": 27,
+      "properties": []
+    },
+    {
+      "id": 15,
+      "properties": []
+    },
+    {
+      "id": 41,
+      "properties": []
+    },
+    {
+      "id": 54,
+      "properties": []
+    },
+    {
+      "id": 53,
+      "properties": []
+    },
+    {
+      "id": 40,
+      "properties": []
+    },
+    {
+      "id": 3,
+      "properties": []
+    },
+    {
+      "id": 17,
+      "properties": []
+    },
+    {
+      "id": 30,
+      "properties": []
+    },
+    {
+      "id": 43,
+      "properties": []
+    },
+    {
+      "id": 5,
+      "properties": []
+    },
+    {
+      "id": 19,
+      "properties": []
+    },
+    {
+      "id": 32,
+      "properties": []
+    },
+    {
+      "id": 45,
+      "properties": []
+    },
+    {
+      "id": 59,
+      "properties": []
+    },
+    {
+      "id": 42,
+      "properties": []
+    },
+    {
+      "id": 39,
+      "properties": []
+    },
+    {
+      "id": 44,
+      "properties": []
+    },
+    {
+      "id": 46,
+      "properties": []
+    }
+  ],
+  "terrain_tags": [],
+  "terrains": [],
+  "properties": []
+}

@@ -1,5 +1,15 @@
 local actor, super = Class(Actor, "vessel")
 
+local function jumpAnimation(sprite, wait)
+    sprite:setSprite("jump", true)
+    sprite:setFrame(1)
+    wait(1/15)
+    sprite:setFrame(2)
+    wait(1/15)
+    sprite:setFrame(3)
+    while true do wait(1) end
+end
+
 function actor:init()
     super.init(self)
 
@@ -18,6 +28,9 @@ function actor:init()
     -- First value is x, second value is y.
     self.soul_offset = {10, 24}
 
+    self.jump_strength = 8
+    self.jump_windup = 1/15
+
     -- Color for this actor used in outline areas (optional, defaults to red)
     self.color = {0, 1, 1}
 
@@ -35,12 +48,13 @@ function actor:init()
 
     -- Whether this actor as a follower will blush when close to the player
     self.can_blush = false
+    self.default_run = "run"
 
     -- Table of sprite animations
     self.animations = {
         -- Movement animations
         ["slide"]               = {"slide", 4/30, true},
-        ["jump"]                = {"jump", 1/15, false},
+        ["jump"]                = jumpAnimation,
         ["fall"]                = {"fall", 1/10, true},
         ["landed"]              = {"landed", 1/15, false},
 
@@ -77,6 +91,7 @@ function actor:init()
         ["jump_ball_slow"]      = {"ball", 4/30, true},
 
         ["dash"]   = {"dash", 1/15, true},
+        ["run"] = {-5, -2};
     }
 
     if Game.chapter == 1 then
@@ -136,9 +151,9 @@ function actor:init()
         -- Cutscene offsets
         ["pose"] = {-4, -2},
 
-        ["fall"] = {-5, -6},
+        ["fall"] = {0, 0},
         ["ball"] = {1, 8},
-        ["landed"] = {-4, -2},
+        ["landed"] = {-5, -2},
 
         ["fell"] = {-14, 1},
 
@@ -160,8 +175,50 @@ function actor:init()
 
         ["dash"] = {-17, -12};
         ["run"] = {-5, -2};
-        ["jump"] = {-1, -1};
     }
 end
+
+-- BEGIN KRISTAL ACTOR EDITOR
+-- KRISTAL_ACTOR_EDITOR_DATA_BEGIN
+local __kristal_actor_editor_data = {
+    animation_overrides = {},
+    animation_removals = {},
+    fields = {
+        soul_offset = {
+            10,
+            22
+        }
+    },
+    nil_fields = {},
+    offset_overrides = {
+        ["fall/down"] = {
+            0,
+            0
+        },
+        ["jump/down"] = {
+            0,
+            0
+        }
+    },
+    offset_removals = {}
+}
+-- KRISTAL_ACTOR_EDITOR_DATA_END
+local __kristal_actor_editor_init = actor.init
+function actor:init(...)
+    __kristal_actor_editor_init(self, ...)
+    self.soul_offset = {
+        10,
+        22
+    }
+    self.offsets["fall/down"] = {
+        0,
+        0
+    }
+    self.offsets["jump/down"] = {
+        0,
+        0
+    }
+end
+-- END KRISTAL ACTOR EDITOR
 
 return actor
