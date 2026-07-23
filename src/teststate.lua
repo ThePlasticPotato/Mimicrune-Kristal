@@ -160,6 +160,36 @@ function Testing:runPlatformingTests()
     local vessel = Registry.createActor("vessel")
     expect(vessel.jump_strength == 8 and vessel.jump_windup == 1 / 15,
         "the Vessel should use its tuned jump height and one-frame squat wind-up")
+    expect(vessel.run_speed == 8
+        and vessel.run_momentum_max == 0.5
+        and vessel.run_acceleration == 4
+        and vessel.run_deceleration == 4
+        and vessel.run_transition_frames == 4,
+        "the Vessel should use its faster-ramping, platforming-friendly run tuning")
+    do
+        (function()
+            local tuned_run_player = setmetatable({
+                actor = vessel,
+                getBaseWalkSpeed = function() return 6 end
+            }, { __index = Player })
+            local legacy_run_player = setmetatable({
+                actor = {},
+                getBaseWalkSpeed = function() return 6 end
+            }, { __index = Player })
+            expect(tuned_run_player:getRunSpeed() == 8
+                and tuned_run_player:getRunMomentumMax() == 0.5
+                and tuned_run_player:getRunAcceleration() == 4
+                and tuned_run_player:getRunDeceleration() == 4
+                and tuned_run_player:getRunSpeed()
+                    * (1 + tuned_run_player:getRunMomentumMax()) == 12,
+                "Vessel's momentum run should cap at 12 pixels per frame")
+            expect(legacy_run_player:getRunSpeed() == 10
+                and legacy_run_player:getRunMomentumMax() == 1
+                and legacy_run_player:getRunAcceleration() == 1
+                and legacy_run_player:getRunDeceleration() == 2,
+                "actors without run tuning should retain the legacy momentum defaults")
+        end)()
+    end
     local jump_pose
     local windup_player = {
         jump_strength = vessel.jump_strength,

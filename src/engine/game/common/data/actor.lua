@@ -15,6 +15,13 @@ function Actor:init()
     -- Hitbox for this actor in the overworld (optional, uses width and height by default)
     self.hitbox = nil
 
+    -- Optional momentum-run tuning.
+    self.run_speed = nil
+    self.run_momentum_max = nil
+    self.run_acceleration = nil
+    self.run_deceleration = nil
+    self.run_transition_frames = nil
+
     -- A table that defines where the Soul should be placed on this actor if they are a player.
     -- First value is x, second value is y.
     self.soul_offset = { 10, 24 }

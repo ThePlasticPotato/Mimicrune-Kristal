@@ -31,6 +31,12 @@ function actor:init()
     self.jump_strength = 8
     self.jump_windup = 1/15
 
+    self.run_speed = 6
+    self.run_momentum_max = 0.5
+    self.run_acceleration = 4
+    self.run_deceleration = 4
+    self.run_transition_frames = 4
+
     -- Color for this actor used in outline areas (optional, defaults to red)
     self.color = {0, 1, 1}
 
@@ -174,7 +180,7 @@ function actor:init()
         ["t_pose"] = {-4, 0},
 
         ["dash"] = {-17, -12};
-        ["run"] = {-5, -2};
+        ["run"] = {-2, 0};
     }
 end
 

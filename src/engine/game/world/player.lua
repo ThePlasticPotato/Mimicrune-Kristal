@@ -146,9 +146,19 @@ end
 function Player:getCurrentSpeed(running)
     local speed = self:getBaseWalkSpeed()
     if running then
-        if self.run_timer > 30 then
+        local transition_frames = self.actor.run_transition_frames or 30
+        local transition_ready = self.actor.run_transition_frames
+            and self.run_timer >= transition_frames
+            or self.run_timer > transition_frames
+        if transition_ready then
             if (self.state ~= "RUN") then self:setState("RUN") end
-            speed = speed + (Game:isLight() and 6 or 5)
+            if self.actor.run_speed then
+                speed = self:getRunSpeed()
+            else
+                speed = speed + (Game:isLight() and 6 or 5)
+            end
+        elseif self.actor.run_speed then
+            speed = self:getRunSpeed()
         elseif self.run_timer > 10 then
             speed = speed + 4
         else
@@ -160,6 +170,29 @@ end
 
 function Player:getBaseWalkSpeed()
     return 6 + Game.party[1].walk_speed_bonus
+end
+
+--- Returns the scalar used by momentum running.
+---@return number speed
+function Player:getRunSpeed()
+    return self.actor.run_speed
+        or self:getBaseWalkSpeed() + (Game:isLight() and 4 or 4)
+end
+
+--- Returns the maximum ordinary run momentum added to directional input.
+---@return number momentum
+function Player:getRunMomentumMax()
+    return self.actor.run_momentum_max or 1
+end
+
+---@return number acceleration
+function Player:getRunAcceleration()
+    return self.actor.run_acceleration or 1
+end
+
+---@return number deceleration
+function Player:getRunDeceleration()
+    return self.actor.run_deceleration or 2
 end
 
 function Player:getDebugInfo()
@@ -361,7 +394,12 @@ function Player:beginDash(prev_state, settings)
     end
     if (prev_state == "RUN") then
         self.was_running = true
-        self.dash_momentum = {walk_x + self.run_momentum[1] * 2, walk_y + self.run_momentum[2] * 2}
+        local momentum_max = self:getRunMomentumMax()
+        local transfer_scale = momentum_max > 0 and 1 / momentum_max or 0
+        self.dash_momentum = {
+            walk_x + self.run_momentum[1] * 2 * transfer_scale,
+            walk_y + self.run_momentum[2] * 2 * transfer_scale
+        }
     else
         self.dash_momentum = {walk_x, walk_y}
     end
@@ -385,7 +423,15 @@ function Player:endDash(new_state)
     -- end
     if (new_state == "WALK") then
     else
-        self.run_momentum = self.dash_momentum
+        if self.actor.run_momentum_max then
+            local momentum_max = self:getRunMomentumMax()
+            self.run_momentum = {
+                MathUtils.clamp(self.dash_momentum[1], -momentum_max, momentum_max),
+                MathUtils.clamp(self.dash_momentum[2], -momentum_max, momentum_max)
+            }
+        else
+            self.run_momentum = self.dash_momentum
+        end
     end
     self.was_running = false
     self.dash_momentum = {0, 0}
@@ -462,7 +508,7 @@ function Player:endRun(new_state)
         self.run_momentum[2] = 0
 
         local settle_min_speed = self:getBaseWalkSpeed()
-        local settle_speed = settle_min_speed + (Game:isLight() and 4 or 4)
+        local settle_speed = self:getRunSpeed()
         for _, follower in ipairs(Game.world.followers) do
             if follower.following and follower.state_manager.state == "RUN" then
                 local offset_x, offset_y = 0, 0
@@ -579,8 +625,11 @@ function Player:handleMomentumMovement()
         self.run_timer = 200
     end
     if self.run_timer == 0 then
-        self.run_momentum[1] = MathUtils.approach(self.run_momentum[1], 0, DT * 2)
-        self.run_momentum[2] = MathUtils.approach(self.run_momentum[2], 0, DT * 2)
+        local deceleration = self:getRunDeceleration()
+        self.run_momentum[1] = MathUtils.approach(
+            self.run_momentum[1], 0, DT * deceleration)
+        self.run_momentum[2] = MathUtils.approach(
+            self.run_momentum[2], 0, DT * deceleration)
 
         if (math.abs(self.run_momentum[1]) < 0.05 and math.abs(self.run_momentum[2]) < 0.05) then
             self:setState("WALK")
@@ -613,11 +662,17 @@ function Player:handleMomentumMovement()
                 self:flash()
             end
         end
-        self.run_momentum[1] = MathUtils.approach(self.run_momentum[1], walk_x + (walk_x * self.temp_boost_x), DT * mult_x)
-        self.run_momentum[2] = MathUtils.approach(self.run_momentum[2], walk_y + (walk_y * self.temp_boost_y), DT * mult_y)
+        local momentum_max = self:getRunMomentumMax()
+        local acceleration = self:getRunAcceleration()
+        local target_x = walk_x * momentum_max + walk_x * self.temp_boost_x
+        local target_y = walk_y * momentum_max + walk_y * self.temp_boost_y
+        self.run_momentum[1] = MathUtils.approach(
+            self.run_momentum[1], target_x, DT * acceleration * mult_x)
+        self.run_momentum[2] = MathUtils.approach(
+            self.run_momentum[2], target_y, DT * acceleration * mult_y)
     end
 
-    local speed = self:getBaseWalkSpeed() + (Game:isLight() and 4 or 4)
+    local speed = self:getRunSpeed()
     
     self:move(walk_x + self.run_momentum[1], walk_y + self.run_momentum[2], speed * DTMULT)
 
