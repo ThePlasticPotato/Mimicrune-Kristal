@@ -88,20 +88,6 @@ function Testing:runPlatformingTests()
     }, { __index = World })
     function fake_world:getCollision() return self.surfaces end
 
-    a_parent.x, a_parent.y, a_parent.z = 5, -32, 0
-    expect(not a:collidesWith(platform)
-        and fake_world:checkMovementCollision3D(a),
-        "a tall solid's projected north face must block entry below its top")
-    a_parent.z = 32
-    expect(not fake_world:checkMovementCollision3D(a),
-        "the projected north face must stop blocking once the mover reaches the top")
-    a_parent.y, a_parent.z = 15, 32
-    expect(not fake_world:checkMovementCollision3D(a),
-        "standing on a solid must still allow movement off its downward edge")
-    a_parent.z = 31
-    expect(not fake_world:checkMovementCollision3D(a, false, platform),
-        "a departed solid must remain ignored while falling clear of its downward edge")
-
     a_parent.z = 40
     expect(fake_world:checkCollision(a), "world collision should stay two-dimensional by default")
     expect(not fake_world:checkCollision3D(a), "world 3D collision should be explicitly requested")
@@ -270,8 +256,8 @@ function Testing:runPlatformingTests()
     fake_world.surfaces = { platform }
     local edge_probe = Hitbox(probe_parent, 18.5, 2, 4, 4)
     expect(edge_probe:collidesWith(platform)
-        and fake_world:getLandingSurface(edge_probe, 40, 20) == nil,
-        "overlapping only a platform edge should not snap the player back onto its top")
+        and fake_world:getLandingSurface(edge_probe, 40, 20) == 32,
+        "any remaining grounded-footprint overlap should still support a landing")
 
     local blocking_wall = Hitbox(platform_parent, 0, 0, 20, 20)
     blocking_wall.z, blocking_wall.depth = 32, 40
@@ -283,6 +269,50 @@ function Testing:runPlatformingTests()
         "landing should be rejected when the player's body would be inside a wall")
     expect(fake_world:getGroundZAt(probe, 40, body) == nil,
         "the shadow must not advertise a surface that landing rejects as inside a wall")
+
+    do
+        (function()
+            local coplanar_parent = Object()
+            local coplanar_object = Hitbox(coplanar_parent, 0, 0, 20, 20)
+            coplanar_parent.z = 32
+            coplanar_object.depth = 0
+            coplanar_object.supports = false
+            coplanar_object.one_way = false
+            fake_world.surfaces = { platform, coplanar_object }
+            expect(fake_world:getLandingSurface(probe, 40, 20, body) == 32,
+                "a zero-depth object on a platform must not invalidate the ground beneath it")
+
+            local landing_parent = Object()
+            landing_parent.z = 32
+            local landing_body = Hitbox(landing_parent, 2, 2, 4, 4)
+            landing_body.depth = 20
+            local landing_player = {
+                collider = landing_body,
+                world = fake_world,
+                enemy_collision = false,
+                fall_through_colliders = {},
+                landing_overlap_colliders = {},
+                departed_ground_collider = nil,
+                platforming_enabled = true,
+                height_state_manager = { state = "LAND" },
+                getHeightState = Player.getHeightState,
+                updateFallThroughColliders = Player.updateFallThroughColliders,
+                getDepartedGroundCollisionIgnore =
+                    Player.getDepartedGroundCollisionIgnore
+            }
+            Player.recordLandingCollisionOverlaps(landing_player)
+            expect(landing_player.fall_through_colliders[coplanar_object]
+                and landing_player.landing_overlap_colliders[coplanar_object]
+                and Player.getMovementHeightCollisionIgnore(landing_player)
+                    == coplanar_object,
+                "landing inside a coplanar object should allow movement until the body escapes")
+            landing_parent.x = 24
+            Player.updateDepartedGroundCollision(landing_player)
+            expect(not landing_player.fall_through_colliders[coplanar_object]
+                and not landing_player.landing_overlap_colliders[coplanar_object],
+                "the landing escape exception should expire once the body clears the object")
+        end)()
+    end
 
     local ledge_parent = Object()
     ledge_parent.x, ledge_parent.z = 21, 31
@@ -302,18 +332,41 @@ function Testing:runPlatformingTests()
         getDepartedGroundCollisionIgnore = Player.getDepartedGroundCollisionIgnore
     }
     expect(ledge_support:collidesWith(platform)
-        and not fake_world:isSupportOver(ledge_support, platform)
-        and Player.getHeightCollisionIgnore(ledge_player) == platform
+        and fake_world:isSupportOver(ledge_body, platform)
+        and Player.getHeightCollisionIgnore(ledge_player) == nil
         and fake_world:checkCollision3D(ledge_body, false)
         and not fake_world:checkCollision3D(ledge_body, false, platform),
-        "walking off a solid ledge should use its support point, not its wider footprint")
+        "a partially overlapping body must remain supported instead of falling into the ledge wall")
+    do
+        (function()
+            ledge_parent.x, ledge_parent.z = 22, 32
+            local entered_fall = false
+            local grounded_ledge_player = {
+                world = fake_world,
+                collider = ledge_body,
+                support_collider = ledge_support,
+                z = 32,
+                height_state_manager = {
+                    setState = function(_, state)
+                        entered_fall = state == "FALL"
+                    end
+                }
+            }
+            Player.updateHeightGrounded(grounded_ledge_player)
+            expect(ledge_body:collidesWith(platform)
+                and not ledge_support:collidesWith(platform)
+                and entered_fall,
+                "clearing the compact support footprint should start a fall even while the full body trails over the ledge")
+        end)()
+    end
+    ledge_parent.x, ledge_parent.z = 21, 31
     ledge_parent.x = 25
     expect(Player.getHeightCollisionIgnore(ledge_player) == platform
         and ledge_player.departed_ground_collider == platform,
         "an airborne departure must keep ignoring its old platform after clearing the body")
     ledge_parent.x = 21
-    expect(Player.getHeightCollisionIgnore(ledge_player) == platform,
-        "a rejected speculative move should leave the ledge exception armed")
+    expect(Player.getHeightCollisionIgnore(ledge_player) == nil,
+        "moving the complete footprint back over the platform must restore its collision")
     ledge_parent.x = 25
     Player.updateDepartedGroundCollision(ledge_player)
     expect(ledge_player.departed_ground_collider == platform,
@@ -327,16 +380,15 @@ function Testing:runPlatformingTests()
     ledge_parent.x, ledge_parent.y, ledge_parent.z = 10, -20, 0
     ledge_player.departed_ground_collider = platform
     expect(not ledge_body:collidesWith(platform)
-        and fake_world:isProjectedHeightCollision(ledge_body, platform, 0)
         and Player.getDepartedGroundCollisionIgnore(ledge_player) == platform,
-        "walking upward off a ledge must ignore its projected face while falling clear")
+        "walking upward off a ledge must keep ignoring its old platform while airborne")
     Player.updateDepartedGroundCollision(ledge_player)
     expect(ledge_player.departed_ground_collider == platform,
         "the upward ledge exception must not expire at the physical footprint edge")
     ledge_parent.y = -40
     Player.updateDepartedGroundCollision(ledge_player)
     expect(ledge_player.departed_ground_collider == platform,
-        "clearing a projected face must not re-arm it later in the same fall")
+        "an upward departure must retain its old-platform exemption for the full fall")
     ledge_player.height_state_manager.state = "LAND"
     Player.updateDepartedGroundCollision(ledge_player)
     expect(ledge_player.departed_ground_collider == nil,
@@ -344,23 +396,24 @@ function Testing:runPlatformingTests()
     ledge_player.height_state_manager.state = "FALL"
     ledge_parent.y = 0
     ledge_player.departed_ground_collider = platform
-    expect(fake_world:isSupportOver(ledge_support, platform)
+    expect(fake_world:isSupportOver(ledge_body, platform)
         and Player.getDepartedGroundCollisionIgnore(ledge_player) == nil,
-        "moving the airborne support point back over the old platform must restore collision")
+        "moving the airborne footprint back over the old platform must restore collision")
 
     platform.depth = 120
     ledge_parent.x, ledge_parent.z = 21, 5
     ledge_player.departed_ground_collider = platform
     fake_world.map = tile_map
-    expect(fake_world:getLandingSurface(ledge_support, 5, -5, ledge_body) == nil,
+    expect(fake_world:getLandingSurface(ledge_body, 5, -5, ledge_body) == nil,
         "a tall departed platform should still reject an unqualified landing inside its wall")
-    local base_z = fake_world:getLandingSurface(ledge_support, 5, -5,
+    ledge_parent.x = 25
+    local base_z = fake_world:getLandingSurface(ledge_body, 5, -5,
         ledge_body, Player.getHeightCollisionIgnore(ledge_player))
     expect(base_z == 0,
         "falling beside a tall platform should find walkable base ground below it")
     ledge_player.height_state_manager.state = "LAND"
-    expect(Player.getHeightCollisionIgnore(ledge_player) == platform,
-        "the old platform side should remain passable until the landed body clears it")
+    expect(Player.getHeightCollisionIgnore(ledge_player) == nil,
+        "the old platform exception should expire after landing with the body fully clear")
     platform.depth = 32
     fake_world.map = { pits = {} }
 
@@ -392,20 +445,25 @@ function Testing:runPlatformingTests()
         and not fake_world:checkCollision3D(ledge_body, false, movement_ignores),
         "a wall entered through vertical descent must not trap horizontal escape")
     expect(Player.getHeightCollisionIgnore(ledge_player) == nil,
-        "a wall under the support point must remain non-landable")
+        "a wall overlapping the grounded footprint must remain non-landable")
     ledge_parent.x, ledge_parent.z = 21, 5
+    expect(Player.getHeightCollisionIgnore(ledge_player) == nil
+        and fake_world:getLandingSurface(ledge_body, 5, -5,
+            ledge_body) == nil,
+        "base ground must not catch the player while any of their body remains in the wall")
+    ledge_parent.x = 25
     local trailing_wall = Player.getHeightCollisionIgnore(ledge_player)
     expect(trailing_wall == descent_wall
-        and fake_world:getLandingSurface(ledge_support, 5, -5,
+        and fake_world:getLandingSurface(ledge_body, 5, -5,
             ledge_body, trailing_wall) == 0,
-        "valid floor should catch the player once their support point clears the wall")
+        "valid floor should catch the player once their complete footprint clears the wall")
     local explicit_base_floor = Hitbox(platform_parent, 20, 0, 20, 20)
     explicit_base_floor.z, explicit_base_floor.depth = -40, 40
     explicit_base_floor.supports, explicit_base_floor.one_way = true, true
     explicit_base_floor.collision_role = "surface"
     fake_world.surfaces = { descent_wall, explicit_base_floor }
     fake_world.map = { pits = {}, empty_tile_pit = true, tile_layers = {} }
-    expect(fake_world:getLandingSurface(ledge_support, -5, -10,
+    expect(fake_world:getLandingSurface(ledge_body, -5, -10,
         ledge_body, trailing_wall) == 0,
         "an authored z=0 base floor should catch a player who already fell below it")
     fake_world.map = { pits = {} }
@@ -431,20 +489,20 @@ function Testing:runPlatformingTests()
     projected_player.getDepartedGroundCollisionIgnore = Player.getDepartedGroundCollisionIgnore
     projected_player.getHeightCollisionIgnore = Player.getHeightCollisionIgnore
     local projected_z, projected_surface = Player.tryProjectedBaseLanding(
-        projected_player, -19, -21
+        projected_player, -19, -25
     )
     expect(projected_z == 0 and projected_surface == projected_floor
-        and projected_player.y == 34,
-        "a fall rendered down a tall wall should project onto its adjacent base floor")
+        and projected_player.y == 38,
+        "a fall rendered down a tall wall should project until the complete body reaches its adjacent base floor")
     projected_player.height_state_manager = { state = "LAND" }
     projected_player.getHeightState = Player.getHeightState
-    projected_player.y = 35
+    projected_player.y = 38
     expect(Player.getMovementHeightCollisionIgnore(projected_player) == projected_wall,
-        "a landed player may finish clearing a wall that still trails their body")
-    projected_player.y = 33
+        "the cleared wall may remain exempt at the exact projected landing boundary")
+    projected_player.y = 37
     expect(Player.getMovementHeightCollisionIgnore(projected_player) == nil,
         "a landed player must not reverse through the wall they just fell past")
-    projected_player.y = 34
+    projected_player.y = 38
 
     local recovered_from_unbounded_fall = false
     local stranded_ledge_player = {
@@ -553,8 +611,727 @@ function Testing:runPlatformingTests()
         "collision shapes should expose a typed pit editor property")
     expect(editor_shape.property_set:getProperty("collision_role").type == "choice"
         and editor_shape.property_set:getProperty("z").name == "Bottom Z"
-        and editor_shape.property_set:getProperty("depth").name == "Solid Height",
+        and editor_shape.property_set:getProperty("depth").name == "Solid Height"
+        and editor_shape.property_set:getProperty("surface_id").type == "string"
+        and editor_shape.property_set:getProperty("surface_plane").type == "string",
         "collision shapes should expose clear wall, solid, surface, and pit authoring controls")
+
+    local editor_event = EditorObject({
+        x = 120, y = 200, width = 40, height = 40,
+        properties = { surface_id = "left_tower" },
+        __editor_property_types = {}
+    }, {
+        layer_type = Registry.getLayerType("objects"),
+        map = {
+            getSurface = function(_, id)
+                return id == "left_tower" and { top = 120 } or nil
+            end
+        }
+    })
+    expect(editor_event.y == 80 and editor_event.visual_z == 120
+        and editor_event.property_set:getProperty("height_sensitive").type == "boolean",
+        "raised events should preview at projected Y while retaining a height-sensitive interaction control")
+
+    local used_3d_interaction, used_2d_interaction = false, false
+    local interaction_target = {
+        height_sensitive = true,
+        collidesWith3D = function() used_3d_interaction = true return false end,
+        collidesWith = function() used_2d_interaction = true return true end
+    }
+    expect(not Player.collidesWithHeightSensitiveObject({
+            platforming_enabled = true
+        }, interaction_target, {})
+        and used_3d_interaction and not used_2d_interaction,
+        "platforming interactions must reject 2D overlap when the event is on another Z range")
+
+    local occlusion_layer_type = Registry.getLayerType("occlusion")
+    expect(occlusion_layer_type and occlusion_layer_type.kind == "object",
+        "height occlusion should be a first-class editor layer type")
+    local editor_occluder = EditorObject({
+        properties = {}, __editor_property_types = {}
+    }, { layer_type = occlusion_layer_type })
+    expect(editor_occluder.property_set:getProperty("source_layer").type == "string"
+        and editor_occluder.property_set:getProperty("z").name == "Bottom Z Override"
+        and editor_occluder.property_set:getProperty("depth").name == "Height Override"
+        and editor_occluder.property_set:getProperty("surface_id").type == "string"
+        and editor_occluder.property_set:getProperty("face_direction").type == "choice"
+        and editor_occluder.property_set:getProperty("face_y").type == "number"
+        and editor_occluder.property_set:getProperty("face_x").type == "number"
+        and editor_occluder.property_set:getProperty("sort_y_offset").type == "number"
+        and editor_occluder.property_set:getProperty("cutout_enabled").type == "boolean"
+        and editor_occluder.property_set:getProperty("cutout_radius").type == "number"
+        and editor_occluder.property_set:getProperty("cutout_alpha").type == "number"
+        and editor_occluder.property_set:getProperty("cutout_feather").type == "number",
+        "occlusion regions should expose their source, linked surface, directed face, and cutout")
+
+    local occlusion_source = Object(0, 0, 40, 40)
+    occlusion_source.map_layer = true
+    function occlusion_source:draw()
+        love.graphics.rectangle("fill", 0, 0, 40, 40)
+    end
+    local occlusion_map = {
+        id = "occlusion_test",
+        getDrawableLayer = function(_, name)
+            return name == "Terrain" and occlusion_source or nil
+        end
+    }
+    local runtime_occluder = HeightOccluder(occlusion_map, {
+        id = 1, name = "pillar", shape = "rectangle",
+        x = 0, y = 0, width = 20, height = 40
+    }, { offsetx = 0, offsety = 0 }, {
+        source_layer = "Terrain", z = 0, depth = 40
+    })
+    local occlusion_root = Object()
+    occlusion_root:addChild(occlusion_source)
+    occlusion_root:addChild(runtime_occluder)
+    expect(runtime_occluder:resolveSourceLayer() == occlusion_source
+        and occlusion_source.height_occlusion_masks[1] == runtime_occluder,
+        "runtime occlusion regions should attach to the named tile/image source")
+
+    local clipped_source = Object(0, 0, 40, 40)
+    function clipped_source:draw()
+        love.graphics.rectangle("fill", 0, 0, 40, 40)
+    end
+    local clipped_map = {
+        id = "clipped_occlusion_test",
+        getDrawableLayer = function(_, name)
+            return name == "Terrain" and clipped_source or nil
+        end,
+        getSurface = function(_, id)
+            if id == "ledge" then
+                return {
+                    id = id, bottom = 0, top = 40,
+                    bounds = { min_x = 0, max_x = 20, min_y = 0, max_y = 20 }
+                }
+            end
+        end
+    }
+    local clipped_occluder = HeightOccluder(clipped_map, {
+        id = 3, name = "clipped pillar", shape = "rectangle",
+        x = 0, y = 0, width = 20, height = 40
+    }, { offsetx = 0, offsety = 0 }, {
+        source_layer = "Terrain", surface_id = "ledge", face_direction = "front"
+    })
+    local clipped_root = Object()
+    clipped_root:addChild(clipped_source)
+    clipped_root:addChild(clipped_occluder)
+    clipped_occluder:resolveSourceLayer()
+    local clipped_points = clipped_occluder:getOcclusionMaskPoints()
+    expect(#clipped_points >= 3 and clipped_occluder.sort_y == 20,
+        "a linked front face should resolve its proxy anchor from the collision boundary")
+    local clipped_canvas = love.graphics.newCanvas(40, 40)
+    love.graphics.setCanvas({ clipped_canvas, stencil = true })
+    love.graphics.origin()
+    love.graphics.clear(0, 0, 0, 0)
+    clipped_source:fullDraw(true)
+    love.graphics.setCanvas()
+    local clipped_source_data = clipped_canvas:newImageData()
+    local _, _, _, clipped_far_alpha = clipped_source_data:getPixel(10, 10)
+    local _, _, _, retained_near_alpha = clipped_source_data:getPixel(10, 30)
+    expect(clipped_far_alpha == 0 and retained_near_alpha > 0.95,
+        string.format(
+            "only far-side pixels should leave the source layer for dynamic occlusion (far %.3f, near %.3f)",
+            clipped_far_alpha, retained_near_alpha
+        ))
+    love.graphics.setCanvas({ clipped_canvas, stencil = true })
+    love.graphics.origin()
+    love.graphics.clear(0, 0, 0, 0)
+    clipped_occluder:fullDraw(true)
+    love.graphics.setCanvas()
+    local clipped_proxy_data = clipped_canvas:newImageData()
+    local _, _, _, restored_far_alpha = clipped_proxy_data:getPixel(10, 10)
+    local _, _, _, lifted_near_alpha = clipped_proxy_data:getPixel(10, 30)
+    expect(restored_far_alpha > 0.95 and lifted_near_alpha == 0,
+        "the dynamic proxy must not lift near-side wall pixels over later terrain layers")
+
+    do
+        local aligned_root = Object()
+        aligned_root.height_occlusion_draw_frame = 77
+        local aligned_character = Object(10.4, 20.4, 1, 1)
+        function aligned_character:drawHeightOcclusionMask()
+            love.graphics.rectangle("fill", 0, 0, 1, 1)
+        end
+        aligned_root:addChild(aligned_character)
+        love.graphics.origin()
+        aligned_character:preDraw(false)
+        aligned_character:postDraw()
+        local aligned_mask = aligned_character:getHeightOcclusionMaskCanvas()
+        local min_filter, mag_filter = aligned_mask:getFilter()
+        local aligned_data = aligned_mask:newImageData()
+        local _, _, _, aligned_alpha = aligned_data:getPixel(10, 20)
+        local _, _, _, halo_alpha = aligned_data:getPixel(11, 21)
+        expect(min_filter == "nearest" and mag_filter == "nearest"
+            and aligned_alpha > 0.95 and halo_alpha == 0,
+            "height cutout silhouettes should reuse the exact pixel-snapped draw transform without a filtered halo")
+    end
+
+    local low_character = Object(0, 10)
+    low_character.height_sort_subject = true
+    low_character.use_3d_collision = true
+    low_character.z = 0
+    local high_character = Object(0, 10)
+    high_character.height_sort_subject = true
+    high_character.use_3d_collision = true
+    high_character.z = 40
+    runtime_occluder.layer = 0
+    low_character.layer = 0
+    high_character.layer = 0
+    runtime_occluder.sort_y = 30
+    local sort_world = setmetatable({
+        children = { runtime_occluder, low_character },
+        player = low_character
+    }, { __index = World })
+    World.sortChildren(sort_world)
+    expect(sort_world.children[1] == low_character
+        and sort_world.children[2] == runtime_occluder,
+        "a low character behind terrain should render beneath its occlusion region")
+    sort_world.children = { runtime_occluder, high_character }
+    sort_world.player = high_character
+    World.sortChildren(sort_world)
+    expect(sort_world.children[1] == high_character
+        and sort_world.children[2] == runtime_occluder,
+        "reaching a region's top should not reorder the character or terrain")
+
+    local foreground_source = Object(0, 0, 40, 40)
+    foreground_source.layer = 1
+    local foreground_map = {
+        id = "occlusion_foreground_test",
+        getDrawableLayer = function(_, name)
+            return name == "Foreground" and foreground_source or nil
+        end
+    }
+    local foreground_occluder = HeightOccluder(foreground_map, {
+        id = 2, name = "foreground", shape = "rectangle",
+        x = 0, y = 0, width = 20, height = 40
+    }, { offsetx = 0, offsety = 0 }, {
+        source_layer = "Foreground", z = 0, depth = 40
+    })
+    occlusion_root:addChild(foreground_source)
+    occlusion_root:addChild(foreground_occluder)
+    foreground_occluder:resolveSourceLayer()
+    foreground_occluder.layer = 0
+    foreground_occluder.sort_y = runtime_occluder.sort_y
+    sort_world.children = { foreground_occluder, runtime_occluder }
+    World.sortChildren(sort_world)
+    expect(sort_world.children[1] == runtime_occluder
+        and sort_world.children[2] == foreground_occluder,
+        "equal-anchor occlusion regions should preserve their visual source-layer order")
+
+    -- Height changes must never reorder terrain. Visibility for a cleared
+    -- region is resolved locally by its stencil instead of by moving the
+    -- region around the player in the global draw list.
+    foreground_occluder.occlusion_depth = 80
+    foreground_occluder.source_draw_layer = 0
+    runtime_occluder.source_draw_layer = 1
+    high_character.z = 40
+    sort_world.children = {
+        foreground_occluder, runtime_occluder, high_character
+    }
+    sort_world.player = high_character
+    World.sortChildren(sort_world)
+    expect(sort_world.children[1] == high_character
+        and sort_world.children[2] == foreground_occluder
+        and sort_world.children[3] == runtime_occluder,
+        "mixed-height terrain should retain normal player and source ordering")
+
+    high_character.z = 80
+    World.sortChildren(sort_world)
+    expect(sort_world.children[1] == high_character
+        and sort_world.children[2] == foreground_occluder
+        and sort_world.children[3] == runtime_occluder,
+        "clearing every terrain top should not change terrain ordering")
+
+    high_character.z = 0
+    World.sortChildren(sort_world)
+    expect(sort_world.children[1] == high_character
+        and sort_world.children[2] == foreground_occluder
+        and sort_world.children[3] == runtime_occluder,
+        "dropping below every terrain top should restore source order above the player")
+
+    local occlusion_canvas = love.graphics.newCanvas(40, 40)
+    love.graphics.setCanvas({ occlusion_canvas, stencil = true })
+    love.graphics.origin()
+    love.graphics.clear(0, 0, 0, 0)
+    occlusion_source:fullDraw(true)
+    love.graphics.setCanvas()
+    local occlusion_base_data = occlusion_canvas:newImageData()
+    local _, _, _, masked_alpha = occlusion_base_data:getPixel(10, 20)
+    local _, _, _, base_alpha = occlusion_base_data:getPixel(30, 20)
+    expect(masked_alpha == 0 and base_alpha > 0,
+        "the background source pass should omit pixels owned by an occlusion region")
+
+    love.graphics.setCanvas({ occlusion_canvas, stencil = true })
+    love.graphics.origin()
+    love.graphics.clear(0, 0, 0, 0)
+    runtime_occluder:fullDraw(true)
+    love.graphics.setCanvas()
+    local occlusion_proxy_data = occlusion_canvas:newImageData()
+    local _, _, _, restored_alpha = occlusion_proxy_data:getPixel(10, 20)
+    local _, _, _, clipped_alpha = occlusion_proxy_data:getPixel(30, 20)
+    expect(restored_alpha > 0 and clipped_alpha == 0,
+        "the sorted proxy should redraw only its clipped terrain pixels")
+
+    local cutout_player = Object(0, 0, 20, 20)
+    cutout_player.height_sort_subject = true
+    cutout_player.use_3d_collision = true
+    function cutout_player:draw()
+        love.graphics.setColor(0, 0, 1, 1)
+        love.graphics.rectangle("fill", 0, 0, 20, 20)
+        love.graphics.setColor(1, 1, 1, 1)
+    end
+    function cutout_player:drawHeightOcclusionMask()
+        local r, g, b, a = love.graphics.getColor()
+        love.graphics.setColor(0, 0, 1, a)
+        love.graphics.rectangle("fill", 0, 0, 20, 20)
+        love.graphics.setColor(r, g, b, a)
+    end
+    occlusion_root:addChild(cutout_player)
+    TableUtils.removeValue(occlusion_root.children, cutout_player)
+    local runtime_occluder_index
+    for index, child in ipairs(occlusion_root.children) do
+        if child == runtime_occluder then
+            runtime_occluder_index = index
+            break
+        end
+    end
+    table.insert(occlusion_root.children, runtime_occluder_index, cutout_player)
+    occlusion_map.world = { player = cutout_player }
+    runtime_occluder.cutout_radius = 8
+    runtime_occluder.cutout_alpha = 0.25
+    runtime_occluder.cutout_feather = 0
+    runtime_occluder.sort_y = 30
+    love.graphics.setCanvas({ occlusion_canvas, stencil = true })
+    love.graphics.origin()
+    love.graphics.clear(0, 0, 0, 0)
+    runtime_occluder:fullDraw(true)
+    love.graphics.setCanvas()
+    local cutout_data = occlusion_canvas:newImageData()
+    local _, _, _, cutout_alpha = cutout_data:getPixel(10, 10)
+    local _, _, _, opaque_alpha = cutout_data:getPixel(10, 30)
+    expect(cutout_alpha > 0.2 and cutout_alpha < 0.35 and opaque_alpha > 0.95,
+        "terrain covering a low character should become translucent only inside the cutout")
+
+    TableUtils.removeValue(occlusion_root.children, cutout_player)
+    table.insert(occlusion_root.children, runtime_occluder_index + 1, cutout_player)
+    love.graphics.setCanvas({ occlusion_canvas, stencil = true })
+    love.graphics.origin()
+    love.graphics.clear(0, 0, 0, 0)
+    runtime_occluder:fullDraw(true)
+    love.graphics.setCanvas()
+    local foreground_cutout_data = occlusion_canvas:newImageData()
+    local _, _, _, foreground_cutout_alpha = foreground_cutout_data:getPixel(10, 10)
+    expect(foreground_cutout_alpha > 0.95,
+        "terrain behind the character should remain opaque instead of showing a cutout")
+
+    TableUtils.removeValue(occlusion_root.children, cutout_player)
+    table.insert(occlusion_root.children, runtime_occluder_index, cutout_player)
+    cutout_player.z = 40
+    cutout_player.y = 40
+    local silhouette_canvas = love.graphics.newCanvas(40, 40)
+    love.graphics.setCanvas(silhouette_canvas)
+    love.graphics.origin()
+    love.graphics.clear(0, 0, 0, 0)
+    love.graphics.replaceTransform(cutout_player:getFullVisualTransform())
+    cutout_player:drawHeightOcclusionMask()
+    love.graphics.setCanvas()
+    local silhouette_data = silhouette_canvas:newImageData()
+    local _, _, _, silhouette_alpha = silhouette_data:getPixel(10, 10)
+    expect(silhouette_alpha > 0.95,
+        "the cleared-terrain character silhouette should render at its projected position")
+    love.graphics.setCanvas({ occlusion_canvas, stencil = true })
+    love.graphics.origin()
+    love.graphics.clear(0, 0, 0, 0)
+    runtime_occluder:fullDraw(true)
+    love.graphics.setCanvas()
+    local cleared_cutout_data = occlusion_canvas:newImageData()
+    local cleared_cutout_r, _, cleared_cutout_b, cleared_cutout_alpha =
+        cleared_cutout_data:getPixel(10, 10)
+    local _, _, _, cleared_terrain_alpha = cleared_cutout_data:getPixel(10, 30)
+    expect(cleared_cutout_r < 0.05 and cleared_cutout_b > 0.95
+        and cleared_cutout_alpha > 0.95 and cleared_terrain_alpha > 0.95,
+        "opaque character reveals should replay over terrain without requiring an earlier framebuffer pass")
+
+    do
+        (function()
+            local premultiplied_source = love.graphics.newCanvas(1, 1)
+            local premultiplied_result = love.graphics.newCanvas(1, 1)
+            love.graphics.setCanvas(premultiplied_source)
+            love.graphics.origin()
+            love.graphics.clear(1, 0, 0, 1)
+            love.graphics.setCanvas(premultiplied_result)
+            love.graphics.clear(0, 0, 1, 1)
+            Draw.setColor(1, 1, 1, 0.5)
+            Draw.drawCanvas(premultiplied_source)
+            Draw.setColor(1, 1, 1, 1)
+            love.graphics.setCanvas()
+            local premultiplied_data = premultiplied_result:newImageData()
+            local premultiplied_r, premultiplied_g, premultiplied_b,
+                premultiplied_a = premultiplied_data:getPixel(0, 0)
+            expect(premultiplied_r > 0.45 and premultiplied_r < 0.55
+                and premultiplied_g < 0.05
+                and premultiplied_b > 0.45 and premultiplied_b < 0.55
+                and premultiplied_a > 0.95,
+                "canvas opacity must scale premultiplied RGB and alpha together")
+
+            cutout_player.alpha = 0.5
+            cutout_player._height_occlusion_mask_frame = nil
+            love.graphics.setCanvas({ occlusion_canvas, stencil = true })
+            love.graphics.origin()
+            love.graphics.clear(0, 0, 0, 0)
+            runtime_occluder:fullDraw(true)
+            love.graphics.setCanvas()
+            local translucent_data = occlusion_canvas:newImageData()
+            local translucent_r, _, translucent_b, translucent_a =
+                translucent_data:getPixel(10, 10)
+            expect(translucent_r > 0.45 and translucent_r < 0.55
+                and translucent_b > 0.95 and translucent_a > 0.95,
+                "any translucent height subject should blend over terrain without a type-specific opt-in")
+            cutout_player.alpha = 1
+            cutout_player._height_occlusion_mask_frame = nil
+        end)()
+    end
+
+    cutout_player.x = 0
+    cutout_player.y = 0
+    cutout_player.z = 0
+    runtime_occluder.face_position = 30
+    expect(runtime_occluder:isCharacterBehindFace(cutout_player)
+        and runtime_occluder:getCharacterDepthResult(cutout_player) == "terrain",
+        "a low character on the far side of a front face should be depth-occluded")
+    cutout_player.y = 20
+    expect(not runtime_occluder:isCharacterBehindFace(cutout_player)
+        and runtime_occluder:getCharacterDepthResult(cutout_player) == "character",
+        "crossing to the near side should put the character in front without changing terrain order")
+    cutout_player.y = 0
+    cutout_player.z = 40
+    expect(runtime_occluder:getCharacterDepthResult(cutout_player) == "character",
+        "clearing a face's top should put the character in front even on its far side")
+
+    do
+        local dash_source = Object(0, 40, 20, 20)
+        dash_source.height_sort_subject = true
+        dash_source.use_3d_collision = true
+        dash_source.z = 40
+        dash_source.ground_surface = runtime_occluder:resolveSurface()
+        function dash_source:draw()
+            love.graphics.rectangle("fill", 0, 0, 20, 20)
+        end
+        local dash_trail = AfterImage(dash_source, 0.5)
+        occlusion_root:addChild(dash_trail)
+        TableUtils.removeValue(occlusion_root.children, dash_trail)
+        table.insert(occlusion_root.children, runtime_occluder_index, dash_trail)
+        local dash_revealed = false
+        for _, subject in ipairs(runtime_occluder:getHeightReveals()) do
+            if subject == dash_trail then dash_revealed = true end
+        end
+        local dash_x, dash_y = dash_trail:getSortPosition()
+        local dash_mask_r, dash_mask_g, dash_mask_b, dash_mask_alpha =
+            dash_trail:getHeightOcclusionMaskCanvas():newImageData():getPixel(10, 10)
+        expect(dash_trail.height_sort_subject and dash_trail.use_3d_collision
+            and dash_trail:getFullZ() == 40
+            and dash_x == 10 and dash_y == 60
+            and dash_revealed
+            and dash_mask_r > 0.45 and dash_mask_r < 0.55
+            and dash_mask_g > 0.45 and dash_mask_g < 0.55
+            and dash_mask_b > 0.45 and dash_mask_b < 0.55
+            and dash_mask_alpha > 0.45 and dash_mask_alpha < 0.55,
+            "dash afterimages should retain height and correctly premultiplied RGBA through terrain")
+
+        cutout_player.y = 40
+        cutout_player._height_occlusion_mask_frame = nil
+        love.graphics.setCanvas({ occlusion_canvas, stencil = true })
+        love.graphics.origin()
+        love.graphics.clear(0, 0, 0, 0)
+        dash_trail:fullDraw(true)
+        cutout_player:fullDraw(true)
+        runtime_occluder:fullDraw(true)
+        love.graphics.setCanvas()
+        local dash_overlap_data = occlusion_canvas:newImageData()
+        local dash_overlap_r, _, dash_overlap_b, dash_overlap_a =
+            dash_overlap_data:getPixel(10, 10)
+        expect(dash_overlap_r < 0.05 and dash_overlap_b > 0.95
+            and dash_overlap_a > 0.95,
+            string.format(
+                "an earlier translucent trail must not tint or replace the later opaque player (%.3f, %.3f, %.3f)",
+                dash_overlap_r, dash_overlap_b, dash_overlap_a
+            ))
+        dash_trail:remove()
+        TableUtils.removeValue(occlusion_root.children, dash_trail)
+        cutout_player.y = 0
+        cutout_player._height_occlusion_mask_frame = nil
+    end
+
+    do
+        (function()
+            local shadow_owner = Object(20, 20, 20, 20)
+            shadow_owner.platforming_enabled = true
+            shadow_owner.shadow_z = 0
+            shadow_owner.shadow_surface = {
+                id = "shadow_floor",
+                top = 0,
+                support_bounds = {
+                    min_x = 0, min_y = 0,
+                    max_x = 80, max_y = 80
+                }
+            }
+            shadow_owner.shouldDrawHeightShadow = Player.shouldDrawHeightShadow
+            shadow_owner.getHeightShadowOffset = Player.getHeightShadowOffset
+            shadow_owner.getHeightShadowAlpha = Player.getHeightShadowAlpha
+
+            local sorted_shadow = HeightShadow(shadow_owner)
+            shadow_owner.height_shadow = sorted_shadow
+            local foreground_object = Object(28, 30, 20, 20)
+            function foreground_object:draw()
+                love.graphics.setColor(1, 0, 0, 1)
+                love.graphics.rectangle("fill", 0, 0, self.width, self.height)
+                love.graphics.setColor(1, 1, 1, 1)
+            end
+
+            local shadow_root = Object()
+            shadow_root:addChild(sorted_shadow)
+            shadow_root:addChild(foreground_object)
+            shadow_root:addChild(shadow_owner)
+            local shadow_world = setmetatable({
+                children = shadow_root.children,
+                player = shadow_owner,
+                map = {}
+            }, { __index = World })
+            World.sortChildren(shadow_world)
+            expect(shadow_root.children[1] == sorted_shadow
+                and shadow_root.children[2] == shadow_owner
+                and shadow_root.children[3] == foreground_object,
+                "the ground shadow should sort independently below foreground objects and the player")
+
+            shadow_owner.shadow_surface.support_bounds.max_x = 28
+            local clipped_shadow_canvas = love.graphics.newCanvas(80, 80)
+            love.graphics.setCanvas({ clipped_shadow_canvas, stencil = true })
+            love.graphics.origin()
+            love.graphics.clear(1, 1, 1, 1)
+            sorted_shadow:fullDraw()
+            love.graphics.setCanvas()
+            local clipped_shadow_data = clipped_shadow_canvas:newImageData()
+            local clipped_inside_r = clipped_shadow_data:getPixel(25, 38)
+            local clipped_outside_r = clipped_shadow_data:getPixel(30, 38)
+            expect(clipped_inside_r > 0.63 and clipped_inside_r < 0.67
+                and clipped_outside_r > 0.95,
+                "the shadow subject should clip itself at its receiving surface's side edge")
+            shadow_owner.shadow_surface.support_bounds.max_x = 80
+
+            local sorted_shadow_canvas = love.graphics.newCanvas(80, 80)
+            love.graphics.setCanvas({ sorted_shadow_canvas, stencil = true })
+            love.graphics.origin()
+            love.graphics.clear(1, 1, 1, 1)
+            shadow_root:fullDraw()
+            love.graphics.setCanvas()
+            local sorted_shadow_data = sorted_shadow_canvas:newImageData()
+            local shadow_only_r, shadow_only_g, shadow_only_b =
+                sorted_shadow_data:getPixel(25, 38)
+            local object_r, object_g, object_b, object_a =
+                sorted_shadow_data:getPixel(30, 38)
+            expect(shadow_only_r > 0.63 and shadow_only_r < 0.67
+                and shadow_only_g > 0.63 and shadow_only_g < 0.67
+                and shadow_only_b > 0.63 and shadow_only_b < 0.67,
+                "the independently sorted shadow should retain its intended opacity")
+            expect(object_r > 0.95 and object_g < 0.05 and object_b < 0.05
+                and object_a > 0.95,
+                "a foreground object must draw over the independently sorted shadow")
+        end)()
+    end
+
+    if Mod and Mod.info.id == "mimicrune_prologue" then
+        local platforming_map_data = Registry.getMapData("test")
+        local platforming_root = Object()
+        local platforming_map = Map(platforming_root, platforming_map_data)
+        platforming_map.id = "test"
+        platforming_map:load()
+        expect(#platforming_map.height_occluders == 3,
+            "the test map should use proxies only for genuinely raised structures")
+        for _, occluder in ipairs(platforming_map.height_occluders) do
+            local mask_points = occluder:getOcclusionMaskPoints()
+            local mask_max_y = -math.huge
+            for _, point in ipairs(mask_points) do
+                mask_max_y = math.max(mask_max_y, point[2])
+            end
+            expect(occluder:resolveSourceLayer() ~= nil
+                and occluder:resolveSurface() ~= nil
+                and type(occluder.occlusion_depth) == "number"
+                and type(occluder.face_position) == "number"
+                and occluder.sort_y == occluder.face_position
+                    + occluder.sort_y_offset
+                and (occluder.face_direction ~= "front"
+                    or mask_max_y <= occluder.face_position + 0.001)
+                and occluder.layer == platforming_map.object_layer,
+                "test-map faces should clip their dynamic pixels at the resolved depth boundary")
+        end
+
+        local front_floor = platforming_map:getSurface("front_floor")
+        local back_floor = platforming_map:getSurface("back_floor")
+        local center_tower = platforming_map:getSurface("center_tower")
+        local left_tower = platforming_map:getSurface("left_tower")
+        expect(front_floor and back_floor and center_tower and left_tower
+            and front_floor.plane == "base" and back_floor.plane == "base"
+            and platforming_map:getImplicitSurface().plane == "base"
+            and center_tower.top == 80 and center_tower.plane == "upper_80"
+            and left_tower.support_bounds.max_y == 280
+            and left_tower.bounds.max_y == 320,
+            "same-height floors should share an explicit plane independent of art layers")
+
+        do
+            local test_savepoint = platforming_map.events_by_name.savepoint
+                and platforming_map.events_by_name.savepoint[1]
+            local save_visual_x, save_visual_y =
+                test_savepoint:getFullVisualTransform():transformPoint(
+                    test_savepoint.width / 2, test_savepoint.height / 2)
+            local anchor_local_x = test_savepoint.width / 4 + 2
+            local anchor_local_y = test_savepoint.height / 4 + 2
+            local expected_anchor_x, expected_anchor_y =
+                test_savepoint:localToVisualScreenPos(anchor_local_x, anchor_local_y)
+            local menu_anchor_x, menu_anchor_y = SaveMenu.getAnchorPosition({
+                point = {
+                    stage = true,
+                    width = test_savepoint.width,
+                    height = test_savepoint.height,
+                    localToVisualScreenPos = function(_, x, y)
+                        return test_savepoint:localToVisualScreenPos(x, y)
+                    end
+                }
+            })
+            expect(test_savepoint and test_savepoint.surface_id == "left_tower"
+                and test_savepoint.z == 120 and test_savepoint.y == 220
+                and math.abs(save_visual_x - 140) < 0.001
+                and math.abs(save_visual_y - 100) < 0.001
+                and test_savepoint.ground_surface == left_tower
+                and test_savepoint.height_sensitive
+                and test_savepoint.height_sort_subject
+                and test_savepoint.use_3d_collision,
+                "the test savepoint should occupy and render on the left tower's top surface")
+            expect(math.abs(menu_anchor_x - expected_anchor_x) < 0.001
+                and math.abs(menu_anchor_y - expected_anchor_y) < 0.001,
+                "the dark save menu should anchor to an elevated savepoint's projected position")
+        end
+        World.sortChildren(platforming_root)
+        local front_tiles = platforming_map:getDrawableLayer("Tiles")
+        local terrain_canvas = love.graphics.newCanvas(640, 480)
+        local front_floor_canvas = love.graphics.newCanvas(640, 480)
+        love.graphics.setCanvas({ terrain_canvas, stencil = true })
+        love.graphics.origin()
+        love.graphics.clear(0, 0, 0, 0)
+        platforming_root:fullDraw()
+        love.graphics.setCanvas({ front_floor_canvas, stencil = true })
+        love.graphics.origin()
+        love.graphics.clear(0, 0, 0, 0)
+        front_tiles:fullDraw(true)
+        love.graphics.setCanvas()
+        local terrain_data = terrain_canvas:newImageData()
+        local floor_data = front_floor_canvas:newImageData()
+        local actual_r, actual_g, actual_b, actual_a = terrain_data:getPixel(100, 400)
+        local floor_r, floor_g, floor_b, floor_a = floor_data:getPixel(100, 400)
+        expect(floor_a > 0.95 and actual_a > 0.95
+            and math.abs(actual_r - floor_r) < 0.001
+            and math.abs(actual_g - floor_g) < 0.001
+            and math.abs(actual_b - floor_b) < 0.001,
+            "back-pillar proxies must not overwrite the test map's front floor")
+
+        local map_player = Object(444, 381)
+        map_player.height_sort_subject = true
+        map_player.use_3d_collision = true
+        map_player.z = 40
+        map_player.layer = platforming_map.object_layer
+        local map_sort_world = setmetatable({
+            children = TableUtils.copy(platforming_map.height_occluders),
+            player = map_player
+        }, { __index = World })
+        table.insert(map_sort_world.children, map_player)
+        World.sortChildren(map_sort_world)
+        local function terrainOrder()
+            local names = {}
+            for _, child in ipairs(map_sort_world.children) do
+                if child ~= map_player then table.insert(names, child.data.name) end
+            end
+            return table.concat(names, "|")
+        end
+        local authored_terrain_order = table.concat({
+            "Left Tower Visual", "Center Tower Visual",
+            "Right Platform Visual"
+        }, "|")
+        expect(terrainOrder() == authored_terrain_order,
+            "the updated test map should preserve authored terrain order at z=40")
+        map_player.y = 600
+        map_player.z = 120
+        World.sortChildren(map_sort_world)
+        expect(terrainOrder() == authored_terrain_order,
+            "moving above and in front of the pillars should never resort the terrain")
+
+        local front_player = Object(321, 340)
+        front_player.height_sort_subject = true
+        front_player.use_3d_collision = true
+        front_player.z = 0
+        front_player.layer = platforming_map.object_layer
+        platforming_root:addChild(front_player)
+        platforming_root.player = front_player
+        World.sortChildren(platforming_root)
+        local named_occluders = {}
+        for _, occluder in ipairs(platforming_map.height_occluders) do
+            named_occluders[occluder.data.name] = occluder
+        end
+        local center_face = named_occluders["Center Tower Visual"]
+        local left_face = named_occluders["Left Tower Visual"]
+        expect(center_face.face_position == 320 and center_face.sort_y == 320
+            and center_face.mask_sort_y == 480
+            and not center_face:isCharacterBehindFace(front_player)
+            and center_face:getCharacterDepthResult(front_player) == "character"
+            and center_face:getCharacterCutout(center_face.source_layer) == nil,
+            "the same-height back floor must remain in front of the center wall on its near side")
+
+        front_player.y = 300
+        front_player.z = 0
+        World.sortChildren(platforming_root)
+        expect(center_face:isCharacterBehindFace(front_player)
+            and center_face:getCharacterDepthResult(front_player) == "terrain"
+            and center_face:isDrawnAfterCharacter(front_player),
+            "the same center wall must cover a low character on its far side")
+
+        front_player.x = 270
+        expect(not center_face:isCharacterBehindFace(front_player),
+            "brushing a platform side outside its support span must not start occlusion")
+        front_player.x = 300
+        expect(center_face:isCharacterBehindFace(front_player),
+            "the same face should occlude once the player's foot point enters its lateral span")
+
+        front_player.x = 120
+        front_player.y = 281
+        front_player.z = 119
+        front_player.ground_surface = nil
+        front_player.airborne_surface = left_tower
+        expect(left_face.face_position == 280
+            and left_face:getCharacterDepthResult(front_player) == "character",
+            "dropping from the left platform's bottom edge must immediately remain on its near side")
+        front_player.y = 279
+        expect(left_face:getCharacterDepthResult(front_player) == "terrain",
+            "falling from the far side of that support edge should still pass behind the tower")
+
+        front_player.x = 321
+        front_player.z = 80
+        front_player.ground_surface = center_tower
+        expect(center_face:getCharacterDepthResult(front_player) == "character"
+            and center_face:getCharacterReveal() == front_player,
+            "jumping to the center surface elevation should clear its depth face")
+
+        front_player.ground_surface = nil
+        front_player.airborne_surface = center_tower
+        front_player.z = 40
+        expect(center_face:getCharacterDepthResult(front_player) == "terrain",
+            "remembering a departed surface must not keep an actor visible after falling below its top")
+
+        front_player.y = 340
+        front_player.z = 0
+        front_player.airborne_surface = nil
+        local before_order = terrainOrder()
+        World.sortChildren(platforming_root)
+        expect(terrainOrder() == before_order
+            and center_face:getCharacterDepthResult(front_player) == "character",
+            "crossing between same-plane art layers must not reorder terrain or infer a new plane")
+    end
 
     local jump_forwarded = false
     local fake_editor = {

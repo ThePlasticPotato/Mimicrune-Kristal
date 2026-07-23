@@ -28,6 +28,8 @@ function TiledMapReader:initialize(data)
     map.light = data.properties and data.properties["light"] or false
     map.border = data.properties and data.properties["border"]
     map.platforming = data.properties and data.properties["platforming"] or false
+    map.base_surface_plane = tostring(data.properties
+        and data.properties["base_surface_plane"] or "z:0")
     map.empty_tile_pit = data.properties and (data.properties["empty_tile_pit"] == true
         or data.properties["empty_tiles_are_pits"] == true) or false
 
@@ -126,6 +128,8 @@ function operations.loadLayer(self, layer, depth)
             self:loadMarkers(layer)
         elseif self:isLayerType(layer, "collision") then
             self:loadCollision(layer)
+        elseif self:isLayerType(layer, "occlusion") then
+            self:loadHeightOcclusion(layer, depth)
         elseif self:isLayerType(layer, "enemycollision") then
             self:loadEnemyCollision(layer)
         elseif self:isLayerType(layer, "blockcollision") then

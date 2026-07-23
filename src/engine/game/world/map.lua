@@ -57,6 +57,7 @@ function Map:init(world, data)
     self.bg_color = { 0, 0, 0, 0 }
     self.platforming = false
     self.empty_tile_pit = false
+    self.base_surface_plane = "z:0"
 
     self.tilesets = {}
     self.tileset_gids = {}
@@ -68,6 +69,18 @@ function Map:init(world, data)
     self.pits = {}
     self.tile_layers = {}
     self.image_layers = {}
+    self.height_occluders = {}
+    self.surfaces = {}
+    self.surface_by_collider = setmetatable({}, { __mode = "k" })
+    self.implicit_surface = {
+        id = "__implicit_ground",
+        plane = self.base_surface_plane,
+        bottom = 0,
+        top = 0,
+        implicit = true,
+        colliders = {},
+        support_colliders = {}
+    }
     self.shape_layers = {}
     self.markers = {}
     self.markers_by_id = {}
@@ -115,6 +128,11 @@ function Map:load()
     self.world:addChild(self.timer)
     if self.data then
         self.reader:read(self.data)
+    end
+    for _, occluder in ipairs(self.height_occluders) do
+        occluder.layer = self.object_layer
+        occluder:resolveSourceLayer()
+        occluder:resolveSurface()
     end
     for _, event in ipairs(self.events) do
         if event.onLoad then
@@ -307,6 +325,140 @@ function Map:getImageLayer(id)
     return self.image_layers[id]
 end
 
+local function defaultSurfacePlane(top)
+    if math.abs(top) < 0.001 then top = 0 end
+    return "z:" .. tostring(top)
+end
+
+--- Registers a map collider as part of a height surface.
+---@param collider Collider
+---@param fallback_id? string|number
+---@return table? surface
+function Map:registerSurfaceCollider(collider, fallback_id)
+    if not collider or collider.pit then return nil end
+    local surface_id = collider.surface_id
+    if not surface_id and collider.supports then
+        surface_id = "collision:" .. tostring(fallback_id or collider.map_object_id
+            or collider.map_object_name or #self.surfaces + 1)
+        collider.surface_id = surface_id
+    end
+    if not surface_id then return nil end
+
+    surface_id = tostring(surface_id)
+    local surface = self.surfaces[surface_id]
+    if not surface then
+        surface = {
+            id = surface_id,
+            plane = collider.surface_plane,
+            explicit_plane = collider.surface_plane ~= nil,
+            bottom = math.huge,
+            top = -math.huge,
+            bounds = nil,
+            support_bounds = nil,
+            support_top = nil,
+            colliders = {},
+            support_colliders = {}
+        }
+        self.surfaces[surface_id] = surface
+    elseif collider.surface_plane then
+        if surface.explicit_plane and collider.surface_plane ~= surface.plane then
+            Kristal.Console:warn(string.format(
+                "Surface '%s' mixes planes '%s' and '%s'; keeping '%s'",
+                surface_id, surface.plane, collider.surface_plane, surface.plane
+            ))
+        else
+            surface.plane = collider.surface_plane
+            surface.explicit_plane = true
+        end
+    end
+
+    local bottom, top = collider:getZBounds()
+    surface.bottom = math.min(surface.bottom, bottom)
+    surface.top = math.max(surface.top, top)
+    if collider.map_bounds then
+        local bounds = collider.map_bounds
+        if not surface.bounds then
+            surface.bounds = {
+                min_x = bounds.min_x, min_y = bounds.min_y,
+                max_x = bounds.max_x, max_y = bounds.max_y
+            }
+        else
+            surface.bounds.min_x = math.min(surface.bounds.min_x, bounds.min_x)
+            surface.bounds.min_y = math.min(surface.bounds.min_y, bounds.min_y)
+            surface.bounds.max_x = math.max(surface.bounds.max_x, bounds.max_x)
+            surface.bounds.max_y = math.max(surface.bounds.max_y, bounds.max_y)
+        end
+    end
+    table.insert(surface.colliders, collider)
+    if collider.supports then
+        table.insert(surface.support_colliders, collider)
+        local bounds = collider.map_bounds
+        if surface.support_top == nil or top > surface.support_top + 0.001 then
+            surface.support_top = top
+            surface.support_bounds = bounds and {
+                min_x = bounds.min_x, min_y = bounds.min_y,
+                max_x = bounds.max_x, max_y = bounds.max_y
+            } or nil
+        elseif math.abs(top - surface.support_top) <= 0.001 and bounds then
+            if not surface.support_bounds then
+                surface.support_bounds = {
+                    min_x = bounds.min_x, min_y = bounds.min_y,
+                    max_x = bounds.max_x, max_y = bounds.max_y
+                }
+            else
+                surface.support_bounds.min_x =
+                    math.min(surface.support_bounds.min_x, bounds.min_x)
+                surface.support_bounds.min_y =
+                    math.min(surface.support_bounds.min_y, bounds.min_y)
+                surface.support_bounds.max_x =
+                    math.max(surface.support_bounds.max_x, bounds.max_x)
+                surface.support_bounds.max_y =
+                    math.max(surface.support_bounds.max_y, bounds.max_y)
+            end
+        end
+    end
+    surface.plane = surface.plane or defaultSurfacePlane(surface.top)
+    if not surface.explicit_plane then
+        surface.plane = defaultSurfacePlane(surface.top)
+    end
+    self.surface_by_collider[collider] = surface
+    if collider:includes(ColliderGroup) then
+        for _, child in ipairs(collider.colliders) do
+            self.surface_by_collider[child] = surface
+        end
+    end
+    return surface
+end
+
+---@param id string?
+---@return table? surface
+function Map:getSurface(id)
+    if id == nil or id == "" then return nil end
+    return self.surfaces[tostring(id)]
+end
+
+---@param collider Collider?
+---@return table? surface
+function Map:getSurfaceForCollider(collider)
+    if not collider then return nil end
+    return self.surface_by_collider[collider]
+        or collider.surface_id and self:getSurface(collider.surface_id) or nil
+end
+
+---@return table surface
+function Map:getImplicitSurface()
+    self.implicit_surface.plane = self.base_surface_plane or "z:0"
+    return self.implicit_surface
+end
+
+--- Gets a tile/image layer that can provide pixels to an occlusion region.
+---@param name string
+---@return Object?
+function Map:getDrawableLayer(name)
+    if type(name) ~= "string" or name == "" then return nil end
+    return self:getTileLayer(name) or self:getImageLayer(name)
+end
+
 function Map:getShapeLayer(name)
     return self.shape_layers[name]
 end
@@ -418,6 +570,10 @@ end
 
 function Map:loadShapes(layer)
     return self.reader:call("loadShapes", layer)
+end
+
+function Map:loadHeightOcclusion(layer, depth)
+    return self.reader:call("loadHeightOcclusion", layer, depth)
 end
 
 function Map:loadMarkers(layer)

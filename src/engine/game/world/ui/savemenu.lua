@@ -189,7 +189,10 @@ end
 
 function SaveMenu:getAnchorPosition()
     if self.point and self.point.stage then
-        local x, y = self.point:localToScreenPos(self.point.width / 4 + 2, self.point.height / 4 + 2)
+        local x, y = self.point:localToVisualScreenPos(
+            self.point.width / 4 + 2,
+            self.point.height / 4 + 2
+        )
         return x, y
     end
     return SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2

@@ -36,6 +36,7 @@ function Character:init(actor, x, y)
     self.enemy_collision = false
     -- When enabled, character movement opts into World:checkCollision3D.
     self.use_3d_collision = false
+    self.height_sort_subject = true
 
     self.spin_timer = 0
     self.spin_speed = 0
@@ -810,6 +811,12 @@ function Character:draw()
 
     if DEBUG_RENDER then
         self.collider:draw(0, 1, 0)
+    end
+end
+
+function Character:drawHeightOcclusionMask()
+    if self.sprite and self.sprite.visible then
+        self.sprite:fullDraw(false)
     end
 end
 

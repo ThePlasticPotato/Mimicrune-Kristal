@@ -17,8 +17,8 @@ local function objectsLayerLoader()
 end
 
 local function mapLoader(method)
-    return objectLoader(function(map, layer)
-        map[method](map, layer)
+    return objectLoader(function(map, layer, depth)
+        map[method](map, layer, depth)
     end)
 end
 
@@ -35,6 +35,54 @@ end
 local function tileProperties(properties)
     properties:registerProperty("ground", "boolean", {
         name = "Provides Ground", default = true
+    })
+end
+
+local function occlusionProperties(properties)
+    properties:registerProperty("source_layer", "string", {
+        name = "Visual Source Layer",
+        placeholder = "Tile or image layer name"
+    })
+    properties:registerProperty("z", "number", {
+        name = "Bottom Z Override"
+    })
+    properties:registerProperty("depth", "number", {
+        name = "Height Override"
+    })
+    properties:registerProperty("surface_id", "string", {
+        name = "Linked Surface ID",
+        placeholder = "Collision surface_id"
+    })
+    properties:registerProperty("face_direction", "choice", {
+        name = "Depth Face", default = "front", choices = {
+            { value = "front", label = "Front (+Y near)" },
+            { value = "back", label = "Back (-Y near)" },
+            { value = "left", label = "Left (-X near)" },
+            { value = "right", label = "Right (+X near)" },
+            { value = "always", label = "Always in Front" },
+            { value = "never", label = "Never in Front" }
+        }
+    })
+    properties:registerProperty("face_y", "number", {
+        name = "Face Y Override"
+    })
+    properties:registerProperty("face_x", "number", {
+        name = "Face X Override"
+    })
+    properties:registerProperty("sort_y_offset", "number", {
+        name = "Face Sort Offset Y", default = 0
+    })
+    properties:registerProperty("cutout_enabled", "boolean", {
+        name = "Character Cutout", default = true
+    })
+    properties:registerProperty("cutout_radius", "number", {
+        name = "Cutout Radius", default = 32
+    })
+    properties:registerProperty("cutout_alpha", "number", {
+        name = "Cutout Opacity", default = 0.3
+    })
+    properties:registerProperty("cutout_feather", "number", {
+        name = "Cutout Feather", default = 6
     })
 end
 
@@ -98,6 +146,7 @@ local DEFAULT_TYPES = {
     { id = "image",          name = "Image",           kind = "image",  icon = "editor/ui/layer/image",          color = { 0.8, 0.8, 0.82, 1 }, properties = imageProperties },
     { id = "objects",        name = "Objects",         kind = "object", icon = "editor/ui/layer/objects",        color = { 1, 0, 1, 1 },       load = objectsLayerLoader() },
     { id = "collision",      name = "Collision",       kind = "object", icon = "editor/ui/layer/collision",      color = { 0, 0, 1, 1 },       load = mapLoader("loadCollision") },
+    { id = "occlusion",      name = "Height Occlusion", kind = "object", icon = "editor/ui/layer/default",        color = { 0.75, 0.3, 1, 1 },  properties = occlusionProperties, load = mapLoader("loadHeightOcclusion") },
     { id = "enemycollision", name = "Enemy Collision", kind = "object", icon = "editor/ui/layer/enemycollision", color = { 0, 1, 1, 1 },       load = mapLoader("loadEnemyCollision") },
     { id = "blockcollision", name = "Block Collision", kind = "object", icon = "editor/ui/layer/blockcollision", color = { 1, 0.35, 0, 1 },    load = mapLoader("loadBlockCollision") },
     { id = "battleareas",    name = "Battle Areas",    kind = "object", icon = "editor/ui/layer/battleareas",    color = { 1, 0.25, 0.25, 1 }, load = mapLoader("loadBattleAreas") },
@@ -260,7 +309,7 @@ function LayerTypeRegistry:getLegacyTiledType(layer)
             or isLegacyType(layer, "markers") or isLegacyType(layer, "paths") then
             return self.types.objects
         end
-        local ids = { "collision", "enemycollision", "blockcollision", "battleareas" }
+        local ids = { "collision", "occlusion", "enemycollision", "blockcollision", "battleareas" }
         for _, id in ipairs(ids) do
             if isLegacyType(layer, id) then return self.types[id] end
         end

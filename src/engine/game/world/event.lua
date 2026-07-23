@@ -286,6 +286,10 @@ function Event:draw()
     end
 end
 
+function Event:drawHeightOcclusionMask()
+    super.draw(self)
+end
+
 function Event:onClone(src)
     super.onClone(self, src)
     if src.world then

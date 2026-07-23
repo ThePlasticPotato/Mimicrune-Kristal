@@ -1155,11 +1155,32 @@ function EditorMapDocument:findObjectAt(world_x, world_y, options)
     end
 end
 
+function EditorMapDocument:getObjectVisualZ(selection)
+    local layer_type = selection.layer
+        and Registry.getLayerType(selection.layer._editor_type_id)
+    if not layer_type or layer_type.id ~= "objects" then return 0 end
+    local properties = selection.data.properties or {}
+    local z = tonumber(properties.z)
+    if z ~= nil then return z end
+    local surface_id = properties.surface_id or properties.structure_id
+    if surface_id then
+        local preview = self:getPreview(selection.entry)
+        local surface = preview and preview.map
+            and preview.map:getSurface(surface_id) or nil
+        if surface then return surface.top end
+    end
+    return 0
+end
+
 function EditorMapDocument:getObjectLocalRect(selection)
     local data = selection.data
+    local visual_z = self:getObjectVisualZ(selection)
     if data.gid then
         local preview = self:getPreview(selection.entry)
-        if preview and preview.map then return preview.map:getTileObjectRect(data) end
+        if preview and preview.map then
+            local x, y, width, height = preview.map:getTileObjectRect(data)
+            return x, y - visual_z, width, height
+        end
     elseif data.tileset and data.tile_id ~= nil then
         local tileset = Registry.getTileset(data.tileset)
         if tileset then
@@ -1167,7 +1188,7 @@ function EditorMapDocument:getObjectLocalRect(selection)
             local width, height = data.width or tile_width, data.height or tile_height
             local origin = Tileset.ORIGINS[tileset.object_alignment] or Tileset.ORIGINS.unspecified
             return (data.x or 0) - origin[1] * width,
-                (data.y or 0) - origin[2] * height, width, height
+                (data.y or 0) - origin[2] * height - visual_z, width, height
         end
     end
     local width, height = data.width or 0, data.height or 0
@@ -1175,7 +1196,7 @@ function EditorMapDocument:getObjectLocalRect(selection)
         width = width * math.abs(data.scale_x or 1)
         height = height * math.abs(data.scale_y or 1)
     end
-    return data.x or 0, data.y or 0, width, height
+    return data.x or 0, (data.y or 0) - visual_z, width, height
 end
 
 function EditorMapDocument:getEditorObjectType(data, map_id)
@@ -1422,6 +1443,18 @@ function EditorMapDocument:createPreview(entry)
     local layer_parent = {}
     local layer_registry = Registry.layer_types
     local reader_class = Registry.getMapReader(entry.id)
+    -- Resolve collision surfaces before constructing editor objects
+    for _, tree_entry in ipairs(self:getFlatEditableLayers(entry.id, false)) do
+        local layer = tree_entry.layer
+        if layer.type == "objectgroup" then
+            local layer_type = layer_registry:get(layer._editor_type_id)
+                or (reader_class and reader_class.LEGACY_FORMAT
+                    and layer_registry:getLegacyTiledType(layer))
+            if layer_type and layer_type.id == "collision" then
+                map:loadCollision(layer)
+            end
+        end
+    end
     for _, tree_entry in ipairs(self:getFlatEditableLayers(entry.id, false)) do
         local layer = tree_entry.layer
         layer_lookup[layer._editor_uid] = layer
@@ -1465,7 +1498,8 @@ function EditorMapDocument:createPreview(entry)
                     }))
                 end
             elseif layer_type then
-                table.insert(editor_overlays, EditorLayerOverlay(layer, layer_type, layer_depth))
+                table.insert(editor_overlays,
+                    EditorLayerOverlay(layer, layer_type, layer_depth, map))
             end
         end
     end

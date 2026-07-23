@@ -99,6 +99,8 @@
 ---@field layer number
 ---@field map_layer boolean? Whether this object is a map drawable that sorts before map objects at the same layer.
 ---@field map_layer_sort_id string? Stable identity used to order equal-depth map drawables independently of editor layer order.
+---@field height_occluder boolean? Whether this drawable participates in height-aware terrain sorting.
+---@field height_sort_subject boolean? Whether height-aware occluders should compare against this object.
 ---
 ---@field collider Collider? A Collider class used to check collision with other objects.
 ---@field collidable boolean Whether the object should be able to collide with other objects.
@@ -210,7 +212,7 @@ function Object:init(x, y, width, height)
     -- Various draw properties
     self.color = { 1, 1, 1 }
     self.alpha = 1
-    self.height_occlusion_alpha = 1
+    self.height_occlusion_masks = nil
     -- Optional LÖVE blend mode used by editor-format layers and other draw containers.
     self.blend_mode = nil
     self.scale_x = 1
@@ -1268,6 +1270,16 @@ function Object:localToScreenPos(x, y)
     return self:getFullTransform():transformPoint(x or 0, y or 0)
 end
 
+--- Returns a local position in screen space using the object's projected
+--- visual transform, including Z elevation.
+---@param x? number
+---@param y? number
+---@return number x
+---@return number y
+function Object:localToVisualScreenPos(x, y)
+    return self:getFullVisualTransform():transformPoint(x or 0, y or 0)
+end
+
 --- Returns the specified position for the object's stage, relative to this object.
 ---@param x? number The `x` position relative to the object's stage.
 ---@param y? number The `y` position relative to the object's stage.
@@ -1323,13 +1335,159 @@ end
 ---@return number a The object's draw alpha.
 function Object:getDrawColor()
     local r, g, b = unpack(self.color)
-    local alpha = self.alpha * (self.height_occlusion_alpha or 1)
+    local alpha = self.alpha
     if self.inherit_color and self.parent then
         local pr, pg, pb, pa = self.parent:getDrawColor()
         return r * pr, g * pg, b * pb, alpha * pa
     else
         return r, g, b, alpha
     end
+end
+
+--- Registers a clipped height-occlusion region sourced from this drawable.
+---@param mask HeightOccluder
+function Object:addHeightOcclusionMask(mask)
+    self.height_occlusion_masks = self.height_occlusion_masks or {}
+    if not TableUtils.contains(self.height_occlusion_masks, mask) then
+        table.insert(self.height_occlusion_masks, mask)
+    end
+end
+
+--- Removes a clipped height-occlusion region sourced from this drawable.
+---@param mask HeightOccluder
+function Object:removeHeightOcclusionMask(mask)
+    if not self.height_occlusion_masks then return end
+    TableUtils.removeValue(self.height_occlusion_masks, mask)
+    if #self.height_occlusion_masks == 0 then self.height_occlusion_masks = nil end
+end
+
+--- Excludes all registered occlusion regions from this drawable's base pass.
+---@return string? comparison
+---@return number? value
+function Object:beginHeightOcclusionMask()
+    if self._drawing_height_occlusion_source
+        or not self.height_occlusion_masks or #self.height_occlusion_masks == 0 then
+        return nil
+    end
+    local comparison, value = love.graphics.getStencilTest()
+    love.graphics.stencil(function()
+        for _, mask in ipairs(self.height_occlusion_masks) do
+            if mask.parent and mask.drawMaskRelativeTo then mask:drawMaskRelativeTo(self) end
+        end
+    end, "replace", 1)
+    love.graphics.setStencilTest("equal", 0)
+    return comparison or false, value
+end
+
+---@param comparison string|boolean?
+---@param value number?
+function Object:endHeightOcclusionMask(comparison, value)
+    if comparison == nil then return end
+    if comparison then
+        love.graphics.setStencilTest(comparison, value)
+    else
+        love.graphics.setStencilTest()
+    end
+end
+
+---@param character Object
+---@return "terrain"|"character"
+function Object:getHeightDepthResult(character)
+    if not self.height_occluder or self.height_occlusion_proxy then
+        return "terrain"
+    end
+    local world = self.parent
+    local surface = world and world.map and self.surface_id
+        and world.map:getSurface(self.surface_id) or nil
+    local character_surface = character.ground_surface
+    if surface and character_surface and surface.id == character_surface.id then
+        return "character"
+    end
+    local top = self:getFullZ() + (self.occlusion_depth or self.depth or 0)
+    if character:getFullZ() >= top - 0.001 then return "character" end
+
+    local direction = self.height_face_direction or "front"
+    if direction == "always" then return "terrain" end
+    if direction == "never" then return "character" end
+    local face_x, face_y = self.height_face_x, self.height_face_y
+    local face_bounds = surface and (surface.support_bounds or surface.bounds)
+    if face_bounds then
+        if not face_y and direction == "front" then face_y = face_bounds.max_y end
+        if not face_y and direction == "back" then face_y = face_bounds.min_y end
+        if not face_x and direction == "left" then face_x = face_bounds.min_x end
+        if not face_x and direction == "right" then face_x = face_bounds.max_x end
+    end
+    local x, y = character:getSortPosition()
+    local epsilon = 0.001
+    if face_bounds then
+        if (direction == "front" or direction == "back")
+            and (x <= face_bounds.min_x + epsilon
+                or x >= face_bounds.max_x - epsilon) then
+            return "character"
+        elseif (direction == "left" or direction == "right")
+            and (y <= face_bounds.min_y + epsilon
+                or y >= face_bounds.max_y - epsilon) then
+            return "character"
+        end
+    end
+    local behind
+    if direction == "front" then
+        local _, fallback_y = self:getSortPosition()
+        behind = y < (face_y or fallback_y) - epsilon
+    elseif direction == "back" then
+        local _, fallback_y = self:getSortPosition()
+        behind = y > (face_y or fallback_y) + epsilon
+    elseif direction == "left" then
+        local fallback_x = self:getSortPosition()
+        behind = x > (face_x or fallback_x) + epsilon
+    elseif direction == "right" then
+        local fallback_x = self:getSortPosition()
+        behind = x < (face_x or fallback_x) - epsilon
+    else
+        behind = true
+    end
+    return behind and "terrain" or "character"
+end
+
+---@return string|boolean? comparison
+---@return number? value
+function Object:beginHeightDepthMask()
+    if not self.height_occluder or self.height_occlusion_proxy
+        or self.height_occlusion_masks then return nil end
+    local world = self.parent
+    local character = world and world.player
+    if not character or not character.visible or not character.height_sort_subject
+        or not character.use_3d_collision
+        or not character.getHeightOcclusionMaskCanvas then return nil end
+
+    local character_index, object_index
+    for index, child in ipairs(world.children or {}) do
+        if child == character then character_index = index end
+        if child == self then object_index = index end
+        if character_index and object_index then break end
+    end
+    if not character_index or not object_index or character_index >= object_index
+        or self:getHeightDepthResult(character) ~= "character" then return nil end
+
+    local mask = character:getHeightOcclusionMaskCanvas()
+    if not mask then return nil end
+    local comparison, value = love.graphics.getStencilTest()
+    love.graphics.stencil(function()
+        love.graphics.push()
+        love.graphics.origin()
+        Draw.pushShader("Mask")
+        Draw.drawCanvas(mask)
+        Draw.popShader()
+        love.graphics.pop()
+    end, "replace", 1)
+    love.graphics.setStencilTest("notequal", 1)
+    return comparison or false, value
+end
+
+---@param comparison string|boolean?
+---@param value number?
+function Object:endHeightDepthMask(comparison, value)
+    self:endHeightOcclusionMask(comparison, value)
 end
 
 --- Called during drawing to apply cutouts.
@@ -1519,6 +1677,35 @@ function Object:getFullVisualTransform()
         hierarchy[index]:applyVisualTransformTo(transform)
     end
     return transform
+end
+
+---@return love.Canvas? canvas
+function Object:getHeightOcclusionMaskCanvas()
+    if not self.drawHeightOcclusionMask then return nil end
+    local width, height = SCREEN_WIDTH, SCREEN_HEIGHT
+    local canvas = self._height_occlusion_mask_canvas
+    if not canvas or canvas:getWidth() ~= width or canvas:getHeight() ~= height then
+        canvas = love.graphics.newCanvas(width, height)
+        canvas:setFilter("nearest", "nearest")
+        self._height_occlusion_mask_canvas = canvas
+        self._height_occlusion_mask_frame = nil
+    end
+    local frame = self.parent and self.parent.height_occlusion_draw_frame
+        or RUNTIME
+    if self._height_occlusion_mask_frame ~= frame then
+        Draw.pushCanvas(canvas, { clear = true })
+        local transform = self._height_occlusion_transform_frame == frame
+            and self._height_occlusion_draw_transform
+            or self:getFullVisualTransform()
+        love.graphics.replaceTransform(transform)
+        local r, g, b, a = love.graphics.getColor()
+        Draw.setColor(self:getDrawColor())
+        self:drawHeightOcclusionMask()
+        love.graphics.setColor(r, g, b, a)
+        Draw.popCanvas()
+        self._height_occlusion_mask_frame = frame
+    end
+    return canvas
 end
 
 ---@return table hierarchy A table of all parents between this object and its stage (inclusive).
@@ -1771,6 +1958,12 @@ function Object:preDraw(dont_transform)
         self:applyVisualTransformTo(transform, 1 / CURRENT_SCALE_X, 1 / CURRENT_SCALE_Y)
         love.graphics.replaceTransform(transform)
 
+        if self.drawHeightOcclusionMask then
+            self._height_occlusion_draw_transform = love.graphics.getTransform()
+            self._height_occlusion_transform_frame =
+                self.parent and self.parent.height_occlusion_draw_frame or RUNTIME
+        end
+
         self._last_draw_scale_x = CURRENT_SCALE_X
         self._last_draw_scale_y = CURRENT_SCALE_Y
 
@@ -1830,6 +2023,11 @@ function Object:drawSelf(no_children, dont_transform)
     end
     love.graphics.push()
     self:preDraw(dont_transform)
+    local stencil_comparison, stencil_value = self:beginHeightOcclusionMask()
+    local depth_comparison, depth_value
+    if stencil_comparison == nil then
+        depth_comparison, depth_value = self:beginHeightDepthMask()
+    end
     if self.draw_children_below then
         self:drawChildren(nil, self.draw_children_below)
     end
@@ -1837,6 +2035,8 @@ function Object:drawSelf(no_children, dont_transform)
     if self.draw_children_above then
         self:drawChildren(self.draw_children_above)
     end
+    self:endHeightDepthMask(depth_comparison, depth_value)
+    self:endHeightOcclusionMask(stencil_comparison, stencil_value)
     self:postDraw()
     love.graphics.pop()
     self._dont_draw_children = last_draw_children

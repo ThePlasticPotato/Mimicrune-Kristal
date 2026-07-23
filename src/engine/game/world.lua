@@ -612,40 +612,6 @@ local function isIgnoredCollision(collider, ignored)
     return collider == ignored or type(ignored) == "table" and ignored[collider] == true
 end
 
-local getSupportProbe
-
---- Returns the mover's support point in world XY, shifted down by the amount
---- a taller solid projects upward on screen. Testing this point against the
---- solid closes the otherwise-empty north/top face of its projected prism.
----@param collider Collider
----@param projection number
----@return PointCollider
-local function getProjectedSupportProbe(collider, projection)
-    local probe = getSupportProbe(collider)
-    local world_x, world_y = probe.x, probe.y
-    if probe.parent then
-        world_x, world_y = probe.parent:getFullTransform():transformPoint(world_x, world_y)
-    end
-    return PointCollider(nil, world_x, world_y + projection)
-end
-
---- Whether a mover below a tall solid overlaps its upward screen projection.
----@param collider Collider
----@param surface Collider
----@param movement_z? number Lowest foot Z reached during this movement frame
----@return boolean collided
-function World:isProjectedHeightCollision(collider, surface, movement_z)
-    if surface.one_way or (surface.depth or 0) <= 0 then return false end
-
-    local collider_bottom = collider:getZBounds()
-    local movement_bottom = math.min(collider_bottom, movement_z or collider_bottom)
-    local _, surface_top = surface:getZBounds()
-    local height_remaining = surface_top - movement_bottom
-    if height_remaining <= 0.001 then return false end
-
-    return getProjectedSupportProbe(collider, height_remaining):collidesWith(surface)
-end
-
 --- Checks whether the input collider overlaps anything in both XY and Z.
 ---@param collider Collider
 ---@param enemy_check? boolean
@@ -685,14 +651,9 @@ function World:checkMovementCollision3D(collider, enemy_check, ignored, movement
     Object.startCache()
     for _, other in ipairs(self:getCollision(enemy_check)) do
         local _, other_top = other:getZBounds()
-        local height_remaining = other_top - movement_bottom
-        local projected_collision = self:isProjectedHeightCollision(
-            collider, other, movement_bottom
-        )
         if not isIgnoredCollision(other, ignored)
-            and ((other.supports and height_remaining > 0.001
-                    and collider:collidesWith(other))
-                or projected_collision)
+            and other.supports and other_top > movement_bottom + 0.001
+            and collider:collidesWith(other)
             and collider ~= other then
             Object.endCache()
             return true, other.parent
@@ -725,7 +686,7 @@ function World:checkCollisions3D(collider, enemy_check, ignored)
     return #collided_with > 0, collided_with
 end
 
-getSupportProbe = function(collider)
+local function getSupportProbe(collider)
     if collider:includes(ColliderGroup) and collider.colliders[1] then
         return getSupportProbe(collider.colliders[1])
     elseif collider:includes(Hitbox) then
@@ -746,12 +707,24 @@ getSupportProbe = function(collider)
     return collider
 end
 
---- Whether the canonical support point for a collider is over a surface.
 ---@param collider Collider
 ---@param surface Collider
 ---@return boolean
 function World:isSupportOver(collider, surface)
-    return getSupportProbe(collider):collidesWith(surface)
+    return collider:collidesWith(surface)
+end
+
+---@param collider Collider?
+---@return table? surface
+function World:getHeightSurfaceForCollider(collider)
+    return self.map and self.map.getSurfaceForCollider
+        and self.map:getSurfaceForCollider(collider) or nil
+end
+
+---@return table? surface
+function World:getImplicitHeightSurface()
+    return self.map and self.map.getImplicitSurface
+        and self.map:getImplicitSurface() or nil
 end
 
 --- Whether the support probe is currently above a non-empty ground tile.
@@ -809,13 +782,12 @@ end
 ---@return boolean
 function World:hasElevatedSupportAt(collider, z, ignored)
     z = z or 0
-    local probe = getSupportProbe(collider)
     Object.startCache()
     for _, surface in ipairs(self:getCollision(false)) do
         local _, top = surface:getZBounds()
         if surface.supports and top > z + 0.001
             and not isIgnoredCollision(surface, ignored)
-            and probe:collidesWith(surface) then
+            and collider:collidesWith(surface) then
             Object.endCache()
             return true
         end
@@ -861,7 +833,8 @@ function World:isHeightClear(collider, z, ignored, also_ignored)
             elseif collider_depth == 0 then
                 overlaps = z >= other_bottom and z < other_top
             elseif other.depth == 0 then
-                overlaps = other_bottom >= z and other_bottom < z + collider_depth
+                overlaps = other_bottom > z + 0.001
+                    and other_bottom < z + collider_depth
             else
                 overlaps = math.max(z, other_bottom) < math.min(z + collider_depth, other_top)
             end
@@ -876,19 +849,19 @@ function World:isHeightClear(collider, z, ignored, also_ignored)
 end
 
 --- Finds a supporting surface at a specific elevation.
----@param collider Collider XY support probe
+---@param collider Collider XY grounded footprint
 ---@param z number Desired surface elevation
 ---@param tolerance? number
 ---@return number? surface_z
 ---@return Collider? surface
+---@return table? height_surface
 function World:getSupportAt(collider, z, tolerance)
     tolerance = tolerance or 0.5
     local best_z, best_surface
-    local probe = getSupportProbe(collider)
 
     Object.startCache()
     for _, surface in ipairs(self:getCollision(false)) do
-        if surface.supports and probe:collidesWith(surface) then
+        if surface.supports and collider:collidesWith(surface) then
             local _, top = surface:getZBounds()
             if math.abs(top - z) <= tolerance and (not best_z or top > best_z) then
                 best_z, best_surface = top, surface
@@ -899,15 +872,15 @@ function World:getSupportAt(collider, z, tolerance)
 
     if math.abs(z) <= tolerance and self:hasImplicitGroundAt(collider, z) then
         if not best_z or best_z <= 0 then
-            return 0, nil
+            return 0, nil, self:getImplicitHeightSurface()
         end
     end
 
-    return best_z, best_surface
+    return best_z, best_surface, self:getHeightSurfaceForCollider(best_surface)
 end
 
 --- Finds the highest support surface crossed during a downward Z sweep.
----@param collider Collider XY support probe
+---@param collider Collider XY grounded footprint
 ---@param old_z number
 ---@param new_z number
 ---@param body_collider? Collider Full body used to reject landings inside walls
@@ -915,15 +888,15 @@ end
 ---@param departed_surface? Collider Surface just walked off, to reject an equality snap-back
 ---@return number? surface_z
 ---@return Collider? surface
+---@return table? height_surface
 function World:getLandingSurface(collider, old_z, new_z, body_collider,
     ignored_collider, departed_surface)
     if new_z > old_z then return nil end
 
     local best_z, best_surface
-    local probe = getSupportProbe(collider)
     Object.startCache()
     for _, surface in ipairs(self:getCollision(false)) do
-        if surface.supports and probe:collidesWith(surface) then
+        if surface.supports and collider:collidesWith(surface) then
             local _, top = surface:getZBounds()
             local snapping_back = surface == departed_surface and old_z <= top + 0.001
             local crossed_surface = top <= old_z and top >= new_z
@@ -945,11 +918,11 @@ function World:getLandingSurface(collider, old_z, new_z, body_collider,
         and (not body_collider
             or self:isHeightClear(body_collider, 0, ignored_collider)) then
         if not best_z or best_z < 0 then
-            return 0, nil
+            return 0, nil, self:getImplicitHeightSurface()
         end
     end
 
-    return best_z, best_surface
+    return best_z, best_surface, self:getHeightSurfaceForCollider(best_surface)
 end
 
 --- Finds the lowest solid underside crossed during an upward Z sweep.
@@ -977,18 +950,18 @@ function World:getCeilingSurface(collider, old_top, new_top)
 end
 
 --- Finds the highest ground at or below a requested elevation.
----@param collider Collider XY support probe
+---@param collider Collider XY grounded footprint
 ---@param maximum_z number
 ---@param body_collider? Collider Full body used to reject ground inside walls
 ---@param ignored_collider? Collider Departed platform side that may still overlap the body
 ---@return number? surface_z
 ---@return Collider? surface
+---@return table? height_surface
 function World:getGroundZAt(collider, maximum_z, body_collider, ignored_collider)
     local best_z, best_surface
-    local probe = getSupportProbe(collider)
     Object.startCache()
     for _, surface in ipairs(self:getCollision(false)) do
-        if surface.supports and probe:collidesWith(surface) then
+        if surface.supports and collider:collidesWith(surface) then
             local _, top = surface:getZBounds()
             if top <= maximum_z
                 and (not body_collider
@@ -1003,9 +976,9 @@ function World:getGroundZAt(collider, maximum_z, body_collider, ignored_collider
     if maximum_z >= 0 and self:hasImplicitGroundAt(collider, 0)
         and (not body_collider or self:isHeightClear(body_collider, 0, ignored_collider))
         and (not best_z or best_z < 0) then
-        return 0, nil
+        return 0, nil, self:getImplicitHeightSurface()
     end
-    return best_z, best_surface
+    return best_z, best_surface, self:getHeightSurfaceForCollider(best_surface)
 end
 
 --- Whether the world has a currently active cutscene
@@ -1861,32 +1834,69 @@ function World:shakeCamera(x, y, friction)
     self.camera:shake(x, y, friction)
 end
 
+---@param a Object
+---@param b Object
+---@param positions table<Object, {x: number, y: number}>
+---@param player Object?
+---@return boolean
+local function compareWorldChildren(a, b, positions, player)
+    if a == b then return false end
+    local a_pos, b_pos = positions[a], positions[b]
+    local ay, by = a_pos.y, b_pos.y
+    local a_map_layer, b_map_layer = a.map_layer == true, b.map_layer == true
+    if a.layer == b.layer and a_map_layer ~= b_map_layer then
+        return a_map_layer
+    end
+    if a.layer == b.layer and a_map_layer and b_map_layer then
+        local a_id = a.map_layer_sort_id or ""
+        local b_id = b.map_layer_sort_id or ""
+        if a_id ~= b_id then return a_id < b_id end
+        return false
+    end
+    if a.layer == b.layer and a.height_occlusion_proxy and b.height_occlusion_proxy
+        and math.floor(ay) == math.floor(by) then
+        local a_source_layer = a.source_draw_layer or 0
+        local b_source_layer = b.source_draw_layer or 0
+        if a_source_layer ~= b_source_layer then
+            return a_source_layer < b_source_layer
+        end
+        local a_id = a.occlusion_sort_id or ""
+        local b_id = b.occlusion_sort_id or ""
+        if a_id ~= b_id then return a_id < b_id end
+    end
+    return a.layer < b.layer or
+        (a.layer == b.layer and (math.floor(ay) < math.floor(by) or
+            (math.floor(ay) == math.floor(by) and (b == player or
+                (a:includes(Follower) and b:includes(Follower) and b.index < a.index)))))
+end
+
 function World:sortChildren()
     Object.startCache()
     local positions = {}
     for _, child in ipairs(self.children) do
         local x, y = child:getSortPosition()
+        if child.height_occluder and not child.height_occlusion_proxy then
+            local direction = child.height_face_direction or "front"
+            local face_y = child.height_face_y
+            if not face_y and self.map and child.surface_id then
+                local surface = self.map:getSurface(child.surface_id)
+                local bounds = surface
+                    and (surface.support_bounds or surface.bounds)
+                if bounds then
+                    if direction == "front" then
+                        face_y = bounds.max_y
+                    elseif direction == "back" then
+                        face_y = bounds.min_y
+                    end
+                end
+            end
+            y = (face_y or y) + (child.height_occlusion_sort_y_offset or 0)
+        end
         positions[child] = { x = x, y = y }
     end
+    local player = self.player
     table.stable_sort(self.children, function(a, b)
-        local a_pos, b_pos = positions[a], positions[b]
-        local ax, ay = a_pos.x, a_pos.y
-        local bx, by = b_pos.x, b_pos.y
-        local a_map_layer, b_map_layer = a.map_layer == true, b.map_layer == true
-        if a.layer == b.layer and a_map_layer ~= b_map_layer then
-            return a_map_layer
-        end
-        if a.layer == b.layer and a_map_layer and b_map_layer then
-            local a_id = a.map_layer_sort_id or ""
-            local b_id = b.map_layer_sort_id or ""
-            if a_id ~= b_id then return a_id < b_id end
-            return false
-        end
-        -- Sort children by Y position, or by follower index if it's a follower/player (so the player is always on top)
-        return a.layer < b.layer or
-            (a.layer == b.layer and (math.floor(ay) < math.floor(by) or
-                (math.floor(ay) == math.floor(by) and (b == self.player or
-                    (a:includes(Follower) and b:includes(Follower) and b.index < a.index)))))
+        return compareWorldChildren(a, b, positions, player)
     end)
     Object.endCache()
 end
@@ -2021,27 +2031,6 @@ function World:update()
 
     self.map:update()
 
-    if self.player then
-        local _, player_sort_y = self.player:getSortPosition()
-        for _, obj in ipairs(self.children) do
-            if obj.height_occluder and obj.collider then
-                local _, object_sort_y = obj:getSortPosition()
-                local occlusion_top = obj:getFullZ() + (obj.occlusion_depth or obj.depth or 0)
-                local covered = self.player.platforming_enabled
-                    and obj:collidesWith(self.player)
-                    and player_sort_y <= object_sort_y
-                    and self.player.z < occlusion_top
-                local hidden_alpha = obj.occlusion_mode == "hide" and 0 or 0.35
-                local target = covered and hidden_alpha or 1
-                obj.height_occlusion_alpha = MathUtils.approach(
-                    obj.height_occlusion_alpha or 1,
-                    target,
-                    0.12 * DTMULT
-                )
-            end
-        end
-    end
-
     -- Always sort
     self.update_child_list = true
     super.update(self)
@@ -2060,6 +2049,15 @@ function World:update()
 end
 
 function World:draw()
+    self.height_occlusion_draw_frame = (self.height_occlusion_draw_frame or 0) + 1
+
+    if self.update_child_list then
+        self:updateChildList()
+        self.update_child_list = false
+    else
+        self:sortChildren()
+    end
+
     -- Draw background
     Draw.setColor(self.map.bg_color or { 0, 0, 0, 0 })
     love.graphics.rectangle("fill", 0, 0, self.map.width * self.map.tile_width, self.map.height * self.map.tile_height)

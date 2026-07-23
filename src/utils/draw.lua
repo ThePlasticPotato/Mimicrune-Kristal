@@ -329,9 +329,12 @@ end
 ---@overload fun(canvas: love.Canvas, quad: love.Quad, transform: love.Transform)
 function Draw.drawCanvas(...)
     local mode, alphamode = love.graphics.getBlendMode()
+    local r, g, b, a = love.graphics.getColor()
+    love.graphics.setColor(r * a, g * a, b * a, a)
     love.graphics.setBlendMode(mode, "premultiplied")
     Draw.draw(...)
     love.graphics.setBlendMode(mode, alphamode)
+    love.graphics.setColor(r, g, b, a)
 end
 
 ---@param canvas love.Canvas # The canvas to cut out.

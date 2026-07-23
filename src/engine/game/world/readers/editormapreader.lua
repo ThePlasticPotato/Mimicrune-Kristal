@@ -23,6 +23,7 @@ function EditorMapReader:initialize(data)
     map.light = properties.light or false
     map.border = properties.border
     map.platforming = properties.platforming or false
+    map.base_surface_plane = tostring(properties.base_surface_plane or "z:0")
     map.empty_tile_pit = properties.empty_tile_pit == true
         or properties.empty_tiles_are_pits == true
     map.bg_color = TableUtils.copy(data.background_color or { 0, 0, 0, 0 }, true)

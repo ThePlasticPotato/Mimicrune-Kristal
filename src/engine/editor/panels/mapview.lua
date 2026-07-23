@@ -2120,7 +2120,9 @@ function EditorMapView:onMouseMoved(x, y, dx, dy)
             local top_left_x = center_x - half_width * math.cos(object_rotation) + half_height * math.sin(object_rotation)
             local top_left_y = center_y - half_width * math.sin(object_rotation) - half_height * math.cos(object_rotation)
             selection.data.x = top_left_x - selection.entry.x - (selection.layer.offsetx or 0)
-            selection.data.y = top_left_y - selection.entry.y - (selection.layer.offsety or 0)
+            selection.data.y = top_left_y - selection.entry.y
+                - (selection.layer.offsety or 0)
+                + self.document:getObjectVisualZ(selection)
             selection.data.rotation = rotation % 360
             invalidated[selection.map_id] = true
         end
@@ -2157,7 +2159,9 @@ function EditorMapView:onMouseMoved(x, y, dx, dy)
             local origin_x = drag.fixed_x - opposite_x * math.cos(rotation) + opposite_y * math.sin(rotation)
             local origin_y = drag.fixed_y - opposite_x * math.sin(rotation) - opposite_y * math.cos(rotation)
             data.x = origin_x - drag.selection.entry.x - (drag.selection.layer.offsetx or 0)
-            data.y = origin_y - drag.selection.entry.y - (drag.selection.layer.offsety or 0)
+            data.y = origin_y - drag.selection.entry.y
+                - (drag.selection.layer.offsety or 0)
+                + self.document:getObjectVisualZ(drag.selection)
         else
             local delta_x, delta_y = world_x - drag.start_x, world_y - drag.start_y
             if not Input.ctrl() then

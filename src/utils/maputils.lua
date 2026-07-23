@@ -289,7 +289,15 @@ function MapUtils.colliderFromShape(parent, data, x, y, properties)
     end
 
     local collider
+    local bounds_points = {}
+    local function addBoundsPoint(point_x, point_y)
+        table.insert(bounds_points, { transformPoint(point_x, point_y) })
+    end
     if data.shape == "rectangle" then
+        addBoundsPoint(0, 0)
+        addBoundsPoint(width, 0)
+        addBoundsPoint(width, height)
+        addBoundsPoint(0, height)
         if rotation == 0 then
             collider = Hitbox(parent, x, y, width, height, mode)
         else
@@ -301,6 +309,9 @@ function MapUtils.colliderFromShape(parent, data, x, y, properties)
     elseif data.shape == "polyline" or data.shape == "line" then
         local line_colliders = {}
         local points = data.polyline or data.shape_data and data.shape_data.points or {}
+        for _, point in ipairs(points) do
+            addBoundsPoint(point.x or point[1] or 0, point.y or point[2] or 0)
+        end
         for _, edge in ipairs(MapUtils.getPolylineEdges(data, #points)) do
             local first, second = points[edge[1]], points[edge[2]]
             local x1, y1 = transformPoint(first.x or first[1] or 0, first.y or first[2] or 0)
@@ -309,7 +320,11 @@ function MapUtils.colliderFromShape(parent, data, x, y, properties)
         end
         collider = ColliderGroup(parent, line_colliders)
     elseif data.shape == "polygon" then
-        collider = polygonCollider(data.polygon or data.shape_data and data.shape_data.points or {})
+        local points = data.polygon or data.shape_data and data.shape_data.points or {}
+        for _, point in ipairs(points) do
+            addBoundsPoint(point.x or point[1] or 0, point.y or point[2] or 0)
+        end
+        collider = polygonCollider(points)
     elseif data.shape == "ellipse" then
         local points = {}
         local radius_x, radius_y = width / 2, height / 2
@@ -319,9 +334,11 @@ function MapUtils.colliderFromShape(parent, data, x, y, properties)
                 x = radius_x + math.cos(angle) * radius_x,
                 y = radius_y + math.sin(angle) * radius_y
             })
+            addBoundsPoint(points[#points].x, points[#points].y)
         end
         collider = polygonCollider(points)
     elseif data.shape == "point" or data.point == true then
+        addBoundsPoint(0, 0)
         collider = PointCollider(parent, x, y, mode)
     end
     if collider then
@@ -329,6 +346,25 @@ function MapUtils.colliderFromShape(parent, data, x, y, properties)
         collider.z = tonumber(properties.z) or 0
         collider.depth = math.max(tonumber(properties.depth) or 0, 0)
         collider.collision_role = role
+        collider.map_object_id = data.id
+        collider.map_object_name = data.name
+        local explicit_surface_id = properties.surface_id or properties.structure_id
+        collider.surface_id = explicit_surface_id ~= nil
+            and tostring(explicit_surface_id) or nil
+        local explicit_plane = properties.surface_plane or properties.render_plane
+            or properties.elevation_plane
+        collider.surface_plane = explicit_plane ~= nil and tostring(explicit_plane) or nil
+        if #bounds_points > 0 then
+            local min_x, min_y, max_x, max_y =
+                math.huge, math.huge, -math.huge, -math.huge
+            for _, point in ipairs(bounds_points) do
+                min_x, min_y = math.min(min_x, point[1]), math.min(min_y, point[2])
+                max_x, max_y = math.max(max_x, point[1]), math.max(max_y, point[2])
+            end
+            collider.map_bounds = {
+                min_x = min_x, min_y = min_y, max_x = max_x, max_y = max_y
+            }
+        end
         if role == "wall" then
             collider.supports = false
             collider.one_way = false
@@ -353,6 +389,11 @@ function MapUtils.colliderFromShape(parent, data, x, y, properties)
                 child.one_way = collider.one_way
                 child.pit = collider.pit
                 child.collidable = collider.collidable
+                child.map_object_id = collider.map_object_id
+                child.map_object_name = collider.map_object_name
+                child.surface_id = collider.surface_id
+                child.surface_plane = collider.surface_plane
+                child.map_bounds = collider.map_bounds
             end
         end
     end

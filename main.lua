@@ -189,6 +189,8 @@ EditorTilesetReader = require("src.engine.game.world.readers.editortilesetreader
 Map = require("src.engine.game.world.map")
 Tileset = require("src.engine.game.world.tileset")
 TileLayer = require("src.engine.game.world.tilelayer")
+HeightOccluder = require("src.engine.game.world.heightoccluder")
+HeightShadow = require("src.engine.game.world.heightshadow")
 Character = require("src.engine.game.world.character")
 Follower = require("src.engine.game.world.follower")
 

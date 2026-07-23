@@ -15,6 +15,53 @@
   ],
   "layers": [
     {
+      "id": "backertiles",
+      "name": "BackerTiles",
+      "color": [
+        0.8,
+        0.8,
+        0.82,
+        1
+      ],
+      "x": 0,
+      "y": 0,
+      "type": "tile",
+      "kind": "tile",
+      "depth": -0.2,
+      "alpha": 1,
+      "visible": true,
+      "parallax_x": 1,
+      "parallax_y": 1,
+      "properties": [],
+      "tileset": "depths",
+      "tileset_columns": 13,
+      "tileset_rows": 5,
+      "chunks": [
+        {
+          "x": 0,
+          "y": 0,
+          "tile_data": [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 2, 2, 2, 2, 2, 2,
+            0, 0, 0, 0, 0, 0, 0, 0, 14, 15, 15, 15, 15, 15, 15, 15,
+            0, 0, 0, 0, 0, 0, 0, 0, 27, 28, 28, 28, 28, 28, 28, 28,
+            0, 0, 0, 0, 0, 0, 0, 0, 40, 41, 41, 41, 41, 41, 41, 41,
+            0, 0, 0, 0, 0, 0, 0, 0, 40, 41, 41, 41, 41, 41, 41, 41,
+            0, 0, 0, 0, 0, 0, 0, 0, 40, 41, 41, 41, 41, 41, 41, 41,
+            0, 0, 0, 0, 0, 0, 0, 0, 40, 41, 41, 41, 41, 41, 41, 41,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+          ]
+        }
+      ]
+    },
+    {
       "id": "backtiles",
       "name": "BackTiles",
       "color": [
@@ -155,6 +202,16 @@
               "name": "collision_role",
               "type": "choice",
               "value": "solid"
+            },
+            {
+              "name": "surface_id",
+              "type": "string",
+              "value": "right_platform"
+            },
+            {
+              "name": "surface_plane",
+              "type": "string",
+              "value": "upper_40"
             }
           ]
         },
@@ -180,6 +237,16 @@
               "name": "z",
               "type": "number",
               "value": 0
+            },
+            {
+              "name": "surface_id",
+              "type": "string",
+              "value": "center_tower"
+            },
+            {
+              "name": "surface_plane",
+              "type": "string",
+              "value": "upper_80"
             }
           ]
         },
@@ -205,6 +272,16 @@
               "name": "collision_role",
               "type": "choice",
               "value": "wall"
+            },
+            {
+              "name": "surface_id",
+              "type": "string",
+              "value": "left_tower"
+            },
+            {
+              "name": "surface_plane",
+              "type": "string",
+              "value": "upper_120"
             }
           ]
         },
@@ -255,6 +332,16 @@
               "name": "z",
               "type": "number",
               "value": 120
+            },
+            {
+              "name": "surface_id",
+              "type": "string",
+              "value": "left_tower"
+            },
+            {
+              "name": "surface_plane",
+              "type": "string",
+              "value": "upper_120"
             }
           ]
         },
@@ -262,9 +349,9 @@
           "id": 8,
           "name": "rectangle",
           "x": 0,
-          "y": 520,
+          "y": 360,
           "width": 80,
-          "height": 160,
+          "height": 120,
           "shape": {
             "type": "rectangle",
             "shape_data": {}
@@ -287,9 +374,9 @@
           "id": 9,
           "name": "rectangle",
           "x": 480,
-          "y": 280,
+          "y": 320,
           "width": 160,
-          "height": 200,
+          "height": 160,
           "shape": {
             "type": "rectangle",
             "shape_data": {}
@@ -330,26 +417,6 @@
           "y": 440,
           "width": 240,
           "height": 40,
-          "shape": {
-            "type": "rectangle",
-            "shape_data": {}
-          },
-          "visible": true,
-          "properties": [
-            {
-              "name": "pit",
-              "type": "boolean",
-              "value": true
-            }
-          ]
-        },
-        {
-          "id": 13,
-          "name": "rectangle",
-          "x": 400,
-          "y": 200,
-          "width": 240,
-          "height": 80,
           "shape": {
             "type": "rectangle",
             "shape_data": {}
@@ -425,6 +492,188 @@
               "name": "z",
               "type": "number",
               "value": -40
+            },
+            {
+              "name": "surface_id",
+              "type": "string",
+              "value": "front_floor"
+            },
+            {
+              "name": "surface_plane",
+              "type": "string",
+              "value": "base"
+            }
+          ]
+        },
+        {
+          "id": 21,
+          "name": "rectangle",
+          "x": 320,
+          "y": 200,
+          "width": 320,
+          "height": 120,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "collision_role",
+              "type": "choice",
+              "value": "solid"
+            },
+            {
+              "name": "depth",
+              "type": "number",
+              "value": 40
+            },
+            {
+              "name": "z",
+              "type": "number",
+              "value": -40
+            },
+            {
+              "name": "surface_id",
+              "type": "string",
+              "value": "back_floor"
+            },
+            {
+              "name": "surface_plane",
+              "type": "string",
+              "value": "base"
+            }
+          ]
+        },
+        {
+          "id": 23,
+          "name": "rectangle",
+          "x": 360,
+          "y": 440,
+          "width": 120,
+          "height": 40,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "pit",
+              "type": "boolean",
+              "value": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "height_occlusion",
+      "name": "Height Occlusion",
+      "color": [
+        0.75,
+        0.3,
+        1,
+        1
+      ],
+      "x": 0,
+      "y": 0,
+      "type": "occlusion",
+      "kind": "object",
+      "depth": 0,
+      "alpha": 1,
+      "visible": true,
+      "parallax_x": 1,
+      "parallax_y": 1,
+      "properties": [],
+      "objects": [
+        {
+          "id": 17,
+          "name": "Left Tower Visual",
+          "x": 80,
+          "y": 40,
+          "width": 120,
+          "height": 440,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "source_layer",
+              "type": "string",
+              "value": "BackTiles"
+            },
+            {
+              "name": "surface_id",
+              "type": "string",
+              "value": "left_tower"
+            },
+            {
+              "name": "face_direction",
+              "type": "choice",
+              "value": "front"
+            }
+          ]
+        },
+        {
+          "id": 18,
+          "name": "Center Tower Visual",
+          "x": 280,
+          "y": 120,
+          "width": 120,
+          "height": 360,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "source_layer",
+              "type": "string",
+              "value": "BackTiles"
+            },
+            {
+              "name": "surface_id",
+              "type": "string",
+              "value": "center_tower"
+            },
+            {
+              "name": "face_direction",
+              "type": "choice",
+              "value": "front"
+            }
+          ]
+        },
+        {
+          "id": 19,
+          "name": "Right Platform Visual",
+          "x": 360,
+          "y": 280,
+          "width": 120,
+          "height": 200,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "source_layer",
+              "type": "string",
+              "value": "Tiles"
+            },
+            {
+              "name": "surface_id",
+              "type": "string",
+              "value": "right_platform"
+            },
+            {
+              "name": "face_direction",
+              "type": "choice",
+              "value": "front"
             }
           ]
         }
@@ -491,6 +740,32 @@
               "value": 40
             }
           ]
+        },
+        {
+          "id": 22,
+          "name": "savepoint",
+          "type": "savepoint",
+          "x": 120,
+          "y": 200,
+          "width": 40,
+          "height": 40,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "depth",
+              "type": "number",
+              "value": 0
+            },
+            {
+              "name": "surface_id",
+              "type": "string",
+              "value": "left_tower"
+            }
+          ]
         }
       ]
     }
@@ -500,6 +775,11 @@
       "name": "platforming",
       "type": "boolean",
       "value": true
+    },
+    {
+      "name": "base_surface_plane",
+      "type": "string",
+      "value": "base"
     },
     {
       "name": "empty_tile_pit",

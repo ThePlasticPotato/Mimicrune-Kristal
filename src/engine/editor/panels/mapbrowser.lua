@@ -89,6 +89,10 @@ function EditorMapBrowser:selectNode(node)
         property_set:registerProperty("platforming", "boolean", {
             name = "Platforming", default = false
         })
+        property_set:registerProperty("base_surface_plane", "string", {
+            name = "Base Surface Plane", default = "z:0",
+            placeholder = "Shared plane for implicit z=0 ground"
+        })
         property_set:registerProperty("empty_tile_pit", "boolean", {
             name = "Empty Tiles Are Pits", default = false
         })

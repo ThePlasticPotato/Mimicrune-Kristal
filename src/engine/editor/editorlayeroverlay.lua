@@ -6,7 +6,7 @@
 ---@field layer_uid string?
 ---@field source_layer table
 ---@field visible boolean
----@overload fun(layer: table, layer_type?: table, depth?: number): EditorLayerOverlay
+---@overload fun(layer: table, layer_type?: table, depth?: number, map?: Map): EditorLayerOverlay
 local EditorLayerOverlay = Class()
 
 local function drawDashedLine(x1, y1, x2, y2, dash_length)
@@ -139,6 +139,14 @@ local function drawHeightGuide(object, layer, color, alpha, line_width)
     else
         label = role_names[role] .. " " .. formatHeight(z) .. ".." .. formatHeight(top_z)
     end
+    local surface_id = properties.surface_id or properties.structure_id
+    local surface_plane = properties.surface_plane or properties.render_plane
+    if surface_id and surface_id ~= "" then
+        label = label .. "  surface=" .. tostring(surface_id)
+    end
+    if surface_plane and surface_plane ~= "" then
+        label = label .. "  plane=" .. tostring(surface_plane)
+    end
     local label_x, label_y = ruler_x + 5, math.min(base_y, top_y) - 6
     local font = love.graphics.getFont()
     Draw.setColor(0.04, 0.04, 0.05, guide_alpha * 0.85)
@@ -150,11 +158,95 @@ local function drawHeightGuide(object, layer, color, alpha, line_width)
     love.graphics.pop()
 end
 
-function EditorLayerOverlay:init(layer, layer_type, depth)
+local function drawOcclusionGuide(object, layer, color, alpha, line_width, map)
+    local properties = TableUtils.mergeMany(layer.properties or {}, object.properties or {})
+    local source = tostring(properties.source_layer or properties.visual_layer or "<set source layer>")
+    local surface_id = properties.surface_id or properties.structure_id
+    local face_direction = tostring(properties.face_direction or properties.face or "front")
+    local surface = map and map.getSurface and map:getSurface(surface_id) or nil
+    local z = tonumber(properties.z or properties.occlusion_z)
+        or surface and surface.bottom or 0
+    local depth = math.max(tonumber(properties.depth or properties.occlusion_depth)
+        or surface and (surface.top - surface.bottom) or 0, 0)
+    local sort_offset = tonumber(properties.sort_y_offset or properties.sort_offset_y) or 0
+    local linked = surface_id ~= nil and tostring(surface_id) ~= ""
+    local label
+    if linked then
+        label = string.format("DEPTH FACE %s  source=%s  surface=%s",
+            face_direction:upper(), source, tostring(surface_id))
+    else
+        label = string.format("DEPTH FACE %s  source=%s  %s..%s",
+            face_direction:upper(), source, formatHeight(z), formatHeight(z + depth))
+    end
+
+    local width, height = object.width or 0, object.height or 0
+    local object_world_x = (object.x or 0) + (layer.offsetx or 0)
+    local object_world_y = (object.y or 0) + (layer.offsety or 0)
+    local face_y = tonumber(properties.face_y or properties.depth_y)
+    local face_x = tonumber(properties.face_x or properties.depth_x)
+    local face_bounds = surface and (surface.support_bounds or surface.bounds)
+    if face_bounds then
+        if not face_y and face_direction == "front" then
+            face_y = face_bounds.max_y
+        elseif not face_y and face_direction == "back" then
+            face_y = face_bounds.min_y
+        elseif not face_x and face_direction == "left" then
+            face_x = face_bounds.min_x
+        elseif not face_x and face_direction == "right" then
+            face_x = face_bounds.max_x
+        end
+    end
+    local anchor_y = face_y and (face_y - object_world_y) + sort_offset or nil
+    local anchor_x = face_x and (face_x - object_world_x) or nil
+    love.graphics.push()
+    love.graphics.translate(object_world_x, object_world_y)
+    love.graphics.rotate(math.rad(object.rotation or 0))
+    local previous_width = love.graphics.getLineWidth()
+    love.graphics.setLineWidth(line_width or 1)
+    local guide_alpha = math.min(color[4] or 1, 0.95) * alpha
+    Draw.setColor(0.75, 0.3, 1, guide_alpha)
+    if (face_direction == "front" or face_direction == "back") and anchor_y then
+        drawDashedLine(0, anchor_y, width, anchor_y, 5 * (line_width or 1))
+        local direction = face_direction == "front" and 1 or -1
+        love.graphics.line(width / 2, anchor_y,
+            width / 2, anchor_y + direction * 10)
+        love.graphics.line(width / 2, anchor_y + direction * 10,
+            width / 2 - 3, anchor_y + direction * 6)
+        love.graphics.line(width / 2, anchor_y + direction * 10,
+            width / 2 + 3, anchor_y + direction * 6)
+    elseif (face_direction == "left" or face_direction == "right") and anchor_x then
+        drawDashedLine(anchor_x, 0, anchor_x, height, 5 * (line_width or 1))
+        local direction = face_direction == "right" and 1 or -1
+        love.graphics.line(anchor_x, height / 2,
+            anchor_x + direction * 10, height / 2)
+        love.graphics.line(anchor_x + direction * 10, height / 2,
+            anchor_x + direction * 6, height / 2 - 3)
+        love.graphics.line(anchor_x + direction * 10, height / 2,
+            anchor_x + direction * 6, height / 2 + 3)
+    elseif linked then
+        label = label .. "  boundary=derived"
+    else
+        anchor_y = height + sort_offset
+        drawDashedLine(0, anchor_y, width, anchor_y, 5 * (line_width or 1))
+        label = label .. "  boundary=legacy-mask-bottom"
+    end
+    local font = love.graphics.getFont()
+    local label_x, label_y = 4, (anchor_y or height) + 5
+    Draw.setColor(0.04, 0.04, 0.05, guide_alpha * 0.88)
+    love.graphics.rectangle("fill", label_x - 2, label_y - 1,
+        font:getWidth(label) + 4, font:getHeight() + 2)
+    Draw.setColor(0.82, 0.5, 1, guide_alpha)
+    love.graphics.print(label, label_x, label_y)
+    love.graphics.setLineWidth(previous_width)
+    love.graphics.pop()
+end
+
+function EditorLayerOverlay:init(layer, layer_type, depth, map)
     self.source_layer = layer
     self.layer_uid = layer._editor_uid
     MapUtils.addLayerOffset(self, depth)
     self.layer_type = layer_type
+    self.map = map
     self.color = Registry.layer_types:getLayerColor(layer, layer_type)
     self.visible = true
 end
@@ -210,7 +302,11 @@ function EditorLayerOverlay:drawObject(object, alpha, line_width)
     end
     love.graphics.setLineWidth(previous_width)
     love.graphics.pop()
-    drawHeightGuide(object, self.source_layer, color, alpha, line_width)
+    if self.layer_type and self.layer_type.id == "occlusion" then
+        drawOcclusionGuide(object, self.source_layer, color, alpha, line_width, self.map)
+    else
+        drawHeightGuide(object, self.source_layer, color, alpha, line_width)
+    end
 end
 
 function EditorLayerOverlay:draw(alpha, line_width, selected)

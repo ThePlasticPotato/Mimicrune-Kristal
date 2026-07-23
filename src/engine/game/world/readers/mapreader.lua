@@ -156,6 +156,7 @@ function operations.loadHitboxes(self, layer)
         local hitbox = MapUtils.colliderFromShape(self.world, v, v.x + ox, v.y + oy, properties)
         if hitbox then
             table.insert(hitboxes, hitbox)
+            self:registerSurfaceCollider(hitbox, v.id)
 
             self.hitboxes_by_id[v.id] = hitbox
 
@@ -174,6 +175,24 @@ function operations.loadShapes(self, layer)
 
         self.shapes_by_name[v.name] = self.shapes_by_name[v.name] or {}
         table.insert(self.shapes_by_name[v.name], v)
+    end
+end
+
+function operations.loadHeightOcclusion(self, layer, depth)
+    for _, source in ipairs(layer.objects or {}) do
+        local properties = TableUtils.mergeMany(layer.properties or {}, source.properties or {})
+        local occluder = HeightOccluder(self, source, layer, properties)
+        if #occluder.mask_points >= 3 then
+            MapUtils.addLayerOffset(occluder, depth)
+            self.world:addChild(occluder)
+            table.insert(self.height_occluders, occluder)
+        else
+            Kristal.Console:warn(string.format(
+                "Height occlusion shape '%s' on map '%s' has no filled area; use a rectangle, polygon, or ellipse",
+                tostring(source.name or source.id or "?"),
+                tostring(self.id or self.name or "?")
+            ))
+        end
     end
 end
 
@@ -378,12 +397,37 @@ function operations.loadRuntimeObject(self, source, layer, depth, layer_type, ru
             obj.layer_name = layer.name
             obj.data = v
             local height_properties = TableUtils.mergeMany(layer.properties or {}, v.properties or {})
-            obj.z = tonumber(height_properties.z) or obj.z
+            obj.surface_id = height_properties.surface_id or height_properties.structure_id
+            local linked_surface = obj.surface_id and self:getSurface(obj.surface_id) or nil
+            obj.z = tonumber(height_properties.z)
+                or linked_surface and linked_surface.top
+                or obj.z
             obj.depth = math.max(tonumber(height_properties.depth) or obj.depth, 0)
-            obj.height_sensitive = height_properties.height_sensitive or false
+            if height_properties.height_sensitive ~= nil then
+                obj.height_sensitive = height_properties.height_sensitive
+            else
+                obj.height_sensitive = self.platforming and obj.collider ~= nil
+            end
             obj.height_occluder = height_properties.height_occluder or false
             obj.occlusion_depth = math.max(tonumber(height_properties.occlusion_depth) or obj.depth, 0)
-            obj.occlusion_mode = height_properties.occlusion_mode or "fade"
+            obj.height_occlusion_sort_y_offset =
+                tonumber(height_properties.sort_y_offset or height_properties.occlusion_sort_y_offset) or 0
+            obj.surface_plane = height_properties.surface_plane
+                or height_properties.render_plane
+                or linked_surface and linked_surface.plane
+            if self.platforming and obj.collider then
+                obj.use_3d_collision = true
+                obj.height_sort_subject = obj.drawHeightOcclusionMask ~= nil
+                if linked_surface and math.abs(obj.z - linked_surface.top) <= 0.001 then
+                    obj.ground_surface = linked_surface
+                elseif math.abs(obj.z) <= 0.001 then
+                    obj.ground_surface = self:getImplicitSurface()
+                end
+            end
+            obj.height_face_direction = height_properties.face_direction
+                or height_properties.face or "front"
+            obj.height_face_x = tonumber(height_properties.face_x)
+            obj.height_face_y = tonumber(height_properties.face_y)
             if obj.collider then
                 obj.collider.z = tonumber(height_properties.collision_z) or obj.collider.z
                 local collision_depth = tonumber(height_properties.collision_depth)
@@ -399,6 +443,12 @@ function operations.loadRuntimeObject(self, source, layer, depth, layer_type, ru
                     obj.collider.supports = true
                 end
                 obj.collider.one_way = height_properties.one_way or height_properties.oneway or false
+                obj.collider.surface_id = obj.surface_id and tostring(obj.surface_id) or nil
+                obj.collider.surface_plane = obj.surface_plane
+                    and tostring(obj.surface_plane) or nil
+                obj.collider.map_object_id = v.id
+                obj.collider.map_object_name = v.name
+                self:registerSurfaceCollider(obj.collider, v.id)
             end
             if (v.gid or v.tileset and v.tile_id ~= nil) and obj.applyTileObject then
                 obj:applyTileObject(v, self)

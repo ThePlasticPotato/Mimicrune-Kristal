@@ -87,6 +87,36 @@ function EditorObject:init(data, options)
     self:registerProperty("flagvalue", "value", { name = "Load Flag Value" })
     self:registerProperty("z", "number", { name = "Z", default = 0 })
     self:registerProperty("depth", "number", { name = "Depth", default = 0 })
+    if not self.layer_type or self.layer_type.id == "objects" then
+        self:registerProperty("height_occluder", "boolean", {
+            name = "Height Occluder", default = false
+        })
+        self:registerProperty("occlusion_depth", "number", {
+            name = "Occlusion Height Override"
+        })
+        self:registerProperty("sort_y_offset", "number", {
+            name = "Occlusion Sort Y Offset", default = 0
+        })
+        self:registerProperty("surface_id", "string", {
+            name = "Surface ID"
+        })
+        self:registerProperty("surface_plane", "string", {
+            name = "Surface Plane"
+        })
+        self:registerProperty("height_sensitive", "boolean", {
+            name = "Height-Sensitive Interaction", default = true
+        })
+        self:registerProperty("face_direction", "choice", {
+            name = "Depth Face", default = "front", choices = {
+                { value = "front", label = "Front (+Y near)" },
+                { value = "back", label = "Back (-Y near)" },
+                { value = "left", label = "Left (-X near)" },
+                { value = "right", label = "Right (+X near)" }
+            }
+        })
+        self:registerProperty("face_y", "number", { name = "Face Y Override" })
+        self:registerProperty("face_x", "number", { name = "Face X Override" })
+    end
     if self.layer_type and self.layer_type.id == "collision" then
         self:registerProperty("z", "number", { name = "Bottom Z", default = 0 })
         self:registerProperty("depth", "number", { name = "Solid Height", default = 0 })
@@ -100,6 +130,57 @@ function EditorObject:init(data, options)
             }
         })
         self:registerProperty("pit", "boolean", { name = "Pit", default = false })
+        self:registerProperty("surface_id", "string", {
+            name = "Surface ID",
+            placeholder = "Shared structure/surface name"
+        })
+        self:registerProperty("surface_plane", "string", {
+            name = "Surface Plane",
+            placeholder = "Defaults from top Z"
+        })
+    elseif self.layer_type and self.layer_type.id == "occlusion" then
+        self:registerProperty("z", "number", { name = "Bottom Z Override" })
+        self:registerProperty("depth", "number", {
+            name = "Height Override"
+        })
+        self:registerProperty("source_layer", "string", {
+            name = "Visual Source Layer"
+        })
+        self:registerProperty("surface_id", "string", {
+            name = "Linked Surface ID",
+            placeholder = "Collision surface_id"
+        })
+        self:registerProperty("face_direction", "choice", {
+            name = "Depth Face", default = "front", choices = {
+                { value = "front", label = "Front (+Y near)" },
+                { value = "back", label = "Back (-Y near)" },
+                { value = "left", label = "Left (-X near)" },
+                { value = "right", label = "Right (+X near)" },
+                { value = "always", label = "Always in Front" },
+                { value = "never", label = "Never in Front" }
+            }
+        })
+        self:registerProperty("face_y", "number", {
+            name = "Face Y Override"
+        })
+        self:registerProperty("face_x", "number", {
+            name = "Face X Override"
+        })
+        self:registerProperty("sort_y_offset", "number", {
+            name = "Face Sort Offset Y", default = 0
+        })
+        self:registerProperty("cutout_enabled", "boolean", {
+            name = "Character Cutout", default = true
+        })
+        self:registerProperty("cutout_radius", "number", {
+            name = "Cutout Radius", default = 32
+        })
+        self:registerProperty("cutout_alpha", "number", {
+            name = "Cutout Opacity", default = 0.3
+        })
+        self:registerProperty("cutout_feather", "number", {
+            name = "Cutout Feather", default = 6
+        })
     end
     self.id = options.object_id
     MapUtils.addLayerOffset(self, options.depth)
@@ -112,8 +193,14 @@ function EditorObject:init(data, options)
             (self.layer_tint[2] or 255) / 255, (self.layer_tint[3] or 255) / 255,
             (self.layer_tint[4] or 255) / 255 }
     end
+    local surface_id = data.properties.surface_id or data.properties.structure_id
+    local surface = options.map and surface_id
+        and options.map:getSurface(surface_id) or nil
+    self.visual_z = tonumber(data.properties.z)
+        or surface and surface.top
+        or 0
     self.x = (data.x or 0) + (options.offset_x or 0)
-    self.y = (data.y or 0) + (options.offset_y or 0)
+    self.y = (data.y or 0) + (options.offset_y or 0) - self.visual_z
     self.width = data.width or 0
     self.height = data.height or 0
     self.scale_x = data.scale_x or 1
@@ -299,6 +386,12 @@ function EditorObject:drawBounds(alpha, line_width)
         end
     else
         love.graphics.rectangle("line", 0, 0, width, height)
+    end
+    if self.visual_z ~= 0 then
+        local anchor_x, anchor_y = width / 2, height
+        love.graphics.line(anchor_x, anchor_y, anchor_x, anchor_y + self.visual_z)
+        love.graphics.line(anchor_x - 3, anchor_y + self.visual_z,
+            anchor_x + 3, anchor_y + self.visual_z)
     end
     love.graphics.pop()
     love.graphics.setLineWidth(previous_width)

@@ -6,6 +6,15 @@ function AfterImage:init(sprite, fade, speed)
     super.init(self, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
 
     self.sprite = sprite
+    if sprite.height_sort_subject and sprite.use_3d_collision then
+        self.height_sort_subject = true
+        self.use_3d_collision = true
+        self.height_occlusion_z = sprite:getFullZ()
+        self.height_occlusion_sort_x, self.height_occlusion_sort_y =
+            sprite:getSortPosition()
+        self.ground_surface = sprite.ground_surface
+        self.airborne_surface = sprite.airborne_surface
+    end
 
     self.alpha = fade
     self:fadeOutSpeedAndRemove(speed)
@@ -18,7 +27,10 @@ function AfterImage:init(sprite, fade, speed)
     local visual_transform = self.sprite:getFullVisualTransform()
     love.graphics.applyTransform(visual_transform)
     Draw.setColor(self.sprite:getDrawColor())
+    local drawing_afterimage = self.sprite._drawing_afterimage
+    self.sprite._drawing_afterimage = true
     self.sprite:draw()
+    self.sprite._drawing_afterimage = drawing_afterimage
     love.graphics.pop()
     Draw.popCanvas()
 
@@ -34,6 +46,23 @@ function AfterImage:init(sprite, fade, speed)
 
     self:setScaleOrigin(sox_p / SCREEN_WIDTH, soy_p / SCREEN_HEIGHT)
     self:setRotationOrigin(rox_p / SCREEN_WIDTH, roy_p / SCREEN_HEIGHT)
+end
+
+function AfterImage:getFullZ()
+    return self.height_occlusion_z or super.getFullZ(self)
+end
+
+function AfterImage:getSortPosition()
+    if self.height_occlusion_sort_x then
+        return self.height_occlusion_sort_x, self.height_occlusion_sort_y
+    end
+    return super.getSortPosition(self)
+end
+
+function AfterImage:drawHeightOcclusionMask()
+    if self.height_sort_subject then
+        Draw.drawCanvas(self.canvas)
+    end
 end
 
 function AfterImage:onAdd(parent)
@@ -68,7 +97,7 @@ function AfterImage:applyTransformTo(transform)
 end
 
 function AfterImage:draw()
-    Draw.draw(self.canvas)
+    Draw.drawCanvas(self.canvas)
     super.draw(self)
 end
 
