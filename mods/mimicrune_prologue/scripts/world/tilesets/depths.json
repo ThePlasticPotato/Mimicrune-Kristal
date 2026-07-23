@@ -137,9 +137,1711 @@
     {
       "id": 46,
       "properties": []
+    },
+    {
+      "id": 16,
+      "properties": []
+    },
+    {
+      "id": 4,
+      "properties": []
+    },
+    {
+      "id": 21,
+      "properties": []
+    },
+    {
+      "id": 22,
+      "properties": []
+    },
+    {
+      "id": 35,
+      "properties": []
+    },
+    {
+      "id": 34,
+      "properties": []
+    },
+    {
+      "id": 8,
+      "properties": []
+    },
+    {
+      "id": 9,
+      "properties": []
+    },
+    {
+      "id": 11,
+      "properties": []
+    },
+    {
+      "id": 25,
+      "properties": []
+    },
+    {
+      "id": 24,
+      "properties": []
+    },
+    {
+      "id": 23,
+      "properties": []
+    },
+    {
+      "id": 37,
+      "properties": []
+    },
+    {
+      "id": 50,
+      "properties": []
+    },
+    {
+      "id": 36,
+      "properties": []
+    },
+    {
+      "id": 29,
+      "properties": []
+    },
+    {
+      "id": 6,
+      "properties": []
+    },
+    {
+      "id": 18,
+      "properties": []
+    },
+    {
+      "id": 31,
+      "properties": []
+    },
+    {
+      "id": 33,
+      "properties": []
+    },
+    {
+      "id": 20,
+      "properties": []
+    },
+    {
+      "id": 7,
+      "properties": []
     }
   ],
   "terrain_tags": [],
-  "terrains": [],
+  "terrains": [
+    {
+      "id": "sand",
+      "name": "Sand",
+      "tile_icon": 11,
+      "fallback_mode": "closest",
+      "terrain_variants": [
+        {
+          "id": 1,
+          "name": "Light Sand",
+          "color": "#CEA8FFFF",
+          "tile_icon": 14,
+          "probability": 1,
+          "tags": [],
+          "properties": []
+        },
+        {
+          "id": 2,
+          "name": "Dark Sand",
+          "color": "#413367FF",
+          "tile_icon": 19,
+          "probability": 1,
+          "tags": [],
+          "properties": []
+        }
+      ],
+      "terrain_tiles": [
+        {
+          "tile_id": 14,
+          "terrain": 1,
+          "conditions": [
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": -1,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": 1,
+              "y": 0,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": 1,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": -1,
+              "y": 0,
+              "terrain": 1
+            }
+          ],
+          "transforms": [
+            "identity"
+          ],
+          "enabled": true,
+          "priority": 0,
+          "probability": 1
+        },
+        {
+          "tile_id": 2,
+          "terrain": 1,
+          "conditions": [
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": 1,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": -1,
+              "y": 0,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": 1,
+              "y": 0,
+              "terrain": 0
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": -1,
+              "terrain": 0
+            }
+          ],
+          "transforms": [
+            "identity"
+          ],
+          "enabled": true,
+          "priority": 0,
+          "probability": 1
+        },
+        {
+          "tile_id": 1,
+          "terrain": 1,
+          "conditions": [
+            {
+              "type": "terrain",
+              "x": 1,
+              "y": 0,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": -1,
+              "y": 0,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": 1,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": -1,
+              "terrain": 0
+            }
+          ],
+          "transforms": [
+            "identity"
+          ],
+          "enabled": true,
+          "priority": 0,
+          "probability": 1
+        },
+        {
+          "tile_id": 0,
+          "terrain": 1,
+          "conditions": [
+            {
+              "type": "terrain",
+              "x": 1,
+              "y": 0,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": 1,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": -1,
+              "terrain": 0
+            },
+            {
+              "type": "terrain",
+              "x": -1,
+              "y": 0,
+              "terrain": 0
+            }
+          ],
+          "transforms": [
+            "identity"
+          ],
+          "enabled": true,
+          "priority": 0,
+          "probability": 1
+        },
+        {
+          "tile_id": 13,
+          "terrain": 1,
+          "conditions": [
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": -1,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": 1,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": 1,
+              "y": 0,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": -1,
+              "y": 0,
+              "terrain": 0
+            }
+          ],
+          "transforms": [
+            "identity"
+          ],
+          "enabled": true,
+          "priority": 0,
+          "probability": 1
+        },
+        {
+          "tile_id": 26,
+          "terrain": 1,
+          "conditions": [
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": -1,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": 1,
+              "y": 0,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": -1,
+              "y": 0,
+              "terrain": 0
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": 1,
+              "terrain": 0
+            }
+          ],
+          "transforms": [
+            "identity"
+          ],
+          "enabled": true,
+          "priority": 0,
+          "probability": 1
+        },
+        {
+          "tile_id": 27,
+          "terrain": 1,
+          "conditions": [
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": -1,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": -1,
+              "y": 0,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": 1,
+              "y": 0,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": 1,
+              "terrain": 0
+            }
+          ],
+          "transforms": [
+            "identity"
+          ],
+          "enabled": true,
+          "priority": 0,
+          "probability": 1
+        },
+        {
+          "tile_id": 28,
+          "terrain": 1,
+          "conditions": [
+            {
+              "type": "terrain",
+              "x": -1,
+              "y": 0,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": -1,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": 1,
+              "terrain": 0
+            },
+            {
+              "type": "terrain",
+              "x": 1,
+              "y": 0,
+              "terrain": 0
+            }
+          ],
+          "transforms": [
+            "identity"
+          ],
+          "enabled": true,
+          "priority": 0,
+          "probability": 1
+        },
+        {
+          "tile_id": 15,
+          "terrain": 1,
+          "conditions": [
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": 1,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": -1,
+              "y": 0,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": -1,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": 1,
+              "y": 0,
+              "terrain": 0
+            }
+          ],
+          "transforms": [
+            "identity"
+          ],
+          "enabled": true,
+          "priority": 0,
+          "probability": 1
+        },
+        {
+          "tile_id": 16,
+          "terrain": 1,
+          "conditions": [
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": -1,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": 1,
+              "y": 0,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": -1,
+              "y": 0,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": 1,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": 1,
+              "y": -1,
+              "terrain": 0
+            }
+          ],
+          "transforms": [
+            "identity"
+          ],
+          "enabled": true,
+          "priority": 0,
+          "probability": 1
+        },
+        {
+          "tile_id": 3,
+          "terrain": 1,
+          "conditions": [
+            {
+              "type": "terrain",
+              "x": 1,
+              "y": 1,
+              "terrain": 0
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": 1,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": -1,
+              "y": 0,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": -1,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": 1,
+              "y": 0,
+              "terrain": 1
+            }
+          ],
+          "transforms": [
+            "identity"
+          ],
+          "enabled": true,
+          "priority": 0,
+          "probability": 1
+        },
+        {
+          "tile_id": 4,
+          "terrain": 1,
+          "conditions": [
+            {
+              "type": "terrain",
+              "x": -1,
+              "y": 1,
+              "terrain": 0
+            },
+            {
+              "type": "terrain",
+              "x": -1,
+              "y": 0,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": -1,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": 1,
+              "y": 0,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": 1,
+              "terrain": 1
+            }
+          ],
+          "transforms": [
+            "identity"
+          ],
+          "enabled": true,
+          "priority": 0,
+          "probability": 1
+        },
+        {
+          "tile_id": 17,
+          "terrain": 1,
+          "conditions": [
+            {
+              "type": "terrain",
+              "x": -1,
+              "y": -1,
+              "terrain": 0
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": -1,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": 1,
+              "y": 0,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": 1,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": -1,
+              "y": 0,
+              "terrain": 1
+            }
+          ],
+          "transforms": [
+            "identity"
+          ],
+          "enabled": true,
+          "priority": 0,
+          "probability": 1
+        },
+        {
+          "tile_id": 21,
+          "terrain": 1,
+          "conditions": [
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": -1,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": 1,
+              "y": 0,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": 1,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": -1,
+              "y": 0,
+              "terrain": 2
+            }
+          ],
+          "transforms": [
+            "identity"
+          ],
+          "enabled": true,
+          "priority": 0,
+          "probability": 1
+        },
+        {
+          "tile_id": 22,
+          "terrain": 1,
+          "conditions": [
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": -1,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": -1,
+              "y": 0,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": 1,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": 1,
+              "y": 0,
+              "terrain": 2
+            }
+          ],
+          "transforms": [
+            "identity"
+          ],
+          "enabled": true,
+          "priority": 0,
+          "probability": 1
+        },
+        {
+          "tile_id": 35,
+          "terrain": 1,
+          "conditions": [
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": -1,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": -1,
+              "y": 0,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": 1,
+              "terrain": 0
+            },
+            {
+              "type": "terrain",
+              "x": 1,
+              "y": 0,
+              "terrain": 2
+            }
+          ],
+          "transforms": [
+            "identity"
+          ],
+          "enabled": true,
+          "priority": 0,
+          "probability": 1
+        },
+        {
+          "tile_id": 34,
+          "terrain": 1,
+          "conditions": [
+            {
+              "type": "terrain",
+              "x": 1,
+              "y": 0,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": -1,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": 1,
+              "terrain": 0
+            },
+            {
+              "type": "terrain",
+              "x": -1,
+              "y": 0,
+              "terrain": 2
+            }
+          ],
+          "transforms": [
+            "identity"
+          ],
+          "enabled": true,
+          "priority": 0,
+          "probability": 1
+        },
+        {
+          "tile_id": 8,
+          "terrain": 1,
+          "conditions": [
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": -1,
+              "terrain": 0
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": 1,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": 1,
+              "y": 0,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": -1,
+              "y": 0,
+              "terrain": 2
+            }
+          ],
+          "transforms": [
+            "identity"
+          ],
+          "enabled": true,
+          "priority": 0,
+          "probability": 1
+        },
+        {
+          "tile_id": 9,
+          "terrain": 1,
+          "conditions": [
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": -1,
+              "terrain": 0
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": 1,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": -1,
+              "y": 0,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": 1,
+              "y": 0,
+              "terrain": 2
+            }
+          ],
+          "transforms": [
+            "identity"
+          ],
+          "enabled": true,
+          "priority": 0,
+          "probability": 1
+        },
+        {
+          "tile_id": 11,
+          "terrain": 1,
+          "conditions": [
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": 1,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": -1,
+              "y": 0,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": 1,
+              "y": 0,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": -1,
+              "terrain": 2
+            }
+          ],
+          "transforms": [
+            "identity"
+          ],
+          "enabled": true,
+          "priority": 0,
+          "probability": 1
+        },
+        {
+          "tile_id": 12,
+          "terrain": 1,
+          "conditions": [
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": 1,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": -1,
+              "y": 0,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": 1,
+              "y": 0,
+              "terrain": 0
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": -1,
+              "terrain": 2
+            }
+          ],
+          "transforms": [
+            "identity"
+          ],
+          "enabled": true,
+          "priority": 0,
+          "probability": 1
+        },
+        {
+          "tile_id": 25,
+          "terrain": 1,
+          "conditions": [
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": -1,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": -1,
+              "y": 0,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": 1,
+              "y": 0,
+              "terrain": 0
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": 1,
+              "terrain": 2
+            }
+          ],
+          "transforms": [
+            "identity"
+          ],
+          "enabled": true,
+          "priority": 0,
+          "probability": 1
+        },
+        {
+          "tile_id": 24,
+          "terrain": 1,
+          "conditions": [
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": -1,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": 1,
+              "y": 0,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": -1,
+              "y": 0,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": 1,
+              "terrain": 2
+            }
+          ],
+          "transforms": [
+            "identity"
+          ],
+          "enabled": true,
+          "priority": 0,
+          "probability": 1
+        },
+        {
+          "tile_id": 23,
+          "terrain": 1,
+          "conditions": [
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": -1,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": 1,
+              "y": 0,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": -1,
+              "y": 0,
+              "terrain": 0
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": 1,
+              "terrain": 2
+            }
+          ],
+          "transforms": [
+            "identity"
+          ],
+          "enabled": true,
+          "priority": 0,
+          "probability": 1
+        },
+        {
+          "tile_id": 10,
+          "terrain": 1,
+          "conditions": [
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": 1,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": 1,
+              "y": 0,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": -1,
+              "y": 0,
+              "terrain": 0
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": -1,
+              "terrain": 2
+            }
+          ],
+          "transforms": [
+            "identity"
+          ],
+          "enabled": true,
+          "priority": 0,
+          "probability": 1
+        },
+        {
+          "tile_id": 37,
+          "terrain": 1,
+          "conditions": [
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": -1,
+              "terrain": 2
+            },
+            {
+              "type": "terrain",
+              "x": 1,
+              "y": -1,
+              "terrain": 2
+            },
+            {
+              "type": "terrain",
+              "x": 1,
+              "y": 0,
+              "terrain": 2
+            },
+            {
+              "type": "terrain",
+              "x": -1,
+              "y": 0,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": 1,
+              "terrain": 1
+            }
+          ],
+          "transforms": [
+            "identity"
+          ],
+          "enabled": true,
+          "priority": 0,
+          "probability": 1
+        },
+        {
+          "tile_id": 50,
+          "terrain": 1,
+          "conditions": [
+            {
+              "type": "terrain",
+              "x": 1,
+              "y": 0,
+              "terrain": 2
+            },
+            {
+              "type": "terrain",
+              "x": 1,
+              "y": 1,
+              "terrain": 2
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": 1,
+              "terrain": 2
+            },
+            {
+              "type": "terrain",
+              "x": -1,
+              "y": 0,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": -1,
+              "terrain": 1
+            }
+          ],
+          "transforms": [
+            "identity"
+          ],
+          "enabled": true,
+          "priority": 0,
+          "probability": 1
+        },
+        {
+          "tile_id": 49,
+          "terrain": 1,
+          "conditions": [
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": 1,
+              "terrain": 2
+            },
+            {
+              "type": "terrain",
+              "x": -1,
+              "y": 1,
+              "terrain": 2
+            },
+            {
+              "type": "terrain",
+              "x": -1,
+              "y": 0,
+              "terrain": 2
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": -1,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": 1,
+              "y": 0,
+              "terrain": 1
+            }
+          ],
+          "transforms": [
+            "identity"
+          ],
+          "enabled": true,
+          "priority": 0,
+          "probability": 1
+        },
+        {
+          "tile_id": 36,
+          "terrain": 1,
+          "conditions": [
+            {
+              "type": "terrain",
+              "x": -1,
+              "y": 0,
+              "terrain": 2
+            },
+            {
+              "type": "terrain",
+              "x": -1,
+              "y": -1,
+              "terrain": 2
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": -1,
+              "terrain": 2
+            },
+            {
+              "type": "terrain",
+              "x": 1,
+              "y": 0,
+              "terrain": 1
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": 1,
+              "terrain": 1
+            }
+          ],
+          "transforms": [
+            "identity"
+          ],
+          "enabled": true,
+          "priority": 0,
+          "probability": 1
+        },
+        {
+          "tile_id": 30,
+          "terrain": 2,
+          "conditions": [
+            {
+              "type": "terrain",
+              "x": -1,
+              "y": 1,
+              "terrain": 0
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": 1,
+              "terrain": 2
+            },
+            {
+              "type": "terrain",
+              "x": 1,
+              "y": 0,
+              "terrain": 2
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": -1,
+              "terrain": 2
+            },
+            {
+              "type": "terrain",
+              "x": -1,
+              "y": 0,
+              "terrain": 2
+            }
+          ],
+          "transforms": [
+            "identity"
+          ],
+          "enabled": true,
+          "priority": 0,
+          "probability": 1
+        },
+        {
+          "tile_id": 43,
+          "terrain": 2,
+          "conditions": [
+            {
+              "type": "terrain",
+              "x": -1,
+              "y": -1,
+              "terrain": 0
+            },
+            {
+              "type": "terrain",
+              "x": -1,
+              "y": 0,
+              "terrain": 2
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": 1,
+              "terrain": 2
+            },
+            {
+              "type": "terrain",
+              "x": 1,
+              "y": 0,
+              "terrain": 2
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": -1,
+              "terrain": 2
+            }
+          ],
+          "transforms": [
+            "identity"
+          ],
+          "enabled": true,
+          "priority": 0,
+          "probability": 1
+        },
+        {
+          "tile_id": 42,
+          "terrain": 2,
+          "conditions": [
+            {
+              "type": "terrain",
+              "x": 1,
+              "y": -1,
+              "terrain": 0
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": -1,
+              "terrain": 2
+            },
+            {
+              "type": "terrain",
+              "x": 1,
+              "y": 0,
+              "terrain": 2
+            },
+            {
+              "type": "terrain",
+              "x": -1,
+              "y": 0,
+              "terrain": 2
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": 1,
+              "terrain": 2
+            }
+          ],
+          "transforms": [
+            "identity"
+          ],
+          "enabled": true,
+          "priority": 0,
+          "probability": 1
+        },
+        {
+          "tile_id": 29,
+          "terrain": 2,
+          "conditions": [
+            {
+              "type": "terrain",
+              "x": 1,
+              "y": 1,
+              "terrain": 0
+            },
+            {
+              "type": "terrain",
+              "x": 1,
+              "y": 0,
+              "terrain": 2
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": 1,
+              "terrain": 2
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": -1,
+              "terrain": 2
+            },
+            {
+              "type": "terrain",
+              "x": -1,
+              "y": 0,
+              "terrain": 2
+            }
+          ],
+          "transforms": [
+            "identity"
+          ],
+          "enabled": true,
+          "priority": 0,
+          "probability": 1
+        },
+        {
+          "tile_id": 19,
+          "terrain": 2,
+          "conditions": [
+            {
+              "type": "terrain",
+              "x": -1,
+              "y": 0,
+              "terrain": 2
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": -1,
+              "terrain": 2
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": 1,
+              "terrain": 2
+            },
+            {
+              "type": "terrain",
+              "x": 1,
+              "y": 0,
+              "terrain": 2
+            }
+          ],
+          "transforms": [
+            "identity"
+          ],
+          "enabled": true,
+          "priority": 0,
+          "probability": 1
+        },
+        {
+          "tile_id": 6,
+          "terrain": 2,
+          "conditions": [
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": 1,
+              "terrain": 2
+            },
+            {
+              "type": "terrain",
+              "x": 1,
+              "y": 0,
+              "terrain": 2
+            },
+            {
+              "type": "terrain",
+              "x": -1,
+              "y": 0,
+              "terrain": 2
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": -1,
+              "terrain": 0
+            }
+          ],
+          "transforms": [
+            "identity"
+          ],
+          "enabled": true,
+          "priority": 0,
+          "probability": 1
+        },
+        {
+          "tile_id": 5,
+          "terrain": 2,
+          "conditions": [
+            {
+              "type": "terrain",
+              "x": 1,
+              "y": 0,
+              "terrain": 2
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": 1,
+              "terrain": 2
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": -1,
+              "terrain": 0
+            },
+            {
+              "type": "terrain",
+              "x": -1,
+              "y": 0,
+              "terrain": 0
+            }
+          ],
+          "transforms": [
+            "identity"
+          ],
+          "enabled": true,
+          "priority": 0,
+          "probability": 1
+        },
+        {
+          "tile_id": 18,
+          "terrain": 2,
+          "conditions": [
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": -1,
+              "terrain": 2
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": 1,
+              "terrain": 2
+            },
+            {
+              "type": "terrain",
+              "x": 1,
+              "y": 0,
+              "terrain": 2
+            },
+            {
+              "type": "terrain",
+              "x": -1,
+              "y": 0,
+              "terrain": 0
+            }
+          ],
+          "transforms": [
+            "identity"
+          ],
+          "enabled": true,
+          "priority": 0,
+          "probability": 1
+        },
+        {
+          "tile_id": 31,
+          "terrain": 2,
+          "conditions": [
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": -1,
+              "terrain": 2
+            },
+            {
+              "type": "terrain",
+              "x": 1,
+              "y": 0,
+              "terrain": 2
+            },
+            {
+              "type": "terrain",
+              "x": -1,
+              "y": 0,
+              "terrain": 0
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": 1,
+              "terrain": 0
+            }
+          ],
+          "transforms": [
+            "identity"
+          ],
+          "enabled": true,
+          "priority": 0,
+          "probability": 1
+        },
+        {
+          "tile_id": 32,
+          "terrain": 2,
+          "conditions": [
+            {
+              "type": "terrain",
+              "x": -1,
+              "y": 0,
+              "terrain": 2
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": -1,
+              "terrain": 2
+            },
+            {
+              "type": "terrain",
+              "x": 1,
+              "y": 0,
+              "terrain": 2
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": 1,
+              "terrain": 0
+            }
+          ],
+          "transforms": [
+            "identity"
+          ],
+          "enabled": true,
+          "priority": 0,
+          "probability": 1
+        },
+        {
+          "tile_id": 33,
+          "terrain": 2,
+          "conditions": [
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": -1,
+              "terrain": 2
+            },
+            {
+              "type": "terrain",
+              "x": -1,
+              "y": 0,
+              "terrain": 2
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": 1,
+              "terrain": 0
+            },
+            {
+              "type": "terrain",
+              "x": 1,
+              "y": 0,
+              "terrain": 0
+            }
+          ],
+          "transforms": [
+            "identity"
+          ],
+          "enabled": true,
+          "priority": 0,
+          "probability": 1
+        },
+        {
+          "tile_id": 20,
+          "terrain": 2,
+          "conditions": [
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": 1,
+              "terrain": 2
+            },
+            {
+              "type": "terrain",
+              "x": -1,
+              "y": 0,
+              "terrain": 2
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": -1,
+              "terrain": 2
+            },
+            {
+              "type": "terrain",
+              "x": 1,
+              "y": 0,
+              "terrain": 0
+            }
+          ],
+          "transforms": [
+            "identity"
+          ],
+          "enabled": true,
+          "priority": 0,
+          "probability": 1
+        },
+        {
+          "tile_id": 7,
+          "terrain": 2,
+          "conditions": [
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": 1,
+              "terrain": 2
+            },
+            {
+              "type": "terrain",
+              "x": -1,
+              "y": 0,
+              "terrain": 2
+            },
+            {
+              "type": "terrain",
+              "x": 1,
+              "y": 0,
+              "terrain": 0
+            },
+            {
+              "type": "terrain",
+              "x": 0,
+              "y": -1,
+              "terrain": 0
+            }
+          ],
+          "transforms": [
+            "identity"
+          ],
+          "enabled": true,
+          "priority": 0,
+          "probability": 1
+        }
+      ],
+      "properties": []
+    }
+  ],
   "properties": []
 }

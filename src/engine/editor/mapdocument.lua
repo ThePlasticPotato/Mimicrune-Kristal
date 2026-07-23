@@ -1158,8 +1158,16 @@ end
 function EditorMapDocument:getObjectVisualZ(selection)
     local layer_type = selection.layer
         and Registry.getLayerType(selection.layer._editor_type_id)
-    if not layer_type or layer_type.id ~= "objects" then return 0 end
-    local properties = selection.data.properties or {}
+    if not layer_type then return 0 end
+    local properties = TableUtils.mergeMany(
+        selection.layer.properties or {},
+        selection.data.properties or {}
+    )
+    if layer_type.id == "collision" then
+        local depth = math.max(tonumber(properties.depth) or 0, 0)
+        return MapUtils.getCollisionAuthoringZ(properties, depth)
+    end
+    if layer_type.id ~= "objects" then return 0 end
     local z = tonumber(properties.z)
     if z ~= nil then return z end
     local surface_id = properties.surface_id or properties.structure_id

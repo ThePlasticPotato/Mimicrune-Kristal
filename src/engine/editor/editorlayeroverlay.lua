@@ -89,7 +89,7 @@ local function drawHeightGuide(object, layer, color, alpha, line_width)
         or properties.pit == true or properties.platform == true
     if z == 0 and depth == 0 and not explicitly_typed then return end
 
-    local points, closed = getShapePoints(object)
+    local points, closed, connector_step = getShapePoints(object)
     local rotation = math.rad(object.rotation or 0)
     local cosine, sine = math.cos(rotation), math.sin(rotation)
     local footprint = {}
@@ -110,20 +110,42 @@ local function drawHeightGuide(object, layer, color, alpha, line_width)
     love.graphics.setLineWidth(line_width or 1)
     local role_color = getRoleColor(role)
     local guide_alpha = math.min(color[4] or 1, 0.9) * alpha
-    Draw.setColor(role_color[1], role_color[2], role_color[3], guide_alpha * 0.9)
     local dash_length = 5 * (line_width or 1)
 
-    if #footprint == 1 then
-        love.graphics.points(footprint[1][1], footprint[1][2])
-    else
-        drawDashedPath(footprint, closed, dash_length)
+    local function drawFootprint(offset_y)
+        if #footprint == 1 then
+            love.graphics.points(footprint[1][1], footprint[1][2] + offset_y)
+            return
+        end
+        local shifted = {}
+        for index, point in ipairs(footprint) do
+            shifted[index] = { point[1], point[2] + offset_y }
+        end
+        drawDashedPath(shifted, closed, dash_length)
     end
 
     local top_z = z + depth
+    local authoring_z = MapUtils.getCollisionAuthoringZ(properties, depth)
+    if authoring_z ~= 0 then
+        Draw.setColor(role_color[1], role_color[2], role_color[3], guide_alpha * 0.28)
+        drawFootprint(0)
+    end
+    if depth > 0 then
+        Draw.setColor(role_color[1], role_color[2], role_color[3], guide_alpha * 0.62)
+        drawFootprint(authoring_z == top_z and -z or -top_z)
+        Draw.setColor(role_color[1], role_color[2], role_color[3], guide_alpha * 0.42)
+        for index = 1, #footprint, connector_step do
+            local point = footprint[index]
+            love.graphics.line(point[1], point[2] - z,
+                point[1], point[2] - top_z)
+        end
+    end
+
     local ruler_x = max_x + 7 * (line_width or 1)
     local base_y = min_y
     local bottom_y, top_y = base_y - z, base_y - top_z
     if top_z ~= 0 or z ~= 0 then
+        Draw.setColor(role_color[1], role_color[2], role_color[3], guide_alpha * 0.72)
         love.graphics.line(ruler_x, base_y, ruler_x, top_y)
         love.graphics.line(ruler_x - 3, base_y, ruler_x + 3, base_y)
         love.graphics.line(ruler_x - 3, bottom_y, ruler_x + 3, bottom_y)
@@ -254,9 +276,19 @@ end
 function EditorLayerOverlay:drawObject(object, alpha, line_width)
     local width, height = object.width or 0, object.height or 0
     local points = object.polygon or object.polyline
+    local color = self.color
+    local visual_z = 0
+    if self.layer_type and self.layer_type.id == "collision" then
+        local properties = TableUtils.mergeMany(
+            self.source_layer.properties or {}, object.properties or {})
+        local depth = math.max(tonumber(properties.depth) or 0, 0)
+        local role = MapUtils.getCollisionRole(properties, depth)
+        visual_z = MapUtils.getCollisionAuthoringZ(properties, depth)
+        color = getRoleColor(role)
+    end
     love.graphics.push()
     love.graphics.translate((object.x or 0) + (self.source_layer.offsetx or 0),
-        (object.y or 0) + (self.source_layer.offsety or 0))
+        (object.y or 0) + (self.source_layer.offsety or 0) - visual_z)
     love.graphics.rotate(math.rad(object.rotation or 0))
     local previous_width = love.graphics.getLineWidth()
     if object.polyline and object.shape_data and tonumber(object.shape_data.thickness) then
@@ -266,7 +298,6 @@ function EditorLayerOverlay:drawObject(object, alpha, line_width)
         love.graphics.setLineWidth(line_width or 1)
     end
 
-    local color = self.color
     Draw.setColor(color[1] or 1, color[2] or 1, color[3] or 1, 0.14 * alpha)
     if points then
         if #points >= 3 and object.polygon then

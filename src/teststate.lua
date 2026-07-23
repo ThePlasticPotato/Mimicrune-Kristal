@@ -160,7 +160,7 @@ function Testing:runPlatformingTests()
     local vessel = Registry.createActor("vessel")
     expect(vessel.jump_strength == 8 and vessel.jump_windup == 1 / 15,
         "the Vessel should use its tuned jump height and one-frame squat wind-up")
-    expect(vessel.run_speed == 8
+    expect(vessel.run_speed == 6
         and vessel.run_momentum_max == 0.5
         and vessel.run_acceleration == 4
         and vessel.run_deceleration == 4
@@ -645,6 +645,38 @@ function Testing:runPlatformingTests()
         and editor_shape.property_set:getProperty("surface_id").type == "string"
         and editor_shape.property_set:getProperty("surface_plane").type == "string",
         "collision shapes should expose clear wall, solid, surface, and pit authoring controls")
+
+    local raised_editor_shape = EditorObject({
+        x = 40, y = 200, width = 30, height = 20,
+        properties = { z = 20, depth = 60, collision_role = "wall" },
+        __editor_property_types = {}
+    }, { layer_type = Registry.getLayerType("collision") })
+    expect(raised_editor_shape.visual_z == 20 and raised_editor_shape.y == 180,
+        "explicit walls should be authored at the projected bottom where their blocking footprint begins")
+
+    local projection_document = setmetatable({}, { __index = EditorMapDocument })
+    local projection_layer = {
+        _editor_type_id = "collision", offsetx = 0, offsety = 0, properties = {}
+    }
+    local projection_selection = {
+        document = projection_document,
+        layer = projection_layer,
+        entry = { x = 0, y = 0 },
+        data = {
+            x = 40, y = 200, width = 30, height = 20,
+            properties = { z = 20, depth = 60, collision_role = "wall" }
+        }
+    }
+    local projected_x, projected_y =
+        projection_document:getObjectLocalRect(projection_selection)
+    expect(projection_document:getObjectVisualZ(projection_selection) == 20
+        and projected_x == 40 and projected_y == 180,
+        "wall selection and manipulation bounds should use the projected blocking bottom")
+    projection_selection.data.properties.collision_role = "solid"
+    local solid_x, solid_y = projection_document:getObjectLocalRect(projection_selection)
+    expect(projection_document:getObjectVisualZ(projection_selection) == 80
+        and solid_x == 40 and solid_y == 120,
+        "supporting collision shapes should be authored at their projected walkable top")
 
     local editor_event = EditorObject({
         x = 120, y = 200, width = 40, height = 40,

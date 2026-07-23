@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "kristal_version": "0.11.0-dev",
+  "id": "wastes",
+  "name": "The Wastes",
+  "maps": [
+    {
+      "map": "wastes_entrance",
+      "x": 0,
+      "y": 0
+    }
+  ],
+  "properties": []
+}

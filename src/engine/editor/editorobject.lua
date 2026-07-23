@@ -196,9 +196,16 @@ function EditorObject:init(data, options)
     local surface_id = data.properties.surface_id or data.properties.structure_id
     local surface = options.map and surface_id
         and options.map:getSurface(surface_id) or nil
-    self.visual_z = tonumber(data.properties.z)
-        or surface and surface.top
-        or 0
+    if self.layer_type and self.layer_type.id == "collision" then
+        local height_properties = TableUtils.mergeMany(
+            options.layer and options.layer.properties or {}, data.properties)
+        local depth = math.max(tonumber(height_properties.depth) or 0, 0)
+        self.visual_z = MapUtils.getCollisionAuthoringZ(height_properties, depth)
+    else
+        self.visual_z = tonumber(data.properties.z)
+            or surface and surface.top
+            or 0
+    end
     self.x = (data.x or 0) + (options.offset_x or 0)
     self.y = (data.y or 0) + (options.offset_y or 0) - self.visual_z
     self.width = data.width or 0

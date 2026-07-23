@@ -258,6 +258,18 @@ function MapUtils.getCollisionRole(properties, depth)
     return "wall"
 end
 
+---@param properties? table
+---@param depth? number
+---@return number z
+function MapUtils.getCollisionAuthoringZ(properties, depth)
+    properties = properties or {}
+    local z = tonumber(properties.z) or 0
+    depth = math.max(tonumber(depth ~= nil and depth or properties.depth) or 0, 0)
+    local role = MapUtils.getCollisionRole(properties, depth)
+    if role == "solid" or role == "surface" then return z + depth end
+    return z
+end
+
 --- Creates a collider from the runtime shape representation shared by map readers.
 ---@param parent Object
 ---@param data table
