@@ -1,0 +1,120 @@
+{
+  "version": 1,
+  "kristal_version": "0.11.0-dev",
+  "id": "wastes_entrance",
+  "name": "The Wastes : Entrance",
+  "width": 30,
+  "height": 20,
+  "grid_width": 40,
+  "grid_height": 40,
+  "background_color": [
+    0,
+    0,
+    0,
+    0
+  ],
+  "layers": [
+    {
+      "id": "tiles",
+      "name": "Tiles",
+      "color": [
+        0.8,
+        0.8,
+        0.82,
+        1
+      ],
+      "x": 0,
+      "y": 0,
+      "type": "tile",
+      "kind": "tile",
+      "depth": 0,
+      "alpha": 1,
+      "visible": true,
+      "parallax_x": 1,
+      "parallax_y": 1,
+      "properties": [],
+      "tileset": "depths",
+      "chunks": []
+    },
+    {
+      "id": "collision",
+      "name": "Collision",
+      "color": [
+        0,
+        0,
+        1,
+        1
+      ],
+      "x": 0,
+      "y": 0,
+      "type": "collision",
+      "kind": "object",
+      "depth": 0,
+      "alpha": 1,
+      "visible": true,
+      "parallax_x": 1,
+      "parallax_y": 1,
+      "properties": [],
+      "objects": []
+    },
+    {
+      "id": "markers",
+      "name": "Markers",
+      "color": [
+        0.49,
+        0,
+        1,
+        1
+      ],
+      "x": 0,
+      "y": 0,
+      "type": "objects",
+      "kind": "object",
+      "depth": 0,
+      "alpha": 1,
+      "visible": true,
+      "parallax_x": 1,
+      "parallax_y": 1,
+      "properties": [],
+      "objects": []
+    },
+    {
+      "id": "objects",
+      "name": "Objects",
+      "color": [
+        1,
+        0,
+        1,
+        1
+      ],
+      "x": 0,
+      "y": 0,
+      "type": "objects",
+      "kind": "object",
+      "depth": 0,
+      "alpha": 1,
+      "visible": true,
+      "parallax_x": 1,
+      "parallax_y": 1,
+      "properties": [],
+      "objects": [
+        {
+          "id": 1,
+          "name": "Player",
+          "type": "player",
+          "x": 600,
+          "y": 400,
+          "width": 0,
+          "height": 0,
+          "shape": {
+            "type": "point",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": []
+        }
+      ]
+    }
+  ],
+  "properties": []
+}
