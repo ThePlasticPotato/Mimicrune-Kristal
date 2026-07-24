@@ -133,6 +133,8 @@ Object.CACHE_TRANSFORMS = false
 Object.CACHE_ATTEMPTS = 0
 Object.CACHED = {}
 Object.CACHED_FULL = {}
+Object.CACHED_HEIGHT = {}
+Object.CACHED_FULL_HEIGHT = {}
 
 --- Begin caching the transforms of all objects. \
 --- This should be called before any collision checks, and ended with Object.endCache(). \
@@ -142,6 +144,8 @@ function Object.startCache()
     if Object.CACHE_ATTEMPTS == 1 then
         Object.CACHED = {}
         Object.CACHED_FULL = {}
+        Object.CACHED_HEIGHT = {}
+        Object.CACHED_FULL_HEIGHT = {}
         Object.CACHE_TRANSFORMS = true
     end
 end
@@ -152,6 +156,8 @@ function Object.endCache()
     if Object.CACHE_ATTEMPTS == 0 then
         Object.CACHED = {}
         Object.CACHED_FULL = {}
+        Object.CACHED_HEIGHT = {}
+        Object.CACHED_FULL_HEIGHT = {}
         Object.CACHE_TRANSFORMS = false
     end
 end
@@ -162,6 +168,8 @@ function Object._clearCache()
     Object.CACHE_ATTEMPTS = 0
     Object.CACHED = {}
     Object.CACHED_FULL = {}
+    Object.CACHED_HEIGHT = {}
+    Object.CACHED_FULL_HEIGHT = {}
 end
 
 --- Uncache an object's transform, if Object.startCache() is active. \
@@ -169,6 +177,7 @@ end
 function Object.uncache(obj)
     if Object.CACHE_TRANSFORMS then
         Object.CACHED[obj] = nil
+        Object.CACHED_HEIGHT[obj] = nil
         Object.uncacheFull(obj)
     end
 end
@@ -177,6 +186,7 @@ end
 function Object.uncacheFull(obj)
     if Object.CACHE_TRANSFORMS then
         Object.CACHED_FULL[obj] = nil
+        Object.CACHED_FULL_HEIGHT[obj] = nil
         for _, child in ipairs(obj.children) do
             Object.uncacheFull(child)
         end
@@ -754,10 +764,7 @@ end
 --- Returns the object's elevation relative to its stage.
 ---@return number z
 function Object:getFullZ()
-    if self.parent and self.parent.getFullZ then
-        return self.parent:getFullZ() + self.z
-    end
-    return self.z
+    return HeightTransform.getFullZ(self)
 end
 
 function Object:setDepth(depth)
@@ -1285,7 +1292,40 @@ end
 ---@return number x
 ---@return number y
 function Object:localToVisualScreenPos(x, y)
-    return self:getFullVisualTransform():transformPoint(x or 0, y or 0)
+    return self:getFullHeightTransform():transformVisualPoint(x, y, 0)
+end
+
+--- Returns a local XYZ position in logical screen space.
+---@param x? number
+---@param y? number
+---@param z? number
+---@return number x
+---@return number y
+---@return number z
+function Object:localToScreenPos3D(x, y, z)
+    return self:getFullHeightTransform():transformPoint3D(x, y, z)
+end
+
+--- Returns a logical screen-space XYZ position relative to this object.
+---@param x? number
+---@param y? number
+---@param z? number
+---@return number x
+---@return number y
+---@return number z
+function Object:screenToLocalPos3D(x, y, z)
+    return self:getFullHeightTransform():inverseTransformPoint3D(x, y, z)
+end
+
+--- Returns a projected screen position relative to this object at a known
+--- additional local elevation.
+---@param x? number
+---@param y? number
+---@param z? number
+---@return number x
+---@return number y
+function Object:visualScreenToLocalPos(x, y, z)
+    return self:getFullHeightTransform():inverseTransformVisualPoint(x, y, z)
 end
 
 --- Returns the specified position for the object's stage, relative to this object.
@@ -1626,14 +1666,17 @@ end
 
 --- Applies the object's draw transform, including its projected Z offset.
 function Object:applyVisualTransformTo(transform, floor_x, floor_y)
-    if self.z ~= 0 then
-        if floor_x then
-            transform:translate(0, -MathUtils.floorToMultiple(self.z, floor_y))
-        else
-            transform:translate(0, -self.z)
-        end
-    end
+    HeightTransform.applyElevationTo(transform, self.z, floor_x, floor_y)
     self:applyTransformTo(transform, floor_x, floor_y)
+end
+
+--- Applies this object's local logical and projected transforms to a paired
+--- height transform.
+---@param transform HeightTransform
+---@param floor_x? number
+---@param floor_y? number
+function Object:applyHeightTransformTo(transform, floor_x, floor_y)
+    transform:applyObject(self, floor_x, floor_y)
 end
 
 function Object:createTransform()
@@ -1651,6 +1694,25 @@ function Object:getTransform()
     else
         return self:createTransform()
     end
+end
+
+---@return HeightTransform transform
+function Object:createHeightTransform()
+    local transform = HeightTransform()
+    self:applyHeightTransformTo(transform)
+    return transform
+end
+
+--- Returns this object's local paired logical/visual/elevation transform.
+---@return HeightTransform transform
+function Object:getHeightTransform()
+    if Object.CACHE_TRANSFORMS then
+        if not Object.CACHED_HEIGHT[self] then
+            Object.CACHED_HEIGHT[self] = self:createHeightTransform()
+        end
+        return Object.CACHED_HEIGHT[self]
+    end
+    return self:createHeightTransform()
 end
 
 function Object:getFullTransform(i)
@@ -1679,16 +1741,41 @@ function Object:getFullTransform(i)
     end
 end
 
+--- Returns the complete paired logical/visual/elevation transform for this
+--- object hierarchy.
+---@param i? number Number of ancestors to step up before resolving.
+---@return HeightTransform transform
+function Object:getFullHeightTransform(i)
+    i = i or 0
+    if i > 0 then
+        if self.parent then return self.parent:getFullHeightTransform(i - 1) end
+        return HeightTransform()
+    end
+    if Object.CACHE_TRANSFORMS and Object.CACHED_FULL_HEIGHT[self] then
+        return Object.CACHED_FULL_HEIGHT[self]
+    end
+
+    local visual = love.math.newTransform()
+    local hierarchy = self:getHierarchy()
+    for index = #hierarchy, 1, -1 do
+        local object = hierarchy[index]
+        object:applyVisualTransformTo(visual)
+    end
+    -- Use the virtual accessor so captured/synthetic objects such as
+    -- afterimages can deliberately retain their source elevation.
+    local result = HeightTransform(
+        self:getFullTransform(), visual, self:getFullZ())
+    if Object.CACHE_TRANSFORMS then
+        Object.CACHED_FULL_HEIGHT[self] = result
+    end
+    return result
+end
+
 --- Returns the complete draw transform, including the projected Z offset of
 --- this object and every parent in its hierarchy.
 ---@return love.Transform transform
 function Object:getFullVisualTransform()
-    local transform = love.math.newTransform()
-    local hierarchy = self:getHierarchy()
-    for index = #hierarchy, 1, -1 do
-        hierarchy[index]:applyVisualTransformTo(transform)
-    end
-    return transform
+    return self:getFullHeightTransform():getVisualTransform():clone()
 end
 
 ---@return love.Canvas? canvas

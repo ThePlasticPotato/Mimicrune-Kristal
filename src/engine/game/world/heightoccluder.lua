@@ -12,6 +12,11 @@
 ---@field sort_x number
 ---@field sort_y number
 ---@field mask_sort_y number
+---@field cutout_visibility number
+---@field cutout_grow_time number
+---@field cutout_shrink_time number
+---@field cutout_wobble number
+---@field cutout_wobble_speed number
 ---@overload fun(map: Map, data: table, layer: table, properties: table): HeightOccluder
 local HeightOccluder, super = Class(Object)
 
@@ -125,6 +130,31 @@ function HeightOccluder:init(map, data, layer, properties)
     self.cutout_feather = math.max(
         tonumber(properties.cutout_feather or properties.character_cutout_feather) or 6, 0
     )
+    self.cutout_grow_time = math.max(
+        tonumber(properties.cutout_grow_time) or 0.18, 0
+    )
+    self.cutout_shrink_time = math.max(
+        tonumber(properties.cutout_shrink_time) or 0.22, 0
+    )
+    self.cutout_wobble = math.max(
+        tonumber(properties.cutout_wobble) or 2, 0
+    )
+    self.cutout_wobble_speed =
+        tonumber(properties.cutout_wobble_speed) or 2.5
+    self.cutout_visibility = 0
+    self.cutout_tween_start = 0
+    self.cutout_tween_target = 0
+    self.cutout_tween_timer = 0
+    self.cutout_tween_duration = 0
+    self.cutout_center_x = nil
+    self.cutout_center_y = nil
+    local cutout_seed_source = tostring(data.id or data.name or "")
+    self.cutout_wobble_seed = 0
+    for index = 1, #cutout_seed_source do
+        self.cutout_wobble_seed = self.cutout_wobble_seed
+            + cutout_seed_source:byte(index) * index
+    end
+    self.cutout_wobble_seed = self.cutout_wobble_seed * 0.137
     self.height_occluder = true
     self.height_occlusion_proxy = true
     self.debug_select = false
@@ -259,30 +289,124 @@ end
 ---@param relative_to Object
 ---@param points? number[][]
 function HeightOccluder:getMaskCoordinates(relative_to, points)
-    local parent_transform = self.parent and self.parent:getFullVisualTransform()
-        or love.math.newTransform()
-    local target_transform = relative_to:getFullVisualTransform()
+    local parent_transform = self.parent and self.parent:getFullHeightTransform()
+        or HeightTransform()
+    local target_transform = relative_to:getFullHeightTransform()
     local coordinates = {}
     for _, point in ipairs(points or self:getOcclusionMaskPoints()) do
-        local world_x, world_y = parent_transform:transformPoint(point[1], point[2])
-        local local_x, local_y = target_transform:inverseTransformPoint(world_x, world_y)
+        local world_x, world_y =
+            parent_transform:transformVisualPoint(point[1], point[2])
+        local local_x, local_y =
+            target_transform:inverseTransformVisualPoint(world_x, world_y)
         table.insert(coordinates, local_x)
         table.insert(coordinates, local_y)
     end
     return coordinates
 end
 
-local function circleCoordinates(transform, center_x, center_y, radius)
+---@param transform love.Transform
+---@param center_x number
+---@param center_y number
+---@param radius number
+---@param time? number
+---@param wobble? number
+---@return number[] coordinates
+function HeightOccluder:getCutoutBoundaryCoordinates(
+    transform, center_x, center_y, radius, time, wobble)
     local coordinates = {}
-    for index = 0, 31 do
-        local angle = index / 32 * math.pi * 2
-        local screen_x = center_x + math.cos(angle) * radius
-        local screen_y = center_y + math.sin(angle) * radius
+    local segments = 48
+    local phase = (time or Kristal.getTime())
+            * self.cutout_wobble_speed
+        + self.cutout_wobble_seed
+    local amplitude = math.min(wobble or self.cutout_wobble, radius * 0.25)
+    for index = 0, segments - 1 do
+        local angle = index / segments * math.pi * 2
+        local wave = math.sin(angle * 6 + phase) * 0.65
+            + math.sin(angle * 9 - phase * 0.73 + 1.9) * 0.35
+        local point_radius = math.max(radius + wave * amplitude, 0)
+        local screen_x = center_x + math.cos(angle) * point_radius
+        local screen_y = center_y + math.sin(angle) * point_radius
         local local_x, local_y = transform:inverseTransformPoint(screen_x, screen_y)
         table.insert(coordinates, local_x)
         table.insert(coordinates, local_y)
     end
     return coordinates
+end
+
+---@return Object? player
+function HeightOccluder:getCharacterCutoutTarget()
+    if not self.cutout_enabled or self.cutout_radius <= 0 then return nil end
+    local world = self.map.world
+    local player = world and world.player
+    if not player or not player.visible or not player.height_sort_subject
+        or not player.use_3d_collision then return nil end
+    local _, occlusion_top = self:getOcclusionZBounds()
+    if player:getFullZ() >= occlusion_top - 0.001
+        or not self:isCoveringCharacter(player) then return nil end
+    local gpu_managed = world._height_depth_renderer_active
+        and self.face_direction == "front"
+    if not gpu_managed and not self:isDrawnAfterCharacter(player) then
+        return nil
+    end
+    return player
+end
+
+---@param player Object
+function HeightOccluder:captureCharacterCutoutCenter(player)
+    local player_transform = player:getFullHeightTransform()
+    local screen_x, screen_y = player_transform:transformVisualPoint(
+        player.width / 2, player.height / 2
+    )
+    local parent_transform = self.parent and self.parent:getFullHeightTransform()
+        or HeightTransform()
+    self.cutout_center_x, self.cutout_center_y =
+        parent_transform:inverseTransformVisualPoint(screen_x, screen_y)
+end
+
+---@param target number
+function HeightOccluder:setCutoutTweenTarget(target)
+    target = MathUtils.clamp(target or 0, 0, 1)
+    if math.abs(target - self.cutout_tween_target) <= 0.001 then return end
+    self.cutout_tween_start = self.cutout_visibility
+    self.cutout_tween_target = target
+    self.cutout_tween_timer = 0
+    self.cutout_tween_duration =
+        target > self.cutout_visibility
+            and self.cutout_grow_time or self.cutout_shrink_time
+    if self.cutout_tween_duration <= 0 then
+        self.cutout_visibility = target
+    end
+end
+
+---@param dt? number
+function HeightOccluder:updateCutoutAnimation(dt)
+    local player = self:getCharacterCutoutTarget()
+    if player then self:captureCharacterCutoutCenter(player) end
+    self:setCutoutTweenTarget(player and 1 or 0)
+
+    local duration = self.cutout_tween_duration
+    if duration <= 0 then return end
+    self.cutout_tween_timer =
+        MathUtils.approach(self.cutout_tween_timer, duration, dt or DT)
+    local progress =
+        MathUtils.clamp(self.cutout_tween_timer / duration, 0, 1)
+    local easing = self.cutout_tween_target > self.cutout_tween_start
+        and "out-cubic" or "in-out-cubic"
+    self.cutout_visibility = Utils.ease(
+        self.cutout_tween_start,
+        self.cutout_tween_target,
+        progress,
+        easing
+    )
+    if progress >= 1 then
+        self.cutout_visibility = self.cutout_tween_target
+        self.cutout_tween_duration = 0
+    end
+end
+
+function HeightOccluder:update()
+    self:updateCutoutAnimation()
+    super.update(self)
 end
 
 --- Whether the character is on the far side of this directed depth face.
@@ -369,43 +493,40 @@ end
 ---@return number[]? outer
 ---@return number[]? inner
 function HeightOccluder:getCharacterCutout(source)
-    if not self.cutout_enabled or self.cutout_radius <= 0 then return nil end
-    local world = self.map.world
-    local player = world and world.player
-    if not player or not player.visible or not player.height_sort_subject
-        or not player.use_3d_collision then return nil end
-
-    local _, occlusion_top = self:getOcclusionZBounds()
-    if player:getFullZ() >= occlusion_top - 0.001 then return nil end
-    local gpu_managed = world._height_depth_renderer_active
-        and self.face_direction == "front"
-    if not self:isCoveringCharacter(player)
-        or not gpu_managed
-            and not self:isDrawnAfterCharacter(player) then return nil end
-
-    local player_transform = player:getFullVisualTransform()
-    local center_x, center_y = player_transform:transformPoint(
-        player.width / 2, player.height / 2
+    if not self.cutout_enabled or self.cutout_visibility <= 0.001
+        or self.cutout_center_x == nil then return nil end
+    local player = self:getCharacterCutoutTarget()
+    if player then self:captureCharacterCutoutCenter(player) end
+    local parent_transform = self.parent and self.parent:getFullHeightTransform()
+        or HeightTransform()
+    local center_x, center_y = parent_transform:transformVisualPoint(
+        self.cutout_center_x, self.cutout_center_y
     )
-    local parent_transform = self.parent and self.parent:getFullVisualTransform()
-        or love.math.newTransform()
     local min_x, min_y, max_x, max_y = math.huge, math.huge, -math.huge, -math.huge
     for _, point in ipairs(self:getOcclusionMaskPoints()) do
-        local x, y = parent_transform:transformPoint(point[1], point[2])
+        local x, y = parent_transform:transformVisualPoint(point[1], point[2])
         min_x, min_y = math.min(min_x, x), math.min(min_y, y)
         max_x, max_y = math.max(max_x, x), math.max(max_y, y)
     end
-    local radius = self.cutout_radius
+    local radius = self.cutout_radius * self.cutout_visibility
     if center_x + radius < min_x or center_x - radius > max_x
         or center_y + radius < min_y or center_y - radius > max_y then
         return nil
     end
 
-    local source_transform = source:getFullVisualTransform()
-    local outer = circleCoordinates(source_transform, center_x, center_y, radius)
-    local inner_radius = math.max(radius - self.cutout_feather, 0)
+    local source_transform = source:getFullHeightTransform():getVisualTransform()
+    local time = Kristal.getTime()
+    local wobble = math.min(
+        self.cutout_wobble * self.cutout_visibility,
+        radius * 0.25
+    )
+    local outer = self:getCutoutBoundaryCoordinates(
+        source_transform, center_x, center_y, radius, time, wobble)
+    local inner_radius = math.max(
+        radius - self.cutout_feather * self.cutout_visibility, 0)
     local inner = inner_radius > 0
-        and circleCoordinates(source_transform, center_x, center_y, inner_radius)
+        and self:getCutoutBoundaryCoordinates(
+            source_transform, center_x, center_y, inner_radius, time, wobble)
         or nil
     return outer, inner
 end

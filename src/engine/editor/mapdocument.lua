@@ -1260,7 +1260,8 @@ function EditorMapDocument:getObjectLocalRect(selection)
         local preview = self:getPreview(selection.entry)
         if preview and preview.map then
             local x, y, width, height = preview.map:getTileObjectRect(data)
-            return x, y - visual_z, width, height
+            x, y = HeightTransform.projectPoint(x, y, visual_z)
+            return x, y, width, height
         end
     elseif data.tileset and data.tile_id ~= nil then
         local tileset = Registry.getTileset(data.tileset)
@@ -1268,8 +1269,10 @@ function EditorMapDocument:getObjectLocalRect(selection)
             local tile_width, tile_height = tileset:getTileSize(data.tile_id)
             local width, height = data.width or tile_width, data.height or tile_height
             local origin = Tileset.ORIGINS[tileset.object_alignment] or Tileset.ORIGINS.unspecified
-            return (data.x or 0) - origin[1] * width,
-                (data.y or 0) - origin[2] * height - visual_z, width, height
+            local x = (data.x or 0) - origin[1] * width
+            local y = (data.y or 0) - origin[2] * height
+            x, y = HeightTransform.projectPoint(x, y, visual_z)
+            return x, y, width, height
         end
     end
     local width, height = data.width or 0, data.height or 0
@@ -1277,7 +1280,9 @@ function EditorMapDocument:getObjectLocalRect(selection)
         width = width * math.abs(data.scale_x or 1)
         height = height * math.abs(data.scale_y or 1)
     end
-    return data.x or 0, (data.y or 0) - visual_z, width, height
+    local x, y = HeightTransform.projectPoint(
+        data.x or 0, data.y or 0, visual_z)
+    return x, y, width, height
 end
 
 function EditorMapDocument:getEditorObjectType(data, map_id)

@@ -58,6 +58,11 @@ function HeightShadow:applyVisualTransformTo(transform, floor_x, floor_y)
     super.applyVisualTransformTo(self, transform, floor_x, floor_y)
 end
 
+function HeightShadow:applyHeightTransformTo(transform, floor_x, floor_y)
+    self:syncOwner()
+    super.applyHeightTransformTo(self, transform, floor_x, floor_y)
+end
+
 function HeightShadow:shouldDraw()
     local owner = self.owner
     return owner and owner.visible and owner.shouldDrawHeightShadow
@@ -71,20 +76,21 @@ function HeightShadow:getSurfaceCoordinates()
     local bounds = surface and (surface.support_bounds or surface.bounds)
     if not bounds or self.owner.shadow_z == nil then return nil end
 
-    local parent_transform = self.parent and self.parent:getFullVisualTransform()
-        or love.math.newTransform()
-    local shadow_transform = self:getFullVisualTransform()
+    local parent_transform = self.parent and self.parent:getFullHeightTransform()
+        or HeightTransform()
+    local shadow_transform = self:getFullHeightTransform()
     local coordinates = {}
     for _, point in ipairs({
-        { bounds.min_x, bounds.min_y - self.owner.shadow_z },
-        { bounds.max_x, bounds.min_y - self.owner.shadow_z },
-        { bounds.max_x, bounds.max_y - self.owner.shadow_z },
-        { bounds.min_x, bounds.max_y - self.owner.shadow_z }
+        { bounds.min_x, bounds.min_y },
+        { bounds.max_x, bounds.min_y },
+        { bounds.max_x, bounds.max_y },
+        { bounds.min_x, bounds.max_y }
     }) do
         local screen_x, screen_y =
-            parent_transform:transformPoint(point[1], point[2])
+            parent_transform:transformVisualPoint(
+                point[1], point[2], self.owner.shadow_z)
         local local_x, local_y =
-            shadow_transform:inverseTransformPoint(screen_x, screen_y)
+            shadow_transform:inverseTransformVisualPoint(screen_x, screen_y)
         table.insert(coordinates, local_x)
         table.insert(coordinates, local_y)
     end

@@ -70,6 +70,7 @@ Input = require("src.engine.input")
 TextInput = require("src.engine.textinput")
 Registry = require("src.engine.registry")
 Camera = require("src.engine.camera")
+HeightTransform = require("src.engine.heighttransform")
 
 Object = require("src.engine.object")
 Stage = require("src.engine.objects.stage")

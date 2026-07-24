@@ -273,7 +273,10 @@ local function drawColliderDepth(collision, dash_length)
 
     if anchor_x and anchor_y then
         local ruler_x = anchor_x + dash_length * 1.4
-        local bottom_y, top_y = anchor_y - bottom_z, anchor_y - bottom_z - depth
+        local _, bottom_y =
+            HeightTransform.projectPoint(ruler_x, anchor_y, bottom_z)
+        local _, top_y =
+            HeightTransform.projectPoint(ruler_x, anchor_y, bottom_z + depth)
         love.graphics.line(ruler_x, anchor_y, ruler_x, top_y)
         love.graphics.line(ruler_x - 3, anchor_y, ruler_x + 3, anchor_y)
         love.graphics.line(ruler_x - 3, bottom_y, ruler_x + 3, bottom_y)

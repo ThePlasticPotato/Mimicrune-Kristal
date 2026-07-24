@@ -206,6 +206,32 @@ function Player:getRunDeceleration()
     return self.actor.run_deceleration or 2
 end
 
+--- Returns the maximum directional boost transferred from a full run into a dash.
+---@return number boost
+function Player:getRunDashBoost()
+    if self.actor.run_dash_boost ~= nil then
+        return math.max(self.actor.run_dash_boost, 0)
+    end
+    return 2
+end
+
+---@param walk_x number
+---@param walk_y number
+---@param running boolean
+---@return number x
+---@return number y
+function Player:getDashLaunchMomentum(walk_x, walk_y, running)
+    if not running then return walk_x, walk_y end
+
+    local momentum_max = self:getRunMomentumMax()
+    if momentum_max <= 0 then return walk_x, walk_y end
+
+    local boost = self:getRunDashBoost()
+    local momentum_x = MathUtils.clamp(self.run_momentum[1] / momentum_max, -1, 1)
+    local momentum_y = MathUtils.clamp(self.run_momentum[2] / momentum_max, -1, 1)
+    return walk_x + momentum_x * boost, walk_y + momentum_y * boost
+end
+
 function Player:getDebugInfo()
     local info = super.getDebugInfo(self)
     table.insert(info, "State: " .. self.state_manager.state)
@@ -407,12 +433,8 @@ function Player:beginDash(prev_state, settings)
     end
     if (prev_state == "RUN") then
         self.was_running = true
-        local momentum_max = self:getRunMomentumMax()
-        local transfer_scale = momentum_max > 0 and 1 / momentum_max or 0
-        self.dash_momentum = {
-            walk_x + self.run_momentum[1] * 2 * transfer_scale,
-            walk_y + self.run_momentum[2] * 2 * transfer_scale
-        }
+        local dash_x, dash_y = self:getDashLaunchMomentum(walk_x, walk_y, true)
+        self.dash_momentum = {dash_x, dash_y}
     else
         self.dash_momentum = {walk_x, walk_y}
     end

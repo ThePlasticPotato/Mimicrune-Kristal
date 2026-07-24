@@ -26,7 +26,8 @@ function AfterImage:init(sprite, fade, speed)
     love.graphics.push()
     love.graphics.origin()
     love.graphics.clear()
-    local visual_transform = self.sprite:getFullVisualTransform()
+    local visual_transform =
+        self.sprite:getFullHeightTransform():getVisualTransform():clone()
     love.graphics.applyTransform(visual_transform)
     Draw.setColor(self.sprite:getDrawColor())
     local drawing_afterimage = self.sprite._drawing_afterimage

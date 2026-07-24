@@ -721,6 +721,25 @@ function World:getHeightSurfaceForCollider(collider)
         and self.map:getSurfaceForCollider(collider) or nil
 end
 
+--- Whether two collider pieces belong to the same authored height surface.
+---@param first Collider?
+---@param second Collider?
+---@return boolean
+function World:collidersShareHeightSurface(first, second)
+    if not first or not second then return false end
+    if first == second then return true end
+    if first.surface_id ~= nil and second.surface_id ~= nil
+        and tostring(first.surface_id) == tostring(second.surface_id) then
+        return true
+    end
+    local first_surface = self:getHeightSurfaceForCollider(first)
+    local second_surface = self:getHeightSurfaceForCollider(second)
+    if not first_surface or not second_surface then return false end
+    if first_surface == second_surface then return true end
+    return first_surface.id ~= nil and second_surface.id ~= nil
+        and tostring(first_surface.id) == tostring(second_surface.id)
+end
+
 ---@return table? surface
 function World:getImplicitHeightSurface()
     return self.map and self.map.getImplicitSurface
@@ -898,7 +917,9 @@ function World:getLandingSurface(collider, old_z, new_z, body_collider,
     for _, surface in ipairs(self:getCollision(false)) do
         if surface.supports and collider:collidesWith(surface) then
             local _, top = surface:getZBounds()
-            local snapping_back = surface == departed_surface and old_z <= top + 0.001
+            local snapping_back =
+                self:collidersShareHeightSurface(surface, departed_surface)
+                and old_z <= top + 0.001
             local crossed_surface = top <= old_z and top >= new_z
             local base_floor_catchup = math.abs(top) < 0.001 and new_z <= top
                 and not self:isOverPit(collider)
@@ -2115,42 +2136,28 @@ end
 ---@return table parameters
 function World:getHeightDepthParameters(child)
     local sort_x, sort_y = child:getSortPosition()
-    local _, anchor_y = love.graphics.transformPoint(sort_x, sort_y)
-    local depth_scale = 1 / 16384
     local depth_offset = tonumber(child.height_depth_offset) or 0
-    local parameters = {
-        depth_mode = 0,
-        anchor_y = anchor_y,
-        face_ground_y = anchor_y,
-        face_top_y = anchor_y,
-        height_pixels = 0,
-        depth_scale = depth_scale,
-        depth_bias = 0.5 + depth_offset * depth_scale,
-        alpha_threshold = 0.0001,
-        sort_depth = anchor_y + depth_offset
-    }
-
+    local transform =
+        HeightTransform.fromLoveTransform(love.graphics.getTransform())
     if child.height_occlusion_proxy and child.getOcclusionZBounds then
         local _, top = child:getOcclusionZBounds()
         local face_y = child.face_position or sort_y
         local face_x = child.sort_x or sort_x
-        local _, face_ground_y =
-            love.graphics.transformPoint(face_x, face_y)
-        local _, face_top_y =
-            love.graphics.transformPoint(face_x, face_y - top)
-        local height_pixels = face_ground_y - face_top_y
-        parameters.depth_mode = 1
-        parameters.face_ground_y = face_ground_y
-        parameters.face_top_y = face_top_y
-        parameters.height_pixels = height_pixels
-        parameters.sort_depth = face_ground_y + height_pixels + depth_offset
-    else
-        local z = child:getFullZ()
-        local _, projected_y =
-            love.graphics.transformPoint(sort_x, sort_y - z)
-        parameters.sort_depth = 2 * anchor_y - projected_y + depth_offset
+        return transform:getDepthParameters({
+            anchor_x = sort_x,
+            anchor_y = sort_y,
+            depth_offset = depth_offset,
+            face_x = face_x,
+            face_y = face_y,
+            face_top_z = top
+        })
     end
-    return parameters
+    return transform:getDepthParameters({
+        anchor_x = sort_x,
+        anchor_y = sort_y,
+        z = child:getFullHeightTransform():getZ(),
+        depth_offset = depth_offset
+    })
 end
 
 ---@param canvas love.Canvas

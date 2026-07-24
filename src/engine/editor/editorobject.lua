@@ -181,6 +181,18 @@ function EditorObject:init(data, options)
         self:registerProperty("cutout_feather", "number", {
             name = "Cutout Feather", default = 6
         })
+        self:registerProperty("cutout_grow_time", "number", {
+            name = "Cutout Grow Time", default = 0.18
+        })
+        self:registerProperty("cutout_shrink_time", "number", {
+            name = "Cutout Shrink Time", default = 0.22
+        })
+        self:registerProperty("cutout_wobble", "number", {
+            name = "Cutout Wobble", default = 2
+        })
+        self:registerProperty("cutout_wobble_speed", "number", {
+            name = "Cutout Wobble Speed", default = 2.5
+        })
     end
     self.id = options.object_id
     MapUtils.addLayerOffset(self, options.depth)
@@ -207,7 +219,12 @@ function EditorObject:init(data, options)
             or 0
     end
     self.x = (data.x or 0) + (options.offset_x or 0)
-    self.y = (data.y or 0) + (options.offset_y or 0) - self.visual_z
+    local _, projected_y = HeightTransform.projectPoint(
+        self.x,
+        (data.y or 0) + (options.offset_y or 0),
+        self.visual_z
+    )
+    self.y = projected_y
     self.width = data.width or 0
     self.height = data.height or 0
     self.scale_x = data.scale_x or 1
@@ -396,9 +413,10 @@ function EditorObject:drawBounds(alpha, line_width)
     end
     if self.visual_z ~= 0 then
         local anchor_x, anchor_y = width / 2, height
-        love.graphics.line(anchor_x, anchor_y, anchor_x, anchor_y + self.visual_z)
-        love.graphics.line(anchor_x - 3, anchor_y + self.visual_z,
-            anchor_x + 3, anchor_y + self.visual_z)
+        local ground_x, ground_y =
+            HeightTransform.unprojectPoint(anchor_x, anchor_y, self.visual_z)
+        love.graphics.line(anchor_x, anchor_y, ground_x, ground_y)
+        love.graphics.line(ground_x - 3, ground_y, ground_x + 3, ground_y)
     end
     love.graphics.pop()
     love.graphics.setLineWidth(previous_width)

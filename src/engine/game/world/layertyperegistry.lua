@@ -84,6 +84,18 @@ local function occlusionProperties(properties)
     properties:registerProperty("cutout_feather", "number", {
         name = "Cutout Feather", default = 6
     })
+    properties:registerProperty("cutout_grow_time", "number", {
+        name = "Cutout Grow Time", default = 0.18
+    })
+    properties:registerProperty("cutout_shrink_time", "number", {
+        name = "Cutout Shrink Time", default = 0.22
+    })
+    properties:registerProperty("cutout_wobble", "number", {
+        name = "Cutout Wobble", default = 2
+    })
+    properties:registerProperty("cutout_wobble_speed", "number", {
+        name = "Cutout Wobble Speed", default = 2.5
+    })
 end
 
 local DEFAULT_KINDS = {

@@ -21,6 +21,8 @@ function Actor:init()
     self.run_acceleration = nil
     self.run_deceleration = nil
     self.run_transition_frames = nil
+    -- Maximum directional magnitude added to a dash at full run momentum.
+    self.run_dash_boost = nil
 
     -- A table that defines where the Soul should be placed on this actor if they are a player.
     -- First value is x, second value is y.

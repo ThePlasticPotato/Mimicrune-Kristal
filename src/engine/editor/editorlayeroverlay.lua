@@ -112,14 +112,18 @@ local function drawHeightGuide(object, layer, color, alpha, line_width)
     local guide_alpha = math.min(color[4] or 1, 0.9) * alpha
     local dash_length = 5 * (line_width or 1)
 
-    local function drawFootprint(offset_y)
+    local function drawFootprintAt(elevation)
         if #footprint == 1 then
-            love.graphics.points(footprint[1][1], footprint[1][2] + offset_y)
+            local x, y = HeightTransform.projectPoint(
+                footprint[1][1], footprint[1][2], elevation)
+            love.graphics.points(x, y)
             return
         end
         local shifted = {}
         for index, point in ipairs(footprint) do
-            shifted[index] = { point[1], point[2] + offset_y }
+            shifted[index] = {
+                HeightTransform.projectPoint(point[1], point[2], elevation)
+            }
         end
         drawDashedPath(shifted, closed, dash_length)
     end
@@ -128,22 +132,26 @@ local function drawHeightGuide(object, layer, color, alpha, line_width)
     local authoring_z = MapUtils.getCollisionAuthoringZ(properties, depth)
     if authoring_z ~= 0 then
         Draw.setColor(role_color[1], role_color[2], role_color[3], guide_alpha * 0.28)
-        drawFootprint(0)
+        drawFootprintAt(0)
     end
     if depth > 0 then
         Draw.setColor(role_color[1], role_color[2], role_color[3], guide_alpha * 0.62)
-        drawFootprint(authoring_z == top_z and -z or -top_z)
+        drawFootprintAt(authoring_z == top_z and z or top_z)
         Draw.setColor(role_color[1], role_color[2], role_color[3], guide_alpha * 0.42)
         for index = 1, #footprint, connector_step do
             local point = footprint[index]
-            love.graphics.line(point[1], point[2] - z,
-                point[1], point[2] - top_z)
+            local bottom_x, bottom_y =
+                HeightTransform.projectPoint(point[1], point[2], z)
+            local top_x, top_y =
+                HeightTransform.projectPoint(point[1], point[2], top_z)
+            love.graphics.line(bottom_x, bottom_y, top_x, top_y)
         end
     end
 
     local ruler_x = max_x + 7 * (line_width or 1)
     local base_y = min_y
-    local bottom_y, top_y = base_y - z, base_y - top_z
+    local _, bottom_y = HeightTransform.projectPoint(ruler_x, base_y, z)
+    local _, top_y = HeightTransform.projectPoint(ruler_x, base_y, top_z)
     if top_z ~= 0 or z ~= 0 then
         Draw.setColor(role_color[1], role_color[2], role_color[3], guide_alpha * 0.72)
         love.graphics.line(ruler_x, base_y, ruler_x, top_y)
@@ -287,8 +295,12 @@ function EditorLayerOverlay:drawObject(object, alpha, line_width)
         color = getRoleColor(role)
     end
     love.graphics.push()
-    love.graphics.translate((object.x or 0) + (self.source_layer.offsetx or 0),
-        (object.y or 0) + (self.source_layer.offsety or 0) - visual_z)
+    local object_x, object_y = HeightTransform.projectPoint(
+        (object.x or 0) + (self.source_layer.offsetx or 0),
+        (object.y or 0) + (self.source_layer.offsety or 0),
+        visual_z
+    )
+    love.graphics.translate(object_x, object_y)
     love.graphics.rotate(math.rad(object.rotation or 0))
     local previous_width = love.graphics.getLineWidth()
     if object.polyline and object.shape_data and tonumber(object.shape_data.thickness) then

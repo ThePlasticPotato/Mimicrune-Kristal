@@ -36,6 +36,7 @@ function actor:init()
     self.run_acceleration = 4
     self.run_deceleration = 4
     self.run_transition_frames = 4
+    self.run_dash_boost = 0.25
 
     -- Color for this actor used in outline areas (optional, defaults to red)
     self.color = {0, 1, 1}

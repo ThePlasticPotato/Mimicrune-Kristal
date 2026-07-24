@@ -28,23 +28,78 @@ function Testing:runPlatformingTests()
         if not value then error("Platforming test failed: " .. message, 2) end
     end
 
-    local root = Object()
-    root.z = 5
-    local child = Object()
-    child.z = 7
-    root:addChild(child)
-    expect(child:getFullZ() == 12, "parent and child Z should accumulate")
+    (function()
+        local root = Object()
+        root.z = 5
+        local child = Object()
+        child.z = 7
+        root:addChild(child)
+        expect(child:getFullZ() == 12, "parent and child Z should accumulate")
 
-    local logical_transform = love.math.newTransform()
-    child:applyTransformTo(logical_transform)
-    local _, logical_y = logical_transform:transformPoint(0, 0)
-    local visual_transform = love.math.newTransform()
-    child:applyVisualTransformTo(visual_transform)
-    local _, visual_y = visual_transform:transformPoint(0, 0)
-    expect(logical_y == 0 and visual_y == -7, "Z projection should affect drawing but not logical transforms")
-    local _, full_visual_y = child:getFullVisualTransform():transformPoint(0, 0)
-    expect(full_visual_y == -12,
-        "visual snapshots should include the projected Z of the complete object hierarchy")
+        local logical_transform = love.math.newTransform()
+        child:applyTransformTo(logical_transform)
+        local _, logical_y = logical_transform:transformPoint(0, 0)
+        local visual_transform = love.math.newTransform()
+        child:applyVisualTransformTo(visual_transform)
+        local _, visual_y = visual_transform:transformPoint(0, 0)
+        expect(logical_y == 0 and visual_y == -7,
+            "Z projection should affect drawing but not logical transforms")
+        local _, full_visual_y =
+            child:getFullVisualTransform():transformPoint(0, 0)
+        expect(full_visual_y == -12,
+            "visual snapshots should include the projected Z of the complete object hierarchy")
+
+        local height_transform = HeightTransform()
+        height_transform:translate(10, 20, 5)
+        local ground_x, ground_y, ground_z =
+            height_transform:transformPoint3D(2, 3, 4)
+        local projected_x, projected_y =
+            height_transform:transformVisualPoint(2, 3, 4)
+        local inverse_x, inverse_y =
+            height_transform:inverseTransformVisualPoint(projected_x, projected_y, 4)
+        expect(ground_x == 12 and ground_y == 23 and ground_z == 9
+            and projected_x == 12 and projected_y == 14
+            and inverse_x == 2 and inverse_y == 3,
+            "height transforms should keep logical XYZ, projection, and inverse projection coherent")
+
+        local parent_height = HeightTransform()
+        parent_height:translate(100, 200, 10)
+        parent_height:rotate(math.pi / 2)
+        local local_height = HeightTransform()
+        local_height:translate(5, 6, 2)
+        local composed_height = parent_height:clone():apply(local_height)
+        local sequential_height = HeightTransform()
+        sequential_height:translate(100, 200, 10)
+        sequential_height:rotate(math.pi / 2)
+        sequential_height:translate(5, 6, 2)
+        local composed_x, composed_y = composed_height:transformVisualPoint()
+        local sequential_x, sequential_y = sequential_height:transformVisualPoint()
+        expect(math.abs(composed_x - sequential_x) < 0.001
+            and math.abs(composed_y - sequential_y) < 0.001
+            and composed_height:getZ() == 12,
+            "height-transform composition should preserve projected hierarchy and accumulated Z")
+
+        local full_height = child:getFullHeightTransform()
+        local full_ground_x, full_ground_y, full_ground_z =
+            full_height:transformPoint3D()
+        local full_projected_x, full_projected_y =
+            full_height:transformVisualPoint()
+        expect(full_ground_x == 0 and full_ground_y == 0 and full_ground_z == 12
+            and full_projected_x == 0 and full_projected_y == -12,
+            "objects should expose one complete logical, visual, and elevation transform")
+
+        local billboard_depth = HeightTransform():getDepthParameters({
+            anchor_x = 0, anchor_y = 100, z = 40
+        })
+        local face_depth = HeightTransform():getDepthParameters({
+            anchor_x = 0, anchor_y = 100,
+            face_x = 0, face_y = 100, face_top_z = 60
+        })
+        expect(billboard_depth.anchor_y == 100 and billboard_depth.sort_depth == 140
+            and face_depth.face_ground_y == 100 and face_depth.face_top_y == 40
+            and face_depth.height_pixels == 60 and face_depth.sort_depth == 160,
+            "height transforms should be the single source of billboard and terrain-face depth")
+    end)()
 
     do
         local function solidCanvas(r, g, b, a, x, width)
@@ -68,18 +123,11 @@ function Testing:runPlatformingTests()
         local half_blue = solidCanvas(0, 0, 1, 1, 8, 8)
         local renderer = setmetatable({}, { __index = World })
         local function billboard(anchor_y, depth_offset)
-            depth_offset = depth_offset or 0
-            return {
-                depth_mode = 0,
+            return HeightTransform():getDepthParameters({
+                anchor_x = 0,
                 anchor_y = anchor_y,
-                face_ground_y = anchor_y,
-                face_top_y = anchor_y,
-                height_pixels = 0,
-                depth_scale = 1 / 16384,
-                depth_bias = 0.5 + depth_offset / 16384,
-                alpha_threshold = 0.0001,
-                sort_depth = anchor_y + depth_offset
-            }
+                depth_offset = depth_offset or 0
+            })
         end
 
         love.graphics.setCanvas({ output, depthstencil = depth })
@@ -241,6 +289,30 @@ function Testing:runPlatformingTests()
     landing_z = fake_world:getLandingSurface(probe, 40, 20, nil, nil, platform)
     expect(landing_z == 32,
         "a later fall from above should still be able to land back on the departed platform")
+    do
+        (function()
+            local departure_piece = Hitbox(platform_parent, 0, 0, 20, 20)
+            departure_piece.z, departure_piece.depth = 0, 32
+            departure_piece.supports, departure_piece.one_way = true, true
+            departure_piece.surface_id = "complex_ledge"
+            local sibling_piece = Hitbox(platform_parent, 0, 0, 20, 20)
+            sibling_piece.z, sibling_piece.depth = 0, 32
+            sibling_piece.supports, sibling_piece.one_way = true, true
+            sibling_piece.surface_id = "complex_ledge"
+            fake_world.surfaces = { sibling_piece }
+            local sibling_landing =
+                fake_world:getLandingSurface(
+                    probe, 32, 31, nil, nil, departure_piece)
+            expect(sibling_landing == nil,
+                "walking off a complex platform must not be recaptured by another collider piece on the same surface")
+            sibling_landing =
+                fake_world:getLandingSurface(
+                    probe, 40, 20, nil, nil, departure_piece)
+            expect(sibling_landing == 32,
+                "the same complex platform should become landable again after falling from above it")
+        end)()
+    end
+    fake_world.surfaces = { platform }
 
     fake_world.surfaces = {}
     landing_z = fake_world:getLandingSurface(probe, 5, -5)
@@ -302,7 +374,8 @@ function Testing:runPlatformingTests()
         and vessel.run_momentum_max == 0.5
         and vessel.run_acceleration == 4
         and vessel.run_deceleration == 4
-        and vessel.run_transition_frames == 4,
+        and vessel.run_transition_frames == 4
+        and vessel.run_dash_boost == 0.25,
         "the Vessel should use its faster-ramping, platforming-friendly run tuning")
     do
         (function()
@@ -326,6 +399,22 @@ function Testing:runPlatformingTests()
                 and legacy_run_player:getRunAcceleration() == 1
                 and legacy_run_player:getRunDeceleration() == 2,
                 "actors without run tuning should retain the legacy momentum defaults")
+
+            tuned_run_player.run_momentum = {0.5, 0}
+            local vessel_dash_x, vessel_dash_y =
+                tuned_run_player:getDashLaunchMomentum(1, 0, true)
+            expect(vessel_dash_x == 1.25 and vessel_dash_y == 0,
+                "Vessel's full running dash should only be 25% faster than a standing dash")
+            tuned_run_player.run_momentum = {3, 0}
+            vessel_dash_x = tuned_run_player:getDashLaunchMomentum(1, 0, true)
+            expect(vessel_dash_x == 1.25,
+                "excess run momentum must not bypass the Vessel's dash-launch cap")
+
+            legacy_run_player.run_momentum = {1, 0}
+            local legacy_dash_x, legacy_dash_y =
+                legacy_run_player:getDashLaunchMomentum(1, 0, true)
+            expect(legacy_dash_x == 3 and legacy_dash_y == 0,
+                "untuned actors should retain the legacy running-dash launch")
         end)()
     end
     local jump_pose
@@ -861,7 +950,11 @@ function Testing:runPlatformingTests()
         and editor_occluder.property_set:getProperty("cutout_enabled").type == "boolean"
         and editor_occluder.property_set:getProperty("cutout_radius").type == "number"
         and editor_occluder.property_set:getProperty("cutout_alpha").type == "number"
-        and editor_occluder.property_set:getProperty("cutout_feather").type == "number",
+        and editor_occluder.property_set:getProperty("cutout_feather").type == "number"
+        and editor_occluder.property_set:getProperty("cutout_grow_time").type == "number"
+        and editor_occluder.property_set:getProperty("cutout_shrink_time").type == "number"
+        and editor_occluder.property_set:getProperty("cutout_wobble").type == "number"
+        and editor_occluder.property_set:getProperty("cutout_wobble_speed").type == "number",
         "occlusion regions should expose their source, linked surface, directed face, and cutout")
 
     local occlusion_source = Object(0, 0, 40, 40)
@@ -1099,7 +1192,9 @@ function Testing:runPlatformingTests()
     runtime_occluder.cutout_radius = 8
     runtime_occluder.cutout_alpha = 0.25
     runtime_occluder.cutout_feather = 0
+    runtime_occluder.cutout_wobble = 0
     runtime_occluder.sort_y = 30
+    runtime_occluder:updateCutoutAnimation(runtime_occluder.cutout_grow_time)
     love.graphics.setCanvas({ occlusion_canvas, stencil = true })
     love.graphics.origin()
     love.graphics.clear(0, 0, 0, 0)
@@ -1113,6 +1208,7 @@ function Testing:runPlatformingTests()
 
     TableUtils.removeValue(occlusion_root.children, cutout_player)
     table.insert(occlusion_root.children, runtime_occluder_index + 1, cutout_player)
+    runtime_occluder:updateCutoutAnimation(runtime_occluder.cutout_shrink_time)
     love.graphics.setCanvas({ occlusion_canvas, stencil = true })
     love.graphics.origin()
     love.graphics.clear(0, 0, 0, 0)
@@ -1122,6 +1218,59 @@ function Testing:runPlatformingTests()
     local _, _, _, foreground_cutout_alpha = foreground_cutout_data:getPixel(10, 10)
     expect(foreground_cutout_alpha > 0.95,
         "terrain behind the character should remain opaque instead of showing a cutout")
+
+    do
+        (function()
+            local animated = setmetatable({
+                cutout_enabled = true,
+                cutout_radius = 32,
+                cutout_grow_time = 0.2,
+                cutout_shrink_time = 0.2,
+                cutout_wobble = 2,
+                cutout_wobble_speed = 2.5,
+                cutout_wobble_seed = 0,
+                cutout_visibility = 0,
+                cutout_tween_start = 0,
+                cutout_tween_target = 0,
+                cutout_tween_timer = 0,
+                cutout_tween_duration = 0,
+                cutout_target_active = true,
+                getCharacterCutoutTarget = function(self)
+                    return self.cutout_target_active and {} or nil
+                end,
+                captureCharacterCutoutCenter = function() end
+            }, { __index = HeightOccluder })
+            animated:updateCutoutAnimation(0.1)
+            expect(animated.cutout_visibility > 0
+                and animated.cutout_visibility < 1,
+                "cutouts should grow over time instead of appearing immediately")
+            animated:updateCutoutAnimation(0.1)
+            expect(animated.cutout_visibility == 1,
+                "cutout growth should reach the full authored radius")
+            animated.cutout_target_active = false
+            animated:updateCutoutAnimation(0.1)
+            expect(animated.cutout_visibility > 0
+                and animated.cutout_visibility < 1,
+                "cutouts should remain visible while shrinking")
+            animated:updateCutoutAnimation(0.1)
+            expect(animated.cutout_visibility == 0,
+                "cutout shrinkage should finish completely")
+
+            local boundary = animated:getCutoutBoundaryCoordinates(
+                love.math.newTransform(), 0, 0, 20, 0, 2)
+            local minimum_radius, maximum_radius = math.huge, 0
+            for index = 1, #boundary, 2 do
+                local radius = math.sqrt(
+                    boundary[index] * boundary[index]
+                    + boundary[index + 1] * boundary[index + 1]
+                )
+                minimum_radius = math.min(minimum_radius, radius)
+                maximum_radius = math.max(maximum_radius, radius)
+            end
+            expect(maximum_radius - minimum_radius > 1,
+                "cutout boundaries should have a visible animated wobble")
+        end)()
+    end
 
     TableUtils.removeValue(occlusion_root.children, cutout_player)
     table.insert(occlusion_root.children, runtime_occluder_index, cutout_player)
@@ -1229,6 +1378,7 @@ function Testing:runPlatformingTests()
             dash_trail:getHeightOcclusionMaskCanvas():newImageData():getPixel(10, 10)
         expect(dash_trail.height_sort_subject and dash_trail.use_3d_collision
             and dash_trail:getFullZ() == 40
+            and dash_trail:getFullHeightTransform():getZ() == 40
             and dash_x == 10 and dash_y == 60
             and dash_revealed
             and dash_mask_r > 0.45 and dash_mask_r < 0.55
