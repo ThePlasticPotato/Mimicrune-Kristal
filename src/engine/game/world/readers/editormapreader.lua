@@ -26,6 +26,56 @@ function EditorMapReader:initialize(data)
     map.base_surface_plane = tostring(properties.base_surface_plane or "z:0")
     map.empty_tile_pit = properties.empty_tile_pit == true
         or properties.empty_tiles_are_pits == true
+    map.underwater_underlay = properties.underwater_underlay == true
+    map.underwater_underlay_layer =
+        tonumber(properties.underwater_underlay_layer)
+    map.underwater_underlay_opacity =
+        tonumber(properties.underwater_underlay_opacity) or 0.45
+    map.underwater_underlay_void_strength =
+        tonumber(properties.underwater_underlay_void_strength) or 0.18
+    map.underwater_underlay_speed =
+        tonumber(properties.underwater_underlay_speed) or 0.35
+    map.underwater_underlay_pixel_size =
+        tonumber(properties.underwater_underlay_pixel_size) or 2
+    map.underwater_underlay_scale =
+        tonumber(properties.underwater_underlay_scale) or 1
+    map.underwater_underlay_distortion =
+        tonumber(properties.underwater_underlay_distortion) or 2
+    map.underwater_underlay_particle_strength =
+        tonumber(properties.underwater_underlay_particle_strength) or 0.45
+    map.underwater_underlay_shallow_color =
+        properties.underwater_underlay_shallow_color or "#0B162D"
+    map.underwater_underlay_deep_color =
+        properties.underwater_underlay_deep_color or "#030711"
+    map.terrain_edge_fog = properties.terrain_edge_fog == true
+    map.terrain_edge_fog_texture =
+        tostring(properties.terrain_edge_fog_texture or "fog")
+    map.terrain_edge_fog_layer =
+        tostring(properties.terrain_edge_fog_layer or "")
+    map.terrain_edge_fog_surface_id =
+        tostring(properties.terrain_edge_fog_surface_id or "")
+    map.terrain_edge_fog_extent =
+        tonumber(properties.terrain_edge_fog_extent) or 96
+    map.terrain_edge_fog_opacity =
+        tonumber(properties.terrain_edge_fog_opacity) or 0.42
+    map.terrain_edge_fog_scroll_x =
+        tonumber(properties.terrain_edge_fog_scroll_x) or 10
+    map.terrain_edge_fog_scroll_y =
+        tonumber(properties.terrain_edge_fog_scroll_y) or 4
+    map.terrain_edge_fog_wave_amplitude =
+        tonumber(properties.terrain_edge_fog_wave_amplitude) or 5
+    map.terrain_edge_fog_wave_length =
+        tonumber(properties.terrain_edge_fog_wave_length) or 64
+    map.terrain_edge_fog_wave_speed =
+        tonumber(properties.terrain_edge_fog_wave_speed) or 2.2
+    map.terrain_edge_fog_resolution =
+        tonumber(properties.terrain_edge_fog_resolution) or 4
+    map.terrain_edge_fog_scale =
+        tonumber(properties.terrain_edge_fog_scale) or 2
+    map.terrain_edge_fog_overlap =
+        tonumber(properties.terrain_edge_fog_overlap) or 8
+    map.terrain_edge_fog_raised_void_ratio =
+        tonumber(properties.terrain_edge_fog_raised_void_ratio) or 0.5
     map.bg_color = TableUtils.copy(data.background_color or { 0, 0, 0, 0 }, true)
 
     local added = {}

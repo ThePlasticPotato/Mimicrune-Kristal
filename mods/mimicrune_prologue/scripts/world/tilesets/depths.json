@@ -16,7 +16,13 @@
   "tiles": [
     {
       "id": 0,
-      "properties": []
+      "properties": [
+        {
+          "name": "step_sound",
+          "type": "string",
+          "value": "street"
+        }
+      ]
     },
     {
       "id": 12,
@@ -64,7 +70,13 @@
     },
     {
       "id": 27,
-      "properties": []
+      "properties": [
+        {
+          "name": "step_sound",
+          "type": "string",
+          "value": "street"
+        }
+      ]
     },
     {
       "id": 15,

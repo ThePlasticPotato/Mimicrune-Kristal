@@ -90,6 +90,103 @@ function EditorMapBrowser:selectNode(node)
         property_set:registerProperty("empty_tile_pit", "boolean", {
             name = "Empty Tiles Are Pits", default = false
         })
+        property_set:registerProperty("underwater_underlay", "boolean", {
+            name = "Underwater Depth Underlay", default = false
+        })
+        property_set:registerProperty("underwater_underlay_layer", "number", {
+            name = "Underwater Underlay Layer",
+            placeholder = "Defaults just below the lowest terrain layer"
+        })
+        property_set:registerProperty("underwater_underlay_opacity", "number", {
+            name = "Underwater Underlay Opacity", default = 0.45
+        })
+        property_set:registerProperty(
+            "underwater_underlay_void_strength", "number", {
+                name = "Underwater Void Strength", default = 0.18
+            }
+        )
+        property_set:registerProperty("underwater_underlay_speed", "number", {
+            name = "Underwater Motion Speed", default = 0.35
+        })
+        property_set:registerProperty(
+            "underwater_underlay_pixel_size", "number", {
+                name = "Underwater Pixel Size", default = 2
+            }
+        )
+        property_set:registerProperty("underwater_underlay_scale", "number", {
+            name = "Underwater Pattern Scale", default = 1
+        })
+        property_set:registerProperty(
+            "underwater_underlay_distortion", "number", {
+                name = "Underwater Distortion", default = 2
+            }
+        )
+        property_set:registerProperty(
+            "underwater_underlay_particle_strength", "number", {
+                name = "Underwater Particle Strength", default = 0.45
+            }
+        )
+        property_set:registerProperty(
+            "underwater_underlay_shallow_color", "color", {
+                name = "Underwater Shallow Color", default = "#0B162D"
+            }
+        )
+        property_set:registerProperty(
+            "underwater_underlay_deep_color", "color", {
+                name = "Underwater Deep Color", default = "#030711"
+            }
+        )
+        property_set:registerProperty("terrain_edge_fog", "boolean", {
+            name = "Terrain Edge Fog", default = false
+        })
+        property_set:registerProperty("terrain_edge_fog_texture", "asset_path", {
+            name = "Edge Fog Texture", asset_registry = { "texture", "frames" },
+            path_root = "assets/sprites", strip_extension = true,
+            default = "fog"
+        })
+        property_set:registerProperty("terrain_edge_fog_layer", "string", {
+            name = "Edge Fog Ground Layer",
+            placeholder = "Defaults to the broadest ground tile layer"
+        })
+        property_set:registerProperty("terrain_edge_fog_surface_id", "string", {
+            name = "Edge Fog Base Surface ID",
+            placeholder = "Authored support surface; preferred over tiles"
+        })
+        property_set:registerProperty("terrain_edge_fog_extent", "number", {
+            name = "Edge Fog Extent", default = 96
+        })
+        property_set:registerProperty("terrain_edge_fog_opacity", "number", {
+            name = "Edge Fog Opacity", default = 0.42
+        })
+        property_set:registerProperty("terrain_edge_fog_scroll_x", "number", {
+            name = "Edge Fog Scroll X", default = 10
+        })
+        property_set:registerProperty("terrain_edge_fog_scroll_y", "number", {
+            name = "Edge Fog Scroll Y", default = 4
+        })
+        property_set:registerProperty("terrain_edge_fog_wave_amplitude", "number", {
+            name = "Edge Fog Wave Size", default = 5
+        })
+        property_set:registerProperty("terrain_edge_fog_wave_length", "number", {
+            name = "Edge Fog Wave Length", default = 64
+        })
+        property_set:registerProperty("terrain_edge_fog_wave_speed", "number", {
+            name = "Edge Fog Wave Speed", default = 2.2
+        })
+        property_set:registerProperty("terrain_edge_fog_resolution", "number", {
+            name = "Edge Fog Mask Resolution", default = 4
+        })
+        property_set:registerProperty("terrain_edge_fog_scale", "number", {
+            name = "Edge Fog Texture Scale", default = 2
+        })
+        property_set:registerProperty("terrain_edge_fog_overlap", "number", {
+            name = "Edge Fog Under-Tile Overlap", default = 8
+        })
+        property_set:registerProperty(
+            "terrain_edge_fog_raised_void_ratio", "number", {
+                name = "Raised Fog Minimum Void Ratio", default = 0.5
+            }
+        )
     end
     local reader_class = node.type == "map" and node.registry_id and Registry.getMapReader(node.registry_id)
     local fields = {

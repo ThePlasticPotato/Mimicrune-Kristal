@@ -191,6 +191,75 @@
       ]
     },
     {
+      "id": "cliffbelowfog",
+      "name": "cliffbelowfog",
+      "color": [
+        0.8,
+        0.8,
+        0.82,
+        1
+      ],
+      "x": 0,
+      "y": 0,
+      "type": "tile",
+      "kind": "tile",
+      "depth": -0.25,
+      "alpha": 1,
+      "visible": true,
+      "parallax_x": 1,
+      "parallax_y": 1,
+      "properties": [],
+      "tileset": "depths",
+      "tileset_columns": 13,
+      "tileset_rows": 5,
+      "chunks": [
+        {
+          "x": 16,
+          "y": 16,
+          "tile_data": [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 41, 41, 0, 0,
+            0, 0, 0, 41, 41, 41, 41, 41, 41, 41, 41, 42, 41, 41, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+          ]
+        },
+        {
+          "x": 0,
+          "y": 16,
+          "tile_data": [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            41, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            41, 40, 41, 41, 41, 41, 41, 41, 41, 41, 41, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+          ]
+        }
+      ]
+    },
+    {
       "id": "groundcliff",
       "name": "groundcliff",
       "color": [
@@ -288,8 +357,8 @@
           "tile_data": [
             37, 15, 15, 23, 33, 20, 22, 15, 23, 20, 20, 22, 15, 15, 0, 0,
             22, 15, 15, 15, 12, 12, 15, 15, 15, 12, 12, 4, 28, 28, 0, 0,
-            15, 15, 4, 28, 28, 28, 28, 28, 28, 28, 28, 29, 41, 41, 0, 0,
-            28, 28, 29, 41, 41, 41, 41, 41, 41, 41, 41, 42, 41, 41, 0, 0,
+            15, 15, 4, 28, 28, 28, 28, 28, 28, 28, 28, 29, 0, 0, 0, 0,
+            28, 28, 29, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -332,8 +401,8 @@
           "tile_data": [
             19, 20, 20, 22, 15, 38, 33, 20, 22, 23, 20, 20, 20, 20, 20, 20,
             28, 12, 12, 15, 15, 15, 12, 12, 15, 23, 20, 33, 33, 20, 20, 20,
-            41, 27, 28, 28, 28, 28, 28, 28, 28, 28, 28, 12, 12, 12, 12, 12,
-            41, 40, 41, 41, 41, 41, 41, 41, 41, 41, 41, 27, 28, 28, 28, 28,
+            0, 27, 28, 28, 28, 28, 28, 28, 28, 28, 28, 12, 12, 12, 12, 12,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 27, 28, 28, 28, 28,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -599,7 +668,7 @@
           "name": "rectangle",
           "x": 40,
           "y": 760,
-          "width": 1080,
+          "width": 400,
           "height": 40,
           "shape": {
             "type": "rectangle",
@@ -731,6 +800,273 @@
               "name": "pit",
               "type": "boolean",
               "value": true
+            }
+          ]
+        },
+        {
+          "id": 61,
+          "name": "rectangle",
+          "x": 760,
+          "y": 760,
+          "width": 360,
+          "height": 40,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "pit",
+              "type": "boolean",
+              "value": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "floor",
+      "name": "Floor",
+      "color": [
+        0,
+        0,
+        1,
+        1
+      ],
+      "x": 0,
+      "y": 0,
+      "type": "collision",
+      "kind": "object",
+      "depth": 0,
+      "alpha": 1,
+      "visible": true,
+      "parallax_x": 1,
+      "parallax_y": 1,
+      "properties": [],
+      "objects": [
+        {
+          "id": 52,
+          "name": "rectangle",
+          "x": 0,
+          "y": 560,
+          "width": 40,
+          "height": 160,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "collision_role",
+              "type": "choice",
+              "value": "solid"
+            },
+            {
+              "name": "surface_id",
+              "type": "string",
+              "value": "4"
+            }
+          ]
+        },
+        {
+          "id": 53,
+          "name": "rectangle",
+          "x": 40,
+          "y": 560,
+          "width": 1080,
+          "height": 200,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "collision_role",
+              "type": "choice",
+              "value": "solid"
+            },
+            {
+              "name": "surface_id",
+              "type": "string",
+              "value": "4"
+            }
+          ]
+        },
+        {
+          "id": 54,
+          "name": "rectangle",
+          "x": 80,
+          "y": 480,
+          "width": 1040,
+          "height": 80,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "collision_role",
+              "type": "choice",
+              "value": "solid"
+            },
+            {
+              "name": "surface_id",
+              "type": "string",
+              "value": "4"
+            }
+          ]
+        },
+        {
+          "id": 55,
+          "name": "rectangle",
+          "x": 160,
+          "y": 440,
+          "width": 880,
+          "height": 40,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "collision_role",
+              "type": "choice",
+              "value": "solid"
+            },
+            {
+              "name": "surface_id",
+              "type": "string",
+              "value": "4"
+            }
+          ]
+        },
+        {
+          "id": 56,
+          "name": "rectangle",
+          "x": 200,
+          "y": 400,
+          "width": 640,
+          "height": 40,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "collision_role",
+              "type": "choice",
+              "value": "solid"
+            },
+            {
+              "name": "surface_id",
+              "type": "string",
+              "value": "4"
+            }
+          ]
+        },
+        {
+          "id": 57,
+          "name": "rectangle",
+          "x": 280,
+          "y": 360,
+          "width": 480,
+          "height": 40,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "collision_role",
+              "type": "choice",
+              "value": "solid"
+            },
+            {
+              "name": "surface_id",
+              "type": "string",
+              "value": "4"
+            }
+          ]
+        },
+        {
+          "id": 58,
+          "name": "rectangle",
+          "x": 1120,
+          "y": 560,
+          "width": 80,
+          "height": 160,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "collision_role",
+              "type": "choice",
+              "value": "solid"
+            },
+            {
+              "name": "surface_id",
+              "type": "string",
+              "value": "4"
+            }
+          ]
+        },
+        {
+          "id": 59,
+          "name": "rectangle",
+          "x": 1120,
+          "y": 520,
+          "width": 40,
+          "height": 40,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "collision_role",
+              "type": "choice",
+              "value": "solid"
+            },
+            {
+              "name": "surface_id",
+              "type": "string",
+              "value": "4"
+            }
+          ]
+        },
+        {
+          "id": 60,
+          "name": "rectangle",
+          "x": 440,
+          "y": 760,
+          "width": 320,
+          "height": 40,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "collision_role",
+              "type": "choice",
+              "value": "solid"
+            },
+            {
+              "name": "surface_id",
+              "type": "string",
+              "value": "4"
             }
           ]
         }
@@ -1940,6 +2276,260 @@
           },
           "visible": true,
           "properties": []
+        },
+        {
+          "id": 67,
+          "name": "sprite",
+          "type": "sprite",
+          "x": 600,
+          "y": 600,
+          "width": 40,
+          "height": 40,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": []
+        },
+        {
+          "id": 68,
+          "name": "sprite",
+          "type": "sprite",
+          "x": 360,
+          "y": 600,
+          "width": 40,
+          "height": 40,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": []
+        },
+        {
+          "id": 69,
+          "name": "sprite",
+          "type": "sprite",
+          "x": 280,
+          "y": 600,
+          "width": 40,
+          "height": 40,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": []
+        },
+        {
+          "id": 70,
+          "name": "sprite",
+          "type": "sprite",
+          "x": 560,
+          "y": 600,
+          "width": 40,
+          "height": 40,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": []
+        },
+        {
+          "id": 71,
+          "name": "sprite",
+          "type": "sprite",
+          "x": 400,
+          "y": 440,
+          "width": 40,
+          "height": 40,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": []
+        },
+        {
+          "id": 72,
+          "name": "sprite",
+          "type": "sprite",
+          "x": 480,
+          "y": 600,
+          "width": 40,
+          "height": 40,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": []
+        },
+        {
+          "id": 73,
+          "name": "sprite",
+          "type": "sprite",
+          "x": 680,
+          "y": 560,
+          "width": 40,
+          "height": 40,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": []
+        },
+        {
+          "id": 74,
+          "name": "sprite",
+          "type": "sprite",
+          "x": 440,
+          "y": 520,
+          "width": 40,
+          "height": 40,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": []
+        },
+        {
+          "id": 63,
+          "name": "sprite",
+          "type": "sprite",
+          "x": 520,
+          "y": 600,
+          "width": 48,
+          "height": 42,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "texture",
+              "type": "asset_path",
+              "value": "world/events/cage_bg"
+            },
+            {
+              "name": "z",
+              "type": "number",
+              "value": 0
+            },
+            {
+              "name": "surface_id",
+              "type": "string",
+              "value": "2"
+            },
+            {
+              "name": "surface_plane",
+              "type": "string",
+              "value": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "higherjects",
+      "name": "Higherjects",
+      "color": [
+        1,
+        0,
+        1,
+        1
+      ],
+      "x": 0,
+      "y": 0,
+      "type": "objects",
+      "kind": "object",
+      "depth": 1,
+      "alpha": 1,
+      "visible": true,
+      "parallax_x": 1,
+      "parallax_y": 1,
+      "properties": [],
+      "objects": [
+        {
+          "id": 62,
+          "name": "sprite",
+          "type": "sprite",
+          "x": 520,
+          "y": 600,
+          "width": 48,
+          "height": 42,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "texture",
+              "type": "asset_path",
+              "value": "world/events/cage"
+            },
+            {
+              "name": "z",
+              "type": "number",
+              "value": 0
+            },
+            {
+              "name": "surface_id",
+              "type": "string",
+              "value": "2"
+            }
+          ]
+        },
+        {
+          "id": 64,
+          "name": "sprite",
+          "type": "sprite",
+          "x": 560,
+          "y": 520,
+          "width": 40,
+          "height": 40,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": []
+        },
+        {
+          "id": 65,
+          "name": "sprite",
+          "type": "sprite",
+          "x": 560,
+          "y": 560,
+          "width": 40,
+          "height": 40,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": []
+        },
+        {
+          "id": 66,
+          "name": "sprite",
+          "type": "sprite",
+          "x": 520,
+          "y": 560,
+          "width": 40,
+          "height": 40,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": []
         }
       ]
     }
@@ -1956,9 +2546,94 @@
       "value": true
     },
     {
+      "name": "underwater_underlay",
+      "type": "boolean",
+      "value": true
+    },
+    {
+      "name": "underwater_underlay_opacity",
+      "type": "number",
+      "value": 0.68
+    },
+    {
+      "name": "underwater_underlay_void_strength",
+      "type": "number",
+      "value": 1
+    },
+    {
+      "name": "underwater_underlay_speed",
+      "type": "number",
+      "value": 1
+    },
+    {
+      "name": "underwater_underlay_pixel_size",
+      "type": "number",
+      "value": 2
+    },
+    {
+      "name": "underwater_underlay_distortion",
+      "type": "number",
+      "value": 6
+    },
+    {
+      "name": "underwater_underlay_particle_strength",
+      "type": "number",
+      "value": 0.35
+    },
+    {
+      "name": "underwater_underlay_shallow_color",
+      "type": "color",
+      "value": "#0B162D"
+    },
+    {
+      "name": "underwater_underlay_deep_color",
+      "type": "color",
+      "value": "#030711"
+    },
+    {
+      "name": "terrain_edge_fog",
+      "type": "boolean",
+      "value": true
+    },
+    {
+      "name": "terrain_edge_fog_layer",
+      "type": "string",
+      "value": "ground"
+    },
+    {
+      "name": "terrain_edge_fog_surface_id",
+      "type": "string",
+      "value": "4"
+    },
+    {
       "name": "area_name",
       "type": "string",
       "value": "WASTES"
+    },
+    {
+      "name": "terrain_edge_fog_extent",
+      "type": "number",
+      "value": 60
+    },
+    {
+      "name": "terrain_edge_fog_opacity",
+      "type": "number",
+      "value": 0.25
+    },
+    {
+      "name": "music",
+      "type": "asset_path",
+      "value": "boundary"
+    },
+    {
+      "name": "keepmusic",
+      "type": "boolean",
+      "value": true
+    },
+    {
+      "name": "step_sound",
+      "type": "string",
+      "value": "street"
     }
   ]
 }

@@ -361,11 +361,240 @@ function Testing:runPlatformingTests()
 
     local runtime_map = Map(nil, {
         __map_reader = EditorMapReader,
-        properties = { platforming = true, empty_tile_pit = true },
+        properties = {
+            platforming = true,
+            empty_tile_pit = true,
+            underwater_underlay = true,
+            underwater_underlay_layer = -0.75,
+            underwater_underlay_opacity = 0.6,
+            underwater_underlay_void_strength = 0.2,
+            underwater_underlay_speed = 0.18,
+            underwater_underlay_pixel_size = 3,
+            underwater_underlay_scale = 1.25,
+            underwater_underlay_distortion = 3,
+            underwater_underlay_particle_strength = 0.75,
+            underwater_underlay_shallow_color = "#123456",
+            underwater_underlay_deep_color = "#020510",
+            terrain_edge_fog = true,
+            terrain_edge_fog_texture = "fog",
+            terrain_edge_fog_layer = "ground",
+            terrain_edge_fog_surface_id = "base",
+            terrain_edge_fog_extent = 72,
+            terrain_edge_fog_opacity = 0.5,
+            terrain_edge_fog_scale = 2,
+            terrain_edge_fog_overlap = 6,
+            terrain_edge_fog_raised_void_ratio = 0.6
+        },
         layers = {}
     })
-    expect(runtime_map.platforming and runtime_map.empty_tile_pit,
-        "runtime map initialization should preserve authored platforming ground rules")
+    expect(runtime_map.platforming and runtime_map.empty_tile_pit
+        and runtime_map.underwater_underlay
+        and runtime_map.underwater_underlay_layer == -0.75
+        and runtime_map.underwater_underlay_opacity == 0.6
+        and runtime_map.underwater_underlay_void_strength == 0.2
+        and runtime_map.underwater_underlay_speed == 0.18
+        and runtime_map.underwater_underlay_pixel_size == 3
+        and runtime_map.underwater_underlay_scale == 1.25
+        and runtime_map.underwater_underlay_distortion == 3
+        and runtime_map.underwater_underlay_particle_strength == 0.75
+        and runtime_map.underwater_underlay_shallow_color == "#123456"
+        and runtime_map.underwater_underlay_deep_color == "#020510"
+        and runtime_map.terrain_edge_fog
+        and runtime_map.terrain_edge_fog_texture == "fog"
+        and runtime_map.terrain_edge_fog_layer == "ground"
+        and runtime_map.terrain_edge_fog_surface_id == "base"
+        and runtime_map.terrain_edge_fog_extent == 72
+        and runtime_map.terrain_edge_fog_opacity == 0.5
+        and runtime_map.terrain_edge_fog_scale == 2
+        and runtime_map.terrain_edge_fog_overlap == 6
+        and runtime_map.terrain_edge_fog_raised_void_ratio == 0.6,
+        "runtime map initialization should preserve platforming ground and edge-fog rules")
+
+    do
+        (function()
+            expect(Kristal.Shaders["UnderwaterDepth"] ~= nil,
+                "deep-water maps should have a procedural underlay shader")
+            local water = UnderwaterUnderlay({
+                width = 2,
+                height = 2,
+                tile_width = 40,
+                tile_height = 40,
+                underwater_underlay_opacity = 0.6,
+                underwater_underlay_void_strength = 0.16,
+                underwater_underlay_pixel_size = 2
+            })
+            local water_canvas = love.graphics.newCanvas(80, 80)
+            local water_depth = love.graphics.newCanvas(80, 80, {
+                format = "depth24stencil8", readable = false
+            })
+            love.graphics.setCanvas({
+                water_canvas,
+                depthstencil = water_depth
+            })
+            love.graphics.origin()
+            love.graphics.clear(0, 0, 0, 0)
+            Draw.setColor(0.2, 0.2, 0.2, 1)
+            love.graphics.rectangle("fill", 40, 0, 40, 80)
+            water:fullDraw(true)
+            love.graphics.setCanvas()
+            local water_pixels = water_canvas:newImageData()
+            local top_r, top_g, top_b, top_a =
+                water_pixels:getPixel(20, 8)
+            local deep_r, deep_g, deep_b, deep_a =
+                water_pixels:getPixel(20, 72)
+            local artwork_r, _, _, artwork_a =
+                water_pixels:getPixel(60, 8)
+            expect(top_a > 0.035 and top_a < 0.11
+                and deep_a > 0.035 and deep_a < 0.11
+                and deep_r + deep_g + deep_b
+                    < top_r + top_g + top_b
+                and artwork_a > 0.99 and artwork_r < 0.18,
+                string.format(
+                    "underwater atmosphere should stay faint over empty black while fully tinting distant artwork (top %.3f,%.3f,%.3f,%.3f; deep %.3f,%.3f,%.3f,%.3f; artwork %.3f,%.3f)",
+                    top_r, top_g, top_b, top_a,
+                    deep_r, deep_g, deep_b, deep_a,
+                    artwork_r, artwork_a
+                ))
+            water_pixels:release()
+            water_canvas:release()
+            water_depth:release()
+            water.mesh:release()
+            water.mesh = nil
+        end)()
+    end
+
+    do
+        (function()
+            local inside = {
+                false, false, false,
+                false, true, false,
+                false, false, false
+            }
+            local distances =
+                TerrainEdgeFog.computeOutsideDistances(inside, 3, 3)
+            expect(distances[5] == 0
+                and math.abs(distances[2] - 1) < 0.001
+                and math.abs(distances[1] - math.sqrt(2)) < 0.001,
+                "terrain edge fog should measure outward distance from the unioned floor footprint")
+            expect(Kristal.Shaders["TerrainEdgeFog"] ~= nil,
+                "terrain edge fog should have a runtime mask-and-scroll shader")
+
+            local fog_world = Object()
+            local floor = Hitbox(fog_world, 4, 4, 32, 32)
+            floor.supports = true
+            local inferred_tiles = Object()
+            inferred_tiles.name = "ground"
+            inferred_tiles.provides_ground = true
+            inferred_tiles.z = 0
+            inferred_tiles.map_width = 1
+            inferred_tiles.tile_data = { 1 }
+            local fog = TerrainEdgeFog({
+                width = 1,
+                height = 1,
+                tile_width = 40,
+                tile_height = 40,
+                tile_layers = { inferred_tiles },
+                pits = {},
+                world = fog_world,
+                decodeTileData = function(_, packed) return packed end,
+                surfaces = {
+                    floor = {
+                        support_top = 0,
+                        support_colliders = { floor }
+                    }
+                }
+            })
+            expect(fog.lowest_z == 0 and fog.distance_field
+                and fog.surface_pixel_count > 0
+                and #fog.lowest_tile_layers == 0
+                and fog.lowest_support_colliders[1] == floor,
+                "authored lowest support should replace tile inference as the edge-fog footprint")
+            local minimum_filter, maximum_filter =
+                fog.distance_field:getFilter()
+            expect(minimum_filter == "nearest"
+                and maximum_filter == "nearest"
+                and fog.texture_scale == 2
+                and fog.opacity == 0.42
+                and fog.wave_amplitude == 5
+                and fog.overlap == 8
+                and fog.raised_void_ratio == 0.5,
+                "edge fog should use sharp mask sampling, doubled fog pixels, and restrained translucency")
+            local fog_canvas = love.graphics.newCanvas(40, 40)
+            love.graphics.setCanvas(fog_canvas)
+            love.graphics.origin()
+            love.graphics.clear(0, 0, 0, 0)
+            fog:fullDraw(true)
+            love.graphics.setCanvas()
+            local fog_pixels = fog_canvas:newImageData()
+            local _, _, _, floor_fog_alpha = fog_pixels:getPixel(20, 20)
+            local outside_fog_alpha, underlap_fog_alpha = 0, 0
+            for y = 0, 39 do
+                for x = 0, 39 do
+                    if x < 4 or x >= 36 or y < 4 or y >= 36 then
+                        local _, _, _, alpha = fog_pixels:getPixel(x, y)
+                        outside_fog_alpha = math.max(outside_fog_alpha, alpha)
+                    elseif x < 12 or x >= 28 or y < 12 or y >= 28 then
+                        local _, _, _, alpha = fog_pixels:getPixel(x, y)
+                        underlap_fog_alpha = math.max(underlap_fog_alpha, alpha)
+                    end
+                end
+            end
+            expect(floor_fog_alpha < 0.01
+                and outside_fog_alpha > 0.01
+                and underlap_fog_alpha > 0.01,
+                "fog should extend behind rounded floor corners without covering the deep surface")
+            fog_pixels:release()
+            fog_canvas:release()
+            fog.distance_field:release()
+            fog.distance_field = nil
+
+            local plane_world = Object()
+            local base_floor = Hitbox(plane_world, 0, 0, 160, 200)
+            local isolated_floor = Hitbox(plane_world, 170, 20, 16, 16)
+            local covered_floor = Hitbox(plane_world, 70, 70, 16, 16)
+            local mostly_covered_floor =
+                Hitbox(plane_world, 140, 110, 16, 16)
+            base_floor.supports = true
+            isolated_floor.supports = true
+            covered_floor.supports = true
+            mostly_covered_floor.supports = true
+            local fog_planes = TerrainEdgeFog.createForMap({
+                width = 5,
+                height = 5,
+                tile_width = 40,
+                tile_height = 40,
+                tile_layers = {},
+                pits = {},
+                world = plane_world,
+                terrain_edge_fog_extent = 24,
+                surfaces = {
+                    base = {
+                        support_top = 0,
+                        support_colliders = { base_floor }
+                    },
+                    isolated = {
+                        support_top = 20,
+                        support_colliders = { isolated_floor }
+                    },
+                    covered = {
+                        support_top = 40,
+                        support_colliders = {
+                            covered_floor,
+                            mostly_covered_floor
+                        }
+                    }
+                }
+            })
+            expect(#fog_planes == 2
+                and fog_planes[1].z == 0
+                and fog_planes[2].z == 20,
+                "only raised platforms exposed to base void should receive their own projected fog plane")
+            for _, plane in ipairs(fog_planes) do
+                plane.distance_field:release()
+                plane.distance_field = nil
+            end
+        end)()
+    end
 
     local vessel = Registry.createActor("vessel")
     expect(vessel.jump_strength == 8 and vessel.jump_windup == 1 / 15,
@@ -1489,6 +1718,45 @@ function Testing:runPlatformingTests()
     end
 
     if Mod and Mod.info.id == "mimicrune_prologue" then
+        do
+            (function()
+                local fog_map_data = Registry.getMapData("wastes_entrance")
+                local fog_root = Object()
+                local fog_map = Map(fog_root, fog_map_data)
+                fog_map.id = "wastes_entrance"
+                fog_map:load()
+                local fog_ground_layer = fog_map:getTileLayer("ground")
+                local fog_wall_layer = fog_map:getTileLayer("groundcliff")
+                expect(fog_map.terrain_edge_fog_object
+                    and fog_map.underwater_underlay
+                    and fog_map.underwater_underlay_object
+                    and fog_map.underwater_underlay_opacity == 0.68
+                    and fog_map.underwater_underlay_void_strength == 1
+                    and fog_map.underwater_underlay_speed == 1
+                    and fog_map.underwater_underlay_distortion == 6
+                    and fog_map.underwater_underlay_particle_strength == 0.35
+                    and fog_map.underwater_underlay_object.layer
+                        > fog_map.layers["Crags1"]
+                    and fog_map.underwater_underlay_object.layer
+                        < fog_map.terrain_edge_fog_object.layer
+                    and fog_map.underwater_underlay_object.layer
+                        < fog_ground_layer.layer
+                    and fog_map.terrain_edge_fog_object.lowest_z == 0
+                    and fog_map.terrain_edge_fog_object.distance_field
+                    and #fog_map.terrain_edge_fog_object.lowest_tile_layers == 0
+                    and #fog_map.terrain_edge_fog_object.lowest_support_colliders
+                        == 9
+                    and fog_map.terrain_edge_fog_surface_id == "4"
+                    and #fog_map.terrain_edge_fog_objects == 2
+                    and fog_map.terrain_edge_fog_objects[2].z == 40
+                    and fog_map.terrain_edge_fog_object.layer
+                        < fog_ground_layer.layer
+                    and fog_map.terrain_edge_fog_object.layer
+                        < fog_wall_layer.layer,
+                    "the wastes entrance should fog authored void edges beneath its ground artwork")
+            end)()
+        end
+
         local platforming_map_data = Registry.getMapData("test")
         local platforming_root = Object()
         local platforming_map = Map(platforming_root, platforming_map_data)

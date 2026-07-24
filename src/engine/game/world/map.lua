@@ -58,6 +58,35 @@ function Map:init(world, data)
     self.platforming = false
     self.empty_tile_pit = false
     self.base_surface_plane = "z:0"
+    self.underwater_underlay = false
+    self.underwater_underlay_layer = nil
+    self.underwater_underlay_opacity = 0.45
+    self.underwater_underlay_void_strength = 0.18
+    self.underwater_underlay_speed = 0.35
+    self.underwater_underlay_pixel_size = 2
+    self.underwater_underlay_scale = 1
+    self.underwater_underlay_distortion = 2
+    self.underwater_underlay_particle_strength = 0.45
+    self.underwater_underlay_shallow_color = "#0B162D"
+    self.underwater_underlay_deep_color = "#030711"
+    self.underwater_underlay_object = nil
+    self.terrain_edge_fog = false
+    self.terrain_edge_fog_texture = "fog"
+    self.terrain_edge_fog_layer = ""
+    self.terrain_edge_fog_surface_id = ""
+    self.terrain_edge_fog_extent = 96
+    self.terrain_edge_fog_opacity = 0.42
+    self.terrain_edge_fog_scroll_x = 10
+    self.terrain_edge_fog_scroll_y = 4
+    self.terrain_edge_fog_wave_amplitude = 5
+    self.terrain_edge_fog_wave_length = 64
+    self.terrain_edge_fog_wave_speed = 2.2
+    self.terrain_edge_fog_resolution = 4
+    self.terrain_edge_fog_scale = 2
+    self.terrain_edge_fog_overlap = 8
+    self.terrain_edge_fog_raised_void_ratio = 0.5
+    self.terrain_edge_fog_object = nil
+    self.terrain_edge_fog_objects = {}
 
     self.tilesets = {}
     self.tileset_gids = {}
@@ -133,6 +162,53 @@ function Map:load()
         occluder.layer = self.object_layer
         occluder:resolveSourceLayer()
         occluder:resolveSurface()
+    end
+    if self.underwater_underlay then
+        local underlay = UnderwaterUnderlay(self)
+        local underlay_layer = tonumber(self.underwater_underlay_layer)
+        if underlay_layer == nil then
+            local lowest_terrain_layer
+            for _, tile_layer in ipairs(self.tile_layers) do
+                local layer = tonumber(tile_layer.layer)
+                if layer and (lowest_terrain_layer == nil
+                    or layer < lowest_terrain_layer) then
+                    lowest_terrain_layer = layer
+                end
+            end
+            underlay_layer = (lowest_terrain_layer or self.tile_layer)
+                - self.depth_per_layer
+        end
+        underlay.layer = underlay_layer
+        self.underwater_underlay_object = underlay
+        self.world:addChild(underlay)
+    end
+    if self.platforming and self.terrain_edge_fog then
+        local edge_fogs = TerrainEdgeFog.createForMap(self)
+        for index, edge_fog in ipairs(edge_fogs) do
+            if index == 1 then
+                local visual_ground = self:getTileLayer(
+                    self.terrain_edge_fog_layer)
+                local lowest_layer = visual_ground and visual_ground.layer
+                    or self.tile_layer
+                if not visual_ground then
+                    for _, layer in ipairs(self.tile_layers) do
+                        if layer.provides_ground ~= false
+                            and math.abs(tonumber(layer.z) or 0) < 0.001 then
+                            lowest_layer = math.min(
+                                lowest_layer,
+                                layer.layer or lowest_layer
+                            )
+                        end
+                    end
+                end
+                edge_fog.layer = lowest_layer - self.depth_per_layer
+                self.terrain_edge_fog_object = edge_fog
+            else
+                edge_fog.layer = self.object_layer - self.depth_per_layer
+            end
+            self.world:addChild(edge_fog)
+            table.insert(self.terrain_edge_fog_objects, edge_fog)
+        end
     end
     for _, event in ipairs(self.events) do
         if event.onLoad then
