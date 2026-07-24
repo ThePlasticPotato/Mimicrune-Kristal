@@ -1103,7 +1103,11 @@ function World:spawnPlayer(...)
         self.camera:setPosition(self.player.x, self.camera.y)
     end
     if self.camera.attached_y then
-        self.camera:setPosition(self.camera.x, self.player.y - (self.player.height * 2) / 2)
+        self.camera:setPosition(
+            self.camera.x,
+            self.player.y - (self.player.height * 2) / 2
+                - (self.player.camera_z or 0)
+        )
     end
 end
 
@@ -2046,6 +2050,234 @@ function World:update()
             self.cutscene = nil
         end
     end
+end
+
+--- Whether this map should use the depth buffer
+---@return boolean
+function World:usesHeightDepthRenderer()
+    return self.map and self.map.platforming
+        and Kristal.Shaders and Kristal.Shaders["HeightDepth"] ~= nil
+        and love.graphics.setDepthMode ~= nil
+end
+
+---@param child Object
+---@return boolean
+function World:isHeightDepthChild(child)
+    if child.height_occlusion_proxy then
+        return (child.face_direction or "front") == "front"
+    end
+    return child.height_sort_subject == true and child.use_3d_collision == true
+end
+
+---@param child Object
+---@return boolean
+function World:isHeightDepthTransparent(child)
+    if child.height_depth_transparent then return true end
+    if child.blend_mode and child.blend_mode ~= "normal"
+        and child.blend_mode ~= "alpha" then return true end
+    local _, _, _, alpha = child:getDrawColor()
+    if alpha < 0.999 then return true end
+    if child.height_occlusion_proxy and child.resolveSourceLayer then
+        local source = child:resolveSourceLayer()
+        if source then
+            local _, _, _, source_alpha = source:getDrawColor()
+            if source_alpha < 0.999 then return true end
+        end
+    end
+    return false
+end
+
+---@param child Object
+---@param mode? "opaque"|"cutout"
+---@return love.Canvas
+function World:captureHeightDepthChild(child, mode)
+    local old_r, old_g, old_b, old_a = love.graphics.getColor()
+    local old_blend, old_alpha_mode = love.graphics.getBlendMode()
+    love.graphics.setBlendMode("alpha", "alphamultiply")
+    local canvas = Draw.pushCanvas(SCREEN_WIDTH, SCREEN_HEIGHT, {
+        keep_transform = true
+    })
+    local old_capturing = self._capturing_height_depth
+    local old_mode = self._height_depth_capture_mode
+    self._capturing_height_depth = true
+    self._height_depth_capture_mode = mode or "opaque"
+    child:fullDraw()
+    self._capturing_height_depth = old_capturing
+    self._height_depth_capture_mode = old_mode
+    Draw.popCanvas(true)
+    love.graphics.setBlendMode(old_blend, old_alpha_mode)
+    love.graphics.setColor(old_r, old_g, old_b, old_a)
+    return canvas
+end
+
+--- Builds screenspace uniforms for the depth shader.
+---@param child Object
+---@return table parameters
+function World:getHeightDepthParameters(child)
+    local sort_x, sort_y = child:getSortPosition()
+    local _, anchor_y = love.graphics.transformPoint(sort_x, sort_y)
+    local depth_scale = 1 / 16384
+    local depth_offset = tonumber(child.height_depth_offset) or 0
+    local parameters = {
+        depth_mode = 0,
+        anchor_y = anchor_y,
+        face_ground_y = anchor_y,
+        face_top_y = anchor_y,
+        height_pixels = 0,
+        depth_scale = depth_scale,
+        depth_bias = 0.5 + depth_offset * depth_scale,
+        alpha_threshold = 0.0001,
+        sort_depth = anchor_y + depth_offset
+    }
+
+    if child.height_occlusion_proxy and child.getOcclusionZBounds then
+        local _, top = child:getOcclusionZBounds()
+        local face_y = child.face_position or sort_y
+        local face_x = child.sort_x or sort_x
+        local _, face_ground_y =
+            love.graphics.transformPoint(face_x, face_y)
+        local _, face_top_y =
+            love.graphics.transformPoint(face_x, face_y - top)
+        local height_pixels = face_ground_y - face_top_y
+        parameters.depth_mode = 1
+        parameters.face_ground_y = face_ground_y
+        parameters.face_top_y = face_top_y
+        parameters.height_pixels = height_pixels
+        parameters.sort_depth = face_ground_y + height_pixels + depth_offset
+    else
+        local z = child:getFullZ()
+        local _, projected_y =
+            love.graphics.transformPoint(sort_x, sort_y - z)
+        parameters.sort_depth = 2 * anchor_y - projected_y + depth_offset
+    end
+    return parameters
+end
+
+---@param canvas love.Canvas
+---@param parameters table
+---@param write_depth boolean
+function World:compositeHeightDepthCanvas(canvas, parameters, write_depth)
+    local old_comparison, old_write = love.graphics.getDepthMode()
+    local old_blend, old_alpha_mode = love.graphics.getBlendMode()
+    local old_r, old_g, old_b, old_a = love.graphics.getColor()
+    love.graphics.setDepthMode("gequal", write_depth)
+    love.graphics.setBlendMode("alpha", "alphamultiply")
+    love.graphics.push()
+    love.graphics.origin()
+    Draw.setColor(1, 1, 1)
+    Draw.pushShader("HeightDepth", {
+        depth_mode = parameters.depth_mode,
+        anchor_y = parameters.anchor_y,
+        face_ground_y = parameters.face_ground_y,
+        face_top_y = parameters.face_top_y,
+        height_pixels = parameters.height_pixels,
+        depth_scale = parameters.depth_scale,
+        depth_bias = parameters.depth_bias,
+        alpha_threshold = parameters.alpha_threshold
+    })
+    Draw.drawCanvas(canvas)
+    Draw.popShader()
+    love.graphics.pop()
+    love.graphics.setColor(old_r, old_g, old_b, old_a)
+    love.graphics.setBlendMode(old_blend, old_alpha_mode)
+    if old_comparison then
+        love.graphics.setDepthMode(old_comparison, old_write)
+    else
+        love.graphics.setDepthMode()
+    end
+end
+
+---@param child Object
+function World:drawOrdinaryChild(child)
+    local old_blend, old_alpha_mode
+    if child.blend_mode and child.blend_mode ~= "normal" then
+        old_blend, old_alpha_mode = love.graphics.getBlendMode()
+        love.graphics.setBlendMode(child.blend_mode)
+    end
+    child:fullDraw()
+    if old_blend then
+        love.graphics.setBlendMode(old_blend, old_alpha_mode)
+    end
+end
+
+--- Draws height-managed sprites and terrain through the depth buffer
+function World:drawHeightDepthChildren(min_layer, max_layer)
+    love.graphics.setDepthMode()
+    love.graphics.clear(false, false, 0)
+    self._height_depth_renderer_active = true
+    local transparent = {}
+    local last_depth_index
+    for index, child in ipairs(self.children) do
+        if child.visible
+            and (not min_layer or child.layer >= min_layer)
+            and (not max_layer or child.layer < max_layer)
+            and self:isHeightDepthChild(child) then
+            last_depth_index = index
+        end
+    end
+
+    local function drawTransparent()
+        table.stable_sort(transparent, function(a, b)
+            return a.parameters.sort_depth < b.parameters.sort_depth
+        end)
+        for _, item in ipairs(transparent) do
+            self:compositeHeightDepthCanvas(item.canvas, item.parameters, false)
+            Draw.unlockCanvas(item.canvas)
+        end
+        transparent = {}
+    end
+
+    for index, child in ipairs(self.children) do
+        if child.visible
+            and (not min_layer or child.layer >= min_layer)
+            and (not max_layer or child.layer < max_layer) then
+            if self:isHeightDepthChild(child) then
+                local parameters = self:getHeightDepthParameters(child)
+                local canvas = self:captureHeightDepthChild(child, "opaque")
+                if self:isHeightDepthTransparent(child) then
+                    table.insert(transparent, {
+                        canvas = canvas,
+                        parameters = parameters
+                    })
+                else
+                    self:compositeHeightDepthCanvas(canvas, parameters, true)
+                    Draw.unlockCanvas(canvas)
+                end
+
+                if child.height_occlusion_proxy
+                    and child.hasCharacterDepthCutout
+                    and child:hasCharacterDepthCutout() then
+                    local cutout = self:captureHeightDepthChild(child, "cutout")
+                    table.insert(transparent, {
+                        canvas = cutout,
+                        parameters = parameters
+                    })
+                end
+            else
+                self:drawOrdinaryChild(child)
+            end
+        end
+        if index == last_depth_index then drawTransparent() end
+    end
+
+    if #transparent > 0 then drawTransparent() end
+    love.graphics.setDepthMode()
+    self._height_depth_renderer_active = false
+end
+
+function World:drawChildren(min_layer, max_layer)
+    if not self:usesHeightDepthRenderer() then
+        return super.drawChildren(self, min_layer, max_layer)
+    end
+    if self.update_child_list then
+        self:updateChildList()
+        self.update_child_list = false
+    end
+    if self._dont_draw_children then return end
+
+    local old_r, old_g, old_b, old_a = love.graphics.getColor()
+    self:drawHeightDepthChildren(min_layer, max_layer)
+    love.graphics.setColor(old_r, old_g, old_b, old_a)
 end
 
 function World:draw()

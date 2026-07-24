@@ -370,14 +370,18 @@ end
 ---@return number[]? inner
 function HeightOccluder:getCharacterCutout(source)
     if not self.cutout_enabled or self.cutout_radius <= 0 then return nil end
-    local player = self.map.world and self.map.world.player
+    local world = self.map.world
+    local player = world and world.player
     if not player or not player.visible or not player.height_sort_subject
         or not player.use_3d_collision then return nil end
 
     local _, occlusion_top = self:getOcclusionZBounds()
     if player:getFullZ() >= occlusion_top - 0.001 then return nil end
+    local gpu_managed = world._height_depth_renderer_active
+        and self.face_direction == "front"
     if not self:isCoveringCharacter(player)
-        or not self:isDrawnAfterCharacter(player) then return nil end
+        or not gpu_managed
+            and not self:isDrawnAfterCharacter(player) then return nil end
 
     local player_transform = player:getFullVisualTransform()
     local center_x, center_y = player_transform:transformPoint(
@@ -404,6 +408,12 @@ function HeightOccluder:getCharacterCutout(source)
         and circleCoordinates(source_transform, center_x, center_y, inner_radius)
         or nil
     return outer, inner
+end
+
+---@return boolean
+function HeightOccluder:hasCharacterDepthCutout()
+    local source = self:resolveSourceLayer()
+    return source ~= nil and self:getCharacterCutout(source) ~= nil
 end
 
 ---@return Object? character
@@ -443,7 +453,73 @@ function HeightOccluder:drawMaskRelativeTo(relative_to)
     love.graphics.polygon("fill", coordinates)
 end
 
+---@param mode "opaque"|"cutout"
+function HeightOccluder:drawHeightDepthSource(mode)
+    local source = self:resolveSourceLayer()
+    local points = self:getOcclusionMaskPoints()
+    if not source or not source.visible or #points < 3 then return end
+
+    local coordinates = self:getMaskCoordinates(source, points)
+    local cutout_outer, cutout_inner = self:getCharacterCutout(source)
+    if mode == "cutout" and not cutout_outer then return end
+
+    local previous_comparison, previous_value = love.graphics.getStencilTest()
+    love.graphics.push()
+    local transform = love.graphics.getTransformRef()
+    source:applyVisualTransformTo(transform, 1 / CURRENT_SCALE_X, 1 / CURRENT_SCALE_Y)
+    love.graphics.replaceTransform(transform)
+
+    love.graphics.stencil(function()
+        love.graphics.polygon("fill", coordinates)
+    end, "replace", 1)
+
+    if cutout_outer then
+        love.graphics.setStencilTest("equal", 1)
+        love.graphics.stencil(function()
+            love.graphics.polygon("fill", cutout_outer)
+        end, "replace", mode == "opaque" and 0 or 2, true)
+        if mode == "cutout" and cutout_inner then
+            love.graphics.setStencilTest("equal", 2)
+            love.graphics.stencil(function()
+                love.graphics.polygon("fill", cutout_inner)
+            end, "replace", 3, true)
+        end
+    end
+
+    source._drawing_height_occlusion_source = true
+    local source_alpha = source.alpha or 1
+    local function drawSource(stencil_value, alpha)
+        love.graphics.setStencilTest("equal", stencil_value)
+        source.alpha = source_alpha * alpha
+        source:fullDraw(true, true)
+    end
+    if mode == "opaque" then
+        drawSource(1, 1)
+    else
+        local feather_alpha = cutout_inner
+            and MathUtils.lerp(self.cutout_alpha, 1, 0.55)
+            or self.cutout_alpha
+        drawSource(2, feather_alpha)
+        if cutout_inner then drawSource(3, self.cutout_alpha) end
+    end
+    source.alpha = source_alpha
+    source._drawing_height_occlusion_source = false
+
+    if previous_comparison then
+        love.graphics.setStencilTest(previous_comparison, previous_value)
+    else
+        love.graphics.setStencilTest()
+    end
+    love.graphics.pop()
+end
+
 function HeightOccluder:draw()
+    local world = self.map.world
+    if world and world._capturing_height_depth then
+        self:drawHeightDepthSource(world._height_depth_capture_mode or "opaque")
+        return
+    end
+
     local source = self:resolveSourceLayer()
     local points = self:getOcclusionMaskPoints()
     if not source or not source.visible or #points < 3 then return end

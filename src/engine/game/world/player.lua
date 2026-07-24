@@ -70,6 +70,17 @@ function Player:init(chara, x, y)
     self.height_animation = nil
     self.shadow_z = 0
     self.shadow_surface = nil
+    self.camera_z = 0
+    self.camera_z_target = 0
+    self.camera_z_tween_start = 0
+    self.camera_z_tween_timer = 0
+    self.camera_z_tween_duration = 0
+    self.camera_z_follow_speed = self.actor.camera_z_follow_speed or 6
+    self.camera_z_min_time = self.actor.camera_z_min_time or 0.25
+    self.camera_z_max_time = self.actor.camera_z_max_time or 0.75
+    self.camera_z_ease = self.actor.camera_z_ease or "out-cubic"
+    self.camera_z_fall_threshold = self.actor.camera_z_fall_threshold or 24
+    self.camera_z_landing_lookahead = self.actor.camera_z_landing_lookahead or 48
 
     self.force_run = false
     self.force_walk = false
@@ -201,6 +212,8 @@ function Player:getDebugInfo()
     table.insert(info, "Height state: " .. self.height_state_manager.state)
     table.insert(info, "Z: " .. tostring(self.z))
     table.insert(info, "Z velocity: " .. tostring(self.z_velocity))
+    table.insert(info, "Camera Z: " .. tostring(self.camera_z)
+        .. " -> " .. tostring(self.camera_z_target))
     table.insert(info, "Platforming: " .. (self.platforming_enabled and "True" or "False"))
     local height_surface = self:getHeightSurface()
     table.insert(info, "Surface: " .. tostring(height_surface and height_surface.id or "none"))
@@ -771,6 +784,7 @@ function Player:setPlatformingEnabled(enabled)
         self.fall_through_colliders = {}
         self.landing_overlap_colliders = {}
         self.height_state_manager:setState("GROUNDED")
+        self:setCameraZTarget(0, true)
         self:restoreGroundAnimation()
         return
     end
@@ -788,6 +802,7 @@ function Player:setPlatformingEnabled(enabled)
     elseif self.world:isOverPit(self.support_collider) then
         self.height_state_manager:setState("FALL")
     end
+    self:setCameraZTarget(ground_z or self.z, true)
 end
 
 function Player:getHeightState()
@@ -822,6 +837,77 @@ end
 
 function Player:isPitRecovering()
     return self:getHeightState() == "PIT_RECOVER"
+end
+
+---@param z number
+---@param snap? boolean
+function Player:setCameraZTarget(z, snap)
+    z = tonumber(z) or 0
+    if snap then
+        self.camera_z = z
+        self.camera_z_target = z
+        self.camera_z_tween_start = z
+        self.camera_z_tween_timer = 0
+        self.camera_z_tween_duration = 0
+        return
+    end
+    if math.abs(z - (self.camera_z_target or 0)) <= 0.001 then return end
+
+    self.camera_z_target = z
+    self.camera_z_tween_start = self.camera_z or 0
+    self.camera_z_tween_timer = 0
+    local pixels_per_second = math.max((self.camera_z_follow_speed or 6) * 30, 0.001)
+    self.camera_z_tween_duration = MathUtils.clamp(
+        math.abs(z - self.camera_z_tween_start) / pixels_per_second,
+        self.camera_z_min_time or 0.25,
+        self.camera_z_max_time or 0.75
+    )
+end
+
+---@param camera Camera
+---@return number x
+---@return number y
+function Player:getCameraTargetOffset(camera)
+    if not self.platforming_enabled then return 0, 0 end
+    return 0, -(self.camera_z or 0)
+end
+
+function Player:updateCameraZ()
+    if not self.platforming_enabled then
+        self:setCameraZTarget(0, true)
+        return
+    end
+    if self:isPitRecovering() then return end
+
+    local state = self:getHeightState()
+    local target_z = self.camera_z_target or self.camera_z or 0
+    if state == "GROUNDED" or state == "LAND" then
+        target_z = self.ground_z or self.z
+    elseif state == "FALL" and self.shadow_z ~= nil then
+        local takeoff_z = self.ground_z or self.camera_z_target or 0
+        local receiving_distance = self.z - self.shadow_z
+        local committed = self.z <= takeoff_z - self.camera_z_fall_threshold
+            or receiving_distance <= self.camera_z_landing_lookahead
+        if committed then target_z = self.shadow_z end
+    end
+    self:setCameraZTarget(target_z)
+
+    local duration = self.camera_z_tween_duration or 0
+    if duration <= 0 or math.abs(self.camera_z - self.camera_z_target) <= 0.001 then
+        self.camera_z = self.camera_z_target
+        return
+    end
+    self.camera_z_tween_timer = MathUtils.approach(
+        self.camera_z_tween_timer or 0, duration, DT
+    )
+    local progress = MathUtils.clamp(self.camera_z_tween_timer / duration, 0, 1)
+    self.camera_z = Utils.ease(
+        self.camera_z_tween_start,
+        self.camera_z_target,
+        progress,
+        self.camera_z_ease or "out-cubic"
+    )
+    if progress >= 1 then self.camera_z = self.camera_z_target end
 end
 
 function Player:canJump()
@@ -1214,6 +1300,7 @@ function Player:beginHeightPitRecovery()
     self.pit_recovery_timer = 0
     self.pit_recovery_progress = 0
     self.pit_recovery_teleported = false
+    Player.setCameraZTarget(self, self.camera_z, true)
 
     self.world:removeFX("pit_recovery")
     self.world:addFX(ShaderFX("goner_bleed", {
@@ -1233,6 +1320,7 @@ function Player:teleportFromPit()
     self.ground_collider = ground
     self.ground_surface = surface
     self.airborne_surface = nil
+    Player.setCameraZTarget(self, self.z, true)
     self:resetFollowerHistory()
 end
 
@@ -1274,6 +1362,7 @@ function Player:updateHeight()
     self.shadow_z, _, self.shadow_surface =
         self.world:getGroundZAt(self.support_collider, self.z,
             self.collider, self:getHeightCollisionIgnore())
+    self:updateCameraZ()
 end
 
 --- Keeps a completed, non-looping jump animation on its anticipation-free

@@ -9,6 +9,8 @@ function AfterImage:init(sprite, fade, speed)
     if sprite.height_sort_subject and sprite.use_3d_collision then
         self.height_sort_subject = true
         self.use_3d_collision = true
+        self.height_depth_transparent = true
+        self.height_depth_offset = -0.25
         self.height_occlusion_z = sprite:getFullZ()
         self.height_occlusion_sort_x, self.height_occlusion_sort_y =
             sprite:getSortPosition()

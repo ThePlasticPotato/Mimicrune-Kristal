@@ -355,6 +355,8 @@ function Camera:getTargetPosition()
     if target and target:isCameraAttachable() then
         local ox, oy = target:getCameraOriginExact()
         x, y = target:getRelativePos(ox, oy, self.parent)
+        local offset_x, offset_y = target:getCameraTargetOffset(self)
+        x, y = x + offset_x, y + offset_y
     end
 
     local min_x, min_y = self:getMinPosition()

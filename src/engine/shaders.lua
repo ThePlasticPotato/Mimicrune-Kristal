@@ -144,4 +144,39 @@ Shaders["Mask"] = love.graphics.newShader[[
     }
  ]]
 
+Shaders["HeightDepth"] = love.graphics.newShader[[
+#pragma language glsl3
+    extern number depth_mode;
+    extern number anchor_y;
+    extern number face_ground_y;
+    extern number face_top_y;
+    extern number height_pixels;
+    extern number depth_scale;
+    extern number depth_bias;
+    extern number alpha_threshold;
+
+    vec4 effect(vec4 color, Image tex, vec2 texture_coords, vec2 screen_coords) {
+        vec4 pixel = Texel(tex, texture_coords) * color;
+        if (pixel.a <= alpha_threshold) {
+            discard;
+        }
+
+        float view_depth;
+        if (depth_mode < 0.5) {
+            // screen_y = ground_y - pixel_height, so this reconstructs
+            // ground_y + pixel_height.
+            view_depth = 2.0 * anchor_y - screen_coords.y;
+        } else if (screen_coords.y <= face_top_y) {
+            // Pixels above the face boundary lie on the horizontal top plane
+            view_depth = screen_coords.y + 2.0 * height_pixels;
+        } else {
+            // Pixels below it lie on the vertical face at a constant ground Y
+            view_depth = 2.0 * face_ground_y - screen_coords.y;
+        }
+
+        gl_FragDepth = clamp(depth_bias + view_depth * depth_scale, 0.0, 1.0);
+        return pixel;
+    }
+]]
+
 return Shaders

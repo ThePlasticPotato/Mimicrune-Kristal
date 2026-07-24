@@ -9,6 +9,8 @@ function HeightShadow:init(owner)
     self.owner = owner
     self.height_sort_subject = true
     self.use_3d_collision = true
+    self.height_depth_transparent = true
+    self.height_depth_offset = -0.25
     self.debug_select = false
     self.active = false
     self.persistent = owner.persistent

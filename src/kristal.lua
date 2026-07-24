@@ -266,6 +266,10 @@ function love.load(args)
     -- screen canvas
     SCREEN_CANVAS = love.graphics.newCanvas(SCREEN_WIDTH, SCREEN_HEIGHT)
     SCREEN_CANVAS:setFilter("nearest", "nearest")
+    SCREEN_DEPTH_CANVAS = love.graphics.newCanvas(SCREEN_WIDTH, SCREEN_HEIGHT, {
+        format = "depth24stencil8",
+        readable = false
+    })
 
     SCREENSHOT_DISPLAY = 1
     TAKING_SCREENSHOT = false
@@ -352,7 +356,7 @@ function love.draw()
     -- Also, to draw the borders later
     Draw.reset()
 
-    Draw.pushCanvas(SCREEN_CANVAS)
+    Draw.pushCanvas(SCREEN_CANVAS, { depth = SCREEN_DEPTH_CANVAS })
     love.graphics.clear(0, 0, 0, 1)
 
     -- Draw the current state (or the editor's underlying game state)

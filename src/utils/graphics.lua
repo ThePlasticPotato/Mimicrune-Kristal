@@ -99,7 +99,7 @@ function graphics.pop()
         transform = item.transform
         love.graphics.setBackgroundColor(item.backgroundColor)
         love.graphics.setBlendMode(unpack(item.blendMode))
-        love.graphics.setCanvas(item.canvas)
+        Draw.setCanvas(item.canvas, { depth = item.canvasDepth })
         love.graphics.setFont(item.font)
         love.graphics.setColorMask(unpack(item.colorMask))
         love.graphics.setShader(item.shader)
@@ -112,14 +112,16 @@ function graphics.push(stack)
     ---@type GraphicsStackItem
     local item = transform
     if stack == "all" then
+        local active_canvas = love.graphics.getCanvas()
         item = {
             transform = transform,
             backgroundColor = { love.graphics.getBackgroundColor() },
             blendMode = { love.graphics.getBlendMode() },
-            canvas = love.graphics.getCanvas(),
+            canvas = active_canvas,
             font = love.graphics.getFont(),
             colorMask = { love.graphics.getColorMask() },
-            shader = love.graphics.getShader()
+            shader = love.graphics.getShader(),
+            canvasDepth = active_canvas and Draw._canvas_depth[active_canvas]
         }
         Draw.pushScissor()
     end

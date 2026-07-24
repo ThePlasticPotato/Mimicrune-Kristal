@@ -101,6 +101,8 @@
 ---@field map_layer_sort_id string? Stable identity used to order equal-depth map drawables independently of editor layer order.
 ---@field height_occluder boolean? Whether this drawable participates in height-aware terrain sorting.
 ---@field height_sort_subject boolean? Whether height-aware occluders should compare against this object.
+---@field height_depth_transparent boolean? Whether the GPU height renderer must defer this object to its translucent pass.
+---@field height_depth_offset number? A small view-depth offset, in pixels, used to order attached visual effects relative to their owner.
 ---
 ---@field collider Collider? A Collider class used to check collision with other objects.
 ---@field collidable boolean Whether the object should be able to collide with other objects.
@@ -995,6 +997,12 @@ end
 ---@return boolean attached Whether a Camera attached to this object should follow it.
 function Object:isCameraAttachable() return true end
 
+--- *(Override)* Returns an additional offset used by an attached Camera.
+---@param camera Camera
+---@return number x
+---@return number y
+function Object:getCameraTargetOffset(camera) return 0, 0 end
+
 --- Sets the object's `parallax_x` and `parallax_y` to the specified parallax.
 ---@param x  number The value to set `parallax_x` to.
 ---@param y? number The value to set `parallax_y` to. (Defaults to the `x` parameter)
@@ -1455,6 +1463,10 @@ function Object:beginHeightDepthMask()
     if not self.height_occluder or self.height_occlusion_proxy
         or self.height_occlusion_masks then return nil end
     local world = self.parent
+    if world and world._height_depth_renderer_active
+        and world.isHeightDepthChild and world:isHeightDepthChild(self) then
+        return nil
+    end
     local character = world and world.player
     if not character or not character.visible or not character.height_sort_subject
         or not character.use_3d_collision

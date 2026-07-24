@@ -379,6 +379,168 @@
       ]
     },
     {
+      "id": "pits",
+      "name": "Pits",
+      "color": [
+        0,
+        0,
+        1,
+        1
+      ],
+      "x": 0,
+      "y": 0,
+      "type": "collision",
+      "kind": "object",
+      "depth": 0,
+      "alpha": 1,
+      "visible": true,
+      "parallax_x": 1,
+      "parallax_y": 1,
+      "properties": [],
+      "objects": [
+        {
+          "id": 23,
+          "name": "rectangle",
+          "x": 0,
+          "y": 720,
+          "width": 40,
+          "height": 80,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "pit",
+              "type": "boolean",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": 24,
+          "name": "rectangle",
+          "x": 40,
+          "y": 760,
+          "width": 1080,
+          "height": 40,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "pit",
+              "type": "boolean",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": 25,
+          "name": "rectangle",
+          "x": 1120,
+          "y": 720,
+          "width": 80,
+          "height": 80,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "pit",
+              "type": "boolean",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": 26,
+          "name": "rectangle",
+          "x": 1040,
+          "y": 400,
+          "width": 80,
+          "height": 80,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "pit",
+              "type": "boolean",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": 27,
+          "name": "rectangle",
+          "x": 920,
+          "y": 400,
+          "width": 120,
+          "height": 40,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "pit",
+              "type": "boolean",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": 28,
+          "name": "rectangle",
+          "x": 840,
+          "y": 320,
+          "width": 40,
+          "height": 120,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "pit",
+              "type": "boolean",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": 29,
+          "name": "rectangle",
+          "x": 880,
+          "y": 360,
+          "width": 40,
+          "height": 80,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "pit",
+              "type": "boolean",
+              "value": true
+            }
+          ]
+        }
+      ]
+    },
+    {
       "id": "collision",
       "name": "Collision",
       "color": [
@@ -394,7 +556,6 @@
       "depth": 0,
       "alpha": 1,
       "visible": true,
-      "locked": true,
       "parallax_x": 1,
       "parallax_y": 1,
       "properties": [],
@@ -1166,6 +1327,11 @@
       "name": "empty_tile_pit",
       "type": "boolean",
       "value": true
+    },
+    {
+      "name": "area_name",
+      "type": "string",
+      "value": "WASTES"
     }
   ]
 }

@@ -3,8 +3,9 @@
 ---@field private _canvases table<string, love.Canvas>
 ---@field private _used_canvas table<love.Canvas, boolean>
 ---@field private _locked_canvas table<love.Canvas, boolean>
+---@field private _canvas_depth table<love.Canvas, boolean|love.Canvas>
 ---@field private _locked_canvas_stack table<love.Canvas, boolean>[]
----@field private _canvas_stack love.Canvas[]
+---@field private _canvas_stack (love.Canvas|table)[]
 ---@field private _scissor_stack number[][]
 ---@field private _shader_stack love.Shader[]
 ---
@@ -16,6 +17,7 @@ local old_getScissor = love.graphics.getScissor
 Draw._canvases = {}
 Draw._used_canvas = setmetatable({}, { __mode = "k" })
 Draw._locked_canvas = setmetatable({}, { __mode = "k" })
+Draw._canvas_depth = setmetatable({}, { __mode = "k" })
 Draw._locked_canvas_stack = {}
 Draw._canvas_stack = {}
 
@@ -26,6 +28,7 @@ Draw._shader_stack = {}
 ---@class Draw.canvasOptions
 ---@field clear boolean?
 ---@field stencil boolean?
+---@field depth boolean|love.Canvas?
 ---@field keep_transform boolean?
 
 ---@overload fun(options?: Draw.canvasOptions) : love.Canvas
@@ -60,8 +63,14 @@ function Draw.pushCanvas(...)
     if canvas then
         self._locked_canvas[canvas] = true
         self._used_canvas[canvas] = true
+        if options["depth"] ~= nil then
+            self._canvas_depth[canvas] = options["depth"]
+        end
     end
-    Draw.setCanvas(canvas, { stencil = options["stencil"] })
+    Draw.setCanvas(canvas, {
+        stencil = options["stencil"],
+        depth = options["depth"]
+    })
     love.graphics.push()
     if not options["keep_transform"] then
         love.graphics.origin()
@@ -85,7 +94,7 @@ function Draw.popCanvas(keep)
     return old_canvas
 end
 
----@param canvas love.Canvas
+---@param canvas love.Canvas|table
 function Draw.unlockCanvas(canvas)
     if canvas then
         self._locked_canvas[canvas] = nil
@@ -105,15 +114,30 @@ function Draw.popCanvasLocks()
 end
 
 ---@private
----@param canvas? love.Canvas
----@param options? {stencil: boolean}
+---@param canvas? love.Canvas|table
+---@param options? {stencil: boolean?, depth: boolean|love.Canvas?}
 function Draw.setCanvas(canvas, options)
     options = options or {}
     if canvas then
-        if options["stencil"] == false then
+        if type(canvas) == "table" then
             love.graphics.setCanvas(canvas)
+            return
+        end
+        local depth = options["depth"]
+        if depth == nil then depth = self._canvas_depth[canvas] end
+        if options["stencil"] == false and not depth then
+            love.graphics.setCanvas(canvas)
+        elseif type(depth) == "userdata" then
+            love.graphics.setCanvas {
+                canvas,
+                depthstencil = depth
+            }
         else
-            love.graphics.setCanvas { canvas, stencil = true }
+            love.graphics.setCanvas {
+                canvas,
+                stencil = options["stencil"] ~= false,
+                depth = depth == true
+            }
         end
     else
         love.graphics.setCanvas()
@@ -141,6 +165,7 @@ function Draw._clearStacks()
     self._canvases = {}
     self._used_canvas = setmetatable({}, { __mode = "k" })
     self._locked_canvas = setmetatable({}, { __mode = "k" })
+    self._canvas_depth = setmetatable({}, { __mode = "k" })
     self._canvas_stack = {}
 
     self._scissor_stack = {}

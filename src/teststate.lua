@@ -46,6 +46,144 @@ function Testing:runPlatformingTests()
     expect(full_visual_y == -12,
         "visual snapshots should include the projected Z of the complete object hierarchy")
 
+    do
+        local function solidCanvas(r, g, b, a, x, width)
+            local canvas = love.graphics.newCanvas(16, 16)
+            love.graphics.setCanvas(canvas)
+            love.graphics.origin()
+            love.graphics.clear(0, 0, 0, 0)
+            love.graphics.setColor(r, g, b, a)
+            love.graphics.rectangle("fill", x or 0, 0, width or 16, 16)
+            love.graphics.setColor(1, 1, 1, 1)
+            love.graphics.setCanvas()
+            return canvas
+        end
+        local output = love.graphics.newCanvas(16, 16)
+        local depth = love.graphics.newCanvas(16, 16, {
+            format = "depth24stencil8", readable = false
+        })
+        local blue = solidCanvas(0, 0, 1, 1)
+        local red = solidCanvas(1, 0, 0, 1)
+        local green = solidCanvas(0, 1, 0, 0.5)
+        local half_blue = solidCanvas(0, 0, 1, 1, 8, 8)
+        local renderer = setmetatable({}, { __index = World })
+        local function billboard(anchor_y, depth_offset)
+            depth_offset = depth_offset or 0
+            return {
+                depth_mode = 0,
+                anchor_y = anchor_y,
+                face_ground_y = anchor_y,
+                face_top_y = anchor_y,
+                height_pixels = 0,
+                depth_scale = 1 / 16384,
+                depth_bias = 0.5 + depth_offset / 16384,
+                alpha_threshold = 0.0001,
+                sort_depth = anchor_y + depth_offset
+            }
+        end
+
+        love.graphics.setCanvas({ output, depthstencil = depth })
+        love.graphics.clear(0, 0, 0, 0, false, 0)
+        renderer:compositeHeightDepthCanvas(blue, billboard(20), true)
+        renderer:compositeHeightDepthCanvas(red, billboard(10), true)
+        renderer:compositeHeightDepthCanvas(green, billboard(30), false)
+        love.graphics.setCanvas()
+        local data = output:newImageData()
+        local out_r, out_g, out_b, out_a = data:getPixel(8, 8)
+        expect(out_r < 0.05 and out_g > 0.45 and out_g < 0.55
+            and out_b > 0.45 and out_b < 0.55 and out_a > 0.95,
+            "GPU height depth should reject a later far sprite and correctly blend a translucent near sprite")
+
+        love.graphics.setCanvas({ output, depthstencil = depth })
+        love.graphics.clear(0, 0, 0, 0, false, 0)
+        renderer:compositeHeightDepthCanvas(red, billboard(10), true)
+        renderer:compositeHeightDepthCanvas(half_blue, billboard(20), true)
+        renderer:compositeHeightDepthCanvas(
+            green, billboard(20, -0.25), false
+        )
+        love.graphics.setCanvas()
+        data = output:newImageData()
+        local floor_r, floor_g, floor_b = data:getPixel(4, 8)
+        local player_r, player_g, player_b = data:getPixel(12, 8)
+        expect(floor_r > 0.45 and floor_r < 0.55
+            and floor_g > 0.45 and floor_g < 0.55 and floor_b < 0.05
+            and player_r < 0.05 and player_g < 0.05 and player_b > 0.95,
+            string.format(
+                "attached translucent effects should remain visible on the floor but stay behind equal-depth owner pixels (floor %.3f,%.3f,%.3f; player %.3f,%.3f,%.3f)",
+                floor_r, floor_g, floor_b, player_r, player_g, player_b
+            ))
+        output:release()
+        depth:release()
+        blue:release()
+        red:release()
+        green:release()
+        half_blue:release()
+    end
+
+    do
+        local camera_parent = Object(0, 0, 1000, 1000)
+        local camera_target = Object(100, 200, 20, 20)
+        camera_parent:addChild(camera_target)
+        camera_target.stage = camera_parent
+        camera_target.getCameraTargetOffset = function() return 0, -80 end
+        local camera = Camera(camera_parent, 0, 0, 640, 480, false)
+        camera.target = camera_target
+        local camera_x, camera_y = camera:getTargetPosition()
+        expect(camera_x == 110 and camera_y == 130,
+            "attached cameras should include their target's stable elevation offset")
+
+        local camera_player = setmetatable({
+            platforming_enabled = true,
+            camera_z = 80,
+            camera_z_target = 80,
+            camera_z_follow_speed = 6,
+            camera_z_fall_threshold = 24,
+            camera_z_landing_lookahead = 48,
+            ground_z = 80,
+            z = 120,
+            shadow_z = 0,
+            height_state_manager = { state = "JUMP" }
+        }, { __index = Player })
+        camera_player:updateCameraZ()
+        expect(camera_player.camera_z == 80
+            and camera_player.camera_z_target == 80,
+            "ordinary jump arcs should retain the takeoff camera elevation")
+
+        camera_player.height_state_manager.state = "FALL"
+        camera_player.z = 50
+        camera_player:updateCameraZ()
+        local expected_duration = 80 / (6 * 30)
+        local expected_camera_z = Utils.ease(
+            80, 0, DT / expected_duration, "out-cubic"
+        )
+        expect(math.abs(camera_player.camera_z - expected_camera_z) < 0.001
+            and camera_player.camera_z_target == 0
+            and math.abs(camera_player.camera_z_tween_duration - expected_duration) < 0.001,
+            "a committed fall should use a distance-scaled cubic-out camera tween")
+
+        local retarget_start = camera_player.camera_z
+        camera_player:setCameraZTarget(40)
+        expect(camera_player.camera_z == retarget_start
+            and camera_player.camera_z_tween_start == retarget_start
+            and camera_player.camera_z_target == 40
+            and camera_player.camera_z_tween_timer == 0,
+            "camera elevation retargeting should restart from its current eased position")
+
+        camera_player.height_state_manager.state = "PIT_RECOVER"
+        camera_player:updateCameraZ()
+        expect(camera_player.camera_z == retarget_start,
+            "pit recovery should freeze camera elevation instead of following the fall")
+
+        camera_player:setCameraZTarget(32, true)
+        local offset_x, offset_y = camera_player:getCameraTargetOffset(camera)
+        expect(camera_player.camera_z == 32 and offset_x == 0 and offset_y == -32,
+            "safe-floor recovery should be able to snap the attached camera elevation")
+        camera_player.platforming_enabled = false
+        offset_x, offset_y = camera_player:getCameraTargetOffset(camera)
+        expect(offset_x == 0 and offset_y == 0,
+            "ordinary maps should retain the original camera target coordinates")
+    end
+
     local a_parent, b_parent = Object(), Object()
     local a = Hitbox(a_parent, 0, 0, 10, 10)
     local b = Hitbox(b_parent, 0, 0, 10, 10)
@@ -176,13 +314,13 @@ function Testing:runPlatformingTests()
                 actor = {},
                 getBaseWalkSpeed = function() return 6 end
             }, { __index = Player })
-            expect(tuned_run_player:getRunSpeed() == 8
+            expect(tuned_run_player:getRunSpeed() == 6
                 and tuned_run_player:getRunMomentumMax() == 0.5
                 and tuned_run_player:getRunAcceleration() == 4
                 and tuned_run_player:getRunDeceleration() == 4
                 and tuned_run_player:getRunSpeed()
-                    * (1 + tuned_run_player:getRunMomentumMax()) == 12,
-                "Vessel's momentum run should cap at 12 pixels per frame")
+                    * (1 + tuned_run_player:getRunMomentumMax()) == 9,
+                "Vessel's momentum run should cap at 9 pixels per frame")
             expect(legacy_run_player:getRunSpeed() == 10
                 and legacy_run_player:getRunMomentumMax() == 1
                 and legacy_run_player:getRunAcceleration() == 1
