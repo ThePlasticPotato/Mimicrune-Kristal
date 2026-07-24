@@ -15,6 +15,182 @@
   ],
   "layers": [
     {
+      "id": "crags2",
+      "name": "Crags2",
+      "color": [
+        1,
+        0,
+        1,
+        1
+      ],
+      "x": 0,
+      "y": 0,
+      "type": "objects",
+      "kind": "object",
+      "depth": -2,
+      "alpha": 1,
+      "visible": true,
+      "parallax_x": 0.05,
+      "parallax_y": 1,
+      "properties": [],
+      "objects": [
+        {
+          "id": 50,
+          "name": "sprite",
+          "type": "sprite",
+          "x": 320,
+          "y": 120,
+          "width": 40,
+          "height": 40,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "scale_x": 1,
+          "scale_y": 1,
+          "visible": true,
+          "properties": [
+            {
+              "name": "texture",
+              "type": "asset_path",
+              "value": "world/IMAGE_FARCRAG_A"
+            },
+            {
+              "name": "scalex",
+              "type": "number",
+              "value": 1
+            },
+            {
+              "name": "scaley",
+              "type": "number",
+              "value": 1
+            }
+          ]
+        },
+        {
+          "id": 51,
+          "name": "sprite",
+          "type": "sprite",
+          "x": 120,
+          "y": 160,
+          "width": 40,
+          "height": 40,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "scale_x": 1,
+          "scale_y": 1,
+          "visible": true,
+          "properties": [
+            {
+              "name": "texture",
+              "type": "asset_path",
+              "value": "world/IMAGE_FARCRAG_B"
+            },
+            {
+              "name": "scalex",
+              "type": "number",
+              "value": 1
+            },
+            {
+              "name": "scaley",
+              "type": "number",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "crags1",
+      "name": "Crags1",
+      "color": [
+        1,
+        0,
+        1,
+        1
+      ],
+      "x": 0,
+      "y": 0,
+      "type": "objects",
+      "kind": "object",
+      "depth": -1,
+      "alpha": 1,
+      "visible": true,
+      "parallax_x": 0.25,
+      "parallax_y": 1,
+      "properties": [],
+      "objects": [
+        {
+          "id": 48,
+          "name": "sprite",
+          "type": "sprite",
+          "x": -80,
+          "y": 0,
+          "width": 40,
+          "height": 40,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "scale_x": 1,
+          "scale_y": 1,
+          "visible": true,
+          "properties": [
+            {
+              "name": "texture",
+              "type": "asset_path",
+              "value": "world/IMAGE_CRAG_A"
+            },
+            {
+              "name": "scalex",
+              "type": "number",
+              "value": 2
+            },
+            {
+              "name": "scaley",
+              "type": "number",
+              "value": 2
+            }
+          ]
+        },
+        {
+          "id": 49,
+          "name": "sprite",
+          "type": "sprite",
+          "x": 520,
+          "y": 40,
+          "width": 40,
+          "height": 40,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "scale_x": 1,
+          "scale_y": 1,
+          "visible": true,
+          "properties": [
+            {
+              "name": "texture",
+              "type": "asset_path",
+              "value": "world/IMAGE_CRAG_B"
+            },
+            {
+              "name": "scalex",
+              "type": "number",
+              "value": 2
+            },
+            {
+              "name": "scaley",
+              "type": "number",
+              "value": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
       "id": "groundcliff",
       "name": "groundcliff",
       "color": [
