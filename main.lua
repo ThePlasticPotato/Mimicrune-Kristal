@@ -2,6 +2,8 @@ require("src.engine.vars")
 require("src.engine.statevars")
 require("src.engine.vendcust")
 
+io.stdout:setvbuf("no")
+
 DiscordRPC = require("src.lib.discordrpc")
 
 local major, _, _, _ = love.getVersion()
