@@ -1,7 +1,9 @@
 ---@class EditorNPC : EditorObject
 ---@overload fun(data?: table, options?: table): EditorNPC
 local EditorNPC, super = Class(EditorObject)
+EditorNPC.editor_sprite = "editor/npc"
 EditorNPC.scaling_mode = "scale"
+EditorNPC.sprite_properties = { "actor", "sprite", "animation" }
 
 function EditorNPC:getEditorSprite(data)
     local properties = data.properties or {}
