@@ -129,8 +129,21 @@ function EditorObject:init(data, options)
                 { value = "wall", label = "Wall" },
                 { value = "solid", label = "Solid Platform" },
                 { value = "surface", label = "One-Way Surface" },
+                { value = "slope", label = "Continuous Slope" },
                 { value = "pit", label = "Pit" }
             }
+        })
+        self:registerProperty("slope_direction", "choice", {
+            name = "Slope Uphill Direction", default = "right", choices = {
+                { value = "right", label = "Right (+X)" },
+                { value = "left", label = "Left (-X)" },
+                { value = "down", label = "Down (+Y)" },
+                { value = "up", label = "Up (-Y)" }
+            }
+        })
+        self:registerProperty("slope_step_height", "number", {
+            name = "Slope Step Override",
+            placeholder = "Automatic from rise / run"
         })
         self:registerProperty("pit", "boolean", { name = "Pit", default = false })
         self:registerProperty("surface_id", "string", {

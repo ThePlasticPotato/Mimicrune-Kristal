@@ -76,6 +76,7 @@ local function getRoleColor(role)
     if role == "wall" then return { 1, 0.55, 0.2 } end
     if role == "solid" then return { 0.2, 0.9, 1 } end
     if role == "surface" then return { 0.25, 1, 0.45 } end
+    if role == "slope" then return { 0.85, 0.45, 1 } end
     return { 1, 0.25, 0.25 }
 end
 
@@ -93,12 +94,13 @@ local function drawHeightGuide(object, layer, color, alpha, line_width)
     local rotation = math.rad(object.rotation or 0)
     local cosine, sine = math.cos(rotation), math.sin(rotation)
     local footprint = {}
-    local min_y, max_x = math.huge, -math.huge
+    local min_x, min_y, max_x, max_y = math.huge, math.huge, -math.huge, -math.huge
     for index, point in ipairs(points) do
         local x = point[1] * cosine - point[2] * sine
         local y = point[1] * sine + point[2] * cosine
         footprint[index] = { x, y }
-        min_y, max_x = math.min(min_y, y), math.max(max_x, x)
+        min_x, min_y = math.min(min_x, x), math.min(min_y, y)
+        max_x, max_y = math.max(max_x, x), math.max(max_y, y)
     end
 
     love.graphics.push()
@@ -128,13 +130,48 @@ local function drawHeightGuide(object, layer, color, alpha, line_width)
         drawDashedPath(shifted, closed, dash_length)
     end
 
+    local function getSlopeElevation(point)
+        local direction = tostring(properties.slope_direction or properties.slope_axis or "right"):lower()
+        local y_axis = direction == "up" or direction == "down" or direction == "y"
+        local coordinate = y_axis and point[2] or point[1]
+        local minimum = y_axis and min_y or min_x
+        local maximum = y_axis and max_y or max_x
+        local progress = maximum ~= minimum
+            and MathUtils.clamp((coordinate - minimum) / (maximum - minimum), 0, 1) or 1
+        if direction == "left" or direction == "up" or direction == "negative" then
+            progress = 1 - progress
+        end
+        return z + depth * progress
+    end
+
+    local function drawSlopeSurface()
+        local shifted = {}
+        for index, point in ipairs(footprint) do
+            shifted[index] = { HeightTransform.projectPoint(
+                point[1], point[2], getSlopeElevation(point)) }
+        end
+        drawDashedPath(shifted, closed, dash_length)
+        for index = 1, #footprint, connector_step do
+            local point = footprint[index]
+            local bottom_x, bottom_y = HeightTransform.projectPoint(point[1], point[2], z)
+            local top_x, top_y = HeightTransform.projectPoint(
+                point[1], point[2], getSlopeElevation(point))
+            love.graphics.line(bottom_x, bottom_y, top_x, top_y)
+        end
+    end
+
     local top_z = z + depth
     local authoring_z = MapUtils.getCollisionAuthoringZ(properties, depth)
     if authoring_z ~= 0 then
         Draw.setColor(role_color[1], role_color[2], role_color[3], guide_alpha * 0.28)
         drawFootprintAt(0)
     end
-    if depth > 0 then
+    if depth > 0 and role == "slope" then
+        Draw.setColor(role_color[1], role_color[2], role_color[3], guide_alpha * 0.28)
+        drawFootprintAt(z)
+        Draw.setColor(role_color[1], role_color[2], role_color[3], guide_alpha * 0.75)
+        drawSlopeSurface()
+    elseif depth > 0 then
         Draw.setColor(role_color[1], role_color[2], role_color[3], guide_alpha * 0.62)
         drawFootprintAt(authoring_z == top_z and z or top_z)
         Draw.setColor(role_color[1], role_color[2], role_color[3], guide_alpha * 0.42)
@@ -160,10 +197,16 @@ local function drawHeightGuide(object, layer, color, alpha, line_width)
         love.graphics.line(ruler_x - 3, top_y, ruler_x + 3, top_y)
     end
 
-    local role_names = { wall = "WALL", solid = "SOLID", surface = "SURFACE", pit = "PIT" }
+    local role_names = {
+        wall = "WALL", solid = "SOLID", surface = "SURFACE", slope = "SLOPE", pit = "PIT"
+    }
     local label
     if role == "pit" then
         label = "PIT"
+    elseif role == "slope" then
+        local direction = tostring(properties.slope_direction or properties.slope_axis or "right"):upper()
+        label = "SLOPE uphill=" .. direction .. " "
+            .. formatHeight(z) .. ".." .. formatHeight(top_z)
     elseif depth == 0 then
         label = role_names[role] .. " z=" .. formatHeight(z)
     else

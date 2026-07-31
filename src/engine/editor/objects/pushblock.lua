@@ -27,6 +27,21 @@ function EditorPushBlock:init(data, options)
     self:registerProperty("pressbuttons", "boolean", { name = "Press Buttons", default = true })
     self:registerProperty("lock", "boolean")
     self:registerProperty("inputlock", "boolean", { name = "Input Lock" })
+    self:registerProperty("height_physics", "boolean", {
+        name = "Height Physics", default = true
+    })
+    self:registerProperty("fallgravity", "number", {
+        name = "Fall Gravity", default = 0.6
+    })
+    self:registerProperty("maxfallspeed", "number", {
+        name = "Maximum Fall Speed", default = 12
+    })
+    self:registerProperty("pitfalllimit", "number", {
+        name = "Pit Fall Limit", default = -80
+    })
+    self:registerProperty("resetonpit", "boolean", {
+        name = "Reset On Pit", default = true
+    })
 end
 function EditorPushBlock:createObject(map, context)
     return PushBlock(self.data.x, self.data.y, self:getRectData(), self.data.properties)

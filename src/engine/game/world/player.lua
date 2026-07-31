@@ -40,6 +40,8 @@ function Player:init(chara, x, y)
 
     self.platforming_enabled = false
     self.z_velocity = 0
+    self.platform_momentum_x = 0
+    self.platform_momentum_y = 0
     self.ground_z = 0
     self.ground_collider = nil
     self.ground_surface = nil
@@ -795,6 +797,8 @@ function Player:setPlatformingEnabled(enabled)
     if not self.platforming_enabled then
         self.z = 0
         self.z_velocity = 0
+        self.platform_momentum_x = 0
+        self.platform_momentum_y = 0
         self.jump_windup_timer = 0
         self.pending_jump_strength = nil
         self.ground_z = 0
@@ -977,6 +981,10 @@ end
 
 function Player:launchHeightJump()
     self.z_velocity = self.pending_jump_strength or self.jump_strength
+    local platform = self.ground_collider and self.ground_collider.parent
+    if platform and platform.is_moving_platform and platform.applyExitMomentum then
+        platform:applyExitMomentum(self)
+    end
     self.pending_jump_strength = nil
     self.jump_windup_timer = 0
     self.airborne_surface = self.ground_surface
@@ -997,6 +1005,8 @@ function Player:updateHeightGrounded()
         self.ground_surface = surface
         self.airborne_surface = nil
         self.z_velocity = 0
+        self.platform_momentum_x = 0
+        self.platform_momentum_y = 0
         if not self.world:isOverPit(self.support_collider) then
             self.last_safe_x = self.x
             self.last_safe_y = self.y
@@ -1046,6 +1056,10 @@ function Player:beginHeightFall(last_state)
     self.pending_jump_strength = nil
     if last_state == "GROUNDED" or last_state == "LAND" then
         self.z_velocity = math.min(self.z_velocity, 0)
+        local platform = previous_ground and previous_ground.parent
+        if platform and platform.is_moving_platform and platform.applyExitMomentum then
+            platform:applyExitMomentum(self)
+        end
         if previous_ground then
             self.departed_ground_collider = previous_ground
         end
@@ -1125,6 +1139,18 @@ function Player:getMovementCollisionZ()
         next_velocity = math.max(next_velocity, -self.max_fall_speed)
     end
     return math.min(self.z, self.z + next_velocity * DTMULT)
+end
+
+function Player:onHeightMovementStep()
+    if not self.platforming_enabled or not self:isGrounded() then return end
+    local slope_z, slope, surface =
+        self.world:getTraversableSlopeAt(self.support_collider, self.z)
+    if not slope_z then return end
+    self.z = slope_z
+    self.ground_z = slope_z
+    self.ground_collider = slope
+    self.ground_surface = surface
+    self.airborne_surface = nil
 end
 
 --- Validates the committed result of a movement state as a final safeguard
@@ -1385,6 +1411,20 @@ function Player:updateHeight()
         self.world:getGroundZAt(self.support_collider, self.z,
             self.collider, self:getHeightCollisionIgnore())
     self:updateCameraZ()
+end
+
+--- Applies velocity inherited from a moving platform while airborne.
+function Player:updatePlatformMomentum()
+    if not self.platforming_enabled or self:isGrounded() or self:isPitRecovering() then
+        self.platform_momentum_x, self.platform_momentum_y = 0, 0
+        return
+    end
+    local x, y = self.platform_momentum_x or 0, self.platform_momentum_y or 0
+    if x == 0 and y == 0 then return end
+    local moved_x = self:moveX(x * DTMULT, y * DTMULT)
+    local moved_y = self:moveY(y * DTMULT, x * DTMULT)
+    if not moved_x and self.last_collided_x then self.platform_momentum_x = 0 end
+    if not moved_y and self.last_collided_y then self.platform_momentum_y = 0 end
 end
 
 --- Keeps a completed, non-looping jump animation on its anticipation-free
@@ -2011,6 +2051,7 @@ function Player:update()
 
     local movement_start_x, movement_start_y = self.x, self.y
     self.state_manager:update()
+    self:updatePlatformMomentum()
     self:validateHeightMovement(movement_start_x, movement_start_y)
 
     self:updateHeight()

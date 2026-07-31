@@ -42,6 +42,37 @@ function Collider:getZBounds()
     return bottom, bottom + self.depth
 end
 
+--- Returns the walkable height of a slope at a world-space XY position.
+--- Non-slope colliders return their ordinary top.
+---@param world_x number
+---@param world_y number
+---@return number height
+function Collider:getSupportHeightAt(world_x, world_y)
+    local bottom, top = self:getZBounds()
+    if not self.slope then return top end
+    local bounds = self.map_bounds
+    if not bounds then return top end
+    local axis = self.slope_axis or "x"
+    local coordinate = axis == "y" and world_y or world_x
+    local minimum = axis == "y" and bounds.min_y or bounds.min_x
+    local maximum = axis == "y" and bounds.max_y or bounds.max_x
+    local extent = maximum - minimum
+    local progress = extent ~= 0 and MathUtils.clamp((coordinate - minimum) / extent, 0, 1) or 1
+    if self.slope_sign == -1 then progress = 1 - progress end
+    return bottom + (top - bottom) * progress
+end
+
+--- Maximum height change produced by one pixel of movement along this ramp.
+---@return number height
+function Collider:getSlopeStepHeight()
+    if not self.slope then return 0 end
+    if self.slope_step_height then return self.slope_step_height end
+    local bounds = self.map_bounds
+    local extent = bounds and (self.slope_axis == "y"
+        and bounds.max_y - bounds.min_y or bounds.max_x - bounds.min_x) or 0
+    return extent > 0 and self.depth / extent + 0.25 or self.depth
+end
+
 function Collider:setZ(z)
     self.z = z or 0
 end

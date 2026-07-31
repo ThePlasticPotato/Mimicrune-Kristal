@@ -79,6 +79,7 @@ function HeightShadow:getSurfaceCoordinates()
     local parent_transform = self.parent and self.parent:getFullHeightTransform()
         or HeightTransform()
     local shadow_transform = self:getFullHeightTransform()
+    local slope = surface.slope_colliders and surface.slope_colliders[1]
     local coordinates = {}
     for _, point in ipairs({
         { bounds.min_x, bounds.min_y },
@@ -86,9 +87,11 @@ function HeightShadow:getSurfaceCoordinates()
         { bounds.max_x, bounds.max_y },
         { bounds.min_x, bounds.max_y }
     }) do
+        local surface_z = slope and slope:getSupportHeightAt(point[1], point[2])
+            or self.owner.shadow_z
         local screen_x, screen_y =
             parent_transform:transformVisualPoint(
-                point[1], point[2], self.owner.shadow_z)
+                point[1], point[2], surface_z)
         local local_x, local_y =
             shadow_transform:inverseTransformVisualPoint(screen_x, screen_y)
         table.insert(coordinates, local_x)

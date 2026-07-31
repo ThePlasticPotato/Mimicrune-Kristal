@@ -273,6 +273,10 @@ function Character:doMoveAmount(type, amount, other_amount)
                 return i > 1, target
             end
         end
+        if self.onHeightMovementStep then
+            self:onHeightMovementStep()
+            Object.uncache(self)
+        end
     end
     self["last_collided_" .. type] = false
     return true, false

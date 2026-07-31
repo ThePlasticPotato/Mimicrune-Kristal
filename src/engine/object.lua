@@ -1448,7 +1448,10 @@ function Object:getHeightDepthResult(character)
     local surface = world and world.map and self.surface_id
         and world.map:getSurface(self.surface_id) or nil
     local character_surface = character.ground_surface
-    if surface and character_surface and surface.id == character_surface.id then
+    local sloped_surface = surface and surface.slope_colliders
+        and #surface.slope_colliders > 0
+    if surface and character_surface and surface.id == character_surface.id
+        and not sloped_surface then
         return "character"
     end
     local top = self:getFullZ() + (self.occlusion_depth or self.depth or 0)

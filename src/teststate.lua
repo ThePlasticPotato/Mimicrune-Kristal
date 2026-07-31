@@ -2003,6 +2003,243 @@ function Testing:runPlatformingTests()
     end
     expect(found_projected_line, "editable collision shapes should render a compact elevation guide")
 
+    do
+        (function()
+            local editor_class = Registry.getEditorObject("movingplatform")
+            expect(editor_class ~= nil,
+                "moving platforms should be available as a first-class editor object")
+            local editor_platform = editor_class({
+                x = 0, y = 0, width = 32, height = 16,
+                properties = {}, __editor_property_types = {}
+            }, { layer_type = Registry.getLayerType("objects") })
+            expect(editor_platform.property_set:getProperty("offset_x").type == "number"
+                and editor_platform.property_set:getProperty("offset_y").type == "number"
+                and editor_platform.property_set:getProperty("offset_z").type == "number"
+                and editor_platform.property_set:getProperty("carry_momentum").type == "boolean",
+                "moving platforms should expose XYZ travel and exit-momentum controls")
+
+            local moving = MovingPlatform(0, 0, { 32, 16 }, {
+                z = 4, depth = 12, offset_x = 16,
+                autostart = false, carry_momentum = true
+            })
+            expect(moving.solid and moving.collider.supports
+                and moving.collider:getZBounds() == 4 and not moving.motion_enabled,
+                "moving platforms should be height-aware supporting solids")
+            moving.motion_velocity_x = 2
+            moving.motion_velocity_y = -1
+            moving.motion_velocity_z = 0.5
+            local released = { z_velocity = 3 }
+            moving:applyExitMomentum(released)
+            expect(released.platform_momentum_x == 2
+                and released.platform_momentum_y == -1
+                and released.z_velocity == 3.5,
+                "leaving a moving platform should inherit its current XYZ velocity")
+
+            local support_parent = Object(0, 0)
+            local support_probe = Hitbox(support_parent, 4, 4, 4, 4)
+            moving.collider.previous_top = 5
+            moving.z = 0
+            moving.collider.depth = 10
+            local moving_surface = { id = "moving-test", colliders = { moving.collider } }
+            local landing_world = setmetatable({
+                map = {
+                    collision = {},
+                    getSurfaceForCollider = function(_, collider)
+                        return collider == moving.collider and moving_surface or nil
+                    end
+                },
+                children = { moving }
+            }, { __index = World })
+            local landing_z, landing = landing_world:getLandingSurface(
+                support_probe, 7, 6)
+            expect(landing_z == 10 and landing == moving.collider,
+                "landing should use relative motion when a platform rises through an actor's feet")
+
+            local slope_parent = Object(0, 0)
+            local x_slope = MapUtils.colliderFromShape(slope_parent, {
+                shape = "rectangle", width = 100, height = 20
+            }, 0, 0, {
+                z = 0, depth = 40, collision_role = "slope",
+                slope_direction = "right", surface_id = "x-slope"
+            })
+            local reverse_x_slope = MapUtils.colliderFromShape(slope_parent, {
+                shape = "rectangle", width = 100, height = 20
+            }, 0, 30, {
+                z = 0, depth = 40, collision_role = "slope",
+                slope_direction = "left"
+            })
+            local y_slope = MapUtils.colliderFromShape(slope_parent, {
+                shape = "rectangle", width = 20, height = 100
+            }, 120, 0, {
+                z = 10, depth = 40, collision_role = "slope",
+                slope_direction = "down"
+            })
+            local reverse_y_slope = MapUtils.colliderFromShape(slope_parent, {
+                shape = "rectangle", width = 20, height = 100
+            }, 150, 0, {
+                z = 10, depth = 40, collision_role = "slope",
+                slope_direction = "up"
+            })
+            expect(x_slope.slope and x_slope.slope_axis == "x"
+                and x_slope:getSupportHeightAt(25, 10) == 10
+                and reverse_x_slope:getSupportHeightAt(25, 40) == 30,
+                "X slopes should sample continuous height in either uphill direction")
+            expect(y_slope.slope_axis == "y"
+                and y_slope:getSupportHeightAt(130, 25) == 20
+                and reverse_y_slope:getSupportHeightAt(160, 25) == 40,
+                "Y slopes should sample continuous height in either uphill direction")
+
+            local slope_surface = { id = "x-slope", colliders = { x_slope } }
+            local slope_world = setmetatable({
+                map = {
+                    collision = { x_slope }, pits = {}, tile_layers = {},
+                    empty_tile_pit = false,
+                    getSurfaceForCollider = function(_, collider)
+                        return collider == x_slope and slope_surface or nil
+                    end,
+                    getImplicitSurface = function()
+                        return { id = "__implicit_ground", top = 0, bottom = 0 }
+                    end
+                },
+                children = {}
+            }, { __index = World })
+            local slope_actor = Object(25, 0)
+            slope_actor.z = 10
+            slope_actor.support_collider = PointCollider(slope_actor, 0, 10)
+            slope_actor.collider = Hitbox(slope_actor, -2, 6, 4, 8)
+            slope_actor.collider.depth = 16
+            local slope_z, grounded_slope = slope_world:getSupportAt(
+                slope_actor.support_collider, 10, 0.001)
+            expect(slope_z == 10 and grounded_slope == x_slope,
+                "grounding should use the slope height beneath the actor's foot probe")
+            local ramp_landing_z = slope_world:getLandingSurface(
+                slope_actor.support_collider, 20, 0)
+            expect(ramp_landing_z == 10,
+                "falling actors should land on the sampled point of a slope")
+
+            slope_actor.x, slope_actor.z = 95, 0
+            Object.uncache(slope_actor)
+            local blocked_high_side = slope_world:checkMovementCollision3D(
+                slope_actor.collider, false, nil, 0)
+            slope_actor.x = -1
+            Object.uncache(slope_actor)
+            local blocked_low_side = slope_world:checkMovementCollision3D(
+                slope_actor.collider, false, nil, 0)
+            expect(blocked_high_side and not blocked_low_side,
+                "the high side of a slope should remain a wall while its low edge is traversable")
+
+            slope_actor.x, slope_actor.z = 25, 9.8
+            Object.uncache(slope_actor)
+            expect(slope_world:checkMovementCollision3D(
+                    slope_actor.collider, false, nil, slope_actor.z),
+                "airborne actors below the sampled plane must not tunnel into a slope")
+
+            slope_actor.x, slope_actor.z = 26, 10
+            slope_actor.world = slope_world
+            slope_actor.platforming_enabled = true
+            slope_actor.ground_collider = x_slope
+            slope_actor.isGrounded = function() return true end
+            Object.uncache(slope_actor)
+            Player.onHeightMovementStep(slope_actor)
+            expect(math.abs(slope_actor.z - 10.4) < 0.001,
+                "grounded movement should follow the continuous ramp after each movement step")
+
+            local high_platform = MapUtils.colliderFromShape(slope_parent, {
+                shape = "rectangle", width = 30, height = 20
+            }, 90, 0, {
+                z = 0, depth = 40, collision_role = "solid"
+            })
+            table.insert(slope_world.map.collision, high_platform)
+            slope_actor.x, slope_actor.z = 89, 35.6
+            slope_actor.ground_collider = x_slope
+            Object.uncache(slope_actor)
+            expect(not slope_world:checkMovementCollision3D(
+                    slope_actor.collider, false, nil, slope_actor.z),
+                "a ramp should connect cleanly to an overlapping platform at its maximum height")
+
+            local slope_editor = EditorObject({
+                properties = { collision_role = "slope" },
+                __editor_property_types = {}
+            }, { layer_type = Registry.getLayerType("collision") })
+            expect(slope_editor.property_set:getProperty("slope_direction").type == "choice",
+                "collision shapes should expose an explicit uphill direction for slopes")
+
+            local pushblock_editor_class = Registry.getEditorObject("pushblock")
+            expect(pushblock_editor_class ~= nil,
+                "pushblocks should remain available as a first-class editor object")
+            local pushblock_editor = pushblock_editor_class({
+                x = 0, y = 0, width = 8, height = 8,
+                properties = {}, __editor_property_types = {}
+            }, { layer_type = Registry.getLayerType("objects") })
+            expect(pushblock_editor.property_set:getProperty("height_physics").type == "boolean"
+                and pushblock_editor.property_set:getProperty("fallgravity").type == "number"
+                and pushblock_editor.property_set:getProperty("resetonpit").type == "boolean",
+                "pushblocks should expose height, falling, and pit-reset controls")
+
+            local block_support_parent = Object(0, 0)
+            local block_support = MapUtils.colliderFromShape(block_support_parent, {
+                shape = "rectangle", width = 30, height = 40
+            }, 0, 0, {
+                z = 0, depth = 20, collision_role = "solid",
+                surface_id = "block-start"
+            })
+            local block_surface = { id = "block-start", colliders = { block_support } }
+            local block_map = {
+                platforming = true, collision = { block_support }, block_collision = {},
+                enemy_collision = {}, pits = {}, tile_layers = {}, empty_tile_pit = false,
+                getSurfaceForCollider = function(_, collider)
+                    return collider == block_support and block_surface or nil
+                end,
+                getImplicitSurface = function()
+                    return { id = "__implicit_ground", top = 0, bottom = 0 }
+                end
+            }
+            local falling_block = PushBlock(0, 0, { 8, 8 }, {
+                pushdist = 16, fallgravity = 2, maxfallspeed = 8
+            })
+            falling_block.z = 20
+            falling_block.collider.depth = 8
+            falling_block.collider.supports = true
+            local block_world = setmetatable({
+                map = block_map, children = { falling_block }
+            }, { __index = World })
+            falling_block.world = block_world
+            falling_block:onLoad()
+            expect(falling_block:isGrounded()
+                and falling_block.ground_collider == block_support,
+                "a pushblock should initialize on an authored elevated support")
+            expect(not falling_block:checkHeightCollision("right"),
+                "missing support at the push destination should cause a fall, not block the push")
+            falling_block:moveHeightAware(16, 0)
+            expect(falling_block.height_state == "FALL",
+                "a pushblock should become airborne as its support probe leaves a ledge")
+            for _ = 1, 20 do
+                if falling_block:isGrounded() then break end
+                falling_block:updateHeightFall()
+            end
+            expect(falling_block:isGrounded() and falling_block.z == 0,
+                "a falling pushblock should sweep onto the lower implicit floor")
+
+            local high_blocker = MapUtils.colliderFromShape(block_support_parent, {
+                shape = "rectangle", width = 20, height = 16
+            }, 40, 0, {
+                z = 0, depth = 40, collision_role = "solid"
+            })
+            table.insert(block_map.collision, high_blocker)
+            falling_block.x, falling_block.y, falling_block.z = 0, 0, 20
+            falling_block:setGroundSupport(20, block_support, block_surface)
+            Object.uncache(falling_block)
+            expect(falling_block:checkHeightCollision("right"),
+                "a pushblock must not be pushed through the high face of a taller platform")
+
+            local carrier = MovingPlatform(0, 0, { 12, 16 }, { z = 0, depth = 20 })
+            falling_block.ground_collider = carrier.collider
+            falling_block.height_state = "GROUNDED"
+            expect(carrier:isRider(falling_block),
+                "moving platforms should recognize grounded pushblocks as riders")
+        end)()
+    end
+
     print("Platforming tests passed")
     love.event.quit(0)
 end

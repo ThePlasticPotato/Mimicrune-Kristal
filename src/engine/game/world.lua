@@ -622,10 +622,19 @@ function World:checkCollision3D(collider, enemy_check, ignored)
     Object.startCache()
     for _, other in ipairs(self:getCollision(enemy_check)) do
         local collider_bottom = collider:getZBounds()
-        local _, other_top = other:getZBounds()
+        local other_top = self:getSupportHeightAt(other, collider)
         local standing_on_surface = other.supports and math.abs(collider_bottom - other_top) < 0.001
+        local collider_parent = collider.parent
+        local grounded = collider_parent and collider_parent.isGrounded
+            and collider_parent:isGrounded()
+        local traversing_slope = other.slope and other.supports
+            and collider:collidesWith(other)
+            and collider_bottom >= other_top
+                - (grounded and other:getSlopeStepHeight() or 0)
+        local slope_connection = self:isSlopeConnection(collider, other)
         if not isIgnoredCollision(other, ignored)
             and not other.one_way and not standing_on_surface
+            and not traversing_slope and not slope_connection
             and collider:collidesWith3D(other) and collider ~= other then
             Object.endCache()
             return true, other.parent
@@ -650,9 +659,17 @@ function World:checkMovementCollision3D(collider, enemy_check, ignored, movement
     local movement_bottom = math.min(collider_bottom, movement_z or collider_bottom)
     Object.startCache()
     for _, other in ipairs(self:getCollision(enemy_check)) do
-        local _, other_top = other:getZBounds()
+        local other_top = self:getSupportHeightAt(other, collider)
+        local collider_parent = collider.parent
+        local grounded = collider_parent and collider_parent.isGrounded
+            and collider_parent:isGrounded()
+        local traversing_slope = other.slope
+            and movement_bottom >= other_top
+                - (grounded and other:getSlopeStepHeight() or 0)
+        local slope_connection = self:isSlopeConnection(collider, other)
         if not isIgnoredCollision(other, ignored)
             and other.supports and other_top > movement_bottom + 0.001
+            and not traversing_slope and not slope_connection
             and collider:collidesWith(other)
             and collider ~= other then
             Object.endCache()
@@ -674,10 +691,19 @@ function World:checkCollisions3D(collider, enemy_check, ignored)
     Object.startCache()
     for _, other in ipairs(self:getCollision(enemy_check)) do
         local collider_bottom = collider:getZBounds()
-        local _, other_top = other:getZBounds()
+        local other_top = self:getSupportHeightAt(other, collider)
         local standing_on_surface = other.supports and math.abs(collider_bottom - other_top) < 0.001
+        local collider_parent = collider.parent
+        local grounded = collider_parent and collider_parent.isGrounded
+            and collider_parent:isGrounded()
+        local traversing_slope = other.slope and other.supports
+            and collider:collidesWith(other)
+            and collider_bottom >= other_top
+                - (grounded and other:getSlopeStepHeight() or 0)
+        local slope_connection = self:isSlopeConnection(collider, other)
         if not isIgnoredCollision(other, ignored)
             and not other.one_way and not standing_on_surface
+            and not traversing_slope and not slope_connection
             and collider:collidesWith3D(other) and collider ~= other then
             table.insert(collided_with, other.parent)
         end
@@ -705,6 +731,69 @@ local function getSupportProbe(collider)
         return PointCollider(collider.parent, x / #collider.points, y / #collider.points)
     end
     return collider
+end
+
+local function getSupportWorldPosition(collider)
+    local parent = collider and collider.parent
+    if parent and parent.support_collider and collider ~= parent.support_collider then
+        collider = parent.support_collider
+    end
+    local probe = getSupportProbe(collider)
+    local x, y = probe.x, probe.y
+    if probe.parent then
+        x, y = probe.parent:getFullTransform():transformPoint(x, y)
+    end
+    return x, y
+end
+
+--- Samples a support collider's walkable height beneath a footprint.
+---@param surface Collider
+---@param collider Collider
+---@return number height
+function World:getSupportHeightAt(surface, collider)
+    if not surface.slope then
+        local _, top = surface:getZBounds()
+        return top
+    end
+    local x, y = getSupportWorldPosition(collider)
+    return surface:getSupportHeightAt(x, y)
+end
+
+--- Whether a grounded ramp terminates at the top of an overlapping platform.
+--- This prevents the actor's body width from hitting that platform's vertical
+--- face before the foot probe reaches the ramp's high endpoint.
+function World:isSlopeConnection(collider, surface)
+    local parent = collider and collider.parent
+    local ground = parent and parent.ground_collider
+    if not ground or not ground.slope or not surface.supports then return false end
+    if self:collidersShareHeightSurface(ground, surface) then return true end
+    local _, ramp_top = ground:getZBounds()
+    local surface_top = self:getSupportHeightAt(surface, collider)
+    return math.abs(ramp_top - surface_top) <= 0.001
+end
+
+--- Finds a slope reachable from the actor's current foot height.
+---@param collider Collider
+---@param z number
+---@param ignored? Collider|table<Collider, boolean>
+---@return number? height
+---@return Collider? slope
+---@return table? height_surface
+function World:getTraversableSlopeAt(collider, z, ignored)
+    local best_z, best_slope
+    Object.startCache()
+    for _, surface in ipairs(self:getCollision(false)) do
+        if not isIgnoredCollision(surface, ignored)
+            and surface.slope and surface.supports and collider:collidesWith(surface) then
+            local top = self:getSupportHeightAt(surface, collider)
+            if math.abs(top - z) <= surface:getSlopeStepHeight()
+                and (not best_z or top > best_z) then
+                best_z, best_slope = top, surface
+            end
+        end
+    end
+    Object.endCache()
+    return best_z, best_slope, self:getHeightSurfaceForCollider(best_slope)
 end
 
 ---@param collider Collider
@@ -791,9 +880,6 @@ function World:isOverPit(collider)
     return false
 end
 
---- Whether the implicit z=0 ground exists beneath an XY footprint.
----@param collider Collider
----@return boolean
 --- Whether a support footprint above the requested elevation occupies this column
 ---@param collider Collider
 ---@param z? number
@@ -803,7 +889,7 @@ function World:hasElevatedSupportAt(collider, z, ignored)
     z = z or 0
     Object.startCache()
     for _, surface in ipairs(self:getCollision(false)) do
-        local _, top = surface:getZBounds()
+        local top = self:getSupportHeightAt(surface, collider)
         if surface.supports and top > z + 0.001
             and not isIgnoredCollision(surface, ignored)
             and collider:collidesWith(surface) then
@@ -815,9 +901,14 @@ function World:hasElevatedSupportAt(collider, z, ignored)
     return false
 end
 
-function World:hasImplicitGroundAt(collider, z)
+--- Whether the implicit z=0 ground exists beneath an XY footprint.
+---@param collider Collider
+---@param z? number
+---@param ignored? Collider|table<Collider, boolean>
+---@return boolean
+function World:hasImplicitGroundAt(collider, z, ignored)
     if self:isOverPit(collider) then return false end
-    if self:hasElevatedSupportAt(collider, z or 0) then return false end
+    if self:hasElevatedSupportAt(collider, z or 0, ignored) then return false end
     if self.map and self.map.empty_tile_pit then
         return self:hasGroundTileAt(collider)
     end
@@ -845,7 +936,8 @@ function World:isHeightClear(collider, z, ignored, also_ignored)
         if not isIgnoredCollision(other, ignored)
             and not isIgnoredCollision(other, also_ignored)
             and not other.one_way and collider:collidesWith(other) then
-            local other_bottom, other_top = other:getZBounds()
+            local other_bottom = other:getZBounds()
+            local other_top = self:getSupportHeightAt(other, collider)
             local overlaps
             if collider_depth == 0 and other.depth == 0 then
                 overlaps = z == other_bottom
@@ -871,17 +963,19 @@ end
 ---@param collider Collider XY grounded footprint
 ---@param z number Desired surface elevation
 ---@param tolerance? number
+---@param ignored? Collider|table<Collider, boolean>
 ---@return number? surface_z
 ---@return Collider? surface
 ---@return table? height_surface
-function World:getSupportAt(collider, z, tolerance)
+function World:getSupportAt(collider, z, tolerance, ignored)
     tolerance = tolerance or 0.5
     local best_z, best_surface
 
     Object.startCache()
     for _, surface in ipairs(self:getCollision(false)) do
-        if surface.supports and collider:collidesWith(surface) then
-            local _, top = surface:getZBounds()
+        if not isIgnoredCollision(surface, ignored)
+            and surface.supports and collider:collidesWith(surface) then
+            local top = self:getSupportHeightAt(surface, collider)
             if math.abs(top - z) <= tolerance and (not best_z or top > best_z) then
                 best_z, best_surface = top, surface
             end
@@ -889,8 +983,8 @@ function World:getSupportAt(collider, z, tolerance)
     end
     Object.endCache()
 
-    if math.abs(z) <= tolerance and self:hasImplicitGroundAt(collider, z) then
-        if not best_z or best_z <= 0 then
+    if math.abs(z) <= tolerance and self:hasImplicitGroundAt(collider, z, ignored) then
+        if not best_z or best_z < 0 then
             return 0, nil, self:getImplicitHeightSurface()
         end
     end
@@ -915,12 +1009,15 @@ function World:getLandingSurface(collider, old_z, new_z, body_collider,
     local best_z, best_surface
     Object.startCache()
     for _, surface in ipairs(self:getCollision(false)) do
-        if surface.supports and collider:collidesWith(surface) then
-            local _, top = surface:getZBounds()
+        if not isIgnoredCollision(surface, ignored_collider)
+            and surface.supports and collider:collidesWith(surface) then
+            local top = self:getSupportHeightAt(surface, collider)
+            local previous_top = surface.slope and top or surface.previous_top or top
             local snapping_back =
                 self:collidersShareHeightSurface(surface, departed_surface)
-                and old_z <= top + 0.001
-            local crossed_surface = top <= old_z and top >= new_z
+                and old_z <= previous_top + 0.001
+            local crossed_surface = old_z >= previous_top - 0.001
+                and new_z <= top + 0.001
             local base_floor_catchup = math.abs(top) < 0.001 and new_z <= top
                 and not self:isOverPit(collider)
             if not snapping_back and (crossed_surface or base_floor_catchup)
@@ -935,7 +1032,7 @@ function World:getLandingSurface(collider, old_z, new_z, body_collider,
 
     -- Recheck z=0 even after it has been crossed. This lets a player who fell
     -- past the floor while overlapping a wall land once they clear that wall.
-    if new_z <= 0 and self:hasImplicitGroundAt(collider, 0)
+    if new_z <= 0 and self:hasImplicitGroundAt(collider, 0, ignored_collider)
         and (not body_collider
             or self:isHeightClear(body_collider, 0, ignored_collider)) then
         if not best_z or best_z < 0 then
@@ -982,8 +1079,9 @@ function World:getGroundZAt(collider, maximum_z, body_collider, ignored_collider
     local best_z, best_surface
     Object.startCache()
     for _, surface in ipairs(self:getCollision(false)) do
-        if surface.supports and collider:collidesWith(surface) then
-            local _, top = surface:getZBounds()
+        if not isIgnoredCollision(surface, ignored_collider)
+            and surface.supports and collider:collidesWith(surface) then
+            local top = self:getSupportHeightAt(surface, collider)
             if top <= maximum_z
                 and (not body_collider
                     or self:isHeightClear(body_collider, top, surface, ignored_collider))
@@ -994,7 +1092,7 @@ function World:getGroundZAt(collider, maximum_z, body_collider, ignored_collider
     end
     Object.endCache()
 
-    if maximum_z >= 0 and self:hasImplicitGroundAt(collider, 0)
+    if maximum_z >= 0 and self:hasImplicitGroundAt(collider, 0, ignored_collider)
         and (not body_collider or self:isHeightClear(body_collider, 0, ignored_collider))
         and (not best_z or best_z < 0) then
         return 0, nil, self:getImplicitHeightSurface()
@@ -1976,6 +2074,17 @@ function World:shouldCharacterCollide(char)
 end
 
 function World:update()
+    -- Moving height surfaces publish their new transform before characters run.
+    -- This makes rider carrying and relative vertical sweeps deterministic and
+    -- independent of the world's visual child sort order.
+    if self.state == "GAMEPLAY" then
+        for _, object in ipairs(self.children) do
+            if object.is_moving_platform and object.active and object.preUpdateMotion then
+                object:preUpdateMotion(DT)
+            end
+        end
+    end
+
     if self.state == "GAMEPLAY" then
         -- Object collision
         local collided = {}

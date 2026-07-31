@@ -239,13 +239,15 @@ end
 
 ---@param properties? table
 ---@param depth? number
----@return "wall"|"solid"|"surface"|"pit" role
+---@return "wall"|"solid"|"surface"|"slope"|"pit" role
 function MapUtils.getCollisionRole(properties, depth)
     properties = properties or {}
     local role = properties.collision_role or properties.height_role
-    if role == "wall" or role == "solid" or role == "surface" or role == "pit" then
+    if role == "wall" or role == "solid" or role == "surface"
+        or role == "slope" or role == "pit" then
         return role
     end
+    if properties.slope == true or properties.slope_direction ~= nil then return "slope" end
     if properties.pit == true then return "pit" end
     if properties.platform == true or properties.one_way_surface == true
         or properties.one_way == true or properties.oneway == true then
@@ -383,6 +385,17 @@ function MapUtils.colliderFromShape(parent, data, x, y, properties)
         elseif role == "solid" then
             collider.supports = true
             collider.one_way = false
+        elseif role == "slope" then
+            local direction = tostring(properties.slope_direction or properties.slope_axis or "right"):lower()
+            collider.slope = true
+            collider.slope_axis = (direction == "up" or direction == "down"
+                or direction == "y") and "y" or "x"
+            collider.slope_sign = (direction == "left" or direction == "up"
+                or direction == "negative") and -1 or 1
+            collider.slope_direction = direction
+            collider.slope_step_height = tonumber(properties.slope_step_height)
+            collider.supports = true
+            collider.one_way = false
         elseif role == "surface" then
             collider.supports = true
             collider.one_way = true
@@ -406,6 +419,11 @@ function MapUtils.colliderFromShape(parent, data, x, y, properties)
                 child.surface_id = collider.surface_id
                 child.surface_plane = collider.surface_plane
                 child.map_bounds = collider.map_bounds
+                child.slope = collider.slope
+                child.slope_axis = collider.slope_axis
+                child.slope_sign = collider.slope_sign
+                child.slope_direction = collider.slope_direction
+                child.slope_step_height = collider.slope_step_height
             end
         end
     end

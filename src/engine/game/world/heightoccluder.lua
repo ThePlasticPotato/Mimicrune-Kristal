@@ -475,7 +475,10 @@ function HeightOccluder:getCharacterDepthResult(player)
     local _, top = self:getOcclusionZBounds()
     local surface = self:resolveSurface()
     local character_surface = player.ground_surface
-    if surface and character_surface and character_surface.id == surface.id then
+    local sloped_surface = surface and surface.slope_colliders
+        and #surface.slope_colliders > 0
+    if surface and character_surface and character_surface.id == surface.id
+        and not sloped_surface then
         return "character"
     end
     if player:getFullZ() >= top - 0.001 then return "character" end

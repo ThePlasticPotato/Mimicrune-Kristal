@@ -433,7 +433,8 @@ function Map:registerSurfaceCollider(collider, fallback_id)
             support_bounds = nil,
             support_top = nil,
             colliders = {},
-            support_colliders = {}
+            support_colliders = {},
+            slope_colliders = {}
         }
         self.surfaces[surface_id] = surface
     elseif collider.surface_plane then
@@ -468,6 +469,8 @@ function Map:registerSurfaceCollider(collider, fallback_id)
     table.insert(surface.colliders, collider)
     if collider.supports then
         table.insert(surface.support_colliders, collider)
+        surface.slope_colliders = surface.slope_colliders or {}
+        if collider.slope then table.insert(surface.slope_colliders, collider) end
         local bounds = collider.map_bounds
         if surface.support_top == nil or top > surface.support_top + 0.001 then
             surface.support_top = top
@@ -504,6 +507,74 @@ function Map:registerSurfaceCollider(collider, fallback_id)
         end
     end
     return surface
+end
+
+---@param surface table|string
+---@return table? surface
+function Map:refreshSurface(surface)
+    if type(surface) ~= "table" then surface = self:getSurface(surface) end
+    if not surface then return nil end
+    surface.bottom, surface.top = math.huge, -math.huge
+    surface.bounds, surface.support_bounds, surface.support_top = nil, nil, nil
+    surface.slope_colliders = {}
+    for _, collider in ipairs(surface.colliders or {}) do
+        local bottom, top = collider:getZBounds()
+        surface.bottom = math.min(surface.bottom, bottom)
+        surface.top = math.max(surface.top, top)
+        local bounds = collider.map_bounds
+        if bounds then
+            if not surface.bounds then
+                surface.bounds = TableUtils.copy(bounds, true)
+            else
+                surface.bounds.min_x = math.min(surface.bounds.min_x, bounds.min_x)
+                surface.bounds.min_y = math.min(surface.bounds.min_y, bounds.min_y)
+                surface.bounds.max_x = math.max(surface.bounds.max_x, bounds.max_x)
+                surface.bounds.max_y = math.max(surface.bounds.max_y, bounds.max_y)
+            end
+        end
+        if collider.supports then
+            if collider.slope then table.insert(surface.slope_colliders, collider) end
+            if surface.support_top == nil or top > surface.support_top + 0.001 then
+                surface.support_top = top
+                surface.support_bounds = bounds and TableUtils.copy(bounds, true) or nil
+            elseif math.abs(top - surface.support_top) <= 0.001 and bounds then
+                if not surface.support_bounds then
+                    surface.support_bounds = TableUtils.copy(bounds, true)
+                else
+                    surface.support_bounds.min_x = math.min(surface.support_bounds.min_x, bounds.min_x)
+                    surface.support_bounds.min_y = math.min(surface.support_bounds.min_y, bounds.min_y)
+                    surface.support_bounds.max_x = math.max(surface.support_bounds.max_x, bounds.max_x)
+                    surface.support_bounds.max_y = math.max(surface.support_bounds.max_y, bounds.max_y)
+                end
+            end
+        end
+    end
+    if surface.bottom == math.huge then surface.bottom, surface.top = 0, 0 end
+    if not surface.explicit_plane then
+        surface.plane = surface.dynamic and "surface:" .. tostring(surface.id)
+            or defaultSurfacePlane(surface.top)
+    end
+    return surface
+end
+
+---@param collider Collider
+function Map:unregisterSurfaceCollider(collider)
+    local surface = self:getSurfaceForCollider(collider)
+    if not surface then return end
+    TableUtils.removeValue(surface.colliders, collider)
+    TableUtils.removeValue(surface.support_colliders, collider)
+    TableUtils.removeValue(surface.slope_colliders or {}, collider)
+    self.surface_by_collider[collider] = nil
+    if collider:includes(ColliderGroup) then
+        for _, child in ipairs(collider.colliders) do
+            self.surface_by_collider[child] = nil
+        end
+    end
+    if #surface.colliders == 0 then
+        self.surfaces[surface.id] = nil
+    else
+        self:refreshSurface(surface)
+    end
 end
 
 ---@param id string?

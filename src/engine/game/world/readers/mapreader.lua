@@ -408,7 +408,11 @@ function operations.loadRuntimeObject(self, source, layer, depth, layer_type, ru
             else
                 obj.height_sensitive = self.platforming and obj.collider ~= nil
             end
-            obj.height_occluder = height_properties.height_occluder or false
+            if height_properties.height_occluder ~= nil then
+                obj.height_occluder = height_properties.height_occluder
+            else
+                obj.height_occluder = obj.height_occluder or false
+            end
             obj.occlusion_depth = math.max(tonumber(height_properties.occlusion_depth) or obj.depth, 0)
             obj.height_occlusion_sort_y_offset =
                 tonumber(height_properties.sort_y_offset or height_properties.occlusion_sort_y_offset) or 0
