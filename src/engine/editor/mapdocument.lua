@@ -1254,7 +1254,7 @@ function EditorMapDocument:getObjectVisualZ(selection)
         selection.layer.properties or {},
         selection.data.properties or {}
     )
-    if layer_type.id == "collision" then
+    if layer_type.collision_layer then
         local depth = math.max(tonumber(properties.depth) or 0, 0)
         return MapUtils.getCollisionAuthoringZ(properties, depth)
     end

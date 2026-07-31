@@ -120,7 +120,7 @@ function EditorObject:init(data, options)
         self:registerProperty("face_y", "number", { name = "Face Y Override" })
         self:registerProperty("face_x", "number", { name = "Face X Override" })
     end
-    if self.layer_type and self.layer_type.id == "collision" then
+    if self.layer_type and self.layer_type.collision_layer then
         self:registerProperty("z", "number", { name = "Bottom Z", default = 0 })
         self:registerProperty("depth", "number", { name = "Solid Height", default = 0 })
         self:registerProperty("collision_role", "choice", {
@@ -224,7 +224,7 @@ function EditorObject:init(data, options)
     local surface_id = data.properties.surface_id or data.properties.structure_id
     local surface = options.map and surface_id
         and options.map:getSurface(surface_id) or nil
-    if self.layer_type and self.layer_type.id == "collision" then
+    if self.layer_type and self.layer_type.collision_layer then
         local height_properties = TableUtils.mergeMany(
             options.layer and options.layer.properties or {}, data.properties)
         local depth = math.max(tonumber(height_properties.depth) or 0, 0)

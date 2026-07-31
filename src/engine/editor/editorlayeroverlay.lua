@@ -329,7 +329,7 @@ function EditorLayerOverlay:drawObject(object, alpha, line_width)
     local points = object.polygon or object.polyline
     local color = self.color
     local visual_z = 0
-    if self.layer_type and self.layer_type.id == "collision" then
+    if self.layer_type and self.layer_type.collision_layer then
         local properties = TableUtils.mergeMany(
             self.source_layer.properties or {}, object.properties or {})
         local depth = math.max(tonumber(properties.depth) or 0, 0)
