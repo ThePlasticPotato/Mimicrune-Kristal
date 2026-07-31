@@ -76,6 +76,10 @@ end
 
 function ClimbMover:onLoad()
     super.onLoad(self)
+    local properties = self.data and self.data.properties or {}
+    if properties.climb_height_mode == nil then
+        self.climb_height_mode = "flat"
+    end
 
     local target_x, target_y, _ = MapUtils.parseMarkerProperty(self, self.target, "target")
     self.target_x = target_x - TILE_WIDTH / 2
@@ -83,11 +87,22 @@ function ClimbMover:onLoad()
     self:calculateTravelTime()
 
     if self.exit ~= nil then
-        self.exit_x, self.exit_y, _ = MapUtils.parseMarkerProperty(self, self.exit, "exit")
+        local marker
+        self.exit_x, self.exit_y, marker = MapUtils.parseMarkerProperty(self, self.exit, "exit")
+        local direct_z = type(self.exit) == "table"
+            and tonumber(self.exit.z or self.exit[3]) or nil
+        self.exit_z = direct_z or marker and tonumber(
+            marker.z or marker.properties and marker.properties.z) or 0
     end
 
     if self.start_exit ~= nil then
-        self.start_exit_x, self.start_exit_y, _ = MapUtils.parseMarkerProperty(self, self.start_exit, "start_exit")
+        local marker
+        self.start_exit_x, self.start_exit_y, marker =
+            MapUtils.parseMarkerProperty(self, self.start_exit, "start_exit")
+        local direct_z = type(self.start_exit) == "table"
+            and tonumber(self.start_exit.z or self.start_exit[3]) or nil
+        self.start_exit_z = direct_z or marker and tonumber(
+            marker.z or marker.properties and marker.properties.z) or 0
     end
 end
 
@@ -108,7 +123,10 @@ function ClimbMover:onCollide(char)
 
                 char:setState("CLIMB_MOUNT", {
                     target_x = target_x,
-                    target_y = target_y,
+                    target_y = char.platforming_enabled
+                        and target_y - self:getFullZ() or target_y,
+                    target_z = self:getFullZ(),
+                    projected = char.platforming_enabled,
                     post_jump = function() self:postMount() end
                 })
 
@@ -173,12 +191,20 @@ function ClimbMover:update()
     if done_move then
         self.timer = 0
 
-        Game.world.player.x = self.x + self.width / 2
-        Game.world.player.y = self.y + self.height / 2
+        local player = Game.world.player
+        local center_x, center_y = self.x + self.width / 2, self.y + self.height / 2
+        if player.platforming_enabled then
+            player.climb_state:setClimbPosition(
+                center_x, center_y - self:getFullZ(), self:getFullZ())
+        else
+            player.x, player.y = center_x, center_y
+        end
 
-        local exit, exit_x, exit_y = self.exit, self.exit_x, self.exit_y
+        local exit, exit_x, exit_y, exit_z =
+            self.exit, self.exit_x, self.exit_y, self.exit_z
         if self.at_target then
-            exit, exit_x, exit_y = self.start_exit, self.start_exit_x, self.start_exit_y
+            exit, exit_x, exit_y, exit_z = self.start_exit,
+                self.start_exit_x, self.start_exit_y, self.start_exit_z
         end
 
         self.x = self.current_target_x
@@ -189,6 +215,7 @@ function ClimbMover:update()
             Game.world.player:queueClimbDismount({
                 x = exit_x,
                 y = exit_y,
+                z = exit_z,
                 facing = Utils.facingFromAngle(Utils.angle(self.x, self.y, exit_x, exit_y))
             })
             self.state = "RESETTING"
@@ -200,7 +227,9 @@ function ClimbMover:update()
 
     if self.state == "WAITING_FOR_DISMOUNT" then
         -- We gotta wait for the player to dismount...
-        if not Game.world.player:collidesWith(self) then
+        local player = Game.world.player
+        local overlapping = player.climb_state:isOverlappingClimbable(ClimbMover)
+        if not overlapping then
             self.state = "RESETTING"
             self.timer = 0
             self:setClimbable(false)
@@ -248,8 +277,14 @@ function ClimbMover:update()
     if self.state == "MOVING" then
         local player = Game.world.player
         if player ~= nil then
-            player.x = self.x + self.width / 2
-            player.y = self.y + self.height / 2
+            local center_x, center_y =
+                self.x + self.width / 2, self.y + self.height / 2
+            if player.platforming_enabled then
+                player.climb_state:setClimbPosition(
+                    center_x, center_y - self:getFullZ(), self:getFullZ())
+            else
+                player.x, player.y = center_x, center_y
+            end
         end
     end
 end

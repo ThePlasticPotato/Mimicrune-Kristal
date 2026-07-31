@@ -43,6 +43,10 @@ function FallingClimbArea:onLoad()
         self.unsafe_area = ClimbUnsafe(self.x, self.y, { self.width, self.height })
         self.unsafe_area:setParallax(self:getParallax())
         self.unsafe_area:setOrigin(self:getOrigin())
+        self.unsafe_area.z = self.z
+        self.unsafe_area.depth = self.depth
+        self.unsafe_area.collider.depth = self.collider.depth
+        self.unsafe_area.height_sensitive = self.height_sensitive
         self.parent:addChild(self.unsafe_area)
     end
 end
@@ -76,20 +80,33 @@ function FallingClimbArea:update()
     local target = Game.world.player
 
     if self.breaks_on_leave then
-        if target ~= nil and (not target:collidesWith(self)) then
+        local visual_x, visual_y
+        local overlapping = false
+        if target ~= nil then
+            if target.platforming_enabled and target:isClimbing() then
+                visual_x, visual_y = target.climb_state:getClimbPosition()
+                overlapping = target.climb_state:objectOverlapsAt(
+                    self, visual_x, visual_y, target.z, false)
+            else
+                visual_x, visual_y = target.x, target.y
+                overlapping = target:collidesWith(self)
+            end
+        end
+        if target ~= nil and not overlapping then
             if self.dont_break == nil then
                 self.state = 2
                 should_destroy = true
-            elseif (self.dont_break == "down") and target.y < self.y then
+            elseif (self.dont_break == "down") and visual_y < self.y - self:getFullZ() then
                 self.state = 2
                 should_destroy = true
-            elseif (self.dont_break == "up") and target.y >= self.y + (self.height / 2) then
+            elseif (self.dont_break == "up")
+                and visual_y >= self.y - self:getFullZ() + (self.height / 2) then
                 self.state = 2
                 should_destroy = true
-            elseif (self.dont_break == "left") and target.x >= self.x + (self.width / 2) then
+            elseif (self.dont_break == "left") and visual_x >= self.x + (self.width / 2) then
                 self.state = 2
                 should_destroy = true
-            elseif (self.dont_break == "right") and target.x < self.x then
+            elseif (self.dont_break == "right") and visual_x < self.x then
                 self.state = 2
                 should_destroy = true
             else

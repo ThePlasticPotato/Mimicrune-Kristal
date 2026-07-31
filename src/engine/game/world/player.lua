@@ -22,7 +22,11 @@ function Player:init(chara, x, y)
     self.state_manager:addState("SLIDE", self.slide_state)
     self.state_manager:addState("SLIDE_LOCK", self.slide_lock_state)
     self.state_manager:addState("SLIDE_FREE", self.slide_free_state)
-    self.state_manager:addState("CLIMB_MOUNT", { postJump = self.postJumpClimbMount, enter = self.beginClimbMount })
+    self.state_manager:addState("CLIMB_MOUNT", {
+        postJump = self.postJumpClimbMount,
+        enter = self.beginClimbMount,
+        update = self.updateClimbMount
+    })
     self.state_manager:addState("CLIMB", self.climb_state)
     self.state_manager:addState("CLIMB_DISMOUNT", { update = self.updateClimbDismount, enter = self.beginClimbDismount, leave = self.endClimbDismount })
 
@@ -142,12 +146,17 @@ function Player:init(chara, x, y)
 
     self.climb_mount_target_x = 0
     self.climb_mount_target_y = 0
+    self.climb_mount_start_z = 0
+    self.climb_mount_target_z = 0
+    self.climb_mount_projected = false
 
     self.climb_mount_callback = nil
 
     self.climb_exit_landing = false
     self.climb_exit_target_x = 0
     self.climb_exit_target_y = 0
+    self.climb_exit_start_z = 0
+    self.climb_exit_target_z = 0
 
     self.climb_exit_timer = 0
 
@@ -815,6 +824,12 @@ function Player:setPlatformingEnabled(enabled)
         return
     end
 
+    if self:isClimbing() then
+        self.climb_state:syncHeightAwareness()
+        self:setCameraZTarget(self.z, true)
+        return
+    end
+
     local ground_z, ground, surface = self.world:getGroundZAt(
         self.support_collider, self.z, self.collider
     )
@@ -1160,6 +1175,9 @@ end
 ---@return boolean valid
 function Player:validateHeightMovement(start_x, start_y)
     if not self.platforming_enabled or self.noclip or NOCLIP
+        or self.isClimbing and self:isClimbing()
+        or self.state_manager and self.state_manager.state == "CLIMB_MOUNT"
+        or self.state_manager and self.state_manager.state == "CLIMB_DISMOUNT"
         or (self.x == start_x and self.y == start_y) then
         return true
     end
@@ -1404,7 +1422,9 @@ end
 
 function Player:updateHeight()
     if not self.platforming_enabled then return end
-    if self.jumping or self:isClimbing() then return end
+    if self.jumping or self:isClimbing()
+        or self.state_manager.state == "CLIMB_MOUNT"
+        or self.state_manager.state == "CLIMB_DISMOUNT" then return end
     self:updateDepartedGroundCollision()
     self.height_state_manager:update()
     self.shadow_z, _, self.shadow_surface =
@@ -1608,6 +1628,7 @@ function Player:onMapLoad()
     self:setPlatformingEnabled(Game.world.map.platforming)
 
     if self:isClimbing() then
+        self.climb_state:syncHeightAwareness()
         Game.world:detachFollowers()
         self:cancelFollowerTweens()
         for _, follower in ipairs(Game.world.followers) do
@@ -1680,6 +1701,8 @@ end
 ---@class ClimbMountSettings
 ---@field target_x number? The x position that the player will jump to.
 ---@field target_y number? The y position that the player will jump to.
+---@field target_z number? The elevation the player will have on the climb plane.
+---@field projected boolean? Whether target_y is a projected climb-plane coordinate.
 ---@field facing_direction FacingDirection? The climb direction the player will face after mounting.
 ---@field post_jump fun():nil? A function that will be called after the player finishes the jump, before they enter the CLIMB state.
 
@@ -1692,6 +1715,10 @@ function Player:beginClimbMount(last_state, settings)
 
     self.climb_mount_target_x = settings.target_x or self.x
     self.climb_mount_target_y = settings.target_y or self.y
+    self.climb_mount_start_z = self.z
+    self.climb_mount_target_z = settings.target_z or self.z
+    self.climb_mount_projected = self.platforming_enabled
+        and settings.projected == true
 
     self.climb_facing_direction = settings.facing_direction
 
@@ -1700,7 +1727,13 @@ function Player:beginClimbMount(last_state, settings)
         self.climb_facing_direction = Utils.facingFromAngle(MathUtils.angle(self.x, self.y, self.climb_mount_target_x, self.climb_mount_target_y))
     end
 
-    self:jumpTo(self.climb_mount_target_x, self.climb_mount_target_y + self:getScaledHeight() / 2, 8, 8 / 30, "jump_ball_slow")
+    local target_y = self.climb_mount_target_y
+    if self.climb_mount_projected then
+        target_y = target_y + self.climb_mount_target_z
+    end
+    self:jumpTo(self.climb_mount_target_x,
+        target_y + self:getScaledHeight() / 2,
+        8, 8 / 30, "jump_ball_slow")
 
     self:cancelFollowerTweens()
 
@@ -1716,11 +1749,21 @@ function Player:beginClimbMount(last_state, settings)
     self.climb_mount_callback = settings.post_jump
 end
 
+function Player:updateClimbMount()
+    if not self.platforming_enabled then return end
+    local progress = self.jump_time > 0
+        and MathUtils.clamp(self.jump_timer / self.jump_time, 0, 1) or 1
+    self.z = MathUtils.lerp(
+        self.climb_mount_start_z, self.climb_mount_target_z, progress)
+end
+
 function Player:postJumpClimbMount()
     Assets.playSound("noise")
 
     self.x = self.climb_mount_target_x
+    self.z = self.climb_mount_target_z
     self.y = self.climb_mount_target_y
+        + (self.climb_mount_projected and self.z or 0)
 
     Game.lock_movement = false
     self:setState("CLIMB", { starting_direction = self.climb_facing_direction })
@@ -1762,6 +1805,7 @@ end
 ---@field landing boolean?
 ---@field x number?
 ---@field y number?
+---@field z number?
 ---@field facing FacingDirection?
 
 function Player:beginClimbDismount(last_state, settings)
@@ -1771,6 +1815,7 @@ function Player:beginClimbDismount(last_state, settings)
 
     local target_x = settings.x
     local target_y = settings.y
+    local target_z = settings.z
 
     if settings.facing ~= nil then
         self:setFacing(settings.facing)
@@ -1781,20 +1826,24 @@ function Player:beginClimbDismount(last_state, settings)
             local landing_strip = settings.obj --[[@as ClimbLanding]]
 
             target_x, target_y = self.x, landing_strip.y
+            target_z = landing_strip:getFullZ()
         else
             local exit = settings.obj --[[@as ClimbExit]]
 
-            target_x, target_y = exit:getExitPosition()
+            target_x, target_y, target_z = exit:getExitPosition()
         end
     end
 
     if target_x == nil or target_y == nil then
         target_x, target_y = self.x, self.y
     end
+    target_z = target_z or self.z
 
     self.climb_exit_landing = landing
     self.climb_exit_target_x = target_x
     self.climb_exit_target_y = target_y
+    self.climb_exit_start_z = self.z
+    self.climb_exit_target_z = target_z
 
     self.climb_exit_timer = 0
 
@@ -1808,6 +1857,7 @@ function Player:beginClimbDismount(last_state, settings)
 
         self.x = target_x
         self.y = target_y
+        self.z = target_z
 
         -- TODO: Look into multiple party members, one party member, etc
         -- Susie prefers left, Ralsei prefers right
@@ -1826,6 +1876,7 @@ function Player:beginClimbDismount(last_state, settings)
                 follower.x = self.x
                 follower.y = self.y - 20
             end
+            follower.z = target_z
             follower:interpolateHistory()
         end
     else
@@ -1835,15 +1886,16 @@ function Player:beginClimbDismount(last_state, settings)
 
     if Game.world.camera ~= nil then
 
-        local old_x, old_y = self.x, self.y
-        self.x, self.y = target_x, target_y
+        local old_x, old_y, old_z = self.x, self.y, self.z
+        self.x, self.y, self.z = target_x, target_y, target_z
 
         local ox, oy = self:getCameraOriginExact()
         local camera_x, camera_y = self:getRelativePos(ox, oy, Game.world)
+        if self.platforming_enabled then camera_y = camera_y - target_z end
 
         Game.world.camera:panTo(camera_x, camera_y, 15 / 30, "linear")
 
-        self.x, self.y = old_x, old_y
+        self.x, self.y, self.z = old_x, old_y, old_z
     end
 
     if not landing then
@@ -1891,6 +1943,7 @@ function Player:beginClimbDismount(last_state, settings)
                 follower.y = target_y
             end
 
+            follower.z = target_z
             follower:interpolateHistory()
         end
     end
@@ -1898,6 +1951,12 @@ end
 
 function Player:updateClimbDismount()
     self.climb_exit_timer = self.climb_exit_timer + DTMULT
+    if self.platforming_enabled and not self.climb_exit_landing then
+        local progress = self.jump_time > 0
+            and MathUtils.clamp(self.jump_timer / self.jump_time, 0, 1) or 1
+        self.z = MathUtils.lerp(
+            self.climb_exit_start_z, self.climb_exit_target_z, progress)
+    end
 
     if self.climb_exit_timer >= 16 then
         local blend_time = 12
@@ -1935,6 +1994,25 @@ function Player:endClimbDismount()
     Game.lock_movement = false
     Game.world.camera:setAttached(true, true)
     self:resetSprite()
+
+    if self.platforming_enabled then
+        if self.climb_exit_timer >= 16 then
+            self.z = self.climb_exit_target_z
+        end
+        Object.uncache(self)
+        local support_z, support, surface = self.world:getSupportAt(
+            self.support_collider, self.z, 0.75)
+        if support_z then
+            self.z = support_z
+            self.ground_z = support_z
+            self.ground_collider = support
+            self.ground_surface = surface
+            self.z_velocity = 0
+            self.height_state_manager:setState("GROUNDED")
+        else
+            self.height_state_manager:setState("FALL")
+        end
+    end
 
     if self.climb_exit_timer < 16 then
         -- IF the end state was interrupted, forcibly show followers

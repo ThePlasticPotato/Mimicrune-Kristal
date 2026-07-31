@@ -13,6 +13,7 @@
 ---@field target MarkerRef The identifier of the target event that this ClimbExit leads to.
 ---@field target_x number? The x position that the player will jump to.
 ---@field target_y number? The y position that the player will jump to.
+---@field target_z number? The elevation that the player will jump to.
 ---
 ---@overload fun(...) : ClimbExit
 local ClimbExit, super = Class(Event)
@@ -30,6 +31,7 @@ function ClimbExit:init(x, y, shape, settings)
 
     self.target_x = nil
     self.target_y = nil
+    self.target_z = nil
 
     self.can_exit = settings.can_exit ~= false
 
@@ -91,7 +93,7 @@ function ClimbExit:getExitDirection()
 end
 
 function ClimbExit:getExitPosition()
-    return self.target_x, self.target_y
+    return self.target_x, self.target_y, self.target_z
 end
 
 function ClimbExit:onLoad()
@@ -99,7 +101,13 @@ function ClimbExit:onLoad()
         return
     end
 
-    self.target_x, self.target_y, _ = MapUtils.parseMarkerProperty(self, self.target, "target")
+    local marker
+    self.target_x, self.target_y, marker =
+        MapUtils.parseMarkerProperty(self, self.target, "target")
+    local direct_z = type(self.target) == "table"
+        and tonumber(self.target.z or self.target[3]) or nil
+    self.target_z = direct_z or marker and tonumber(
+        marker.z or marker.properties and marker.properties.z) or 0
     self:calculateAutoExit()
 end
 

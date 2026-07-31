@@ -10,6 +10,22 @@ function EditorFallingClimbArea:init(data, options)
     self:registerProperty("fall_time", "number", { name = "Fall Time" })
     self:registerProperty("timed", "boolean")
     self:registerProperty("no_unsafe_area", "boolean", { name = "No Unsafe Area" })
+    self:registerProperty("climb_height_mode", "choice", {
+        name = "Height Mapping", default = "auto", choices = {
+            { value = "auto", label = "Auto (Depth = Vertical)" },
+            { value = "vertical", label = "Vertical Z Plane" },
+            { value = "flat", label = "Flat at Z" }
+        }
+    })
+    self:registerProperty("climb_height_axis", "choice", {
+        name = "Height Axis", default = "y", choices = {
+            { value = "y", label = "Bottom to Top" },
+            { value = "x", label = "Left to Right" }
+        }
+    })
+    self:registerProperty("climb_height_reverse", "boolean", {
+        name = "Reverse Height", default = false
+    })
 end
 function EditorFallingClimbArea:createObject(map, context)
     local properties = self.data.properties

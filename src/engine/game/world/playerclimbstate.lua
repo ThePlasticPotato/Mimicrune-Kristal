@@ -55,6 +55,9 @@ function PlayerClimbState:onEnter(old_state, settings)
     self.player:setSize(20, 20)
     self.player:setOrigin(0.5, 0.5)
     self.player.collider = Hitbox(self.player, 0, 0, 20, 20)
+    self.player.collider.depth = self.player.actor.collision_depth or 20
+
+    self:syncHeightAwareness()
 
     Game.world:detachFollowers()
 
@@ -185,6 +188,128 @@ function PlayerClimbState:resetClimbState()
     self.climbing_y_dir = -1
 end
 
+function PlayerClimbState:isHeightAware()
+    return self.height_aware == true and self.player.platforming_enabled == true
+end
+
+function PlayerClimbState:syncHeightAwareness()
+    self.height_aware = self.player.platforming_enabled == true
+    self.active_height_area = nil
+    self.height_frame_active = false
+    self.pending_height_exit = nil
+    if not self.height_aware or not self.player.world then return end
+
+    local visual_y = self.player.y - self.player.z
+    local _, area, sampled_z = self:findHeightClimbableAt(
+        ClimbArea, self.player.x, visual_y)
+    if sampled_z then
+        self.player.z = sampled_z
+        self.player.y = visual_y + sampled_z
+        self.active_height_area = area
+    end
+    self.last_y = visual_y
+    self.last_safe_y = visual_y
+    self.grab_start_y = visual_y
+    Object.uncache(self.player)
+end
+
+--- Returns the coordinates used by the 2d climbing grid.
+function PlayerClimbState:getClimbPosition()
+    if self:isHeightAware() and not self.height_frame_active then
+        return self.player.x, self.player.y - self.player.z
+    end
+    return self.player.x, self.player.y
+end
+
+--- Places the player at a projected climb coordinate and real elevation to compensate for z/y sharing too many roles.
+function PlayerClimbState:setClimbPosition(x, y, z)
+    self.player.x = x
+    self.player.z = z or self.player.z
+    self.player.y = self:isHeightAware() and y + self.player.z or y
+    Object.uncache(self.player)
+end
+
+--- Checks an object's projected footprint while preserving the player's real
+--- position.
+function PlayerClimbState:objectOverlapsAt(object, x, y, z, height_collision)
+    local old_x, old_y, old_z = self.player.x, self.player.y, self.player.z
+    self.player.x = x
+    self.player.y = self:isHeightAware() and y + object:getFullZ() or y
+    self.player.z = z or old_z
+    Object.uncache(self.player)
+    local overlaps
+    if self:isHeightAware() and height_collision then
+        overlaps = object:collidesWith3D(self.player)
+    else
+        overlaps = object:collidesWith(self.player)
+    end
+    self.player.x, self.player.y, self.player.z = old_x, old_y, old_z
+    Object.uncache(self.player)
+    return overlaps
+end
+
+function PlayerClimbState:findHeightClimbableAt(object, x, y)
+    if not self:isHeightAware() then return nil end
+    local best, best_z, best_score
+    Object.startCache()
+    for _, obj in ipairs(Game.stage:getObjects(object)) do
+        if obj.parent == Game.world and obj:isClimbable()
+            and self:objectOverlapsAt(obj, x, y, self.player.z, false) then
+            local sampled_z = obj.getClimbHeightAt
+                and obj:getClimbHeightAt(x, y) or obj:getFullZ()
+            local score = math.abs(sampled_z - self.player.z)
+            if obj == self.active_height_area then score = score - 100000 end
+            if not best_score or score < best_score then
+                best, best_z, best_score = obj, sampled_z, score
+            end
+        end
+    end
+    Object.endCache()
+    return best ~= nil, best, best_z
+end
+
+function PlayerClimbState:beginHeightFrame()
+    if not self:isHeightAware() then return false end
+    self.player.y = self.player.y - self.player.z
+    self.height_frame_active = true
+    Object.uncache(self.player)
+    return true
+end
+
+function PlayerClimbState:endHeightFrame()
+    if not self.height_frame_active then return end
+    local visual_x, visual_y = self.player.x, self.player.y
+    local found, area, sampled_z = self:findHeightClimbableAt(
+        ClimbArea, visual_x, visual_y)
+    if found then
+        self.active_height_area = area
+        self.player.z = sampled_z
+    end
+    self.player.y = visual_y + self.player.z
+    self.height_frame_active = false
+    self.player.ground_z = self.player.z
+    self.player.ground_collider = nil
+    local map = self.player.world.map
+    self.player.ground_surface = area and (area.ground_surface
+        or area.surface_id and map.getSurface and map:getSurface(area.surface_id)) or nil
+    self.player.z_velocity = 0
+    Object.uncache(self.player)
+    local shadow_z, _, shadow_surface = self.player.world:getGroundZAt(
+        self.player.support_collider, self.player.z,
+        self.player.collider, self.player:getHeightCollisionIgnore())
+    if shadow_z ~= nil then
+        self.player.shadow_z = shadow_z
+        self.player.shadow_surface = shadow_surface
+    end
+end
+
+function PlayerClimbState:placeHeightEffect(effect, visual_y)
+    if not self:isHeightAware() then return end
+    effect.y = visual_y + self.player.z
+    effect.z = self.player.z
+    effect.height_sort_subject = true
+end
+
 ---@param settings ClimbDismountSettings
 function PlayerClimbState:queueExit(settings)
     self.exit_queued = true
@@ -205,29 +330,23 @@ end
 ---@param y? number The y position to check for collisions. Defaults to the player's current y position.
 ---@return T[] objects A list of objects that are colliding with the player.
 function PlayerClimbState:getOverlappingObjects(object, x, y)
-    x = x or self.player.x
-    y = y or self.player.y
-
-    local old_x = self.player.x
-    local old_y = self.player.y
-
-    self.player.x = x
-    self.player.y = y
+    local current_x, current_y = self:getClimbPosition()
+    x = x or current_x
+    y = y or current_y
 
     local objects = {}
 
     Object.startCache()
     for _, obj in ipairs(Game.stage:getObjects(object)) do
         if obj.parent == Game.world then
-            if obj:collidesWith(self.player) then
+            local height_collision = self:isHeightAware()
+                and obj.height_sensitive ~= false
+            if self:objectOverlapsAt(obj, x, y, self.player.z, height_collision) then
                 table.insert(objects, obj)
             end
         end
     end
     Object.endCache()
-
-    self.player.x = old_x
-    self.player.y = old_y
 
     return objects
 end
@@ -240,30 +359,24 @@ end
 ---@return boolean is_overlapping
 ---@return T? object The object that the player is colliding with, if any.
 function PlayerClimbState:isOverlappingObject(object, x, y)
-    x = x or self.player.x
-    y = y or self.player.y
-
-    local old_x = self.player.x
-    local old_y = self.player.y
-
-    self.player.x = x
-    self.player.y = y
+    local current_x, current_y = self:getClimbPosition()
+    x = x or current_x
+    y = y or current_y
 
     local found_obj = nil
 
     Object.startCache()
     for _, obj in ipairs(Game.stage:getObjects(object)) do
         if obj.parent == Game.world then
-            if obj:collidesWith(self.player) then
+            local height_collision = self:isHeightAware()
+                and obj.height_sensitive ~= false
+            if self:objectOverlapsAt(obj, x, y, self.player.z, height_collision) then
                 found_obj = obj
                 break
             end
         end
     end
     Object.endCache()
-
-    self.player.x = old_x
-    self.player.y = old_y
 
     return found_obj ~= nil, found_obj
 end
@@ -276,30 +389,28 @@ end
 ---@return boolean is_overlapping
 ---@return T? object The object that the player is colliding with, if any.
 function PlayerClimbState:isOverlappingClimbable(object, x, y)
-    x = x or self.player.x
-    y = y or self.player.y
+    local current_x, current_y = self:getClimbPosition()
+    x = x or current_x
+    y = y or current_y
 
-    local old_x = self.player.x
-    local old_y = self.player.y
-
-    self.player.x = x
-    self.player.y = y
+    if self:isHeightAware() then
+        local found, obj = self:findHeightClimbableAt(object, x, y)
+        return found, obj
+    end
 
     local found_obj = nil
 
     Object.startCache()
     for _, obj in ipairs(Game.stage:getObjects(object)) do
         if obj.parent == Game.world then
-            if obj:isClimbable() and obj:collidesWith(self.player) then
+            if obj:isClimbable()
+                and self:objectOverlapsAt(obj, x, y, self.player.z, false) then
                 found_obj = obj
                 break
             end
         end
     end
     Object.endCache()
-
-    self.player.x = old_x
-    self.player.y = old_y
 
     return found_obj ~= nil, found_obj
 end
@@ -531,6 +642,7 @@ function PlayerClimbState:chargeClimbCharge()
             local scale_x, scale_y = self.player:getScale()
             afterimage.graphics.grow_x = 0.2 / scale_x
             afterimage.graphics.grow_y = 0.2 / scale_y
+            self:placeHeightEffect(afterimage, self.player.y)
             self.player.parent:addChild(afterimage)
         end
     end
@@ -593,7 +705,15 @@ function PlayerClimbState:checkClimbBullets()
     if Game.world.soul ~= nil and Game.inv_frames <= 0 and self.player:isMovementEnabled() then
         Object.startCache()
         for _, bullet in ipairs(Game.stage:getObjects(WorldBullet)) do
-            if bullet:collidesWith(self.hurtbox) then
+            local current_x, current_y = self:getClimbPosition()
+            local ordinary_collider = self.player.collider
+            self.player.collider = self.hurtbox
+            local collides = self:objectOverlapsAt(
+                bullet, current_x, current_y, self.player.z,
+                self:isHeightAware() and bullet.height_sensitive ~= false)
+            self.player.collider = ordinary_collider
+            Object.uncache(self.player)
+            if collides then
                 if bullet:includes(ClimbEnemy) then
                     ---@cast bullet ClimbEnemy
                     if bullet:isActive() and not self.player:isClimbJumping() then
@@ -621,7 +741,11 @@ function PlayerClimbState:checkClimbCollisions()
 
         Object.startCache()
         for _, obj in ipairs(Game.world.children) do
-            if obj:collidesWith(self.player) then
+            local current_x, current_y = self:getClimbPosition()
+            local height_collision = self:isHeightAware()
+                and obj.height_sensitive ~= false
+            if self:objectOverlapsAt(
+                obj, current_x, current_y, self.player.z, height_collision) then
                 if obj:includes(ClimbEnemy) then
                     ---@cast obj ClimbEnemy
                     if obj:isActive() and self.player:isClimbJumping() then
@@ -692,7 +816,10 @@ end
 function PlayerClimbState:checkClimbLandings()
     Object.startCache()
     for _, obj in ipairs(Game.world.children) do
-        if obj:includes(ClimbLanding) and self.player:collidesWith(obj) then
+        local current_x, current_y = self:getClimbPosition()
+        if obj:includes(ClimbLanding)
+            and self:objectOverlapsAt(obj, current_x, current_y,
+                self.player.z, self:isHeightAware()) then
             self:queueExit({ landing = true, obj = obj })
             break
         end
@@ -827,6 +954,7 @@ function PlayerClimbState:updateClimbGrab()
         dust.physics.speed_y = -3
         dust.physics.speed_x = MathUtils.random(-1, 1)
         dust.debug_select = false
+        self:placeHeightEffect(dust, self.player.y)
         self.player.world:addChild(dust)
     end
 
@@ -1007,7 +1135,12 @@ end
 ---@private
 function PlayerClimbState:checkClimbExiting()
     if self.exit_queued then
-        self.player:setState("CLIMB_DISMOUNT", self.exit_settings)
+        if self.height_frame_active then
+            self.pending_height_exit = self.exit_settings
+            self.exit_queued = false
+        else
+            self.player:setState("CLIMB_DISMOUNT", self.exit_settings)
+        end
     end
 end
 
@@ -1197,6 +1330,7 @@ function PlayerClimbState:updateClimbMove()
             dust:play(1 / 15, false, function() dust:remove() end)
             dust.physics.speed_y = -1
             dust.debug_select = false
+            self:placeHeightEffect(dust, dust.y)
             self.player.world:addChild(dust)
         end
     end
@@ -1271,6 +1405,8 @@ function PlayerClimbState:updateClimbMove()
             afterimage.layer = self.player.layer - 0.01
             afterimage.debug_select = false
             afterimage:fadeOutSpeedAndRemove(0.04)
+            self:placeHeightEffect(afterimage,
+                self.player.y + self.player.sprite.y * 2)
             self.player.parent:addChild(afterimage)
         end
 
@@ -1423,6 +1559,8 @@ function PlayerClimbState:updateClimbCamera()
 end
 
 function PlayerClimbState:onUpdate()
+    local height_frame = self:beginHeightFrame()
+
     -- Input
     self:handleClimbInput()
     self:shortenClimbBump()
@@ -1465,14 +1603,23 @@ function PlayerClimbState:onUpdate()
 
     -- Move the camera
     self:updateClimbCamera()
+
+    if height_frame then self:endHeightFrame() end
+    if self.pending_height_exit then
+        local settings = self.pending_height_exit
+        self.pending_height_exit = nil
+        self.player:setState("CLIMB_DISMOUNT", settings)
+    end
 end
 
 function PlayerClimbState:onExit(next_state)
+    if self.height_frame_active then self:endHeightFrame() end
     self.player:setFacing(self.direction)
 
     self.player:resetSprite()
     self.player:setSize(self.player.actor:getSize())
     self.player:setHitbox(self.player.actor:getHitbox())
+    self.player.collider.depth = self.player.actor.collision_depth or 20
     self.player:setOrigin(0.5, 1)
 
     self.player.sprite.y = 0
@@ -1511,8 +1658,7 @@ function PlayerClimbState:drawReticleHint()
             count = 3
         end
 
-        local px = self.player.x
-        local py = self.player.y
+        local px, py = self:getClimbPosition()
 
         for i = 1, count do
             local found_exit, exit = self:isOverlappingObject(ClimbExit, px, py)

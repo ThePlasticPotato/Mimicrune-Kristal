@@ -2237,6 +2237,63 @@ function Testing:runPlatformingTests()
             falling_block.height_state = "GROUNDED"
             expect(carrier:isRider(falling_block),
                 "moving platforms should recognize grounded pushblocks as riders")
+
+            local climb_editor_class = Registry.getEditorObject("climbarea")
+            local climb_editor = climb_editor_class({
+                x = 0, y = 0, width = 40, height = 40,
+                properties = {}, __editor_property_types = {}
+            }, { layer_type = Registry.getLayerType("objects") })
+            expect(climb_editor.property_set:getProperty("climb_height_mode").type == "choice"
+                and climb_editor.property_set:getProperty("climb_height_axis").type == "choice"
+                and climb_editor.property_set:getProperty("climb_height_reverse").type == "boolean",
+                "climb areas should expose projected height-plane authoring controls")
+
+            local height_climb_area = ClimbArea(100, 200, { 40, 40 })
+            local height_climb_world = {
+                map = { platforming = true },
+                getGroundZAt = function() return 0, nil, nil end
+            }
+            height_climb_area.world = height_climb_world
+            height_climb_area.z = 10
+            height_climb_area.depth = 40
+            height_climb_area.collider.depth = 40
+            height_climb_area.data = { properties = {} }
+            height_climb_area:onLoad()
+            expect(height_climb_area:usesHeightPlane()
+                and height_climb_area:getClimbHeightAt(120, 230) == 10
+                and height_climb_area:getClimbHeightAt(120, 190) == 50,
+                "a projected climb region should map its bottom and top onto real Z")
+
+            local climb_player = Object(120, 240, 20, 20)
+            climb_player.platforming_enabled = true
+            climb_player.z = 10
+            climb_player.z_velocity = 0
+            climb_player.world = height_climb_world
+            climb_player.getHeightCollisionIgnore = function() return nil end
+            climb_player.collider = Hitbox(climb_player, 0, 0, 20, 20)
+            climb_player.support_collider = Hitbox(climb_player, 8, 8, 4, 4)
+            local climb_state = setmetatable({
+                player = climb_player, height_aware = true,
+                active_height_area = height_climb_area
+            }, { __index = PlayerClimbState })
+            expect(climb_state:objectOverlapsAt(
+                    height_climb_area, 120, 220, 20, false),
+                "climb collision should compare against the area's projected footprint")
+            local wrong_height_climb_event = Event(100, 300, 40, 40)
+            wrong_height_climb_event.z = 100
+            expect(not climb_state:objectOverlapsAt(
+                    wrong_height_climb_event, 120, 220, 20, true),
+                "projected overlap must not activate climb events at another Z")
+            climb_state.findHeightClimbableAt = function(_, _, x, y)
+                return true, height_climb_area,
+                    height_climb_area:getClimbHeightAt(x, y)
+            end
+            expect(climb_state:beginHeightFrame() and climb_player.y == 230,
+                "height-aware climbing should operate in projected coordinates")
+            climb_player.y = 190
+            climb_state:endHeightFrame()
+            expect(climb_player.z == 50 and climb_player.y == 240,
+                "climbing upward should raise Z while preserving the wall's logical floor Y")
         end)()
     end
 

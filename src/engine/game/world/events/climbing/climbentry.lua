@@ -66,8 +66,12 @@ end
 function ClimbEntry:onInteract(player, dir)
     local x, y = self.target:getRelativeJumpTarget()
     local world_x, world_y = self.target:getRelativePos(x, y, Game.world)
+    local target_z = self.target:getFullZ()
 
     local target_x, target_y = Game.world:getRelativePos(world_x, world_y, player.parent)
+    if player.platforming_enabled then
+        target_y = target_y - target_z
+    end
 
     local exit_direction = self.target:getExitDirection()
     local facing_direction = nil
@@ -85,6 +89,8 @@ function ClimbEntry:onInteract(player, dir)
     player:setState("CLIMB_MOUNT", {
         target_x = target_x,
         target_y = target_y,
+        target_z = target_z,
+        projected = player.platforming_enabled,
         facing_direction = facing_direction
     })
 

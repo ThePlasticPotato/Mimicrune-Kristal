@@ -11,6 +11,22 @@ function EditorClimbMover:init(data, options)
         name = "Start Exit", allowed_types = { "marker", "player" }
     })
     self:registerProperty("one_way", "boolean", { name = "One Way" })
+    self:registerProperty("climb_height_mode", "choice", {
+        name = "Height Mapping", default = "flat", choices = {
+            { value = "flat", label = "Flat at Z" },
+            { value = "vertical", label = "Vertical Z Plane" },
+            { value = "auto", label = "Auto (Depth = Vertical)" }
+        }
+    })
+    self:registerProperty("climb_height_axis", "choice", {
+        name = "Height Axis", default = "y", choices = {
+            { value = "y", label = "Bottom to Top" },
+            { value = "x", label = "Left to Right" }
+        }
+    })
+    self:registerProperty("climb_height_reverse", "boolean", {
+        name = "Reverse Height", default = false
+    })
 end
 function EditorClimbMover:createObject(map, context)
     local properties = self.data.properties
