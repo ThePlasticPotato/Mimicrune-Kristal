@@ -848,9 +848,9 @@
         {
           "id": 52,
           "name": "rectangle",
-          "x": 0,
+          "x": -80,
           "y": 560,
-          "width": 40,
+          "width": 120,
           "height": 160,
           "shape": {
             "type": "rectangle",
@@ -1000,7 +1000,7 @@
           "name": "rectangle",
           "x": 1120,
           "y": 560,
-          "width": 80,
+          "width": 160,
           "height": 160,
           "shape": {
             "type": "rectangle",
@@ -2240,7 +2240,38 @@
       "parallax_x": 1,
       "parallax_y": 1,
       "properties": [],
-      "objects": []
+      "objects": [
+        {
+          "id": 75,
+          "name": "transition",
+          "type": "transition",
+          "x": 1200,
+          "y": 560,
+          "width": 40,
+          "height": 160,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": []
+        },
+        {
+          "id": 76,
+          "name": "transition",
+          "type": "transition",
+          "x": -40,
+          "y": 560,
+          "width": 40,
+          "height": 160,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": []
+        }
+      ]
     },
     {
       "id": "objects",
