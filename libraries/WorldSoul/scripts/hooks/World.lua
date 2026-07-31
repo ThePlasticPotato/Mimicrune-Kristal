@@ -3,8 +3,66 @@
 local World, super = HookSystem.hookScript(World)
 
 function World:init(map)
-    super.init(self, map)
     self.world_soul = nil
+    super.init(self, map)
+end
+
+local function captureSoulDestination(...)
+    local args = { ... }
+    table.remove(args, 1)
+    if type(args[1]) == "string" or type(args[1]) == "table" then
+        return { marker = args[1] }
+    elseif type(args[1]) == "number" then
+        return {
+            x = args[1],
+            y = args[2],
+            z = type(args[3]) == "number" and args[3] or nil
+        }
+    end
+    return { marker = "spawn" }
+end
+
+function World:loadMap(...)
+    local soul = self.world_soul
+    if soul and soul.parent == self then
+        self.pending_world_soul_destination = captureSoulDestination(...)
+        self._skip_world_soul_transition_party_spawn = self.player == nil
+    end
+
+    local results = { super.loadMap(self, ...) }
+    self._skip_world_soul_transition_party_spawn = false
+    return unpack(results)
+end
+
+function World:setupMap(...)
+    super.setupMap(self, ...)
+
+    local soul = self.world_soul
+    local destination = self.pending_world_soul_destination
+    self.pending_world_soul_destination = nil
+    if not soul or soul.parent ~= self or not destination then return end
+
+    local x, y, z = destination.x, destination.y, destination.z
+    if destination.marker then
+        local marker = destination.marker
+        if not self.map:hasMarker(marker) then marker = "spawn" end
+        local data
+        x, y, data = self.map:getMarker(marker)
+        z = data and tonumber(data.z or data.properties and data.properties.z) or nil
+    end
+    soul:enterMap(x, y, z)
+end
+
+function World:spawnParty(...)
+    if self._skip_world_soul_transition_party_spawn then
+        self._skip_world_soul_transition_party_spawn = false
+        return
+    end
+    return super.spawnParty(self, ...)
+end
+
+function World:getCameraTarget()
+    return super.getCameraTarget(self) or self.world_soul
 end
 
 --- Gets the collision map for the world

@@ -474,7 +474,7 @@ function World:onKeyPressed(key)
         end
         if key == "s" then
             local save_pos = nil
-            if Input.shift() then
+            if Input.shift() and self.player then
                 save_pos = { self.player.x, self.player.y, self.player.z }
             end
             if Game:getConfig("smallSaveMenu") then
@@ -518,7 +518,7 @@ function World:onKeyPressed(key)
     if Game.lock_movement then return end
 
     if self.state == "GAMEPLAY" then
-        if Input.isJump(key) and self.player:canJump() then
+        if Input.isJump(key) and self.player and self.player:canJump() then
             if self.player:jump() then
                 Input.clear("jump")
                 Input.clear("dash")

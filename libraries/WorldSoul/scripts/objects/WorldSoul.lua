@@ -44,6 +44,7 @@ function WorldSoul:init(x, y, color, z)
     self.speed = 2
     self.is_active = true
     self.inv_timer = self.inv_timer or 0
+    self:setCameraOriginExact(0, 0)
 
     self.platforming_enabled = false
     self.use_3d_collision = false
@@ -173,6 +174,56 @@ function WorldSoul:setPlatformingEnabled(enabled)
     self:syncVisualHover()
 end
 
+---@param x number
+---@param y number
+---@param z? number
+function WorldSoul:enterMap(x, y, z)
+    self:removeFX("world_soul_pit_recovery")
+    self:setExactPosition(x, y)
+    self.z = tonumber(z) or 0
+    self.spawn_z_explicit = z ~= nil
+    self.spawn_x, self.spawn_y, self.spawn_z = self.x, self.y, self.z
+
+    self.height_state = "GROUNDED"
+    self.z_velocity = 0
+    self.ground_z = self.z
+    self.ground_collider = nil
+    self.ground_surface = nil
+    self.airborne_surface = nil
+    self.departed_ground_collider = nil
+    self.departed_ground_surface = nil
+    self.fall_through_colliders = {}
+    self.landing_overlap_colliders = {}
+    self.platform_momentum_x, self.platform_momentum_y = 0, 0
+    self.pit_recovery_timer = 0
+    self.pit_recovery_progress = 0
+    self.pit_recovery_teleported = false
+    self.hover_offset = 0
+
+    Object.uncache(self)
+    self:setPlatformingEnabled(self.world.map and self.world.map.platforming)
+    self.spawn_z = self.z
+    self.last_safe_x, self.last_safe_y, self.last_safe_z = self.x, self.y, self.z
+    self.last_safe_surface_id = self.ground_surface and self.ground_surface.id or nil
+    self:syncVisualHover()
+    self:onMapLoad(self.world.map)
+end
+
+---@param map Map
+function WorldSoul:onMapLoad(map)
+end
+
+---@return FacingDirection
+function WorldSoul:getTransitionFacing()
+    local x, y = self.moving_x or 0, self.moving_y or 0
+    if math.abs(x) > math.abs(y) then
+        return x < 0 and "left" or "right"
+    elseif y ~= 0 then
+        return y < 0 and "up" or "down"
+    end
+    return "down"
+end
+
 ---@return boolean
 function WorldSoul:isGrounded()
     return self.height_state == "GROUNDED" or self.height_state == "LAND"
@@ -202,6 +253,14 @@ end
 
 function WorldSoul:getSortPosition()
     return self:getRelativePos(0, 0, self.parent)
+end
+
+---@param camera Camera
+---@return number x
+---@return number y
+function WorldSoul:getCameraTargetOffset(camera)
+    if not self.platforming_enabled then return 0, 0 end
+    return 0, -(self.z + self.hover_offset)
 end
 
 function WorldSoul:drawHeightOcclusionMask()
