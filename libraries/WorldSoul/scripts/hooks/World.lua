@@ -11,7 +11,7 @@ end
 ---@return Collider[]
 function World:getSoulCollision()
     local col = {}
-    for _,collider in ipairs(self.map.soul_collision) do
+    for _,collider in ipairs(self.map.soul_collision or {}) do
         table.insert(col, collider)
     end
     for _,child in ipairs(self.children) do
@@ -20,6 +20,34 @@ function World:getSoulCollision()
         end
     end
     return col
+end
+
+---@param collider Collider
+---@param ignored? Collider|table<Collider, boolean>
+---@param movement_z? number
+---@return boolean collided
+---@return Object? with
+function World:checkSoulMovementCollision(collider, ignored, movement_z)
+    local soul = collider and collider.parent
+    if not (self.map and self.map.platforming)
+        or soul and soul.platforming_enabled == false then
+        return self:checkSoulCollision(collider)
+    end
+
+    Object.startCache()
+    for _, other in ipairs(self.map.soul_collision or {}) do
+        local is_ignored = other == ignored
+            or type(ignored) == "table" and ignored[other] == true
+        if not is_ignored and collider ~= other
+            and collider:collidesWith3D(other) then
+            Object.endCache()
+            return true, other.parent
+        end
+    end
+    Object.endCache()
+
+    return self:checkMovementCollision3D(
+        collider, false, ignored, movement_z)
 end
 
 --- Checks whether the input `collider` is colliding with anything in the world
@@ -57,7 +85,13 @@ function World:update()
         Object.startCache()
         for _,obj in ipairs(self.children) do
             if not obj.solid and (obj.onSoulCollide or obj.onSoulEnter or obj.onSoulExit) then
-                if (obj:collidesWith(self.world_soul)) then
+                local colliding
+                if self.map.platforming and obj.height_sensitive then
+                    colliding = obj:collidesWith3D(self.world_soul.collider)
+                else
+                    colliding = obj:collidesWith(self.world_soul.collider)
+                end
+                if colliding then
                     if not obj:includes(WorldSoul) then
                         table.insert(collided, {obj, self.world_soul})
                     end

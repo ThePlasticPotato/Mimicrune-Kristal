@@ -6,6 +6,17 @@
     "version": "v1.0.0",
     "engineVer": "v0.10.0",
     "config": {
-        "override_world_collision_behavior": false // replaces the world collision code. Warning: VERY INVASIVE! If false, runs collision code a second time, which could be performance intensive. also note: not implemented atm
+        "override_world_collision_behavior": false, // Legacy option; retained for compatibility.
+        "hover_height": 7,
+        "hover_bob": 1,
+        "hover_speed": 1.5,
+        "collision_depth": 12,
+        "fall_gravity": 0.4,
+        "max_fall_speed": 8,
+        "land_time": 0.25,
+        "pit_fall_limit": -80,
+        "pit_recovery_out_time": 0.25,
+        "pit_recovery_hold_time": 0.1,
+        "pit_recovery_in_time": 0.25
     }
 }
