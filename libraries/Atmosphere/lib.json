@@ -1,0 +1,16 @@
+{
+    "id": "atmosphere",
+    "authors": [
+        "Vesselbound",
+        "crocokuo (original weatherlib)"
+    ],
+    "version": "v1.1.0",
+    "engineVer": "v0.11.0-dev",
+
+    "config": {
+        "footsteps_audible_by_default": true,
+        "step_volume": 0.8,
+        "step_volume_max": 2.3,
+        "follower_volume_mult": 0.5
+    }
+}

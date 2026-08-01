@@ -57,6 +57,10 @@
             "worldMenu": "goner",
             "gameOver": "goner"
             // End of config
+        },
+        "worldsoul": {
+            "hover_height": 16,
+            "hover_speed": 0.5
         }
     },
 

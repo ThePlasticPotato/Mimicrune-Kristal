@@ -423,6 +423,20 @@ function Testing:runPlatformingTests()
                 underwater_underlay_void_strength = 0.16,
                 underwater_underlay_pixel_size = 2
             })
+            water.map.world = {
+                camera = {
+                    getRect = function()
+                        return 0, -480, 80, 80
+                    end
+                }
+            }
+            water:updateCameraCoverage()
+            local _, top_y, _, top_v = water.mesh:getVertex(1)
+            expect(water.coverage_top <= -480
+                and top_y == water.coverage_top
+                and math.abs(top_v
+                    - water.coverage_top / water.map_height) < 0.0001,
+                "the underwater underlay should extend continuously beyond map bounds to cover an out-of-bounds camera")
             local water_canvas = love.graphics.newCanvas(80, 80)
             local water_depth = love.graphics.newCanvas(80, 80, {
                 format = "depth24stencil8", readable = false
@@ -1787,6 +1801,23 @@ function Testing:runPlatformingTests()
     if Mod and Mod.info.id == "mimicrune_prologue" then
         do
             (function()
+                local soul_r, soul_g, soul_b, soul_a = Mod:getSoulColor()
+                expect(soul_r == COLORS.gray[1]
+                    and soul_g == COLORS.gray[2]
+                    and soul_b == COLORS.gray[3]
+                    and soul_a == COLORS.gray[4]
+                    and Kristal.getLibConfig("worldsoul", "hover_height") == 16
+                    and Kristal.getLibConfig("worldsoul", "hover_speed") == 0.5,
+                    "the prologue should retain the intro's gray soul and use a visibly floating WorldSoul height")
+                local camera_soul = setmetatable({
+                    platforming_enabled = true,
+                    z = 160,
+                    hover_offset = 16
+                }, { __index = WorldSoul })
+                local soul_camera_x, soul_camera_y =
+                    camera_soul:getCameraTargetOffset()
+                expect(soul_camera_x == 0 and soul_camera_y == -160,
+                    "the WorldSoul camera should follow logical elevation without following hover bobbing")
                 local fog_map_data = Registry.getMapData("wastes_entrance")
                 local fog_root = Object()
                 local fog_map = Map(fog_root, fog_map_data)
@@ -1794,6 +1825,8 @@ function Testing:runPlatformingTests()
                 fog_map:load()
                 local fog_ground_layer = fog_map:getTileLayer("ground")
                 local fog_wall_layer = fog_map:getTileLayer("groundcliff")
+                local cage_back = fog_map.events_by_id[63]
+                local cage_front = fog_map.events_by_id[62]
                 expect(fog_map.terrain_edge_fog_object
                     and fog_map.underwater_underlay
                     and fog_map.underwater_underlay_object
@@ -1821,6 +1854,22 @@ function Testing:runPlatformingTests()
                     and fog_map.terrain_edge_fog_object.layer
                         < fog_wall_layer.layer,
                     "the wastes entrance should fog authored void edges beneath its ground artwork")
+                expect(cage_back and cage_front
+                    and fog_map.events_by_name.cage_back
+                    and fog_map.events_by_name.cage_front
+                    and fog_map.events_by_name.cage_back[1] == cage_back
+                    and fog_map.events_by_name.cage_front[1] == cage_front
+                    and cage_back.surface_id == "2" and cage_front.surface_id == "2"
+                    and cage_back.z == 160 and cage_front.z == 160
+                    and cage_back.height_sort_subject and cage_back.height_depth_subject
+                    and not cage_front.height_sort_subject
+                    and not cage_front.height_depth_subject
+                    and not cage_back.use_3d_collision and not cage_front.use_3d_collision
+                    and World.isHeightDepthChild(fog_root, cage_back)
+                    and not World.isHeightDepthChild(fog_root, cage_front),
+                    "surface-linked decorative sprites should inherit elevation and support automatic or forced-overlay rendering without collision")
+                expect(Registry.getWorldCutscene("wastes", "arrival") ~= nil,
+                    "the Wastes entrance should register its post-connection arrival cutscene")
             end)()
         end
 

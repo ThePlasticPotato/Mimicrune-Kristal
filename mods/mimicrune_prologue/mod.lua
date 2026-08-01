@@ -1,7 +1,56 @@
+local CONNECTION_LOG_PATH = "plot/connection_log.txt"
+local WASTES_ARRIVAL_FLAG = "wastes_arrival_complete"
+
 function Mod:init()
     self.playtest = false
 
     print("Loaded " .. self.info.name .. "!")
+end
+
+function Mod:getSoulColor()
+    return ColorUtils.unpackColor(COLORS.gray)
+end
+
+function Mod:getWastesCage()
+    local cages = Game.world.map.events_by_name.cage_back
+    return cages and cages[1] or Game.world.map.events_by_id[63]
+end
+
+---@param play_arrival boolean
+---@return WorldSoul
+function Mod:spawnWastesSoul(play_arrival)
+    local cage = assert(self:getWastesCage(), "Wastes entrance is missing its cage_back object")
+    local scale_x = math.abs(cage.scale_x or 1)
+    local scale_y = math.abs(cage.scale_y or 1)
+    local x = cage.x + cage.width * scale_x / 2
+    local y = cage.y + cage.height * scale_y
+    local soul = WorldSoul(x, y, { Game:getSoulColor() }, cage.z)
+    Game.world:addChild(soul)
+
+    soul.arrival_hover_height = soul.hover_height
+    soul.arrival_hover_bob = soul.hover_bob
+    soul.can_move = not play_arrival
+    soul.is_active = not play_arrival
+    if play_arrival then
+        soul.hover_height = 0
+        soul.hover_bob = 0
+        soul.hover_offset = 0
+        soul:syncVisualHover()
+    end
+    return soul
+end
+
+function Mod:enterWastes()
+    Game.world:loadMap("wastes_entrance")
+    local play_arrival = not Game:getFlag(WASTES_ARRIVAL_FLAG, false)
+    local soul = self:spawnWastesSoul(play_arrival)
+    if play_arrival then
+        Game.world:startCutscene("wastes", "arrival", soul, WASTES_ARRIVAL_FLAG)
+    else
+        Game.world:setCameraAttached(true)
+        local camera_x, camera_y = Game.world.camera:getTargetPosition()
+        Game.world.camera:setPosition(camera_x, camera_y)
+    end
 end
 
 function Mod:getUISkin(skin)
@@ -10,12 +59,16 @@ end
 
 function Mod:postInit(new_file)
     love.window.setTitle("INTERFACE")
+    Game:setFlag("playtest_mode", self.playtest)
+    Game:setFlag("audible_footsteps", true)
+    if not self.playtest and Kristal.checkPersistentVariable(CONNECTION_LOG_PATH) then
+        self:enterWastes()
+        return
+    end
     if new_file then
         if Game.world.player then
             Game.world.player.visible = false
         end
-        Game:setFlag("playtest_mode", self.playtest)
-        Game:setFlag("audible_footsteps", true)
 
         if self.playtest then
             Game.world:startCutscene("connection", "battle_test")

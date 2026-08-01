@@ -100,6 +100,7 @@ function WorldSoul:onAdd(parent)
     super.onAdd(self, parent)
     if parent:includes(World) then
         self.world = parent
+        self.layer = parent.map and parent.map.object_layer or self.layer
         self:setPlatformingEnabled(parent.map and parent.map.platforming)
         if not self.height_shadow then
             self.height_shadow = WorldSoulShadow(self)
@@ -199,6 +200,7 @@ function WorldSoul:enterMap(x, y, z)
     self.pit_recovery_progress = 0
     self.pit_recovery_teleported = false
     self.hover_offset = 0
+    self.layer = self.world.map and self.world.map.object_layer or self.layer
 
     Object.uncache(self)
     self:setPlatformingEnabled(self.world.map and self.world.map.platforming)
@@ -260,7 +262,7 @@ end
 ---@return number y
 function WorldSoul:getCameraTargetOffset(camera)
     if not self.platforming_enabled then return 0, 0 end
-    return 0, -(self.z + self.hover_offset)
+    return 0, -self.z
 end
 
 function WorldSoul:drawHeightOcclusionMask()
@@ -834,7 +836,8 @@ function WorldSoul:update()
         return
     end
 
-    if self.can_move and self.is_active and not self:isPitRecovering() then
+    if self.can_move and self.is_active and not Game.lock_movement
+        and not self:isPitRecovering() then
         self:doMovement()
     end
     self:updatePlatformMomentum()

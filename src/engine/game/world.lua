@@ -2196,7 +2196,8 @@ function World:isHeightDepthChild(child)
     if child.height_occlusion_proxy then
         return (child.face_direction or "front") == "front"
     end
-    return child.height_sort_subject == true and child.use_3d_collision == true
+    return child.height_sort_subject == true
+        and (child.use_3d_collision == true or child.height_depth_subject == true)
 end
 
 ---@param child Object

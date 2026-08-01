@@ -1504,8 +1504,8 @@ Process finished with exit code 7. Log file output to '../pv/plot/connection_log
         cutscene:wait(5)
         alarm:stop()
         Assets.stopSound("alert", true)
-        love.event.quit(7)
-        cutscene:wait(function() return false end)
+        Kristal.quickReload("none")
+        return
     end,
 
     ---@param cutscene WorldCutscene

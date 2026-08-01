@@ -109,6 +109,13 @@ function EditorObject:init(data, options)
         self:registerProperty("height_sensitive", "boolean", {
             name = "Height-Sensitive Interaction", default = true
         })
+        self:registerProperty("height_rendering", "choice", {
+            name = "Height-Depth Rendering", default = "auto", choices = {
+                { value = "auto", label = "Auto" },
+                { value = "enabled", label = "Enabled" },
+                { value = "disabled", label = "Disabled" }
+            }
+        })
         self:registerProperty("face_direction", "choice", {
             name = "Depth Face", default = "front", choices = {
                 { value = "front", label = "Front (+Y near)" },

@@ -419,14 +419,48 @@ function operations.loadRuntimeObject(self, source, layer, depth, layer_type, ru
             obj.surface_plane = height_properties.surface_plane
                 or height_properties.render_plane
                 or linked_surface and linked_surface.plane
+            local height_rendering = height_properties.height_rendering
+            if height_rendering == nil then
+                height_rendering = height_properties.height_sorting
+            end
+            if height_rendering == nil then
+                height_rendering = height_properties.height_depth
+            end
+            if type(height_rendering) == "string" then
+                height_rendering = height_rendering:lower()
+                if height_rendering == "enabled" or height_rendering == "true" then
+                    height_rendering = true
+                elseif height_rendering == "disabled" or height_rendering == "false" then
+                    height_rendering = false
+                else
+                    height_rendering = nil
+                end
+            end
             if self.platforming and obj.collider then
                 obj.use_3d_collision = true
-                obj.height_sort_subject = obj.drawHeightOcclusionMask ~= nil
+                if height_rendering == nil then
+                    obj.height_sort_subject = obj.drawHeightOcclusionMask ~= nil
+                        or obj.height_sort_subject == true
+                else
+                    obj.height_sort_subject = height_rendering
+                end
                 if linked_surface and math.abs(obj.z - linked_surface.top) <= 0.001 then
                     obj.ground_surface = linked_surface
                 elseif math.abs(obj.z) <= 0.001 then
                     obj.ground_surface = self:getImplicitSurface()
                 end
+            end
+            if self.platforming and not obj.collider then
+                local has_height_placement = linked_surface ~= nil
+                    or (obj.surface_id ~= nil and tostring(obj.surface_id) ~= "")
+                    or (height_properties.z ~= nil and math.abs(obj.z) > 0.001)
+                if height_rendering == nil then
+                    if has_height_placement then obj.height_sort_subject = true end
+                else
+                    obj.height_sort_subject = height_rendering
+                end
+                obj.height_depth_subject = obj.height_sort_subject == true
+                    and (has_height_placement or height_rendering == true)
             end
             obj.height_face_direction = height_properties.face_direction
                 or height_properties.face or "front"

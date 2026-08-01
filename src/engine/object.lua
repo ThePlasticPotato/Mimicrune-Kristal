@@ -101,6 +101,7 @@
 ---@field map_layer_sort_id string? Stable identity used to order equal-depth map drawables independently of editor layer order.
 ---@field height_occluder boolean? Whether this drawable participates in height-aware terrain sorting.
 ---@field height_sort_subject boolean? Whether height-aware occluders should compare against this object.
+---@field height_depth_subject boolean? Whether this non-colliding drawable participates in the GPU height-depth renderer.
 ---@field height_depth_transparent boolean? Whether the GPU height renderer must defer this object to its translucent pass.
 ---@field height_depth_offset number? A small view-depth offset, in pixels, used to order attached visual effects relative to their owner.
 ---

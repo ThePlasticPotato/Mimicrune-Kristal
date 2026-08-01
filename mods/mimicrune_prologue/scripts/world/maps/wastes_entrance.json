@@ -2430,10 +2430,10 @@
         },
         {
           "id": 63,
-          "name": "sprite",
+          "name": "cage_back",
           "type": "sprite",
           "x": 520,
-          "y": 600,
+          "y": 680,
           "width": 48,
           "height": 42,
           "shape": {
@@ -2448,19 +2448,9 @@
               "value": "world/events/cage_bg"
             },
             {
-              "name": "z",
-              "type": "number",
-              "value": 0
-            },
-            {
               "name": "surface_id",
               "type": "string",
               "value": "2"
-            },
-            {
-              "name": "surface_plane",
-              "type": "string",
-              "value": ""
             }
           ]
         }
@@ -2488,10 +2478,10 @@
       "objects": [
         {
           "id": 62,
-          "name": "sprite",
+          "name": "cage_front",
           "type": "sprite",
           "x": 520,
-          "y": 600,
+          "y": 680,
           "width": 48,
           "height": 42,
           "shape": {
@@ -2506,14 +2496,14 @@
               "value": "world/events/cage"
             },
             {
-              "name": "z",
-              "type": "number",
-              "value": 0
-            },
-            {
               "name": "surface_id",
               "type": "string",
               "value": "2"
+            },
+            {
+              "name": "height_rendering",
+              "type": "choice",
+              "value": "disabled"
             }
           ]
         },
