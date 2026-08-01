@@ -75,7 +75,7 @@ function WorldSoul:init(x, y, color, z)
     self.last_safe_surface_id = nil
 
     self.hover_height = configNumber("hover_height", 7)
-    self.hover_bob = configNumber("hover_bob", 1)
+    self.hover_bob = configNumber("hover_bob", 2)
     self.hover_speed = configNumber("hover_speed", 1.5)
     self.hover_offset = 0
     self.hover_time = 0
@@ -255,6 +255,12 @@ end
 
 function WorldSoul:getSortPosition()
     return self:getRelativePos(0, 0, self.parent)
+end
+
+---@return number x
+---@return number y
+function WorldSoul:getHeightCutoutCenter()
+    return 0, -(self.platforming_enabled and self.hover_offset or 0)
 end
 
 ---@param camera Camera

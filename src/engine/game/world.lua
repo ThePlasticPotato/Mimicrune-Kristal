@@ -2249,6 +2249,14 @@ function World:getHeightDepthParameters(child)
     local depth_offset = tonumber(child.height_depth_offset) or 0
     local transform =
         HeightTransform.fromLoveTransform(love.graphics.getTransform())
+    if child.height_depth_plane then
+        return transform:getDepthParameters({
+            anchor_x = sort_x,
+            anchor_y = sort_y,
+            horizontal_z = child:getFullHeightTransform():getZ(),
+            depth_offset = depth_offset
+        })
+    end
     if child.height_occlusion_proxy and child.getOcclusionZBounds then
         local _, top = child:getOcclusionZBounds()
         local face_y = child.face_position or sort_y

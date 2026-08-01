@@ -4,7 +4,7 @@ local WorldSoulShadow, super = Class(HeightShadow)
 ---@param owner WorldSoul
 function WorldSoulShadow:init(owner)
     super.init(self, owner)
-    self.height_depth_offset = -0.25
+    self.height_depth_offset = 0.05
 end
 
 function WorldSoulShadow:syncOwner()

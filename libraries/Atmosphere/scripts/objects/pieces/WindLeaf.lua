@@ -11,6 +11,8 @@ function WindLeaf:init(x, y, speed, handler)
     self.leaf:setOrigin(0.5, 0.5)
     self:addChild(self.leaf)
     self:setLayer(((handler.addto == Game.battle) and BATTLE_LAYERS["below_ui"] or WORLD_LAYERS["below_ui"]) - 1)
+    handler:configureHeightPiece(
+        self, MathUtils.random(12, SCREEN_HEIGHT * 0.75), true)
 end
 
 function WindLeaf:update()

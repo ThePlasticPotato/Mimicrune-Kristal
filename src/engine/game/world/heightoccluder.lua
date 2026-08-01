@@ -333,13 +333,29 @@ function HeightOccluder:getCutoutBoundaryCoordinates(
     return coordinates
 end
 
+---@param require_mask? boolean
+---@return Object? subject
+function HeightOccluder:getPrimaryHeightSubject(require_mask)
+    local world = self.map.world
+    if not world then return nil end
+    local subjects = { [1] = world.player, [2] = world.world_soul }
+    for index = 1, 2 do
+        local subject = subjects[index]
+        if subject and subject.visible and subject.height_sort_subject
+            and subject.use_3d_collision
+            and (not require_mask or subject.drawHeightOcclusionMask) then
+            return subject
+        end
+    end
+    return nil
+end
+
 ---@return Object? player
 function HeightOccluder:getCharacterCutoutTarget()
     if not self.cutout_enabled or self.cutout_radius <= 0 then return nil end
     local world = self.map.world
-    local player = world and world.player
-    if not player or not player.visible or not player.height_sort_subject
-        or not player.use_3d_collision then return nil end
+    local player = self:getPrimaryHeightSubject()
+    if not player then return nil end
     local _, occlusion_top = self:getOcclusionZBounds()
     if player:getFullZ() >= occlusion_top - 0.001
         or not self:isCoveringCharacter(player) then return nil end
@@ -354,8 +370,12 @@ end
 ---@param player Object
 function HeightOccluder:captureCharacterCutoutCenter(player)
     local player_transform = player:getFullHeightTransform()
+    local center_x, center_y = player.width / 2, player.height / 2
+    if player.getHeightCutoutCenter then
+        center_x, center_y = player:getHeightCutoutCenter()
+    end
     local screen_x, screen_y = player_transform:transformVisualPoint(
-        player.width / 2, player.height / 2
+        center_x, center_y
     )
     local parent_transform = self.parent and self.parent:getFullHeightTransform()
         or HeightTransform()
@@ -542,10 +562,8 @@ end
 
 ---@return Object? character
 function HeightOccluder:getCharacterReveal()
-    local player = self.map.world and self.map.world.player
-    if not player or not player.visible or not player.height_sort_subject
-        or not player.use_3d_collision
-        or not player.drawHeightOcclusionMask then return nil end
+    local player = self:getPrimaryHeightSubject(true)
+    if not player then return nil end
     local player_index, occluder_index = self:getCharacterDrawIndices(player)
     if not player_index or not occluder_index
         or player_index >= occluder_index then return nil end

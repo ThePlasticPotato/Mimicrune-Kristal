@@ -91,11 +91,17 @@ function Testing:runPlatformingTests()
         local billboard_depth = HeightTransform():getDepthParameters({
             anchor_x = 0, anchor_y = 100, z = 40
         })
+        local horizontal_depth = HeightTransform():getDepthParameters({
+            anchor_x = 0, anchor_y = 100, horizontal_z = 40
+        })
         local face_depth = HeightTransform():getDepthParameters({
             anchor_x = 0, anchor_y = 100,
             face_x = 0, face_y = 100, face_top_z = 60
         })
         expect(billboard_depth.anchor_y == 100 and billboard_depth.sort_depth == 140
+            and horizontal_depth.depth_mode == 2
+            and horizontal_depth.height_pixels == 40
+            and horizontal_depth.sort_depth == 140
             and face_depth.face_ground_y == 100 and face_depth.face_top_y == 40
             and face_depth.height_pixels == 60 and face_depth.sort_depth == 160,
             "height transforms should be the single source of billboard and terrain-face depth")
@@ -1515,6 +1521,11 @@ function Testing:runPlatformingTests()
     local _, _, _, opaque_alpha = cutout_data:getPixel(10, 30)
     expect(cutout_alpha > 0.2 and cutout_alpha < 0.35 and opaque_alpha > 0.95,
         "terrain covering a low character should become translucent only inside the cutout")
+    occlusion_map.world = {world_soul = cutout_player}
+    expect(runtime_occluder:getCharacterCutoutTarget() == cutout_player
+        and runtime_occluder:getCharacterReveal() == nil,
+        "height cutouts should use the WorldSoul when a player is not present")
+    occlusion_map.world = {player = cutout_player}
 
     TableUtils.removeValue(occlusion_root.children, cutout_player)
     table.insert(occlusion_root.children, runtime_occluder_index + 1, cutout_player)
@@ -1806,18 +1817,90 @@ function Testing:runPlatformingTests()
                     and soul_g == COLORS.gray[2]
                     and soul_b == COLORS.gray[3]
                     and soul_a == COLORS.gray[4]
-                    and Kristal.getLibConfig("worldsoul", "hover_height") == 16
+                    and Kristal.getLibConfig("worldsoul", "hover_height") == 32
                     and Kristal.getLibConfig("worldsoul", "hover_speed") == 0.5,
                     "the prologue should retain the intro's gray soul and use a visibly floating WorldSoul height")
+                local luminance_canvas = love.graphics.newCanvas(80, 80)
+                local luminance_depth = love.graphics.newCanvas(80, 80, {
+                    format = "depth24stencil8", readable = false
+                })
+                love.graphics.setCanvas({
+                    luminance_canvas,
+                    depthstencil = luminance_depth
+                })
+                love.graphics.clear(0.2, 0.2, 0.2, 1)
+                local luminance_overlay = WorldLuminanceOverlay()
+                luminance_overlay:draw()
+                love.graphics.setCanvas()
+                luminance_overlay.buffer:release()
+                luminance_canvas:release()
+                luminance_depth:release()
                 local camera_soul = setmetatable({
                     platforming_enabled = true,
                     z = 160,
-                    hover_offset = 16
+                    hover_offset = 32
                 }, { __index = WorldSoul })
                 local soul_camera_x, soul_camera_y =
                     camera_soul:getCameraTargetOffset()
-                expect(soul_camera_x == 0 and soul_camera_y == -160,
+                local cutout_soul_x, cutout_soul_y =
+                    camera_soul:getHeightCutoutCenter()
+                expect(soul_camera_x == 0 and soul_camera_y == -160
+                    and cutout_soul_x == 0 and cutout_soul_y == -32,
                     "the WorldSoul camera should follow logical elevation without following hover bobbing")
+                local soul_shadow = WorldSoulShadow({
+                    width = 16,
+                    height = 16,
+                    persistent = false,
+                    layer = 0
+                })
+                expect(soul_shadow.height_depth_offset == 0.05,
+                    "the WorldSoul shadow should sit just above its receiving platform instead of clipping into it")
+                expect(soul_shadow.height_depth_plane,
+                    "the WorldSoul shadow should use horizontal-plane depth across its whole footprint")
+                local ordinary_weather = Weather(1)
+                ordinary_weather.addto = {
+                    map = {platforming = false, object_layer = 12},
+                    getLandingSurface = function()
+                        error("ordinary weather must not query height surfaces")
+                    end
+                }
+                local ordinary_piece = Object(10, 20)
+                ordinary_piece.layer = 99
+                expect(not ordinary_weather:configureHeightPiece(
+                        ordinary_piece, 80, true)
+                    and ordinary_piece.y == 20 and ordinary_piece.z == 0
+                    and ordinary_piece.layer == 99
+                    and not ordinary_piece.weather_height_enabled,
+                    "Atmosphere should preserve its original 2D weather behavior on ordinary maps")
+
+                local landing_collider = {}
+                local landing_surface = {id = "weather_test"}
+                local height_world = {
+                    map = {platforming = true, object_layer = 12}
+                }
+                function height_world:getLandingSurface(probe, old_z, new_z)
+                    expect(probe.parent ~= nil and old_z == 80 and new_z == 20,
+                        "height-aware weather should sweep its point footprint downward")
+                    return 40, landing_collider, landing_surface
+                end
+                local height_weather = Weather(1)
+                height_weather.addto = height_world
+                local height_piece = Object(10, 20)
+                expect(height_weather:configureHeightPiece(
+                        height_piece, 80, true)
+                    and height_piece.y == 100 and height_piece.z == 80
+                    and height_piece.layer == 12
+                    and height_piece.height_sort_subject
+                    and height_piece.height_depth_subject
+                    and height_piece.height_depth_transparent
+                    and height_piece.weather_height_enabled,
+                    "Atmosphere particles should opt into platforming depth without changing their initial screen position")
+                local landed, weather_z, weather_collider, weather_surface =
+                    height_weather:advanceHeightPiece(height_piece, 60)
+                expect(landed and weather_z == 40 and height_piece.z == 40
+                    and weather_collider == landing_collider
+                    and weather_surface == landing_surface,
+                    "height-aware weather should land on the first crossed walkable surface")
                 local fog_map_data = Registry.getMapData("wastes_entrance")
                 local fog_root = Object()
                 local fog_map = Map(fog_root, fog_map_data)
@@ -1868,6 +1951,30 @@ function Testing:runPlatformingTests()
                     and World.isHeightDepthChild(fog_root, cage_back)
                     and not World.isHeightDepthChild(fog_root, cage_front),
                     "surface-linked decorative sprites should inherit elevation and support automatic or forced-overlay rendering without collision")
+                expect(select(1, Mod:getWastesSoulSpawnPosition(cage_back))
+                        == cage_back.x + cage_back.width * math.abs(cage_back.scale_x or 1) / 2
+                    and select(2, Mod:getWastesSoulSpawnPosition(cage_back))
+                        == cage_back.y + cage_back.height * math.abs(cage_back.scale_y or 1) - 4,
+                    "the Wastes soul should begin slightly above the bottom of its cage")
+                Mod:prepareWastesCageBack(cage_back, fog_map.object_layer)
+                expect(not cage_back.height_sort_subject
+                    and not cage_back.height_depth_subject
+                    and cage_back.layer < fog_map.object_layer
+                    and not World.isHeightDepthChild(fog_root, cage_back),
+                    "the cage back should remain behind the soul throughout the arrival reveal")
+                Mod:releaseWastesCageFront(cage_front, fog_map.object_layer)
+                expect(cage_front.height_sort_subject
+                    and cage_front.height_depth_subject
+                    and cage_front.layer == fog_map.object_layer
+                    and cage_front.height_depth_offset == 0.001
+                    and World.isHeightDepthChild(fog_root, cage_front),
+                    "the cage front should join normal height-depth sorting with a stable tie-break over the cage back once the soul finishes rising")
+                Mod:releaseWastesCageBack(cage_back, fog_map.object_layer)
+                expect(cage_back.height_sort_subject
+                    and cage_back.height_depth_subject
+                    and cage_back.layer == fog_map.object_layer
+                    and World.isHeightDepthChild(fog_root, cage_back),
+                    "the cage back should resume normal depth behavior when the arrival cutscene ends")
                 expect(Registry.getWorldCutscene("wastes", "arrival") ~= nil,
                     "the Wastes entrance should register its post-connection arrival cutscene")
             end)()

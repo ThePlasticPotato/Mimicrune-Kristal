@@ -8,7 +8,7 @@
     "config": {
         "override_world_collision_behavior": false, // Legacy option; retained for compatibility.
         "hover_height": 7,
-        "hover_bob": 1,
+        "hover_bob": 2,
         "hover_speed": 1.5,
         "collision_depth": 12,
         "fall_gravity": 0.4,

@@ -22,6 +22,7 @@ function RainDrop:init(number, x, y, speed, handler, sprite_path)
     self.initx, self.inity = self.x, self.y
     self.splash_travel = MathUtils.random(SCREEN_HEIGHT * 0.2, SCREEN_HEIGHT * 0.95)
     self.splash_checked = false
+    handler:configureHeightPiece(self, self.splash_travel, true)
 end
 
 function RainDrop:update()
@@ -31,13 +32,23 @@ function RainDrop:update()
     local horizontal = self.handler.type == "flipped_rain" and 0.5 or -0.5
     horizontal = horizontal + (self.handler.wind_direction or 0) * (self.handler.wind_strength or 0)
     self.x = self.x + self.speed * horizontal * DTMULT
-    self.y = self.y + self.speed * DTMULT
-
-    if not self.splash_checked and self.y - self.inity >= self.splash_travel then
-        self.splash_checked = true
-        if self:spawnSplashIfWalkable() then
+    if self.weather_height_enabled then
+        local landed, landing_z, collider, surface =
+            self.handler:advanceHeightPiece(self, self.speed * DTMULT)
+        if landed then
+            self:spawnSplashIfWalkable(landing_z, collider, surface)
             self:remove()
             return
+        end
+    else
+        self.y = self.y + self.speed * DTMULT
+
+        if not self.splash_checked and self.y - self.inity >= self.splash_travel then
+            self.splash_checked = true
+            if self:spawnSplashIfWalkable() then
+                self:remove()
+                return
+            end
         end
     end
 
@@ -47,21 +58,28 @@ function RainDrop:update()
     end
 end
 
-function RainDrop:spawnSplashIfWalkable()
+function RainDrop:spawnSplashIfWalkable(landing_z, landing_collider, landing_surface)
     if self.addto ~= Game.world or self.handler:isInside() then return false end
     if not (Game.world and Game.world.map and Game.world.inBounds and Game.world:inBounds(self.x, self.y)) then return false end
 
     local tile = Game.world:getSteppableTile(self.x, self.y)
-    if not tile then return false end
+    if not self.weather_height_enabled and not tile then return false end
+    if self.weather_height_enabled and landing_z == nil then return false end
 
     local splash_size = 1
-    local sound = tile.rain_sound
+    local sound = tile and tile.rain_sound
     if sound and sound ~= "" then
         Assets.playSound(sound .. MathUtils.randomInt(1, 2), 0.1, 1 + MathUtils.random(-0.15, 0.15))
         splash_size = 2
     end
 
     local splash = Splash(self.x, self.y, self.addto, splash_size)
+    if self.weather_height_enabled then
+        self.handler:configureHeightPiece(splash, landing_z, false)
+        splash.height_depth_offset = 0.05
+        splash.ground_collider = landing_collider
+        splash.ground_surface = landing_surface
+    end
     self.addto:addChild(splash)
     splash:setLayer(self.layer)
     return true

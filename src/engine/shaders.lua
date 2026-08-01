@@ -166,6 +166,10 @@ Shaders["HeightDepth"] = love.graphics.newShader[[
             // screen_y = ground_y - pixel_height, so this reconstructs
             // ground_y + pixel_height.
             view_depth = 2.0 * anchor_y - screen_coords.y;
+        } else if (depth_mode > 1.5) {
+            // Flat effects such as ground shadows follow the horizontal plane
+            // for their entire footprint, including pixels below the anchor.
+            view_depth = screen_coords.y + 2.0 * height_pixels;
         } else if (screen_coords.y <= face_top_y) {
             // Pixels above the face boundary lie on the horizontal top plane
             view_depth = screen_coords.y + 2.0 * height_pixels;

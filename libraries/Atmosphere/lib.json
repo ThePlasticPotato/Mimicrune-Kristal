@@ -8,6 +8,7 @@
     "engineVer": "v0.11.0-dev",
 
     "config": {
+        "platforming_depth": true,
         "footsteps_audible_by_default": true,
         "step_volume": 0.8,
         "step_volume_max": 2.3,

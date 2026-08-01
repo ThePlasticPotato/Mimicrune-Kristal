@@ -251,7 +251,7 @@ function HeightTransform:transformProjectedPoint(x, y, z)
 end
 
 --- Builds the complete screenspace inputs consumed by the height-depth shader.
----@param options {anchor_x:number?, anchor_y:number?, z:number?, depth_offset:number?, face_x:number?, face_y:number?, face_top_z:number?}
+---@param options {anchor_x:number?, anchor_y:number?, z:number?, horizontal_z:number?, depth_offset:number?, face_x:number?, face_y:number?, face_top_z:number?}
 ---@return table parameters
 function HeightTransform:getDepthParameters(options)
     options = options or {}
@@ -271,7 +271,14 @@ function HeightTransform:getDepthParameters(options)
         sort_depth = screen_anchor_y + depth_offset
     }
 
-    if options.face_top_z ~= nil then
+    if options.horizontal_z ~= nil then
+        local _, projected_y = self:transformProjectedPoint(
+            anchor_x, anchor_y, options.horizontal_z)
+        local height_pixels = screen_anchor_y - projected_y
+        parameters.depth_mode = 2
+        parameters.height_pixels = height_pixels
+        parameters.sort_depth = screen_anchor_y + height_pixels + depth_offset
+    elseif options.face_top_z ~= nil then
         local face_x = options.face_x or anchor_x
         local face_y = options.face_y or anchor_y
         local _, face_ground_y =

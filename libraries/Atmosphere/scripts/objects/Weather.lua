@@ -189,6 +189,59 @@ function Weather:addPiece(piece)
     return piece
 end
 
+---@return boolean
+function Weather:usesPlatformingDepth()
+    local target = self.addto or self:getTarget()
+    return Atmosphere:getConfig("platforming_depth") ~= false
+        and target ~= nil and target.map ~= nil
+        and target.map.platforming == true
+        and target.getLandingSurface ~= nil
+end
+
+---@param piece Object
+---@param altitude? number
+---@param preserve_visual_position? boolean
+---@return boolean enabled
+function Weather:configureHeightPiece(piece, altitude, preserve_visual_position)
+    if not self:usesPlatformingDepth() then return false end
+
+    local target = self.addto or self:getTarget()
+    altitude = math.max(tonumber(altitude) or 0, 0)
+    if preserve_visual_position then
+        piece.y = piece.y + altitude
+    end
+    piece.z = altitude
+    piece.layer = target.map.object_layer
+    piece.height_sort_subject = true
+    piece.height_depth_subject = true
+    piece.height_depth_transparent = true
+    piece.weather_height_probe = PointCollider(piece, 0, 0)
+    piece.weather_height_enabled = true
+    return true
+end
+
+---@param piece Object
+---@param distance number
+---@return boolean landed
+---@return number? landing_z
+---@return Collider? collider
+---@return table? surface
+function Weather:advanceHeightPiece(piece, distance)
+    if not piece.weather_height_enabled then return false end
+
+    local target = self.addto or self:getTarget()
+    local old_z = piece.z
+    local new_z = old_z - math.max(distance or 0, 0)
+    local landing_z, collider, surface = target:getLandingSurface(
+        piece.weather_height_probe, old_z, new_z)
+    if landing_z ~= nil then
+        piece.z = landing_z
+        return true, landing_z, collider, surface
+    end
+    piece.z = new_z
+    return false
+end
+
 ---@return WeatherOverlay?
 function Weather:createOverlay()
     local target = self.addto or self:getTarget()

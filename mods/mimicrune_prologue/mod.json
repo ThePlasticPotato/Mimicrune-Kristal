@@ -59,7 +59,7 @@
             // End of config
         },
         "worldsoul": {
-            "hover_height": 16,
+            "hover_height": 32,
             "hover_speed": 0.5
         }
     },

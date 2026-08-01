@@ -12,6 +12,20 @@ local SHADOW_OVERLAYS = {
     },
 }
 
+local function getColorCanvas(target)
+    if type(target) == "userdata" then return target end
+    if type(target) ~= "table" then return nil end
+
+    local first = target[1]
+    if type(first) == "userdata" then return first end
+    if type(first) == "table" then
+        if type(first[1]) == "userdata" then return first[1] end
+        if type(first.canvas) == "userdata" then return first.canvas end
+    end
+    if type(target.canvas) == "userdata" then return target.canvas end
+    return nil
+end
+
 function WorldLuminanceOverlay:init()
     super.init(self)
 
@@ -33,7 +47,8 @@ function WorldLuminanceOverlay:getTimePalette()
 end
 
 function WorldLuminanceOverlay:draw()
-    local source = love.graphics.getCanvas()
+    local canvas_binding = love.graphics.getCanvas()
+    local source = getColorCanvas(canvas_binding)
     if not source then
         return
     end
@@ -68,7 +83,7 @@ function WorldLuminanceOverlay:draw()
         love.graphics.rectangle("fill", 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
     end
 
-    love.graphics.setCanvas(source)
+    love.graphics.setCanvas(canvas_binding)
     love.graphics.origin()
     love.graphics.setShader()
     love.graphics.setBlendMode("replace", "premultiplied")
