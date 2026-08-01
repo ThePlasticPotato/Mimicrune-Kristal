@@ -14,6 +14,13 @@ function EditorLaunchVent:init(data, options)
     self:registerProperty("direction", "choice", { default = "right", choices = {
         "up", "down", "left", "right"
     } })
+    self:registerProperty("pad_variant", "choice", {
+        name = "Pad Appearance", default = "auto", choices = {
+            { value = "auto", label = "Auto" },
+            { value = "directional", label = "Directional" },
+            { value = "universal", label = "Universal" }
+        }
+    })
     self:registerProperty("target", "object_reference", {
         name = "Landing Target", allowed_types = { "marker", "player" }
     })
@@ -67,7 +74,25 @@ end
 
 function EditorLaunchVent:getEditorSprite(data)
     local properties = data.properties or {}
-    return "world/events/ventlauncher/" .. (properties.direction or "right")
+    local direction = properties.direction or "right"
+    local variant = properties.pad_variant or properties.variant or "auto"
+    local universal = variant == "universal"
+    if variant == "auto" and properties.mode == "force" then
+        local directions = {
+            up = { 0, -1 }, down = { 0, 1 }, left = { -1, 0 }, right = { 1, 0 }
+        }
+        local fallback = directions[direction] or directions.right
+        local force_speed = tonumber(properties.force_speed) or 8
+        local force_x = tonumber(properties.force_x)
+        local force_y = tonumber(properties.force_y)
+        if force_x == nil then force_x = fallback[1] * force_speed end
+        if force_y == nil then force_y = fallback[2] * force_speed end
+        universal = math.abs(force_x) < 0.001 and math.abs(force_y) < 0.001
+    end
+    if universal and Assets.getFramesOrTexture("world/events/ventlauncher/universal") then
+        return "world/events/ventlauncher/universal"
+    end
+    return "world/events/ventlauncher/" .. direction
 end
 
 function EditorLaunchVent:createObject(map, context)

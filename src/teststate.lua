@@ -1079,6 +1079,13 @@ function Testing:runPlatformingTests()
             and direction_x == 0 and direction_y == -1
             and launch_vent.width == 40 and launch_vent.height == 40,
             "runtime launch vents should use the reference animation footprint and authored force mode")
+
+        local universal_vent = LaunchVent({ x = 0, y = 0, properties = {
+            mode = "force", force_x = 0, force_y = 0, force_z = 15
+        } })
+        expect(universal_vent:wantsUniversalPad()
+            and vent_editor.property_set:getProperty("pad_variant").type == "choice",
+            "pure vertical force vents should automatically select the universal pad variant")
     end)()
 
     local applied_height_animation

@@ -18,6 +18,7 @@ function LaunchVent:init(data)
 
     self.mode = properties.mode == "force" and "force" or "target"
     self.direction = DIRECTIONS[properties.direction] and properties.direction or "right"
+    self.pad_variant = properties.pad_variant or properties.variant or "auto"
     self.enabled = properties.enabled ~= false
     self.distance = tonumber(properties.distance) or 240
     self.target = properties.target or properties.marker
@@ -48,13 +49,15 @@ function LaunchVent:init(data)
     self.steam_timer = 0
     self.burst_steam = 0
 
-    --self:setSprite("world/events/ventlauncher/" .. self.direction, 4 / 30)
+    self.sprite_variant = self:getSpriteVariant()
+    self:setSprite("world/events/ventlauncher/" .. self.sprite_variant, 4 / 30)
 end
 
 function LaunchVent:getDebugInfo()
     local info = super.getDebugInfo(self)
     table.insert(info, "Mode: " .. self.mode)
     table.insert(info, "Direction: " .. self.direction)
+    table.insert(info, "Pad variant: " .. self.sprite_variant)
     table.insert(info, "Busy: " .. tostring(self.busy))
     return info
 end
@@ -64,9 +67,37 @@ function LaunchVent:getDirectionVector()
     return direction[1], direction[2], direction[3]
 end
 
+function LaunchVent:getForceVector()
+    local direction_x, direction_y = self:getDirectionVector()
+    return self.force_x ~= nil and self.force_x or direction_x * self.force_speed,
+        self.force_y ~= nil and self.force_y or direction_y * self.force_speed,
+        self.force_z
+end
+
+--- Whether this vent is intentionally directionless. Auto mode uses the
+--- neutral pad only for a static-force launch with no horizontal component.
+function LaunchVent:wantsUniversalPad()
+    if self.pad_variant == "universal" then return true end
+    if self.pad_variant == "directional" then return false end
+    if self.mode ~= "force" then return false end
+    local force_x, force_y = self:getForceVector()
+    return math.abs(force_x) < 0.001 and math.abs(force_y) < 0.001
+end
+
+function LaunchVent:getSpriteVariant()
+    if self:wantsUniversalPad() then
+        local universal = "world/events/ventlauncher/universal"
+        -- The neutral art may be supplied by a mod. Fall back safely for
+        -- projects which only have the original directional reference art.
+        if Assets.getFramesOrTexture(universal) then return "universal" end
+    end
+    return self.direction
+end
+
 function LaunchVent:spawnSteam(speed)
     if not self.world then return end
     local _, _, angle = self:getDirectionVector()
+    if self.sprite_variant == "universal" then angle = -math.pi / 2 end
     local spread = math.rad(love.math.random(-18, 18))
     local steam = VentSteam(
         self.x + self.width / 2,
@@ -130,12 +161,8 @@ function LaunchVent:finishCapture(player)
 
     local launched
     if self.mode == "force" then
-        local direction_x, direction_y = self:getDirectionVector()
-        launched = player:launchXYZ(
-            self.force_x or direction_x * self.force_speed,
-            self.force_y or direction_y * self.force_speed,
-            self.force_z,
-            options)
+        local force_x, force_y, force_z = self:getForceVector()
+        launched = player:launchXYZ(force_x, force_y, force_z, options)
     else
         local target_x, target_y, target_z = self:resolveTarget(player)
         options.duration = self.duration
@@ -155,7 +182,9 @@ end
 function LaunchVent:beginCapture(player)
     self.busy = true
     self.cooldown_timer = self.cooldown_time
-    player:setFacing(self.direction)
+    if self.sprite_variant ~= "universal" then
+        player:setFacing(self.direction)
+    end
 
     local ground_z, ground, surface = self.world:getGroundZAt(
         player.support_collider, player.z + 0.75, player.collider)
@@ -175,7 +204,8 @@ function LaunchVent:beginCapture(player)
 
     local hold_time = self.hold_time
     if hold_time == nil then hold_time = self.mode == "target" and 0.3 or 0 end
-    hold_time = math.max(hold_time, self.center_time)
+    hold_time = math.max(hold_time, 0)
+    if hold_time > 0 then hold_time = math.max(hold_time, self.center_time) end
     self.capture = {
         player = player,
         elapsed = 0,
