@@ -1,8 +1,9 @@
 ---@class DraftOverlayStore
 ---@field data table
 ---@field editor Editor
----@field filename string
+---@field filename string?
 ---@field history_revision number
+---@field legacy_filename string
 ---@field plugin DraftOverlayPlugin
 ---@field saved_history_revision number
 local DraftOverlayStore = Class()
@@ -14,13 +15,26 @@ function DraftOverlayStore:init(plugin, editor)
     self.saved_history_revision = 0
     local project_id = tostring(editor.project_id or Mod and Mod.info and Mod.info.id or "project")
     local filename = project_id:gsub("[^%w%._%-]", "_")
-    self.filename = "editor/drafts/" .. filename .. ".json"
+    self.filename = Mod and Mod.info and Mod.info.path
+        and Mod.info.path .. "/editor/drafts.json" or nil
+    self.legacy_filename = "editor/drafts/" .. filename .. ".json"
     self.data = { version = 1, next_id = 1, maps = {}, worlds = {}, tasks = {} }
     self:load()
 end
 
 function DraftOverlayStore:load()
-    local contents = love.filesystem.read(self.filename)
+    local contents, reason
+    local migrate = false
+    if self.filename and love.filesystem.getInfo(self.filename, "file") then
+        contents, reason = ProjectFileSystem.readFile(self.filename)
+        if not contents then
+            self.editor:addWarning("Could not load draft overlays", tostring(reason), "draft_overlay")
+            return false
+        end
+    else
+        contents = love.filesystem.read(self.legacy_filename)
+        migrate = contents ~= nil
+    end
     if not contents then return false end
     local success, data = pcall(JSON.decode, contents)
     if not success or type(data) ~= "table" then
@@ -36,6 +50,7 @@ function DraftOverlayStore:load()
     data.tasks = type(data.tasks) == "table" and data.tasks or {}
     self.data = data
     self:normalizeTasks(data.tasks)
+    if migrate then self:save() end
     return true
 end
 
@@ -51,13 +66,17 @@ function DraftOverlayStore:normalizeTasks(tasks)
 end
 
 function DraftOverlayStore:save()
-    love.filesystem.createDirectory("editor/drafts")
+    if not self.filename then
+        self.editor:addWarning("Could not save draft overlays",
+            "No writable project is loaded", "draft_overlay")
+        return false
+    end
     local success, encoded = pcall(JSON.encode, self.data)
     if not success then
         self.editor:addWarning("Could not encode draft overlays", tostring(encoded), "draft_overlay")
         return false
     end
-    local written, reason = love.filesystem.write(self.filename, encoded)
+    local written, reason = ProjectFileSystem.writeFile(self.filename, encoded)
     if not written then
         self.editor:addWarning("Could not save draft overlays", tostring(reason), "draft_overlay")
         return false
