@@ -46,6 +46,7 @@ function Player:init(chara, x, y)
     self.z_velocity = 0
     self.platform_momentum_x = 0
     self.platform_momentum_y = 0
+    self.external_launch = nil
     self.ground_z = 0
     self.ground_collider = nil
     self.ground_surface = nil
@@ -329,6 +330,7 @@ end
 
 ---@param parent World
 function Player:onRemove(parent)
+    Player.finishExternalLaunch(self, false)
     if parent and parent.removeFX then
         parent:removeFX("pit_recovery")
     end
@@ -804,6 +806,7 @@ function Player:setPlatformingEnabled(enabled)
     self.use_3d_collision = self.platforming_enabled
 
     if not self.platforming_enabled then
+        Player.finishExternalLaunch(self, false)
         self.z = 0
         self.z_velocity = 0
         self.platform_momentum_x = 0
@@ -964,6 +967,152 @@ function Player:jump(strength)
     return true
 end
 
+--- Calculates a velocity that reaches an XYZ point after a fixed duration.
+--- Height physics use per-30-FPS-frame velocity, so this solves the same
+--- discrete integration performed by updateHeightJump/updateHeightFall.
+---@param target_x number
+---@param target_y number
+---@param target_z number
+---@param duration? number
+---@return number velocity_x
+---@return number velocity_y
+---@return number velocity_z
+---@return number actual_duration
+function Player:calculateLaunchVelocityTo(target_x, target_y, target_z, duration)
+    local frames = math.max(1, math.floor(math.max(tonumber(duration) or 0.75, 1 / 30) * 30 + 0.5))
+    local gravity = math.max(tonumber(self.z_gravity) or 0, 0)
+    local delta_z = (tonumber(target_z) or self.z) - self.z
+    return ((tonumber(target_x) or self.x) - self.x) / frames,
+        ((tonumber(target_y) or self.y) - self.y) / frames,
+        (delta_z + gravity * frames * (frames + 1) / 2) / frames,
+        frames / 30
+end
+
+--- Calculates a target launch whose apex rises approximately `apex_height`
+--- above the higher endpoint. The final velocity is recomputed for a whole
+--- number of physics frames so the requested landing Z remains exact.
+---@param target_x number
+---@param target_y number
+---@param target_z number
+---@param apex_height number
+---@return number velocity_x
+---@return number velocity_y
+---@return number velocity_z
+---@return number actual_duration
+function Player:calculateArcLaunchVelocityTo(target_x, target_y, target_z, apex_height)
+    local gravity = math.max(tonumber(self.z_gravity) or 0.6, 0.001)
+    target_z = tonumber(target_z) or self.z
+    local peak_delta = math.max(target_z, self.z) - self.z
+        + math.max(tonumber(apex_height) or 0, 1)
+    local apex_frames = math.max(1, math.floor(math.sqrt(2 * peak_delta / gravity) + 0.5))
+    local estimated_velocity = peak_delta / apex_frames
+        + gravity * (apex_frames + 1) / 2
+
+    -- Solve dz = n*v - g*n*(n+1)/2 and take the descending root.
+    local delta_z = target_z - self.z
+    local a = gravity / 2
+    local b = gravity / 2 - estimated_velocity
+    local discriminant = math.max(b * b - 4 * a * delta_z, 0)
+    local landing_frames = math.max(apex_frames + 1,
+        math.ceil((-b + math.sqrt(discriminant)) / (2 * a) - 0.000001))
+    local velocity_z = (delta_z
+        + gravity * landing_frames * (landing_frames + 1) / 2) / landing_frames
+    return ((tonumber(target_x) or self.x) - self.x) / landing_frames,
+        ((tonumber(target_y) or self.y) - self.y) / landing_frames,
+        velocity_z, landing_frames / 30
+end
+
+--- Ends a launch created by launchXYZ/launchToXYZ.
+---@param landed? boolean
+function Player:finishExternalLaunch(landed)
+    local launch = self.external_launch
+    if not launch then return end
+    self.external_launch = nil
+    if launch.owns_movement_lock then
+        Game.lock_movement = launch.previous_movement_lock
+    end
+    if launch.callback then launch.callback(self, landed == true) end
+end
+
+--- Launches the player using an actual XYZ velocity. X/Y values are pixels
+--- per 30-FPS physics frame, matching run and moving-platform momentum.
+--- Options: `lock_movement`, `jump_sound`, and `on_finish(player, landed)`.
+---@param velocity_x number
+---@param velocity_y number
+---@param velocity_z number
+---@param options? table
+---@return boolean launched
+function Player:launchXYZ(velocity_x, velocity_y, velocity_z, options)
+    options = options or {}
+    if not self.platforming_enabled or self:isPitRecovering()
+        or self:isClimbing() or self:isSliding() then return false end
+
+    self:finishExternalLaunch(false)
+    self.external_launch = {
+        callback = options.on_finish,
+        owns_movement_lock = options.lock_movement == true,
+        previous_movement_lock = Game.lock_movement
+    }
+    if self.external_launch.owns_movement_lock then Game.lock_movement = true end
+
+    velocity_x = tonumber(velocity_x) or 0
+    velocity_y = tonumber(velocity_y) or 0
+    velocity_z = tonumber(velocity_z) or 0
+    local height_state = self:getHeightState()
+    if velocity_z > 0 then
+        self._suppress_height_jump_sound = options.jump_sound == false
+        if height_state ~= "JUMP" then
+            self.height_state_manager:setState("JUMP", velocity_z)
+        else
+            self.pending_jump_strength = nil
+            self.jump_windup_timer = 0
+            self:setHeightAnimation("jump")
+        end
+        self._suppress_height_jump_sound = nil
+    else
+        if height_state ~= "FALL" then
+            self.height_state_manager:setState("FALL")
+        else
+            self:setHeightAnimation("fall")
+        end
+    end
+
+    self.pending_jump_strength = nil
+    self.jump_windup_timer = 0
+    self.z_velocity = velocity_z
+    self.platform_momentum_x = velocity_x
+    self.platform_momentum_y = velocity_y
+    self.airborne_surface = self.airborne_surface or self.ground_surface
+        or self.world:getImplicitHeightSurface()
+    self.ground_collider = nil
+    self.ground_surface = nil
+    return true
+end
+
+--- Launches the player to an XYZ landing point with a ballistic arc.
+--- `apex_height` selects an apex-driven arc; otherwise `duration` (default
+--- 0.75 seconds) determines the arc. All other options pass to launchXYZ.
+---@param target_x number
+---@param target_y number
+---@param target_z number
+---@param options? table
+---@return boolean launched
+---@return number? duration
+function Player:launchToXYZ(target_x, target_y, target_z, options)
+    options = options or {}
+    local velocity_x, velocity_y, velocity_z, duration
+    if tonumber(options.apex_height) then
+        velocity_x, velocity_y, velocity_z, duration =
+            self:calculateArcLaunchVelocityTo(
+                target_x, target_y, target_z, options.apex_height)
+    else
+        velocity_x, velocity_y, velocity_z, duration =
+            self:calculateLaunchVelocityTo(
+                target_x, target_y, target_z, options.duration)
+    end
+    return self:launchXYZ(velocity_x, velocity_y, velocity_z, options), duration
+end
+
 function Player:isDashAnimationActive()
     return self.state_manager.state == "DASH"
 end
@@ -1007,7 +1156,9 @@ function Player:launchHeightJump()
         or self.world:getImplicitHeightSurface()
     self.ground_collider = nil
     self.ground_surface = nil
-    Assets.playSound("jump", 0.7)
+    if not self._suppress_height_jump_sound then
+        Assets.playSound("jump", 0.7)
+    end
 end
 
 function Player:updateHeightGrounded()
@@ -1303,6 +1454,7 @@ function Player:updateHeightFall()
         self.z_velocity = 0
         self:recordLandingCollisionOverlaps()
         self.height_state_manager:setState("LAND")
+        Player.finishExternalLaunch(self, true)
     else
         self.z = new_z
         self:updateFallThroughColliders()
@@ -1353,6 +1505,7 @@ function Player:recoverFromPit()
 end
 
 function Player:beginHeightPitRecovery()
+    Player.finishExternalLaunch(self, false)
     self.z_velocity = 0
     self.jump_windup_timer = 0
     self.pending_jump_strength = nil

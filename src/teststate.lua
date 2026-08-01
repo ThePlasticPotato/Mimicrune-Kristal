@@ -1021,6 +1021,66 @@ function Testing:runPlatformingTests()
         platforming_enabled = true, shadow_z = 40, z = 40
     }), "the platforming shadow should remain visible while grounded")
 
+    ;(function()
+        local launch_solver = { x = 10, y = 20, z = 30, z_gravity = 0.6 }
+        local vx, vy, vz, duration = Player.calculateLaunchVelocityTo(
+            launch_solver, 230, -90, 70, 0.75)
+        local frames = math.floor(duration * 30 + 0.5)
+        local final_z = launch_solver.z + frames * vz
+            - launch_solver.z_gravity * frames * (frames + 1) / 2
+        expect(math.abs(launch_solver.x + vx * frames - 230) < 0.001
+            and math.abs(launch_solver.y + vy * frames + 90) < 0.001
+            and math.abs(final_z - 70) < 0.001,
+            "target vents should solve their XYZ landing point using the player's discrete height physics")
+
+        local arc_vx, arc_vy, arc_vz, arc_duration =
+            Player.calculateArcLaunchVelocityTo(launch_solver, 90, 60, 10, 50)
+        local arc_frames = math.floor(arc_duration * 30 + 0.5)
+        local arc_final_z = launch_solver.z + arc_frames * arc_vz
+            - launch_solver.z_gravity * arc_frames * (arc_frames + 1) / 2
+        expect(arc_vz > 0
+            and math.abs(launch_solver.x + arc_vx * arc_frames - 90) < 0.001
+            and math.abs(launch_solver.y + arc_vy * arc_frames - 60) < 0.001
+            and math.abs(arc_final_z - 10) < 0.001,
+            "apex-authored vent arcs should still terminate at the requested XYZ point")
+
+        local old_lock = Game.lock_movement
+        local callback_landed
+        Game.lock_movement = true
+        local launched_player = {
+            external_launch = {
+                owns_movement_lock = true,
+                previous_movement_lock = false,
+                callback = function(_, landed) callback_landed = landed end
+            }
+        }
+        Player.finishExternalLaunch(launched_player, true)
+        expect(not Game.lock_movement and callback_landed == true
+            and launched_player.external_launch == nil,
+            "a completed vent flight should release its owned movement lock exactly once")
+        Game.lock_movement = old_lock
+
+        local vent_editor_class = Registry.getEditorObject("launchvent")
+        expect(vent_editor_class,
+            "launch vents should be registered as built-in editor objects")
+        local vent_editor = vent_editor_class({
+            properties = {}, __editor_property_types = {}
+        }, { layer_type = Registry.getLayerType("objects") })
+        expect(vent_editor.property_set:getProperty("mode").type == "choice"
+            and vent_editor.property_set:getProperty("target").type == "object_reference"
+            and vent_editor.property_set:getProperty("force_z").type == "number",
+            "launch vents should expose target-arc and static XYZ force authoring controls")
+
+        local launch_vent = LaunchVent({ x = 0, y = 0, properties = {
+            mode = "force", direction = "up", force_z = 15
+        } })
+        local direction_x, direction_y = launch_vent:getDirectionVector()
+        expect(launch_vent.mode == "force" and launch_vent.force_z == 15
+            and direction_x == 0 and direction_y == -1
+            and launch_vent.width == 40 and launch_vent.height == 40,
+            "runtime launch vents should use the reference animation footprint and authored force mode")
+    end)()
+
     local applied_height_animation
     local dash_animation_player = {
         state_manager = { state = "DASH" },
