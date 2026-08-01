@@ -28,7 +28,6 @@ return {
             hover_done = true
         end)
         cutscene:wait(function() return hover_done end)
-        Mod:releaseWastesCageFront()
         soul.hover_bob = soul.arrival_hover_bob or 1
         cutscene:wait(0.75)
 
@@ -37,6 +36,7 @@ return {
         cutscene:wait(cutscene:attachCamera(0.6))
 
         Mod:releaseWastesCageBack()
+        Mod:releaseWastesCageFront()
         soul.can_move = true
         soul.is_active = true
         Game:setFlag(completion_flag, true)

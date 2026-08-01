@@ -1354,6 +1354,37 @@ function Testing:runPlatformingTests()
         "the dynamic proxy must not lift near-side wall pixels over later terrain layers")
 
     do
+        (function()
+            local composite_surface = {
+                id = "composite",
+                bottom = 0,
+                top = 40,
+                support_colliders = { {}, {} },
+                support_bounds = {
+                    min_x = 0, min_y = 0, max_x = 100, max_y = 100
+                }
+            }
+            local composite_map = {
+                id = "composite_occlusion_test",
+                getSurface = function(_, id)
+                    return id == "composite" and composite_surface or nil
+                end
+            }
+            local composite_occluder = HeightOccluder(composite_map, {
+                id = 4, name = "local face", shape = "rectangle",
+                x = 40, y = 10, width = 20, height = 50
+            }, { offsetx = 0, offsety = 0 }, {
+                surface_id = "composite", face_direction = "front"
+            })
+            composite_occluder:resolveSurface()
+            expect(composite_occluder.face_position == 60
+                and composite_occluder.face_bounds.min_x == 40
+                and composite_occluder.face_bounds.max_x == 60,
+                "occluders on a composite surface should use their local authored face instead of the union's far edge")
+        end)()
+    end
+
+    do
         local aligned_root = Object()
         aligned_root.height_occlusion_draw_frame = 77
         local aligned_character = Object(10.4, 20.4, 1, 1)
@@ -1510,6 +1541,10 @@ function Testing:runPlatformingTests()
     runtime_occluder.cutout_feather = 0
     runtime_occluder.cutout_wobble = 0
     runtime_occluder.sort_y = 30
+    cutout_player.x = 100
+    expect(runtime_occluder:getCharacterCutoutTarget() == nil,
+        "height cutouts should remain inactive when a behind character does not overlap their terrain mask")
+    cutout_player.x = 0
     runtime_occluder:updateCutoutAnimation(runtime_occluder.cutout_grow_time)
     love.graphics.setCanvas({ occlusion_canvas, stencil = true })
     love.graphics.origin()
@@ -1568,6 +1603,157 @@ function Testing:runPlatformingTests()
             animated:updateCutoutAnimation(0.1)
             expect(animated.cutout_visibility == 1,
                 "cutout growth should reach the full authored radius")
+
+            do
+                (function()
+                    local crossing_subject = {}
+                    local crossing_map = { height_occluders = {} }
+                    local crossing_source = {}
+                    local function region(active, seed, min_x, max_x)
+                        return setmetatable({
+                            parent = {},
+                            map = crossing_map,
+                            cutout_enabled = true,
+                            cutout_radius = 32,
+                            cutout_alpha = 0.3,
+                            cutout_feather = 6,
+                            cutout_wobble = 2,
+                            cutout_wobble_speed = 2.5,
+                            cutout_wobble_seed = seed,
+                            cutout_grow_time = 0.2,
+                            cutout_shrink_time = 0.2,
+                            cutout_visibility = 0,
+                            cutout_target_active = active,
+                            cutout_intersects = true,
+                            surface_id = "shared",
+                            source_layer_name = "shared_terrain",
+                            face_direction = "front",
+                            face_position = 20,
+                            mask_bounds = {
+                                min_x = min_x,
+                                min_y = 0,
+                                max_x = max_x,
+                                max_y = 40
+                            },
+                            getPrimaryHeightSubject = function()
+                                return crossing_subject
+                            end,
+                            getCharacterCutoutTarget = function(self)
+                                return self.cutout_target_active
+                                    and crossing_subject or nil
+                            end,
+                            resolveSourceLayer = function()
+                                return crossing_source
+                            end,
+                            captureCharacterCutoutCenter = function() end,
+                            doesCharacterCutoutIntersectMask = function(self)
+                                return self.cutout_intersects
+                            end,
+                            resolveSurface = function() end,
+                            getOcclusionZBounds = function()
+                                return 0, 40
+                            end
+                        }, { __index = HeightOccluder })
+                    end
+                    local leaving = region(true, 4, 0, 20)
+                    local entering = region(false, 90, 20, 40)
+                    crossing_map.height_occluders = { leaving, entering }
+                    leaving:updateSharedCutoutAnimation(0.2)
+                    expect(leaving.cutout_visibility == 1
+                        and entering.cutout_visibility == 1
+                        and crossing_subject._height_cutout_state.owners[leaving]
+                        and crossing_subject._height_cutout_state.owners[entering],
+                        "one cutout circle should cover every connected terrain piece it intersects")
+                    local connected_bounds = leaving:getConnectedFaceBounds()
+                    expect(connected_bounds.min_x == 0
+                        and connected_bounds.max_x == 40,
+                        "connected terrain pieces should share face ownership across their seam")
+                    entering.cutout_target_active = true
+                    leaving:updateSharedCutoutAnimation(0.01)
+                    expect(leaving:isCharacterCutoutGroupLeader()
+                        and not entering:isCharacterCutoutGroupLeader(),
+                        "adjacent regions sharing one terrain source should produce one translucent cutout capture")
+                    leaving.cutout_target_active = false
+                    leaving.cutout_intersects = false
+                    leaving:updateSharedCutoutAnimation(0.01)
+                    expect(leaving.cutout_visibility == 0
+                        and entering.cutout_visibility == 1
+                        and crossing_subject._height_cutout_state.owners[entering],
+                        "crossing occluders should transfer one global cutout without restarting its animation")
+                    local state = crossing_subject._height_cutout_state
+                    local first_boundary = leaving:getCutoutBoundaryCoordinates(
+                        love.math.newTransform(), 0, 0, 20, 1, 2, state.style)
+                    local second_boundary = entering:getCutoutBoundaryCoordinates(
+                        love.math.newTransform(), 0, 0, 20, 1, 2, state.style)
+                    local boundaries_equal = #first_boundary == #second_boundary
+                    for index, value in ipairs(first_boundary) do
+                        boundaries_equal = boundaries_equal
+                            and value == second_boundary[index]
+                    end
+                    expect(boundaries_equal,
+                        "all regions in a character-owned cutout should share one wobble phase and boundary")
+
+                    local stack_subject = {}
+                    local stack_map = { height_occluders = {} }
+                    local function stackRegion(active, source_name, depth)
+                        return setmetatable({
+                            parent = {},
+                            map = stack_map,
+                            cutout_enabled = true,
+                            cutout_radius = 32,
+                            cutout_alpha = 0.3,
+                            cutout_feather = 6,
+                            cutout_wobble = 2,
+                            cutout_wobble_speed = 2.5,
+                            cutout_grow_time = 0,
+                            cutout_shrink_time = 0,
+                            cutout_visibility = 0,
+                            cutout_target_active = active,
+                            cutout_view_depth = depth,
+                            surface_id = source_name,
+                            source_layer_name = source_name,
+                            face_direction = "front",
+                            face_position = 40,
+                            mask_bounds = {
+                                min_x = 0, min_y = 0,
+                                max_x = 40, max_y = 40
+                            },
+                            getPrimaryHeightSubject = function()
+                                return stack_subject
+                            end,
+                            getCharacterCutoutTarget = function(self)
+                                return self.cutout_target_active
+                                    and stack_subject or nil
+                            end,
+                            captureCharacterCutoutCenter = function() end,
+                            doesCharacterCutoutIntersectMask = function()
+                                return true
+                            end,
+                            getCutoutViewDepth = function(self)
+                                return self.cutout_view_depth
+                            end,
+                            resolveSurface = function() end,
+                            getOcclusionZBounds = function()
+                                return 0, 40
+                            end
+                        }, { __index = HeightOccluder })
+                    end
+                    local front = stackRegion(true, "front", 200)
+                    local rear = stackRegion(false, "rear", 100)
+                    stack_map.height_occluders = { front, rear }
+                    front:updateSharedCutoutAnimation(0)
+                    expect(front.cutout_visibility == 1
+                        and rear.cutout_visibility == 1
+                        and stack_subject._height_cutout_state.owners[rear],
+                        "terrain behind an active cutout should join its translucent stack")
+                    rear.cutout_view_depth = 300
+                    front:updateSharedCutoutAnimation(0)
+                    expect(front.cutout_visibility == 1
+                        and rear.cutout_visibility == 0,
+                        "terrain in front of an active cutout should remain opaque")
+                end)()
+            end
+
             animated.cutout_target_active = false
             animated:updateCutoutAnimation(0.1)
             expect(animated.cutout_visibility > 0
@@ -1956,11 +2142,17 @@ function Testing:runPlatformingTests()
                     and select(2, Mod:getWastesSoulSpawnPosition(cage_back))
                         == cage_back.y + cage_back.height * math.abs(cage_back.scale_y or 1) - 4,
                     "the Wastes soul should begin slightly above the bottom of its cage")
-                Mod:prepareWastesCageBack(cage_back, fog_map.object_layer)
-                expect(not cage_back.height_sort_subject
-                    and not cage_back.height_depth_subject
-                    and cage_back.layer < fog_map.object_layer
-                    and not World.isHeightDepthChild(fog_root, cage_back),
+                local cage_normal_sort = World.getHeightDepthParameters(
+                    fog_root, cage_back).sort_depth
+                Mod:prepareWastesCageBack(cage_back)
+                local cage_reveal_sort = World.getHeightDepthParameters(
+                    fog_root, cage_back).sort_depth
+                expect(cage_back.height_sort_subject
+                    and cage_back.height_depth_subject
+                    and cage_back.height_depth_transparent
+                    and cage_back.height_depth_sort_offset == -16
+                    and cage_reveal_sort == cage_normal_sort - 16
+                    and World.isHeightDepthChild(fog_root, cage_back),
                     "the cage back should remain behind the soul throughout the arrival reveal")
                 Mod:releaseWastesCageFront(cage_front, fog_map.object_layer)
                 expect(cage_front.height_sort_subject
@@ -1972,6 +2164,8 @@ function Testing:runPlatformingTests()
                 Mod:releaseWastesCageBack(cage_back, fog_map.object_layer)
                 expect(cage_back.height_sort_subject
                     and cage_back.height_depth_subject
+                    and not cage_back.height_depth_transparent
+                    and cage_back.height_depth_sort_offset == nil
                     and cage_back.layer == fog_map.object_layer
                     and World.isHeightDepthChild(fog_root, cage_back),
                     "the cage back should resume normal depth behavior when the arrival cutscene ends")

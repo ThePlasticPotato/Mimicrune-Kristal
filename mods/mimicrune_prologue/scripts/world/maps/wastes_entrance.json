@@ -606,7 +606,7 @@
             46, 32, 34, 46, 48, 42, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             46, 45, 47, 46, 48, 42, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             46, 45, 47, 46, 48, 42, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            46, 45, 47, 46, 48, 42, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 45, 47, 46, 48, 42, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -2154,7 +2154,7 @@
           "name": "rectangle",
           "x": 400,
           "y": 480,
-          "width": 480,
+          "width": 240,
           "height": 320,
           "shape": {
             "type": "rectangle",
@@ -2216,6 +2216,66 @@
               "name": "surface_id",
               "type": "string",
               "value": "3"
+            }
+          ]
+        },
+        {
+          "id": 77,
+          "name": "rectangle",
+          "x": 640,
+          "y": 520,
+          "width": 40,
+          "height": 240,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "source_layer",
+              "type": "string",
+              "value": "ElevatedBitFront"
+            }
+          ]
+        },
+        {
+          "id": 78,
+          "name": "rectangle",
+          "x": 680,
+          "y": 520,
+          "width": 80,
+          "height": 280,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "source_layer",
+              "type": "string",
+              "value": "ElevatedBitFront"
+            }
+          ]
+        },
+        {
+          "id": 79,
+          "name": "rectangle",
+          "x": 760,
+          "y": 560,
+          "width": 120,
+          "height": 240,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "source_layer",
+              "type": "string",
+              "value": "ElevatedBitFront"
             }
           ]
         }

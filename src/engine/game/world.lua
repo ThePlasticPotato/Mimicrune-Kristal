@@ -2180,6 +2180,12 @@ function World:update()
             self.cutscene = nil
         end
     end
+
+    local height_occluders = self.map and self.map.height_occluders
+    if height_occluders and height_occluders[1]
+        and height_occluders[1].updateSharedCutoutAnimation then
+        height_occluders[1]:updateSharedCutoutAnimation(DT)
+    end
 end
 
 --- Whether this map should use the depth buffer
@@ -2249,33 +2255,38 @@ function World:getHeightDepthParameters(child)
     local depth_offset = tonumber(child.height_depth_offset) or 0
     local transform =
         HeightTransform.fromLoveTransform(love.graphics.getTransform())
+    local function applySortOffset(parameters)
+        parameters.sort_depth = parameters.sort_depth
+            + (tonumber(child.height_depth_sort_offset) or 0)
+        return parameters
+    end
     if child.height_depth_plane then
-        return transform:getDepthParameters({
+        return applySortOffset(transform:getDepthParameters({
             anchor_x = sort_x,
             anchor_y = sort_y,
             horizontal_z = child:getFullHeightTransform():getZ(),
             depth_offset = depth_offset
-        })
+        }))
     end
     if child.height_occlusion_proxy and child.getOcclusionZBounds then
         local _, top = child:getOcclusionZBounds()
         local face_y = child.face_position or sort_y
         local face_x = child.sort_x or sort_x
-        return transform:getDepthParameters({
+        return applySortOffset(transform:getDepthParameters({
             anchor_x = sort_x,
             anchor_y = sort_y,
             depth_offset = depth_offset,
             face_x = face_x,
             face_y = face_y,
             face_top_z = top
-        })
+        }))
     end
-    return transform:getDepthParameters({
+    return applySortOffset(transform:getDepthParameters({
         anchor_x = sort_x,
         anchor_y = sort_y,
         z = child:getFullHeightTransform():getZ(),
         depth_offset = depth_offset
-    })
+    }))
 end
 
 ---@param canvas love.Canvas

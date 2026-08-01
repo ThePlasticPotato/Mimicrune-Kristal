@@ -32,15 +32,12 @@ function Mod:getWastesSoulSpawnPosition(cage)
 end
 
 ---@param cage_back? Object
----@param object_layer? number
 ---@return Object
-function Mod:prepareWastesCageBack(cage_back, object_layer)
+function Mod:prepareWastesCageBack(cage_back)
     cage_back = cage_back or assert(self:getWastesCage(),
         "Wastes entrance is missing its cage_back object")
-    object_layer = object_layer or Game.world.map.object_layer
-    cage_back.height_sort_subject = false
-    cage_back.height_depth_subject = false
-    cage_back:setLayer(object_layer - 0.002)
+    cage_back.height_depth_transparent = true
+    cage_back.height_depth_sort_offset = -16
     return cage_back
 end
 
@@ -51,6 +48,8 @@ function Mod:releaseWastesCageBack(cage_back, object_layer)
     cage_back = cage_back or assert(self:getWastesCage(),
         "Wastes entrance is missing its cage_back object")
     object_layer = object_layer or Game.world.map.object_layer
+    cage_back.height_depth_transparent = false
+    cage_back.height_depth_sort_offset = nil
     cage_back.height_sort_subject = true
     cage_back.height_depth_subject = true
     cage_back:setLayer(object_layer)
@@ -95,7 +94,7 @@ end
 
 function Mod:enterWastes()
     Game.world:loadMap("wastes_entrance")
-    Atmosphere:setWeather("wind", true, 2, false, -1)
+    Atmosphere:setWeather("wind", true, 3, false, -1)
     local play_arrival = not Game:getFlag(WASTES_ARRIVAL_FLAG, false)
     local soul = self:spawnWastesSoul(play_arrival)
     if play_arrival then
