@@ -8,6 +8,11 @@
       "map": "wastes_entrance",
       "x": 0,
       "y": 0
+    },
+    {
+      "map": "wastes_vessel",
+      "x": -2000,
+      "y": 0
     }
   ],
   "properties": []
