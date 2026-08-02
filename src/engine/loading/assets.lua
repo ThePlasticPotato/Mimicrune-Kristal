@@ -235,6 +235,20 @@ function Assets.internalHas(asset_type, asset_id)
     
 end
 
+---@private
+---@param exact_id string
+---@return love.Image? texture
+---@return love.ImageData? data
+function Assets.internalGetExactSprite(exact_id)
+    for i = #self.buckets, 1, -1 do
+        local bucket = self.buckets[i]
+        if bucket:hasExactSprite(exact_id) then
+            return bucket:getExactSprite(exact_id)
+        end
+    end
+    return nil, nil
+end
+
 ---@param bucket_id string
 ---@return AssetBucket bucket
 function Assets.getBucket(bucket_id)
@@ -483,11 +497,12 @@ end
 ---@param path string
 ---@return love.Image
 function Assets.getTexture(path)
+    local exact_texture = self.internalGetExactSprite(path)
+    if exact_texture then return exact_texture end
+
     local identifier, split_frame = SpriteAssetLoader.splitIdentifier(path)
-    local frames = self.getFramesOrTexture(identifier)
-    if not frames then
-        return
-    end
+    local frames = self.getFrames(identifier)
+    if not frames then return nil end
     local texture = frames[split_frame or 1] or error(string.format("Out-of-bounds frame %s on sprite '%s'", split_frame, identifier))
     return texture
 end
@@ -568,7 +583,11 @@ end
 ---@param path string
 ---@return love.ImageData
 function Assets.getTextureData(path)
+    local _, exact_data = self.internalGetExactSprite(path)
+    if exact_data then return exact_data end
+
     local identifier, split_frame = SpriteAssetLoader.splitIdentifier(path)
+    if not self.internalHas("sprite", identifier) then return nil end
     local frames = self.get("sprite", identifier).data
     local texture = frames[split_frame or 1] or error(string.format("Out-of-bounds frame %s on sprite '%s'", split_frame, identifier))
     return texture
@@ -587,34 +606,35 @@ end
 ---@param path string
 ---@return love.Image[]
 function Assets.getFrames(path)
-    return self.getFramesOrTexture(path)
+    if not self.internalHas("sprite", path) then return nil end
+    return self.get("sprite", path).textures
 end
 
 ---@param path string
 ---@return string[]
 function Assets.getFrameIds(path)
-    local sprite_length = #self.getFrames(path)
-    local sprite_frame_ids = {}
-    for i = 1, sprite_length do
-        sprite_frame_ids[i] = path .. "_" .. i
-    end
-    return sprite_frame_ids
+    if not self.internalHas("sprite", path) then return nil end
+    return self.get("sprite", path).frame_ids
 end
 
 ---@param texture string
 ---@return string texture, number frame
 function Assets.getFramesFor(texture)
-    local identifier, frame = SpriteAssetLoader.splitIdentifier(texture)
-    return identifier, frame or 1
+    for bucket_n = #self.buckets, 1, -1 do
+        local bucket = self.buckets[bucket_n]
+        if bucket:hasExactSprite(texture) then
+            return bucket:getFramesForExactSprite(texture)
+        end
+    end
+    return nil, nil
 end
 
 ---@param path string
 ---@return love.Image[]
 function Assets.getFramesOrTexture(path)
-    if not self.hasSprite(path) then
-        return Kristal.Console:error(string.format("Attempt to get missing sprite with ID '%s", path))
-    end
-    return self.get("sprite", path).textures
+    local exact_texture = self.internalGetExactSprite(path)
+    if exact_texture then return { exact_texture } end
+    return self.getFrames(path)
 end
 
 ---@param x number

@@ -19,6 +19,8 @@ function AssetBucket:init(id, paths)
     self.paths = paths
     self.loaded_assets = {}
     self.texture_ids = {}
+    self.exact_sprite_groups = {}
+    self.sprite_frames_for = {}
     self.dispatched_tasks = {}
     self.pending_tasks = 0
     self.completion_callbacks = {}
@@ -41,6 +43,8 @@ function AssetBucket:unload()
     Assets.queued_tasks[self.bucket_id] = {}
     self.loaded_assets = {}
     self.texture_ids = {}
+    self.exact_sprite_groups = {}
+    self.sprite_frames_for = {}
     self.dispatched_tasks = {}
     self.pending_tasks = 0
     self.completion_callbacks = {}
@@ -60,6 +64,8 @@ function AssetBucket:startLoading(paths, after)
     self.paths = paths or self.paths
     self.loaded_assets = {}
     self.texture_ids = {}
+    self.exact_sprite_groups = {}
+    self.sprite_frames_for = {}
     self.dispatched_tasks = {}
     self.pending_tasks = 0
     self.completion_callbacks = {}
@@ -83,6 +89,11 @@ function AssetBucket:startLoading(paths, after)
     end
     for asset_type, _ in pairs(Assets.queued_tasks[self.bucket_id]) do
         self.assets_total = self.assets_total + TableUtils.getKeyCount(Assets.getQueue(self.bucket_id, asset_type))
+    end
+    for group_id, task in pairs(Assets.getQueue(self.bucket_id, "sprite")) do
+        for exact_id in pairs(task.file_positions) do
+            self.exact_sprite_groups[exact_id] = group_id
+        end
     end
     self.load_stats = {
         bucket_id = self.bucket_id,
@@ -183,11 +194,43 @@ function AssetBucket:applyResult(asset_type, asset_id, result)
     self.assets_loaded = self.assets_loaded + 1
 
     if asset_type == "sprite" then
+        for exact_id, texture in pairs(final.exact_textures) do
+            self.texture_ids[texture] = exact_id
+        end
+        for frame, exact_id in pairs(final.frame_ids) do
+            self.sprite_frames_for[exact_id] = { asset_id, frame }
+        end
         for frame, texture in pairs(final.textures) do
-            self.texture_ids[texture] = asset_id .. "_" .. frame
+            self.texture_ids[texture] = self.texture_ids[texture] or (asset_id .. "_" .. frame)
         end
     end
     return final
+end
+
+---@param exact_id string
+---@return boolean found
+function AssetBucket:hasExactSprite(exact_id)
+    return self.state ~= AssetBucket.State.UNLOADED
+        and self.exact_sprite_groups[exact_id] ~= nil
+end
+
+---@param exact_id string
+---@return love.Image? texture
+---@return love.ImageData? data
+function AssetBucket:getExactSprite(exact_id)
+    local group_id = self.exact_sprite_groups[exact_id]
+    if not group_id then return nil end
+    local group = self:get("sprite", group_id)
+    return group.exact_textures[exact_id], group.exact_data[exact_id]
+end
+
+---@param exact_id string
+---@return string? group_id
+---@return integer? frame
+function AssetBucket:getFramesForExactSprite(exact_id)
+    local frames_for = self.sprite_frames_for[exact_id]
+    if frames_for then return frames_for[1], frames_for[2] end
+    return nil, nil
 end
 
 function AssetBucket:finishIfReady()

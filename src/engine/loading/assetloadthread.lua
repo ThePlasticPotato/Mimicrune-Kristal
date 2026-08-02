@@ -12,13 +12,14 @@ local out_channel = love.thread.getChannel("asset_load_out")
 local function loadAsset(asset_type, task)
     if asset_type == "sprite" then
         local output = {
-            texture_data = {},
+            exact_data = {},
             texture_paths = {},
+            frame_ids = task.frame_ids,
+            max_frame = task.max_frame,
         }
-        for _, frame_data in ipairs(task.frames) do
-            output.texture_data[frame_data.frame] = love.image.newImageData(frame_data.path)
-            output.texture_paths[frame_data.frame] = frame_data.path
-            output.max_frame = math.max(output.max_frame or 0, frame_data.frame)
+        for _, frame_data in ipairs(task.files) do
+            output.exact_data[frame_data.exact_id] = love.image.newImageData(frame_data.path)
+            output.texture_paths[frame_data.exact_id] = frame_data.path
         end
         return output
     elseif asset_type == "sound" then
