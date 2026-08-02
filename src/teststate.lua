@@ -1249,6 +1249,163 @@ function Testing:runPlatformingTests()
         and used_3d_interaction and not used_2d_interaction,
         "platforming interactions must reject 2D overlap when the event is on another Z range")
 
+    ;(function()
+        local attacker = Object(0, 0, 20, 20)
+        attacker.z = 40
+        attacker.platforming_enabled = true
+        local attack_volume = Hitbox(attacker, 0, 0, 20, 20)
+        attack_volume.depth = 20
+
+        local target = Object(0, 0, 20, 20)
+        target.collider = Hitbox(target, 0, 0, 20, 20)
+        target.collider.depth = 20
+        target.height_sensitive = false
+        target.z = 0
+        expect(not Player.collidesWithAttackTarget(attacker, target, attack_volume),
+            "platforming attacks must reject XY-overlapping targets outside their Z volume")
+        target.z = 50
+        expect(Player.collidesWithAttackTarget(attacker, target, attack_volume),
+            "platforming attacks should hit targets whose body overlaps the attack's Z volume")
+
+        local air_attack_volume = CircleCollider(attacker, 10, 10, 36)
+        air_attack_volume.depth = 20
+        local radial_target = Object(0, 0, 2, 2)
+        radial_target.z = 50
+        radial_target.collider = Hitbox(radial_target, 0, 0, 2, 2)
+        radial_target.collider.depth = 20
+        local radial_points = {{45, 9}, {-27, 9}, {9, 45}, {9, -27}}
+        local radial_hits = true
+        for _, point in ipairs(radial_points) do
+            radial_target:setPosition(point[1], point[2])
+            radial_hits = radial_hits
+                and radial_target:collidesWith3D(air_attack_volume)
+        end
+        expect(radial_hits,
+            "aerial attacks should use one centered radial XYZ volume in every direction")
+
+        expect(Player.isHeightActionAnimationActive({
+            state_manager = { state = "ATTACK" }
+        }), "the ATTACK state should take visual priority over aerial animations")
+        local vessel_actor = Registry.createActor("vessel")
+        expect(vessel_actor:getAnimation("attack1")
+            and vessel_actor:getAnimation("attack2")
+            and vessel_actor:getAnimation("attack3")
+            and vessel_actor:getAnimation("attack_air"),
+            "the base Vessel actor should expose its overworld attack animations")
+        local attack_state = PlayerAttackState({ was_running = true })
+        expect(attack_state:getReturnState("RUN") == "RUN"
+            and attack_state:getReturnState("DASH") == "RUN"
+            and attack_state:getReturnState("WALK") == "WALK",
+            "the attack state should restore the appropriate locomotion state")
+        local combo_player = {
+            attack_stage = 1,
+            attacking = true,
+            resetSprite = function() end
+        }
+        local combo_state = PlayerAttackState(combo_player)
+        combo_state:advanceCombo(true)
+        expect(combo_player.attack_stage == 1,
+            "aerial attacks must not advance the ground combo")
+        combo_state:advanceCombo(false)
+        expect(combo_player.attack_stage == 2,
+            "ground attacks should advance the combo")
+        local timing = {
+            overworld_attack_cd = 0.1,
+            overworld_attack_finisher_cd = 0.35,
+            overworld_air_attack_cd = 0.4
+        }
+        expect(combo_state:getCooldown(timing, false, 1) == 0.1
+            and combo_state:getCooldown(timing, false, 2) == 0.1
+            and combo_state:getCooldown(timing, false, 3) == 0.35
+            and combo_state:getCooldown(timing, true, 0) == 0.4,
+            "only finishers and aerial attacks should use the longer attack cooldown")
+        combo_state:onExit()
+        expect(combo_player.attack_stage == 0,
+            "leaving attack grace should reset combo progression")
+
+        local held_frame
+        local pose_state = PlayerAttackState({
+            sprite = {
+                frames = {1, 2, 3},
+                setFrame = function(_, frame) held_frame = frame end
+            }
+        })
+        pose_state.phase = "recovery"
+        pose_state:holdAnimationFrame()
+        expect(held_frame == 3,
+            "attack recovery should hold the final animation frame")
+
+        local aerial_return_state
+        local aerial_state = PlayerAttackState({
+            state_manager = {state = "ATTACK"},
+            setState = function(_, state) aerial_return_state = state end
+        })
+        aerial_state.serial = 1
+        aerial_state.aerial = true
+        aerial_state.return_state = "WALK"
+        aerial_state:finishAnimation(1)
+        expect(aerial_return_state == "WALK" and aerial_state.phase ~= "recovery",
+            "aerial attacks should return immediately instead of entering held-frame grace")
+
+        local lunged_x, lunge_afterimages = 0, 0
+        local lunge_state = PlayerAttackState({
+            move = function(_, x, _, speed) lunged_x = lunged_x + x * speed end
+        })
+        lunge_state.direction = "right"
+        lunge_state.lunge_distance = 20
+        lunge_state.lunge_duration = 0.15
+        lunge_state.lunge_progress = 0
+        lunge_state.spawnAfterImage = function()
+            lunge_afterimages = lunge_afterimages + 1
+        end
+        for _ = 1, 10 do lunge_state:updateLunge() end
+        expect(math.abs(lunged_x - 20) < 0.001 and lunge_afterimages == 2,
+            "attack lunges should cover their configured distance with a restrained two-image trail")
+
+        local requested_state, requested_settings
+        local dash_attacker = {
+            canAttack = function() return true end,
+            state_manager = { state = "DASH" },
+            was_running = true,
+            dash_momentum = {0.5, -0.25},
+            attack_state = { hit_anything = false },
+            setState = function(_, state, settings)
+                requested_state, requested_settings = state, settings
+            end
+        }
+        Player.attack(dash_attacker)
+        expect(requested_state == "ATTACK" and requested_settings.return_state == "RUN"
+            and requested_settings.carry_x == 7
+            and requested_settings.carry_y == -3.5,
+            "attacking should capture dash locomotion before the DASH leave callback clears it")
+
+        local momentum_player = {
+            actor = { getRunSprite = function() return "run" end },
+            run_momentum = {0.4, -0.2},
+            setWalkSprite = function() end
+        }
+        Player.beginRun(momentum_player, "ATTACK")
+        expect(momentum_player.run_momentum[1] == 0.4
+            and momentum_player.run_momentum[2] == -0.2,
+            "returning to RUN after attack grace should preserve run momentum")
+
+        local saved_key_bindings = Input.key_bindings
+        Input.key_bindings = TableUtils.copy(Input.key_bindings, true)
+        Input.resetBinds(false, "KRISTAL")
+        expect(TableUtils.contains(Input.key_bindings.attack, "mouse:1")
+            and Input.isAttack("mouse:1"),
+            "left mouse should be one of the base overworld attack bindings")
+        Input.key_bindings = saved_key_bindings
+
+        Input.onMousePressed(0, 0, 1, false, 1)
+        expect(Input.keyPressed("mouse:1"),
+            "mouse presses should enter the ordinary bind dispatch path")
+        Input.onMouseReleased(0, 0, 1, false, 1)
+        expect(Input.keyReleased("mouse:1"),
+            "mouse releases should enter the ordinary bind dispatch path")
+        Input.clear("mouse:1", true)
+    end)()
+
     local occlusion_layer_type = Registry.getLayerType("occlusion")
     expect(occlusion_layer_type and occlusion_layer_type.kind == "object",
         "height occlusion should be a first-class editor layer type")
@@ -1361,7 +1518,7 @@ function Testing:runPlatformingTests()
                 top = 40,
                 support_colliders = { {}, {} },
                 support_bounds = {
-                    min_x = 0, min_y = 0, max_x = 100, max_y = 100
+                    min_x = 0, min_y = 0, max_x = 100, max_y = 50
                 }
             }
             local composite_map = {
@@ -1377,10 +1534,11 @@ function Testing:runPlatformingTests()
                 surface_id = "composite", face_direction = "front"
             })
             composite_occluder:resolveSurface()
-            expect(composite_occluder.face_position == 60
+            expect(composite_occluder.face_position == 50
                 and composite_occluder.face_bounds.min_x == 40
-                and composite_occluder.face_bounds.max_x == 60,
-                "occluders on a composite surface should use their local authored face instead of the union's far edge")
+                and composite_occluder.face_bounds.max_x == 60
+                and composite_occluder.face_bounds.max_y == 50,
+                "composite occluders should clip their local face plane to physical support geometry")
         end)()
     end
 
@@ -1693,64 +1851,6 @@ function Testing:runPlatformingTests()
                     expect(boundaries_equal,
                         "all regions in a character-owned cutout should share one wobble phase and boundary")
 
-                    local stack_subject = {}
-                    local stack_map = { height_occluders = {} }
-                    local function stackRegion(active, source_name, depth)
-                        return setmetatable({
-                            parent = {},
-                            map = stack_map,
-                            cutout_enabled = true,
-                            cutout_radius = 32,
-                            cutout_alpha = 0.3,
-                            cutout_feather = 6,
-                            cutout_wobble = 2,
-                            cutout_wobble_speed = 2.5,
-                            cutout_grow_time = 0,
-                            cutout_shrink_time = 0,
-                            cutout_visibility = 0,
-                            cutout_target_active = active,
-                            cutout_view_depth = depth,
-                            surface_id = source_name,
-                            source_layer_name = source_name,
-                            face_direction = "front",
-                            face_position = 40,
-                            mask_bounds = {
-                                min_x = 0, min_y = 0,
-                                max_x = 40, max_y = 40
-                            },
-                            getPrimaryHeightSubject = function()
-                                return stack_subject
-                            end,
-                            getCharacterCutoutTarget = function(self)
-                                return self.cutout_target_active
-                                    and stack_subject or nil
-                            end,
-                            captureCharacterCutoutCenter = function() end,
-                            doesCharacterCutoutIntersectMask = function()
-                                return true
-                            end,
-                            getCutoutViewDepth = function(self)
-                                return self.cutout_view_depth
-                            end,
-                            resolveSurface = function() end,
-                            getOcclusionZBounds = function()
-                                return 0, 40
-                            end
-                        }, { __index = HeightOccluder })
-                    end
-                    local front = stackRegion(true, "front", 200)
-                    local rear = stackRegion(false, "rear", 100)
-                    stack_map.height_occluders = { front, rear }
-                    front:updateSharedCutoutAnimation(0)
-                    expect(front.cutout_visibility == 1
-                        and rear.cutout_visibility == 1
-                        and stack_subject._height_cutout_state.owners[rear],
-                        "terrain behind an active cutout should join its translucent stack")
-                    rear.cutout_view_depth = 300
-                    front:updateSharedCutoutAnimation(0)
-                    expect(front.cutout_visibility == 1
-                        and rear.cutout_visibility == 0,
-                        "terrain in front of an active cutout should remain opaque")
                 end)()
             end
 
@@ -2092,6 +2192,37 @@ function Testing:runPlatformingTests()
                 local fog_map = Map(fog_root, fog_map_data)
                 fog_map.id = "wastes_entrance"
                 fog_map:load()
+                do
+                    (function()
+                        local island_occluder
+                        for _, occluder in ipairs(fog_map.height_occluders) do
+                            if occluder.data.id == 30 then
+                                island_occluder = occluder
+                                break
+                            end
+                        end
+                        expect(island_occluder ~= nil,
+                            "the wastes top-right island should have a height occluder")
+                        island_occluder:resolveSurface()
+                        local maximum_mask_y = -math.huge
+                        for _, point in ipairs(
+                            island_occluder:getOcclusionMaskPoints()) do
+                            maximum_mask_y = math.max(maximum_mask_y, point[2])
+                        end
+                        local foreground_subject = Object(900, 460)
+                        foreground_subject.height_sort_subject = true
+                        foreground_subject.use_3d_collision = true
+                        local previous_world = fog_map.world
+                        fog_map.world = { player = foreground_subject }
+                        expect(island_occluder.face_position == 440
+                            and maximum_mask_y == 440
+                            and not island_occluder:isCharacterBehindFace(
+                                foreground_subject)
+                            and island_occluder:getCharacterCutoutTarget() == nil,
+                            "the wastes island should use its physical Y=440 face, leaving characters and ground in front of it")
+                        fog_map.world = previous_world
+                    end)()
+                end
                 local fog_ground_layer = fog_map:getTileLayer("ground")
                 local fog_wall_layer = fog_map:getTileLayer("groundcliff")
                 local cage_back = fog_map.events_by_id[63]

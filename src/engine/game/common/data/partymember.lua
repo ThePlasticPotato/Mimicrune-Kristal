@@ -75,6 +75,13 @@
 ---@field notes number
 ---
 ---@field attack_distance number
+---@field overworld_attack_cd number
+---@field overworld_attack_finisher_cd number
+---@field overworld_air_attack_cd number
+---@field overworld_attack_grace number
+---@field overworld_attack_lunge_time number
+---@field overworld_attack_momentum_time number
+---@field overworld_air_attack_radius number
 ---
 ---@overload fun(...) : PartyMember
 local PartyMember = Class()
@@ -156,7 +163,13 @@ function PartyMember:init()
 
     self.attack_distance = 0
 
-    self.overworld_attack_cd = 1
+    self.overworld_attack_cd = 0.1
+    self.overworld_attack_finisher_cd = 0.35
+    self.overworld_air_attack_cd = 0.35
+    self.overworld_attack_grace = 0.5
+    self.overworld_attack_lunge_time = 0.15
+    self.overworld_attack_momentum_time = 0.2
+    self.overworld_air_attack_radius = 36
 
     self.sweet_spot_tolerance = 0.15
     self.attack_circle = "party/kris/attack_wheel"

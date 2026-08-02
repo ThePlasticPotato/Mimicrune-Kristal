@@ -33,6 +33,8 @@ function character:init()
     -- Current health (saved to the save file)
     self.health = 240
 
+    self.attack_distance = 20
+
     -- Base stats (saved to the save file)
     self.stats = {
         health = 240,

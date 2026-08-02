@@ -8,17 +8,19 @@ function Player:init(chara, x, y)
 
     self.is_player = true
 
+    self.attack_state = PlayerAttackState(self)
     self.climb_state = PlayerClimbState(self)
     self.slide_state = PlayerSlideState(self)
     self.slide_lock_state = PlayerSlideLockState(self)
     self.slide_free_state = PlayerSlideFreeState(self)
 
 
-    ---todo: convert mimicrune run/dash/attack to states
+    ---todo: convert mimicrune run to a state class
     self.state_manager = StateManager("WALK", self, true)
     self.state_manager:addState("WALK", { update = self.updateWalk, drawDebug = self.drawDebug })
     self.state_manager:addState("RUN", { update = self.updateRun, enter = self.beginRun, leave = self.endRun } )
     self.state_manager:addState("DASH", { update = self.updateDash, enter = self.beginDash, leave = self.endDash })
+    self.state_manager:addState("ATTACK", self.attack_state)
     self.state_manager:addState("SLIDE", self.slide_state)
     self.state_manager:addState("SLIDE_LOCK", self.slide_lock_state)
     self.state_manager:addState("SLIDE_FREE", self.slide_free_state)
@@ -367,6 +369,12 @@ function Player:setActor(actor)
         ["up"] = Hitbox(self, hx, hy - 38, hw, hh / 2 + 38),
         ["down"] = Hitbox(self, hx, hy + hh / 2, hw, hh / 2 + 28)
     }
+    for _, collider in pairs(self.attack_collider) do
+        collider.depth = self.collider.depth
+    end
+    self.air_attack_collider = CircleCollider(
+        self, hx + hw / 2, hy + hh / 2, 36)
+    self.air_attack_collider.depth = self.collider.depth
 
     local support_width = math.min(hw, math.max(2, hw * 0.25))
     local support_height = math.min(hh, math.max(2, hh * 0.25))
@@ -534,7 +542,7 @@ function Player:beginRun(old_state)
     self:setWalkSprite(self.actor:getRunSprite())
     self.temp_boost_x = 0
     self.temp_boost_y = 0
-    if (old_state ~= "DASH") then
+    if old_state ~= "DASH" and old_state ~= "ATTACK" then
         self.run_momentum[1] = 0
         self.run_momentum[2] = 0
     end
@@ -757,44 +765,62 @@ function Player:handleMomentumMovement()
     end
 end
 
+function Player:isAttacking()
+    return self.state_manager.state == "ATTACK"
+end
+
+function Player:canAttack()
+    if not Game:getFlag("can_attack", false) or self.attack_buffer > 0 then return false end
+    if self:isPitRecovering() or self:isClimbing() or self:isSliding() then return false end
+    local state = self.state_manager.state
+    return state == "WALK" or state == "RUN" or state == "DASH" or state == "ATTACK"
+end
+
+function Player:collidesWithAttackTarget(object, collider)
+    if self.platforming_enabled then
+        return object:collidesWith3D(collider)
+    end
+    return object:collidesWith(collider)
+end
+
+function Player:getAttackTargetDistance(object)
+    local target_x, target_y = object:getRelativePos(
+        object.width / 2, object.height / 2, self.parent)
+    local delta_x, delta_y = target_x - self.x, target_y - self.y
+    if not self.platforming_enabled then
+        return math.sqrt(delta_x * delta_x + delta_y * delta_y)
+    end
+    local target_z = object:getFullZ()
+    local delta_z = target_z - self:getFullZ()
+    return math.sqrt(delta_x * delta_x + delta_y * delta_y + delta_z * delta_z)
+end
+
+---@return boolean consumed
+---@return boolean hit_anything
 function Player:attack()
-    if ((not Game:getFlag("can_attack", false)) or self.state_manager.state == "SLIDE") then
-        return true
-    end
-    if (self.attack_buffer > 0) then
-        return true
-    end
-    self.time_since_attack = 0
-    self.attack_stage = self.attack_stage + 1
-    if (self.attack_stage > 3) then self.attack_stage = 1 end
-    self.attack_buffer = Game.party[1].overworld_attack_cd
-    self.attacking = true
-
-    local attack_dist = Game.party[1].attack_distance
-    local dx, dy = Utils.getFacingVector(self.facing)
-    if (attack_dist > 0) then self:updateSlideDust() end
-    self.slide_dust_timer = 0
-    self:move(self.x + (dx * attack_dist), self.y + (dy * attack_dist), 0.15)
-
-    self:setAnimation("attack"..self.attack_stage, function () self.attacking = false end)
-    Assets.playSound(Game.party[1].attack_sound or (Game:isLight() and "swipe") or "laz_c", 1.0, Game.party[1].attack_pitch or 1)
-
-    local hit_anything = false
-    local col = self.attack_collider[self.facing]
-    local attackables = {}
-    for _, obj in ipairs(self.world.children) do
-        local collided = self:collidesWithHeightSensitiveObject(obj, col)
-        if obj.onHit and collided then
-            local rx, ry = obj:getRelativePos(obj.width / 2, obj.height / 2, self.parent)
-            table.insert(attackables, { obj = obj, dist = Utils.dist(self.x, self.y, rx, ry) })
-        end
-    end
-    table.sort(attackables, function (a, b) return a.dist < b.dist end)
-    for _, v in ipairs(attackables) do
-        hit_anything = v.obj:onHit(self, self.facing) or hit_anything
+    if not self:canAttack() then return true, false end
+    local old_state = self.state_manager.state
+    if old_state == "ATTACK" then
+        self.attack_state:beginSwing()
+        return true, self.attack_state.hit_anything
     end
 
-    return hit_anything
+    local return_state = old_state == "RUN"
+        or old_state == "DASH" and self.was_running
+    local carry_x, carry_y, carry_duration = 0, 0, 0
+    if old_state == "DASH" then
+        carry_x = self.dash_momentum[1] * 14
+        carry_y = self.dash_momentum[2] * 14
+        local party = Game.party and Game.party[1]
+        carry_duration = tonumber(party and party.overworld_attack_momentum_time) or 0.2
+    end
+    self:setState("ATTACK", {
+        return_state = return_state and "RUN" or "WALK",
+        carry_x = carry_x,
+        carry_y = carry_y,
+        carry_duration = carry_duration
+    })
+    return true, self.attack_state.hit_anything
 end
 
 function Player:isPlatformingEnabled()
@@ -1117,9 +1143,22 @@ function Player:isDashAnimationActive()
     return self.state_manager.state == "DASH"
 end
 
+function Player:isHeightActionAnimationActive()
+    if self.state_manager then
+        return self.state_manager.state == "DASH" or self.state_manager.state == "ATTACK"
+    end
+    return self.isDashAnimationActive and self:isDashAnimationActive() or false
+end
+
+function Player:holdAttackAnimationFrame()
+    if self.state_manager.state == "ATTACK" then
+        self.attack_state:holdAnimationFrame()
+    end
+end
+
 function Player:setHeightAnimation(animation)
     self.height_animation = animation
-    if self:isDashAnimationActive() then return end
+    if Player.isHeightActionAnimationActive(self) then return end
     if self.actor:getAnimation(animation) then
         self:setAnimation(animation)
     end
@@ -1127,7 +1166,7 @@ end
 
 function Player:restoreGroundAnimation()
     self.height_animation = nil
-    if self:isDashAnimationActive() then return end
+    if Player.isHeightActionAnimationActive(self) then return end
     if self.state_manager.state == "RUN" then
         self:setWalkSprite(self.actor:getRunSprite())
     else
@@ -1603,7 +1642,7 @@ end
 --- Keeps a completed, non-looping jump animation on its anticipation-free
 --- final frame until the height state changes to FALL.
 function Player:holdJumpAnimationFrame()
-    if not self:isDashAnimationActive()
+    if not Player.isHeightActionAnimationActive(self)
         and self.height_state_manager.state == "JUMP" and self.height_animation == "jump"
         and not self.sprite.playing and self.sprite.frames then
         self.sprite:setFrame(#self.sprite.frames)
@@ -1707,7 +1746,6 @@ function Player:isMovementEnabled()
         and self.world.state == "GAMEPLAY"
         and self.hurt_timer == 0
         and Game.world.door_delay == 0
-        and not self.attacking
         and not self.splatted
         and not self:isPitRecovering()
 end
@@ -2292,10 +2330,7 @@ function Player:update()
     if not Game.world.cutscene and not Game.world.menu then
         self.interact_buffer = MathUtils.approach(self.interact_buffer, 0, DT)
         self.attack_buffer = MathUtils.approach(self.attack_buffer, 0, DT)
-        self.time_since_attack = MathUtils.approach(self.time_since_attack, 3, DT)
-        if (self.time_since_attack >= 2.99 and self.attack_stage > 0) then
-            self.attack_stage = 0
-        end
+        self.time_since_attack = self.time_since_attack + DT
     end
 
     self.world.in_battle_area = false
@@ -2319,6 +2354,7 @@ function Player:update()
 
     super.update(self)
     self:holdJumpAnimationFrame()
+    self:holdAttackAnimationFrame()
 end
 
 function Player:preDraw(dont_transform)

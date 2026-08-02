@@ -233,7 +233,7 @@ function Input.resetBinds(gamepad, mod_id)
             ["confirm"] = {"z", "return"},
             ["cancel"] = {"x", "shift"},
             ["menu"] = {"c", "ctrl"},
-            ["attack"] = {"v", "alt"},
+            ["attack"] = {"v"},
             ["instant-heal"] = {"h", "1"},
             ["instant-tonic"] = {"t", "2"},
             ["instant-purify"] = {"p", "3"},
@@ -352,7 +352,7 @@ function Input.resetBinds(gamepad, mod_id)
             ["confirm"] = {"z", "return"},
             ["cancel"] = {"x", "shift"},
             ["menu"] = {"c", "ctrl"},
-            ["attack"] = {"v", "alt"},
+            ["attack"] = {"v"},
             ["instant-heal"] = {"h", "1"},
             ["instant-tonic"] = {"t", "2"},
             ["instant-purify"] = {"p", "3"},
@@ -1639,11 +1639,13 @@ function Input.onMousePressed(x, y, button, istouch, presses)
     self.mouse_button_max = math.max(self.mouse_button_max, button) -- some mouses have more than 3 buttons, always support this by extending the default count
     self.mouse_pressed[button] = { x = x, y = y, presses = presses }
     self.mouse_down[button] = { x = x, y = y, presses = presses, dx = 0, dy = 0 }
+    Input.onKeyPressed("mouse:" .. button, false)
 end
 
 function Input.onMouseReleased(x, y, button, istouch, presses)
     self.mouse_released[button] = { x = x, y = y, presses = presses }
     self.mouse_down[button] = { x = 0, y = 0, presses = 0, dx = 0, dy = 0 }
+    Input.onKeyReleased("mouse:" .. button)
 end
 
 function Input.onMouseMoved(x, y, dx, dy, istouch)

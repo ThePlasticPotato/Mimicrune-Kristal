@@ -201,6 +201,7 @@ Character = require("src.engine.game.world.character")
 Follower = require("src.engine.game.world.follower")
 
 Player = require("src.engine.game.world.player")
+PlayerAttackState = require("src.engine.game.world.playerattackstate")
 PlayerClimbState = require("src.engine.game.world.playerclimbstate")
 PlayerSlideBaseState = require("src.engine.game.world.playerslidebasestate")
 PlayerSlideState = require("src.engine.game.world.playerslidestate")

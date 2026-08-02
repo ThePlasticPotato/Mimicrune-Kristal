@@ -64,6 +64,10 @@ function actor:init()
         ["jump"]                = jumpAnimation,
         ["fall"]                = {"fall", 1/10, true},
         ["landed"]              = {"landed", 1/15, false},
+        ["attack1"]             = {"attack1", 1/10, false},
+        ["attack2"]             = {"attack2", 1/10, false},
+        ["attack3"]             = {"attack3", 1/10, false},
+        ["attack_air"]          = {"attack_air", 1/10, false},
 
         -- Battle animations
         ["battle/idle"]         = {"battle/idle", 1/6, true},
@@ -182,6 +186,11 @@ function actor:init()
 
         ["dash"] = {-17, -12};
         ["run"] = {-2, 0};
+
+        ["attack1"] = {-6, 0};
+        ["attack2"] = {-6, 0};
+        ["attack3"] = {-6, 0};
+        ["attack_air"] = {-6, 0};
     }
 end
 

@@ -252,7 +252,7 @@ function HeightOccluder:resolveSurface()
     else
         self.face_bounds = face_bounds
     end
-    local position_bounds = composite_surface and self.mask_bounds or face_bounds
+    local position_bounds = self.face_bounds or face_bounds
     if not self.explicit_face_position and position_bounds then
         if self.face_direction == "front" then
             self.face_position = position_bounds.max_y
@@ -494,34 +494,6 @@ function HeightOccluder:doesCharacterCutoutIntersectMask(radius)
     return false
 end
 
---- Returns this terrain fragment's view-space depth at the shared cutout\
---- center. This mirrors the HeightDepth shader so rear terrain can join an\
---- active cutout instead of showing through it at full opacity.
----@return number? depth
-function HeightOccluder:getCutoutViewDepth()
-    if self.cutout_center_x == nil then return nil end
-    self:resolveSurface()
-    local parent_transform = self.parent and self.parent:getFullHeightTransform()
-        or HeightTransform()
-    local _, screen_y = parent_transform:transformVisualPoint(
-        self.cutout_center_x, self.cutout_center_y)
-    local _, top = self:getOcclusionZBounds()
-    local face_x = self.sort_x
-    local face_y = self.face_position or self.sort_y
-    local _, face_ground_y = parent_transform:transformProjectedPoint(
-        face_x, face_y, 0)
-    local _, face_top_y = parent_transform:transformProjectedPoint(
-        face_x, face_y, top)
-    local height_pixels = face_ground_y - face_top_y
-    local depth
-    if screen_y <= face_top_y then
-        depth = screen_y + 2 * height_pixels
-    else
-        depth = 2 * face_ground_y - screen_y
-    end
-    return depth + (tonumber(self.height_depth_offset) or 0)
-end
-
 local function occlusionBoundsTouch(a, b)
     if not a or not b then return false end
     local epsilon = 0.001
@@ -656,27 +628,6 @@ function HeightOccluder:updateSharedCutoutAnimation(dt)
             end
         end
 
-        local nearest_depth = nil
-        for occluder in pairs(active) do
-            occluder:captureCharacterCutoutCenter(subject)
-            local depth = occluder:getCutoutViewDepth()
-            if depth then nearest_depth = math.max(nearest_depth or depth, depth) end
-        end
-        if nearest_depth then
-            for _, occluder in ipairs(occluders) do
-                if not active[occluder] and occluder.parent
-                    and occluder.cutout_enabled
-                    and occluder.face_direction == "front" then
-                    occluder:captureCharacterCutoutCenter(subject)
-                    local depth = occluder:getCutoutViewDepth()
-                    if depth and depth <= nearest_depth + 0.001
-                        and occluder:doesCharacterCutoutIntersectMask(
-                            expansion_radius) then
-                        active[occluder] = true
-                    end
-                end
-            end
-        end
     end
 
     local target = first_active and 1 or 0
