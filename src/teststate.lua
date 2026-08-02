@@ -316,6 +316,17 @@ function Testing:runPlatformingTests()
                     probe, 40, 20, nil, nil, departure_piece)
             expect(sibling_landing == 32,
                 "the same complex platform should become landable again after falling from above it")
+
+            local unlinked_piece = Hitbox(platform_parent, 0, 0, 20, 20)
+            unlinked_piece.z, unlinked_piece.depth = 0, 32
+            unlinked_piece.supports, unlinked_piece.one_way = true, true
+            fake_world.surfaces = { unlinked_piece }
+            expect(fake_world:getLandingSurface(
+                    probe, 32, 31, nil, nil, departure_piece) == nil,
+                "a coplanar sibling must not recapture a walk-off even without a shared surface ID")
+            expect(fake_world:getLandingSurface(
+                    probe, 40, 20, nil, nil, departure_piece) == 32,
+                "an unlinked coplanar piece should remain landable after a real jump above it")
         end)()
     end
     fake_world.surfaces = { platform }
@@ -1066,6 +1077,69 @@ function Testing:runPlatformingTests()
         "a landed player must not reverse through the wall they just fell past")
     projected_player.y = 38
 
+    do
+        (function()
+            local elevated_parent = Object()
+            elevated_parent.z = 80
+            local elevated_floor = Hitbox(elevated_parent, 0, 40, 20, 40)
+            elevated_floor.depth = 40
+            elevated_floor.supports = true
+            elevated_floor.one_way = false
+            fake_world.surfaces = { projected_wall, elevated_floor }
+
+            local step_player = Object(10, 34)
+            step_player.z = 110
+            step_player.collider = Hitbox(step_player, -4, 2, 8, 8)
+            step_player.collider.depth = 20
+            step_player.support_collider = Hitbox(step_player, -2, 4, 4, 4)
+            step_player.world = fake_world
+            step_player.platforming_enabled = true
+            step_player.departed_ground_collider = nil
+            step_player.projected_fall_ceiling_z = 160
+            step_player.fall_through_colliders = { [projected_wall] = true }
+            step_player.getDepartedGroundCollisionIgnore =
+                Player.getDepartedGroundCollisionIgnore
+            step_player.getHeightCollisionIgnore = Player.getHeightCollisionIgnore
+
+            expect(fake_world:getLandingSurface(step_player.support_collider,
+                115, 110, step_player.collider) == nil,
+                "a trailing upper wall should initially reject the lower step landing")
+            local step_z, step_surface = Player.tryProjectedSurfaceLanding(
+                step_player, 115, 110)
+            expect(step_z == 120 and step_surface == elevated_floor
+                and step_player.y == 44,
+                "projected descent should catch an elevated step after clearing the departed wall")
+        end)()
+    end
+
+    do
+        (function()
+            local upper_wall = Hitbox(platform_parent, 0, 40, 20, 40)
+            upper_wall.z, upper_wall.depth = 0, 120
+            upper_wall.supports, upper_wall.one_way = false, false
+            local upper_top = Hitbox(platform_parent, 0, 40, 20, 40)
+            upper_top.z, upper_top.depth = 120, 0
+            upper_top.supports, upper_top.one_way = true, true
+            fake_world.surfaces = { upper_wall, upper_top }
+            fake_world.map = { pits = {} }
+
+            local upper_player = Object(10, 31)
+            upper_player.z = -10
+            upper_player.collider = Hitbox(upper_player, -4, 2, 8, 8)
+            upper_player.collider.depth = 20
+            upper_player.support_collider = Hitbox(upper_player, -2, 4, 4, 4)
+            upper_player.height_departure_x = 0
+            upper_player.height_departure_y = -1
+            local upper_z, upper_surface = fake_world:tryProjectedLanding(
+                upper_player, -5, -10, 120, upper_top, nil)
+            expect(upper_z == 0 and upper_surface == nil
+                and upper_player.y == 30,
+                "an upper-edge fall should clear the wall away from the departed platform")
+            expect(not upper_player.support_collider:collidesWith(upper_top),
+                "upper-edge recovery must not move the actor back onto the surface it left")
+        end)()
+    end
+
     local recovered_from_unbounded_fall = false
     local stranded_ledge_player = {
         z = -79,
@@ -1080,6 +1154,7 @@ function Testing:runPlatformingTests()
             getLandingSurface = function() return nil end
         },
         getHeightCollisionIgnore = function() return nil end,
+        tryProjectedLanding = function() return nil end,
         tryProjectedBaseLanding = function() return nil end,
         updateFallThroughColliders = function() end,
         recoverFromPit = function()
@@ -2189,6 +2264,24 @@ function Testing:runPlatformingTests()
                 expect(soul_camera_x == 0 and soul_camera_y == -160
                     and cutout_soul_x == 0 and cutout_soul_y == -32,
                     "the WorldSoul camera should follow logical elevation without following hover bobbing")
+                local soul_projected = false
+                local landing_soul = setmetatable({
+                    projected_fall_ceiling_z = 160,
+                    departed_ground_collider = "departed",
+                    getHeightCollisionIgnore = function() return "ignored" end,
+                    world = {
+                        tryProjectedLanding = function(_, subject, old_z, new_z,
+                            ceiling_z, departed, ignored)
+                            soul_projected = subject ~= nil and old_z == 140
+                                and new_z == 130 and ceiling_z == 160
+                                and departed == "departed" and ignored == "ignored"
+                            return 120
+                        end
+                    }
+                }, { __index = WorldSoul })
+                expect(landing_soul:tryProjectedLanding(140, 130) == 120
+                    and soul_projected,
+                    "WorldSoul falls should use the same directed projected-landing solver as the player")
                 local soul_shadow = WorldSoulShadow({
                     width = 16,
                     height = 16,

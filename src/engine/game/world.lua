@@ -831,6 +831,47 @@ function World:collidersShareHeightSurface(first, second)
         and tostring(first_surface.id) == tostring(second_surface.id)
 end
 
+---@param candidate Collider?
+---@param departed Collider?
+---@param probe Collider
+---@return boolean matches
+function World:matchesDepartedHeight(candidate, departed, probe)
+    if not candidate or not departed then return false end
+    if self:collidersShareHeightSurface(candidate, departed) then return true end
+    local candidate_top = self:getSupportHeightAt(candidate, probe)
+    local departed_top = self:getSupportHeightAt(departed, probe)
+    return math.abs(candidate_top - departed_top) <= 0.001
+end
+
+---@param subject Object
+---@param departed Collider?
+---@return number x
+---@return number y
+function World:getHeightDepartureDirection(subject, departed)
+    local move_x = MathUtils.sign(subject.moving_x or 0)
+    local move_y = MathUtils.sign(subject.moving_y or 0)
+    if move_x ~= 0 or move_y ~= 0 then return move_x, move_y end
+
+    local surface = self:getHeightSurfaceForCollider(departed)
+    local bounds = surface and (surface.support_bounds or surface.bounds)
+        or departed and departed.map_bounds
+    if bounds and subject.support_collider then
+        local x, y = getSupportWorldPosition(subject.support_collider)
+        local outside_left = math.max(bounds.min_x - x, 0)
+        local outside_right = math.max(x - bounds.max_x, 0)
+        local outside_up = math.max(bounds.min_y - y, 0)
+        local outside_down = math.max(y - bounds.max_y, 0)
+        local horizontal = math.max(outside_left, outside_right)
+        local vertical = math.max(outside_up, outside_down)
+        if horizontal > 0 or vertical > 0 then
+            return horizontal > 0 and (outside_left > outside_right and -1 or 1) or 0,
+                vertical > 0 and (outside_up > outside_down and -1 or 1) or 0
+        end
+    end
+
+    return 0, 1
+end
+
 ---@return table? surface
 function World:getImplicitHeightSurface()
     return self.map and self.map.getImplicitSurface
@@ -1019,7 +1060,7 @@ function World:getLandingSurface(collider, old_z, new_z, body_collider,
             local top = self:getSupportHeightAt(surface, collider)
             local previous_top = surface.slope and top or surface.previous_top or top
             local snapping_back =
-                self:collidersShareHeightSurface(surface, departed_surface)
+                self:matchesDepartedHeight(surface, departed_surface, collider)
                 and old_z <= previous_top + 0.001
             local crossed_surface = old_z >= previous_top - 0.001
                 and new_z <= top + 0.001
@@ -1046,6 +1087,103 @@ function World:getLandingSurface(collider, old_z, new_z, body_collider,
     end
 
     return best_z, best_surface, self:getHeightSurfaceForCollider(best_surface)
+end
+
+---@param subject Object
+---@param old_z number
+---@param new_z number
+---@param ceiling_z? number Highest surface this fall may reach
+---@param departed? Collider Surface that initiated the fall
+---@param ignored? Collider|table<Collider, boolean>
+---@param explicit_only? boolean Skip implicit z=0 ground
+---@return number? landing_z
+---@return Collider? surface
+---@return table? height_surface
+function World:tryProjectedLanding(subject, old_z, new_z, ceiling_z,
+    departed, ignored, explicit_only)
+    if new_z >= old_z then return nil end
+
+    local original_x, original_y = subject.x, subject.y
+    ceiling_z = math.max(old_z, ceiling_z or old_z)
+    local direction_x = subject.height_departure_x
+    local direction_y = subject.height_departure_y
+    if direction_x == nil or direction_y == nil then
+        direction_x, direction_y = self:getHeightDepartureDirection(subject, departed)
+    end
+    if direction_x == 0 and direction_y == 0 then direction_y = 1 end
+
+    local function setOffset(offset)
+        subject.x = original_x + direction_x * offset
+        subject.y = original_y + direction_y * offset
+        Object.uncache(subject)
+    end
+
+    local function visitOffsets(maximum, callback)
+        maximum = math.max(0, math.ceil(maximum))
+        if direction_x == 0 and direction_y > 0 then
+            for offset = maximum, 0, -1 do
+                setOffset(offset)
+                local z, surface, height_surface = callback(offset)
+                if z ~= nil then return z, surface, height_surface end
+            end
+        else
+            for offset = 0, maximum do
+                setOffset(offset)
+                local z, surface, height_surface = callback(offset)
+                if z ~= nil then return z, surface, height_surface end
+            end
+        end
+        return nil
+    end
+
+    local candidates = {}
+    for _, surface in ipairs(self:getCollision(false)) do
+        if surface.supports and not isIgnoredCollision(surface, ignored)
+            and not self:matchesDepartedHeight(
+                surface, departed, subject.support_collider) then
+            local _, maximum_top = surface:getZBounds()
+            if maximum_top >= new_z - 0.001
+                and maximum_top <= ceiling_z + 0.001 then
+                table.insert(candidates, { surface = surface, top = maximum_top })
+            end
+        end
+    end
+    table.stable_sort(candidates, function(a, b) return a.top > b.top end)
+
+    for _, candidate in ipairs(candidates) do
+        local landing_z, landing, height_surface = visitOffsets(
+            candidate.top - new_z,
+            function(offset)
+                local surface = candidate.surface
+                if not subject.support_collider:collidesWith(surface) then return nil end
+                local top = self:getSupportHeightAt(surface, subject.support_collider)
+                if top < new_z - 0.001 or top > ceiling_z + 0.001
+                    or offset > top - new_z + 0.001 then return nil end
+                if not self:isHeightClear(
+                    subject.collider, top, surface, ignored) then return nil end
+                return top, surface, self:getHeightSurfaceForCollider(surface)
+            end)
+        if landing_z ~= nil then return landing_z, landing, height_surface end
+    end
+
+    if not explicit_only and new_z < 0 then
+        local landing_z, landing, height_surface = visitOffsets(-new_z,
+            function()
+                local ground_z, ground, ground_surface = self:getGroundZAt(
+                    subject.support_collider, 0, subject.collider, ignored)
+                if ground_z == nil or math.abs(ground_z) > 0.001
+                    or self:matchesDepartedHeight(
+                        ground, departed, subject.support_collider) then
+                    return nil
+                end
+                return 0, ground, ground_surface
+            end)
+        if landing_z ~= nil then return landing_z, landing, height_surface end
+    end
+
+    subject.x, subject.y = original_x, original_y
+    Object.uncache(subject)
+    return nil
 end
 
 --- Finds the lowest solid underside crossed during an upward Z sweep.

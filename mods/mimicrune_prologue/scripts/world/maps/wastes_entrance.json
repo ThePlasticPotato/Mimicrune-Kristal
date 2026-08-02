@@ -806,9 +806,9 @@
         {
           "id": 61,
           "name": "rectangle",
-          "x": 760,
+          "x": 640,
           "y": 760,
-          "width": 360,
+          "width": 480,
           "height": 40,
           "shape": {
             "type": "rectangle",

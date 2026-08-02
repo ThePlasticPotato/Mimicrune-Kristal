@@ -53,6 +53,9 @@ function Player:init(chara, x, y)
     self.ground_collider = nil
     self.ground_surface = nil
     self.airborne_surface = nil
+    self.projected_fall_ceiling_z = nil
+    self.height_departure_x = nil
+    self.height_departure_y = nil
     self.departed_ground_collider = nil
     self.departed_ground_surface = nil
     self.fall_through_colliders = {}
@@ -843,6 +846,9 @@ function Player:setPlatformingEnabled(enabled)
         self.ground_collider = nil
         self.ground_surface = nil
         self.airborne_surface = nil
+        self.projected_fall_ceiling_z = nil
+        self.height_departure_x = nil
+        self.height_departure_y = nil
         self.departed_ground_collider = nil
         self.departed_ground_surface = nil
         self.fall_through_colliders = {}
@@ -868,6 +874,9 @@ function Player:setPlatformingEnabled(enabled)
         self.ground_collider = ground
         self.ground_surface = surface
         self.airborne_surface = nil
+        self.projected_fall_ceiling_z = nil
+        self.height_departure_x = nil
+        self.height_departure_y = nil
         self.height_state_manager:setState("GROUNDED")
     elseif self.world:isOverPit(self.support_collider) then
         self.height_state_manager:setState("FALL")
@@ -1269,11 +1278,14 @@ function Player:beginHeightFall(last_state)
             self.departed_ground_collider = previous_ground
         end
         self.departed_ground_surface = previous_surface
+        self.height_departure_x, self.height_departure_y =
+            self.world:getHeightDepartureDirection(self, previous_ground)
         self.airborne_surface = previous_surface
             or self.world:getImplicitHeightSurface()
     end
     self.ground_collider = nil
     self.ground_surface = nil
+    self.projected_fall_ceiling_z = self.z
     self:setHeightAnimation("fall")
 end
 
@@ -1470,6 +1482,23 @@ function Player:tryProjectedBaseLanding(old_z, new_z)
     return nil
 end
 
+---@param old_z number
+---@param new_z number
+---@return number? landing_z
+---@return Collider? surface
+---@return table? height_surface
+function Player:tryProjectedSurfaceLanding(old_z, new_z)
+    return self.world:tryProjectedLanding(self, old_z, new_z,
+        self.projected_fall_ceiling_z, self.departed_ground_collider,
+        self:getHeightCollisionIgnore(), true)
+end
+
+function Player:tryProjectedLanding(old_z, new_z)
+    return self.world:tryProjectedLanding(self, old_z, new_z,
+        self.projected_fall_ceiling_z, self.departed_ground_collider,
+        self:getHeightCollisionIgnore())
+end
+
 function Player:updateHeightFall()
     local old_z = self.z
     self.z_velocity = math.max(self.z_velocity - self.z_gravity * DTMULT, -self.max_fall_speed)
@@ -1481,7 +1510,7 @@ function Player:updateHeightFall()
 
     if not landing_z then
         landing_z, landing, landing_surface =
-            self:tryProjectedBaseLanding(old_z, new_z)
+            self:tryProjectedLanding(old_z, new_z)
     end
 
     if landing_z then
@@ -1490,6 +1519,9 @@ function Player:updateHeightFall()
         self.ground_collider = landing
         self.ground_surface = landing_surface
         self.airborne_surface = nil
+        self.projected_fall_ceiling_z = nil
+        self.height_departure_x = nil
+        self.height_departure_y = nil
         self.z_velocity = 0
         self:recordLandingCollisionOverlaps()
         self.height_state_manager:setState("LAND")
@@ -1551,6 +1583,9 @@ function Player:beginHeightPitRecovery()
     self.ground_collider = nil
     self.ground_surface = nil
     self.airborne_surface = nil
+    self.projected_fall_ceiling_z = nil
+    self.height_departure_x = nil
+    self.height_departure_y = nil
     self.departed_ground_collider = nil
     self.departed_ground_surface = nil
     self.fall_through_colliders = {}

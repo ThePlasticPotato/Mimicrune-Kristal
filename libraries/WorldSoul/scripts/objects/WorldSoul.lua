@@ -64,6 +64,9 @@ function WorldSoul:init(x, y, color, z)
     self.ground_collider = nil
     self.ground_surface = nil
     self.airborne_surface = nil
+    self.projected_fall_ceiling_z = nil
+    self.height_departure_x = nil
+    self.height_departure_y = nil
     self.departed_ground_collider = nil
     self.departed_ground_surface = nil
     self.fall_through_colliders = {}
@@ -145,6 +148,9 @@ function WorldSoul:setPlatformingEnabled(enabled)
         self.ground_collider = nil
         self.ground_surface = nil
         self.airborne_surface = nil
+        self.projected_fall_ceiling_z = nil
+        self.height_departure_x = nil
+        self.height_departure_y = nil
         self.departed_ground_collider = nil
         self.departed_ground_surface = nil
         self.fall_through_colliders = {}
@@ -191,6 +197,9 @@ function WorldSoul:enterMap(x, y, z)
     self.ground_collider = nil
     self.ground_surface = nil
     self.airborne_surface = nil
+    self.projected_fall_ceiling_z = nil
+    self.height_departure_x = nil
+    self.height_departure_y = nil
     self.departed_ground_collider = nil
     self.departed_ground_surface = nil
     self.fall_through_colliders = {}
@@ -359,11 +368,14 @@ function WorldSoul:beginHeightFall(last_state)
         end
         self.departed_ground_collider = previous_ground
         self.departed_ground_surface = previous_surface
+        self.height_departure_x, self.height_departure_y =
+            self.world:getHeightDepartureDirection(self, previous_ground)
         self.airborne_surface = previous_surface
             or self.world:getImplicitHeightSurface()
     end
     self.ground_collider = nil
     self.ground_surface = nil
+    self.projected_fall_ceiling_z = self.z
 end
 
 ---@param impact_speed number
@@ -497,6 +509,12 @@ function WorldSoul:tryProjectedBaseLanding(old_z, new_z)
     return nil
 end
 
+function WorldSoul:tryProjectedLanding(old_z, new_z)
+    return self.world:tryProjectedLanding(self, old_z, new_z,
+        self.projected_fall_ceiling_z, self.departed_ground_collider,
+        self:getHeightCollisionIgnore())
+end
+
 function WorldSoul:updateHeightGrounded()
     local support_z, support, surface = self.world:getSupportAt(
         self.support_collider, self.z)
@@ -525,6 +543,8 @@ function WorldSoul:updateHeightFall()
     local new_z = self.z + self.z_velocity * DTMULT
 
     if new_z > old_z then
+        self.projected_fall_ceiling_z = math.max(
+            self.projected_fall_ceiling_z or old_z, new_z)
         local ceiling_z = self.world:getCeilingSurface(
             self.collider,
             old_z + self.collider.depth,
@@ -545,7 +565,7 @@ function WorldSoul:updateHeightFall()
         ignored, self.departed_ground_collider)
 
     if not landing_z then
-        landing_z, landing, surface = self:tryProjectedBaseLanding(old_z, new_z)
+        landing_z, landing, surface = self:tryProjectedLanding(old_z, new_z)
     end
 
     if landing_z then
@@ -555,6 +575,9 @@ function WorldSoul:updateHeightFall()
         self.ground_collider = landing
         self.ground_surface = surface
         self.airborne_surface = nil
+        self.projected_fall_ceiling_z = nil
+        self.height_departure_x = nil
+        self.height_departure_y = nil
         self.z_velocity = 0
         self:recordLandingCollisionOverlaps()
         self:setHeightState("LAND", impact_speed)
@@ -580,6 +603,9 @@ function WorldSoul:updateHeightLand()
     self.ground_collider = support
     self.ground_surface = surface
     self.airborne_surface = nil
+    self.projected_fall_ceiling_z = nil
+    self.height_departure_x = nil
+    self.height_departure_y = nil
     self.land_timer = self.land_timer + DT
     if self.land_timer >= self.land_time then
         self:setHeightState("GROUNDED")
@@ -591,6 +617,9 @@ function WorldSoul:beginHeightPitRecovery()
     self.ground_collider = nil
     self.ground_surface = nil
     self.airborne_surface = nil
+    self.projected_fall_ceiling_z = nil
+    self.height_departure_x = nil
+    self.height_departure_y = nil
     self.departed_ground_collider = nil
     self.departed_ground_surface = nil
     self.fall_through_colliders = {}
