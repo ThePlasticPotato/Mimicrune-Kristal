@@ -72,8 +72,24 @@ function Assets.init()
     self.asset_load_out_channel = love.thread.getChannel("asset_load_out")
     self.asset_load_in_channel:clear()
     self.asset_load_out_channel:clear()
-    self.asset_load_thread = love.thread.newThread("src/engine/loading/assetloadthread.lua")
-    self.asset_load_thread:start()
+    local thread_arg = Kristal.Args["asset-loader-threads"]
+    local configured_threads = tonumber(thread_arg and thread_arg[1])
+        or tonumber(Kristal.Config["assetLoaderThreads"])
+        or 0
+    local processor_count = love.system.getProcessorCount()
+    if configured_threads <= 0 then
+        configured_threads = math.min(4, math.max(1, processor_count - 1))
+    end
+    self.asset_load_worker_count = math.max(1, math.min(8, math.floor(configured_threads)))
+    self.asset_load_in_flight_limit = math.max(64, self.asset_load_worker_count * 32)
+    self.asset_load_threads = {}
+    for worker_id = 1, self.asset_load_worker_count do
+        local thread = love.thread.newThread("src/engine/loading/assetloadthread.lua")
+        thread:start(worker_id)
+        table.insert(self.asset_load_threads, thread)
+    end
+    print(string.format("[AssetLoader] Started %d decode worker(s) on %d logical processor(s), queue limit %d",
+        self.asset_load_worker_count, processor_count, self.asset_load_in_flight_limit))
     ---@type AssetBucket[]
     self.buckets = {
         AssetBucket("engine", { "assets" }),
@@ -83,8 +99,8 @@ function Assets.init()
 end
 
 function Assets.shutdown()
-    if self.asset_load_thread and self.asset_load_thread:isRunning() then
-        self.asset_load_in_channel:push("stop")
+    for _, thread in ipairs(self.asset_load_threads or {}) do
+        if thread:isRunning() then self.asset_load_in_channel:push("stop") end
     end
 end
 
@@ -104,6 +120,12 @@ function Assets.getAssetCount()
         asset_total = asset_total + bucket.assets_total
     end
     return asset_loaded, asset_total
+end
+
+---@param bucket_id string
+---@return table? stats
+function Assets.getLoadStats(bucket_id)
+    return self.getBucket(bucket_id).last_load_stats
 end
 
 function Assets.clear()
@@ -333,12 +355,14 @@ function Assets.update()
     for _,sound in ipairs(sounds_to_remove) do
         TableUtils.removeValue(self.sound_instances[sound.key], sound.value)
     end
-    if self.asset_load_thread and not self.asset_load_thread:isRunning() then
-        local thread_error = self.asset_load_thread:getError()
-        if thread_error then error("Asset loader thread failed:\n" .. thread_error) end
+    for _, thread in ipairs(self.asset_load_threads or {}) do
+        if not thread:isRunning() then
+            local thread_error = thread:getError()
+            if thread_error then error("Asset loader thread failed:\n" .. thread_error) end
+        end
     end
 
-    local max_in_flight = 8
+    local max_in_flight = self.asset_load_in_flight_limit or 64
     local in_flight = 0
     for _, bucket in ipairs(self.buckets) do in_flight = in_flight + bucket.pending_tasks end
     for _, bucket in ipairs(self.buckets) do
@@ -347,14 +371,19 @@ function Assets.update()
     end
 
     local start_time = love.timer.getTime()
-    local apply_budget = 0.5 / 30
+    local state = Kristal.getState()
+    local blocking_load = MOD_LOADING
+        or state == Kristal.States["Loading"]
+        or state == Kristal.States["Empty"]
+    local apply_budget = blocking_load and (2 / 30) or (0.5 / 30)
     while self.asset_load_out_channel:getCount() > 0 do
         local message = self.asset_load_out_channel:pop()
         local bucket = self.getBucket(message.bucket_id)
         if bucket.state == AssetBucket.State.LOADING
             and bucket.generation == message.generation then
             bucket:receiveTask(message.asset_type, message.asset_id,
-                message.success, message.result)
+                message.success, message.result, message.decode_time,
+                message.worker_id, message.worker_heap_kb)
             if Kristal.Config["verboseLoader"] then
                 Kristal.Loader.message = string.format("%s/%s: %s",
                     message.bucket_id, message.asset_type, message.asset_id)

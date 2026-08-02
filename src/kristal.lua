@@ -170,6 +170,7 @@ function love.load(args)
     --[[
         Launch args:
             --wait: Pauses the load screen until a key is pressed
+            --asset-loader-threads <count>: Overrides the automatic asset decode worker count
     ]]
 
     -- read args
@@ -2118,7 +2119,8 @@ function Kristal.getDefaultConfig()
         rightStickDeadzone = 0.2,
         defaultName = "",
         skipNameEntry = false,
-        verboseLoader = false
+        verboseLoader = false,
+        assetLoaderThreads = 0
     }
 
     return config

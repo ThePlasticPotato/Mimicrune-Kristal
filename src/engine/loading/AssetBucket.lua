@@ -26,6 +26,8 @@ function AssetBucket:init(id, paths)
     self.state = AssetBucket.State.UNLOADED
     self.assets_total = 0
     self.assets_loaded = 0
+    self.load_stats = nil
+    self.last_load_stats = nil
 end
 
 function AssetBucket:unload()
@@ -45,12 +47,14 @@ function AssetBucket:unload()
     self.state = AssetBucket.State.UNLOADED
     self.assets_total = 0
     self.assets_loaded = 0
+    self.load_stats = nil
 end
 
 ---@param paths string[]?
 ---@param after function?
 function AssetBucket:startLoading(paths, after)
     assert(self.state == AssetBucket.State.UNLOADED, "Can't load a bucket that's already loaded")
+    local started_at = love.timer.getTime()
     self.generation = self.generation + 1
     self.state = AssetBucket.State.LOADING
     self.paths = paths or self.paths
@@ -80,6 +84,18 @@ function AssetBucket:startLoading(paths, after)
     for asset_type, _ in pairs(Assets.queued_tasks[self.bucket_id]) do
         self.assets_total = self.assets_total + TableUtils.getKeyCount(Assets.getQueue(self.bucket_id, asset_type))
     end
+    self.load_stats = {
+        bucket_id = self.bucket_id,
+        started_at = started_at,
+        discovery_time = love.timer.getTime() - started_at,
+        worker_decode_time = 0,
+        worker_tasks = 0,
+        worker_heaps = {},
+        synchronous_decode_time = 0,
+        synchronous_tasks = 0,
+        apply_time = 0,
+        assets_total = self.assets_total,
+    }
 end
 
 ---@param callback function
@@ -122,7 +138,10 @@ end
 ---@param asset_id string
 ---@param success boolean
 ---@param result any
-function AssetBucket:receiveTask(asset_type, asset_id, success, result)
+---@param decode_time number?
+---@param worker_id integer?
+---@param worker_heap_kb number?
+function AssetBucket:receiveTask(asset_type, asset_id, success, result, decode_time, worker_id, worker_heap_kb)
     self.pending_tasks = math.max(0, self.pending_tasks - 1)
     if self.dispatched_tasks[asset_type] then
         self.dispatched_tasks[asset_type][asset_id] = nil
@@ -130,6 +149,13 @@ function AssetBucket:receiveTask(asset_type, asset_id, success, result)
 
     local loader = AssetLoaders.get(asset_type)
     local queue = Assets.getQueue(self.bucket_id, asset_type)
+    if self.load_stats then
+        self.load_stats.worker_decode_time = self.load_stats.worker_decode_time + (decode_time or 0)
+        self.load_stats.worker_tasks = self.load_stats.worker_tasks + 1
+        if worker_id and worker_heap_kb then
+            self.load_stats.worker_heaps[worker_id] = worker_heap_kb
+        end
+    end
     if not success then
         error(string.format("Failed to load %s/%s/%s:\n%s",
             self.bucket_id, asset_type, asset_id, tostring(result)))
@@ -146,7 +172,11 @@ end
 ---@param result any
 function AssetBucket:applyResult(asset_type, asset_id, result)
     local loader = AssetLoaders.get(asset_type)
+    local apply_started_at = love.timer.getTime()
     local final = loader:apply(asset_id, result)
+    if self.load_stats then
+        self.load_stats.apply_time = self.load_stats.apply_time + (love.timer.getTime() - apply_started_at)
+    end
     self:ensureLoader(asset_type)
     self.loaded_assets[asset_type][asset_id] = final
     Assets.getQueue(self.bucket_id, asset_type)[asset_id] = nil
@@ -166,6 +196,28 @@ function AssetBucket:finishIfReady()
         or self.assets_loaded < self.assets_total then return false end
 
     self.state = AssetBucket.State.LOADED
+    local stats = self.load_stats
+    if stats then
+        stats.total_time = love.timer.getTime() - stats.started_at
+        stats.pipeline_time = stats.total_time - stats.discovery_time
+        stats.assets_loaded = self.assets_loaded
+        stats.worker_count = Assets.asset_load_worker_count or 1
+        stats.in_flight_limit = Assets.asset_load_in_flight_limit or 64
+        stats.worker_heap_kb = 0
+        for _, heap_kb in pairs(stats.worker_heaps) do
+            stats.worker_heap_kb = stats.worker_heap_kb + heap_kb
+        end
+        self.last_load_stats = stats
+        print(string.format(
+            "[AssetLoader] %s: %d assets in %.3fs (discovery %.3fs, pipeline %.3fs, decode CPU %.3fs/%d tasks on %d workers, worker heap %.1f MB, apply %.3fs, synchronous %.3fs/%d tasks)",
+            self.bucket_id, stats.assets_loaded, stats.total_time,
+            stats.discovery_time, stats.pipeline_time,
+            stats.worker_decode_time, stats.worker_tasks, stats.worker_count,
+            stats.worker_heap_kb / 1024,
+            stats.apply_time, stats.synchronous_decode_time, stats.synchronous_tasks
+        ))
+    end
+    self.load_stats = nil
     local callbacks = self.completion_callbacks
     self.completion_callbacks = {}
     for _, callback in ipairs(callbacks) do callback() end
@@ -206,7 +258,13 @@ function AssetBucket:get(asset_type, asset_id)
         return self.loaded_assets[asset_type][asset_id]
     elseif Assets.getQueue(self.bucket_id, asset_type)[asset_id] then
         local loader = AssetLoaders.get(asset_type)
+        local decode_started_at = love.timer.getTime()
         local result = loader:load(asset_id, Assets.getQueue(self.bucket_id, asset_type)[asset_id])
+        if self.load_stats then
+            self.load_stats.synchronous_decode_time = self.load_stats.synchronous_decode_time
+                + (love.timer.getTime() - decode_started_at)
+            self.load_stats.synchronous_tasks = self.load_stats.synchronous_tasks + 1
+        end
         return self:applyResult(asset_type, asset_id, result)
     else
         error(string.format("Attempt to get missing asset of type '%s' with ID '%s'", asset_type, asset_id), 2)
