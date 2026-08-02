@@ -23,4 +23,14 @@ function SoundAssetLoader:apply(asset_id, output)
     return love.audio.newSource(output)
 end
 
+function SoundAssetLoader:release(asset)
+    if asset.isDestroyed and asset:isDestroyed() then return end
+    asset:stop()
+    self:releaseObject(asset)
+end
+
+function SoundAssetLoader:releaseOutput(output)
+    self:releaseObject(output)
+end
+
 return SoundAssetLoader

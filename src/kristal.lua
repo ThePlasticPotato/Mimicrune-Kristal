@@ -339,6 +339,7 @@ function love.quit()
     if Kristal.Loader.thread and Kristal.Loader.thread:isRunning() then
         Kristal.Loader.in_channel:push("stop")
     end
+    Assets.shutdown()
     if Kristal.HTTPS.thread and Kristal.HTTPS.thread:isRunning() then
         Kristal.HTTPS.in_channel:push("stop")
     end
@@ -1207,7 +1208,7 @@ end
 --- Returns whether Kristal is currently loading something.
 ---@return boolean loading Whether Kristal is loading something or not.
 function Kristal.isLoading()
-    return Kristal.Loader.waiting > 0
+    return Kristal.Loader.waiting > 0 or (Assets and Assets.isLoading())
 end
 
 --- Switches the Gamestate to the given one.
@@ -1484,6 +1485,7 @@ function Kristal.clearModState()
     package.loaded["src.engine.vars"] = nil
     require("src.engine.vars")
     -- Reset Game state
+    Kristal.EnteredStates[Kristal.States["Game"]] = nil
     package.loaded["src.engine.game.game"] = nil
     Kristal.States["Game"] = require("src.engine.game.game")
     Game = Kristal.States["Game"]
@@ -1685,19 +1687,6 @@ function Kristal.loadAssets(dir, loader, paths, after)
         paths = paths
     })
     Kristal.Loader.next_key = Kristal.Loader.next_key + 1
-    if loader == "mods" then
-        -- Empty because I absolutely DESPISE LOGIC!! :jellycruel:
-    elseif Assets.getBucket("engine").state == AssetBucket.State.UNLOADED then
-        local paths4real = (type(paths) == "string" and {paths} or paths) ---@as string[]?
-        for i = 1, #paths4real do
-            paths4real[i] = paths4real[i] .. "/assets"
-            if paths4real[i] == "/assets" then
-                paths4real[i] = "assets"
-            end
-        end
-        Assets.getBucket("engine"):startLoading(paths4real)
-    else
-    end
 end
 
 --- Initializes the specified project and loads its assets. \
@@ -1795,34 +1784,19 @@ function Kristal.loadModAssets(id, asset_type, asset_paths, after)
     -- No project found; nothing to load
     if not mod then return end
 
-    -- How many assets we need to load (1 for the project, 1 for each library)
-    local load_count = 1 + #mod.lib_order
-
     -- Begin project loading
     MOD_LOADING = true
 
-    local function finishLoadStep()
-        -- Finish one load process
-        load_count = load_count - 1
-        -- Check if all load processes are done (project and libraries)
-        if load_count == 0 then
-            -- Finish project loading
-            MOD_LOADING = false
-
-            -- Call the after function
-            after()
-        end
-    end
-
     local paths4real = {}
-    -- Finally load all assets (libraries first)
+    -- Queue all assets, with libraries first so the project can override them.
     for _, lib_id in ipairs(mod.lib_order) do
         table.insert(paths4real, mod.libs[lib_id].path .. "/assets")
-        Kristal.loadAssets(mod.libs[lib_id].path, asset_type or "all", asset_paths or "", finishLoadStep)
     end
-    Kristal.loadAssets(mod.path, asset_type or "all", asset_paths or "", finishLoadStep)
     table.insert(paths4real, mod.path .. "/assets")
-    Assets.getBucket("project"):startLoading(paths4real)
+    Assets.getBucket("project"):startLoading(paths4real, function()
+        MOD_LOADING = false
+        after()
+    end)
 end
 
 local function shouldWindowUseModBranding()

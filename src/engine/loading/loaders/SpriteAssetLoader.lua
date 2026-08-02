@@ -52,7 +52,7 @@ function SpriteAssetLoader:beginLoad(file, queue)
     local identifier, split_frame = SpriteAssetLoader.splitIdentifier(file.identifier)
 
     -- Sprite frames and metadata all form the same asset, so the task table is modified
-    local task = queue[identifier] or { frames = {} }
+    local task = queue[identifier] or { frames = {}, frame_positions = {} }
 
     -- If the filename has a frame separator, convert it to a number
     local frame_index = tonumber(split_frame)
@@ -67,16 +67,17 @@ function SpriteAssetLoader:beginLoad(file, queue)
     -- All textures are frame 1 of the sprite unless otherwise specified
     frame_index = frame_index or 1
     
-    for i = #task.frames, 1, -1 do
-        if task.frames[i].frame == frame_index then
-            table.remove(task.frames, i)
-        end
-    end
-
-    table.insert(task.frames, {
+    local frame = {
         frame = frame_index,
         path = file.full_path
-    })
+    }
+    local position = task.frame_positions[frame_index]
+    if position then
+        task.frames[position] = frame
+    else
+        table.insert(task.frames, frame)
+        task.frame_positions[frame_index] = #task.frames
+    end
 
     if queue[identifier] == nil then
         queue[identifier] = task
@@ -90,6 +91,7 @@ function SpriteAssetLoader:load(asset_id, task)
     local result = {
         texture_data = {},
         texture_paths = {},
+        max_frame = 0,
     }
 
     -- Load frame image data (images themselves cannot be loaded on a separate thread)
@@ -100,6 +102,7 @@ function SpriteAssetLoader:load(asset_id, task)
 
         result.texture_data[frame_data.frame] = image_data
         result.texture_paths[frame_data.frame] = frame_data.path
+        result.max_frame = math.max(result.max_frame, frame_data.frame)
     end
 
     -- HACK: Allow gaps in frame indecies by inserting a placeholder ImageData. Ideally should not be used.
@@ -121,12 +124,14 @@ end
 function SpriteAssetLoader:apply(asset_id, output)
     local textures = {}
     local texture_datas = {}
+    local had_gap = false
 
     -- Now on the main thread, create textures from the loaded data
-    for i, data in ipairs(output.texture_data) do
-        local texture_data = data
+    for i = 1, output.max_frame or table.maxn(output.texture_data) do
+        local texture_data = output.texture_data[i] or self.placeholder
+        if not output.texture_data[i] then had_gap = true end
         if self.mario_texture ~= nil then
-            texture_data = self:generateMario(data)
+            texture_data = self:generateMario(texture_data)
         end
         local texture = love.graphics.newImage(texture_data)
 
@@ -134,11 +139,29 @@ function SpriteAssetLoader:apply(asset_id, output)
 
         texture_datas[i] = texture_data
     end
+    if had_gap then
+        self:logError(string.format("Unexpected gap between frame indexes for '%s'", asset_id))
+    end
 
     return {
         textures = textures,
         data = texture_datas,
     }
+end
+
+function SpriteAssetLoader:release(asset)
+    for _, texture in pairs(asset.textures or {}) do
+        self:releaseObject(texture)
+    end
+    for _, data in pairs(asset.data or {}) do
+        if data ~= self.placeholder then self:releaseObject(data) end
+    end
+end
+
+function SpriteAssetLoader:releaseOutput(output)
+    for _, data in pairs(output.texture_data or {}) do
+        if data ~= self.placeholder then self:releaseObject(data) end
+    end
 end
 
 --- Mario mode image creation

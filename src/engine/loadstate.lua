@@ -101,7 +101,7 @@ function Loading:beginLoad()
 
     self.loading_state = Loading.States.LOADING
 
-    Kristal.loadAssets("", "mods", "", function()
+    local function finishLoading()
         self.loading_state = Loading.States.DONE
 
         Assets.saveData()
@@ -114,6 +114,10 @@ function Loading:beginLoad()
         Kristal.DebugSystem = Kristal.Stage:addChild(DebugSystem())
 
         REGISTRY_LOADED = true
+    end
+
+    Kristal.loadAssets("", "mods", "", function()
+        Assets.getBucket("engine"):onComplete(finishLoading)
     end)
 end
 
