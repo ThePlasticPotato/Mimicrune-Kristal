@@ -1,5 +1,3 @@
-local spell = require("src.engine.game.common.data.spell")
-
 ---@class SpriteAssetLoader : AssetLoader<SpriteAssetLoader.Result, SpriteAssetLoader.Task, SpriteAssetLoader.TaskResult>
 ---
 ---@field protected image_extensions string[]
@@ -43,7 +41,7 @@ function SpriteAssetLoader:init(valid_subfolders, valid_extensions)
     self.placeholder = love.image.newImageData(1,1)
 
     -- Mario mode support
-    if love.graphics and love.filesystem.getInfo("mario.png") and Kristal.Args["mario-mode"] then
+    if love.graphics and Kristal and love.filesystem.getInfo("mario.png") and Kristal.Args["mario-mode"] then
         self.mario_texture = love.graphics.newImage("mario.png")
     end
 end

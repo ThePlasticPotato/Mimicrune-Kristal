@@ -1,6 +1,9 @@
 local PathAssetLoader = require("src.engine.loading.loaders.PathAssetLoader")
 local FontAssetLoader = require("src.engine.loading.loaders.FontAssetLoader")
 local BubbleAssetLoader = require("src.engine.loading.loaders.BubbleAssetLoader")
+local ShaderAssetLoader = require("src.engine.loading.loaders.ShaderAssetLoader")
+local SpriteAssetLoader = require("src.engine.loading.loaders.SpriteAssetLoader")
+local SoundAssetLoader = require("src.engine.loading.loaders.SoundAssetLoader")
 ---@class AssetLoaders
 ---@field loaders table<string, AssetLoader>
 local AssetLoaders = {}
