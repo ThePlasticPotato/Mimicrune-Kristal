@@ -201,6 +201,8 @@ end
 ---@return table
 local function createMarkerData(source, layer)
     local v = TableUtils.copy(source, true)
+    v.properties = TableUtils.mergeMany(layer.properties or {}, v.properties or {})
+    v.z = tonumber(v.z ~= nil and v.z or v.properties.z)
     v.width = v.width or 0
     v.height = v.height or 0
     local rotation = math.rad(tonumber(v.rotation) or 0)

@@ -538,6 +538,155 @@
       "chunks": []
     },
     {
+      "id": "new_height_occlusion",
+      "name": "New Height Occlusion",
+      "color": [
+        0.75,
+        0.3,
+        1,
+        1
+      ],
+      "x": 0,
+      "y": 0,
+      "type": "occlusion",
+      "kind": "object",
+      "depth": 0,
+      "alpha": 1,
+      "visible": true,
+      "parallax_x": 1,
+      "parallax_y": 1,
+      "properties": [],
+      "objects": [
+        {
+          "id": 89,
+          "name": "rectangle",
+          "x": 1520,
+          "y": 560,
+          "width": 480,
+          "height": 320,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "source_layer",
+              "type": "string",
+              "value": "entryfloor"
+            },
+            {
+              "name": "surface_id",
+              "type": "string",
+              "value": "2"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "entryplatform",
+      "name": "EntryPlatform",
+      "color": [
+        0,
+        0,
+        1,
+        1
+      ],
+      "x": 0,
+      "y": 0,
+      "type": "collision",
+      "kind": "object",
+      "depth": 0,
+      "alpha": 1,
+      "visible": true,
+      "parallax_x": 1,
+      "parallax_y": 1,
+      "properties": [],
+      "objects": [
+        {
+          "id": 86,
+          "name": "rectangle",
+          "x": 1520,
+          "y": 720,
+          "width": 480,
+          "height": 160,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "collision_role",
+              "type": "choice",
+              "value": "wall"
+            },
+            {
+              "name": "depth",
+              "type": "number",
+              "value": 160
+            },
+            {
+              "name": "surface_id",
+              "type": "string",
+              "value": "2"
+            }
+          ]
+        },
+        {
+          "id": 87,
+          "name": "rectangle",
+          "x": 1520,
+          "y": 760,
+          "width": 40,
+          "height": 120,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "collision_role",
+              "type": "choice",
+              "value": "solid"
+            },
+            {
+              "name": "z",
+              "type": "number",
+              "value": 160
+            }
+          ]
+        },
+        {
+          "id": 88,
+          "name": "rectangle",
+          "x": 1560,
+          "y": 720,
+          "width": 440,
+          "height": 160,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "collision_role",
+              "type": "choice",
+              "value": "solid"
+            },
+            {
+              "name": "z",
+              "type": "number",
+              "value": 160
+            }
+          ]
+        }
+      ]
+    },
+    {
       "id": "collision",
       "name": "Collision",
       "color": [
@@ -582,8 +731,8 @@
           "id": 85,
           "name": "entry",
           "type": "marker",
-          "x": 1920,
-          "y": 640,
+          "x": 1960,
+          "y": 800,
           "width": 0,
           "height": 0,
           "shape": {
@@ -591,7 +740,13 @@
             "shape_data": {}
           },
           "visible": true,
-          "properties": []
+          "properties": [
+            {
+              "name": "z",
+              "type": "number",
+              "value": 160
+            }
+          ]
         }
       ]
     },
@@ -619,8 +774,8 @@
           "id": 1,
           "name": "Player",
           "type": "player",
-          "x": 320,
-          "y": 240,
+          "x": 1960,
+          "y": 800,
           "width": 0,
           "height": 0,
           "shape": {
@@ -628,7 +783,13 @@
             "shape_data": {}
           },
           "visible": true,
-          "properties": []
+          "properties": [
+            {
+              "name": "z",
+              "type": "number",
+              "value": 160
+            }
+          ]
         }
       ]
     }

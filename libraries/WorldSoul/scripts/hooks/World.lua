@@ -46,9 +46,8 @@ function World:setupMap(...)
     if destination.marker then
         local marker = destination.marker
         if not self.map:hasMarker(marker) then marker = "spawn" end
-        local data
-        x, y, data = self.map:getMarker(marker)
-        z = data and tonumber(data.z or data.properties and data.properties.z) or nil
+        x, y = self.map:getMarker(marker)
+        z = self.map:getMarkerZ(marker)
     end
     soul:enterMap(x, y, z)
 end

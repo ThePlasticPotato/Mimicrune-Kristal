@@ -1189,7 +1189,7 @@ function World:spawnPlayer(...)
 
             if data ~= nil then
                 state = data.player_state or "WALK"
-                z = tonumber(data.z or data.properties and data.properties.z) or 0
+                z = self.map:getMarkerZ(args[1]) or 0
             end
         end
     end

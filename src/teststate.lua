@@ -418,6 +418,45 @@ function Testing:runPlatformingTests()
 
     do
         (function()
+            local marker_map = Map(nil, {
+                __map_reader = EditorMapReader,
+                properties = {},
+                layers = {
+                    {
+                        id = "markers", name = "Markers", type = "objects", kind = "object",
+                        visible = true, properties = { z = "48", player_state = "JUMP" },
+                        objects = {
+                            {
+                                id = 1, name = "arrival", type = "marker",
+                                x = 20, y = 30, width = 0, height = 0, properties = {}
+                            },
+                            {
+                                id = 2, name = "override", type = "marker",
+                                x = 40, y = 50, width = 0, height = 0,
+                                properties = { z = 72 }
+                            },
+                            {
+                                id = 3, name = "Player", type = "player",
+                                x = 60, y = 70, width = 0, height = 0, properties = {}
+                            }
+                        }
+                    }
+                }
+            })
+            marker_map.reader:read(marker_map.data)
+            local _, _, arrival = marker_map:getMarker("arrival")
+            expect(marker_map:getMarkerZ("arrival") == 48
+                and arrival.z == 48 and arrival.player_state == "JUMP",
+                "transition markers should inherit Z and spawn state from their object layer")
+            expect(marker_map:getMarkerZ("override") == 72,
+                "marker properties should override inherited layer Z")
+            expect(marker_map:getMarkerZ("spawn") == 48,
+                "the player spawn marker should inherit its object layer Z")
+        end)()
+    end
+
+    do
+        (function()
             expect(Kristal.Shaders["UnderwaterDepth"] ~= nil,
                 "deep-water maps should have a procedural underlay shader")
             local water = UnderwaterUnderlay({

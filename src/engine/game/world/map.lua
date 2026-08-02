@@ -288,6 +288,14 @@ function Map:getMarker(id)
     return marker.center_x, marker.center_y, marker
 end
 
+---@param id KristalObjectRef
+---@return number? z
+function Map:getMarkerZ(id)
+    local _, _, marker = self:getMarker(id)
+    if not marker then return nil end
+    return tonumber(marker.z ~= nil and marker.z or marker.properties and marker.properties.z)
+end
+
 --- Checks if a marker exists.
 ---@param id string|integer|TiledObjectRef The name of the marker to search for, or the unique numerical ID.
 function Map:hasMarker(id)
