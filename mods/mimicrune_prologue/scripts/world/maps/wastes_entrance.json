@@ -2350,6 +2350,21 @@
               }
             }
           ]
+        },
+        {
+          "id": 102,
+          "name": "entry_left",
+          "type": "marker",
+          "x": 40,
+          "y": 680,
+          "width": 0,
+          "height": 0,
+          "shape": {
+            "type": "point",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": []
         }
       ]
     },

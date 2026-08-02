@@ -655,10 +655,11 @@ function World:checkMovementCollision3D(collider, enemy_check, ignored, movement
     local collided, with = self:checkCollision3D(collider, enemy_check, ignored)
     if collided then return true, with end
 
-    local collider_bottom = collider:getZBounds()
+    local collider_bottom, collider_top = collider:getZBounds()
     local movement_bottom = math.min(collider_bottom, movement_z or collider_bottom)
     Object.startCache()
     for _, other in ipairs(self:getCollision(enemy_check)) do
+        local other_bottom = other:getZBounds()
         local other_top = self:getSupportHeightAt(other, collider)
         local collider_parent = collider.parent
         local grounded = collider_parent and collider_parent.isGrounded
@@ -669,6 +670,7 @@ function World:checkMovementCollision3D(collider, enemy_check, ignored, movement
         local slope_connection = self:isSlopeConnection(collider, other)
         if not isIgnoredCollision(other, ignored)
             and other.supports and other_top > movement_bottom + 0.001
+            and other_bottom < collider_top - 0.001
             and not traversing_slope and not slope_connection
             and collider:collidesWith(other)
             and collider ~= other then
@@ -880,7 +882,8 @@ function World:isOverPit(collider)
     return false
 end
 
---- Whether a support footprint above the requested elevation occupies this column
+--- Whether a supporting solid rises from the requested elevation in this column.
+--- Fully raised platforms leave the implicit floor beneath them intact.
 ---@param collider Collider
 ---@param z? number
 ---@param ignored? Collider|table<Collider, boolean>
@@ -889,8 +892,10 @@ function World:hasElevatedSupportAt(collider, z, ignored)
     z = z or 0
     Object.startCache()
     for _, surface in ipairs(self:getCollision(false)) do
+        local bottom = surface:getZBounds()
         local top = self:getSupportHeightAt(surface, collider)
         if surface.supports and top > z + 0.001
+            and bottom <= z + 0.001
             and not isIgnoredCollision(surface, ignored)
             and collider:collidesWith(surface) then
             Object.endCache()

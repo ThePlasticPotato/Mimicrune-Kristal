@@ -760,13 +760,17 @@ function Testing:runPlatformingTests()
     expect(one_way_surface.supports and one_way_surface.one_way
         and surface_bottom == 40 and surface_top == 40,
         "one-way platform shapes should create a landing surface at their authored Z")
+    fake_world.map.pits = {}
     fake_world.surfaces = { one_way_surface }
     a_parent.x, a_parent.y, a_parent.z = 0, 0, 0
     expect(not fake_world:checkCollision3D(a)
-        and fake_world:checkMovementCollision3D(a),
-        "horizontal movement must not enter a support footprint above the player's feet")
+        and not fake_world:checkMovementCollision3D(a),
+        "a player whose full body clears an elevated support should be able to walk underneath")
     expect(not fake_world:checkMovementCollision3D(a, false, one_way_surface),
         "an explicitly ignored elevated support must remain passable")
+    a_parent.z = 25
+    expect(fake_world:checkMovementCollision3D(a),
+        "an elevated support should block movement once the player's body reaches its height")
     a_parent.z = 40
     expect(not fake_world:checkMovementCollision3D(a),
         "a support footprint should become traversable once the player reaches its top")
@@ -774,11 +778,24 @@ function Testing:runPlatformingTests()
     expect(not fake_world:checkMovementCollision3D(a)
         and fake_world:checkMovementCollision3D(a, false, nil, 39),
         "a dash must not enter a platform when this frame's fall ends below its top")
-    expect(not fake_world:hasImplicitGroundAt(a, 0),
-        "implicit z=0 ground must not exist beneath an elevated support footprint")
+    a_parent.z = 0
+    expect(fake_world:hasImplicitGroundAt(a, 0),
+        "implicit z=0 ground should remain available beneath an elevated support")
+
+    local overhead_parent = Object()
+    overhead_parent.z = 80
+    local overhead = Hitbox(overhead_parent, 0, 0, 20, 20)
+    overhead.depth = 40
+    overhead.supports = true
+    fake_world.surfaces = { overhead }
+    expect(not fake_world:checkMovementCollision3D(a)
+        and fake_world:hasImplicitGroundAt(a, 0),
+        "a raised solid platform with body clearance should behave as an underpass")
+    expect(fake_world:getCeilingSurface(a, 79, 81) == 80,
+        "jumping into a raised platform should stop cleanly at its underside")
 
     local guarded_player = Object(0, 0)
-    guarded_player.z = 0
+    guarded_player.z = 65
     guarded_player.collider = Hitbox(guarded_player, 0, 0, 10, 10)
     guarded_player.collider.depth = 20
     guarded_player.support_collider = Hitbox(guarded_player, 2, 2, 6, 6)
@@ -795,7 +812,7 @@ function Testing:runPlatformingTests()
     guarded_player.getMovementCollisionZ = Player.getMovementCollisionZ
     expect(not Player.validateHeightMovement(guarded_player, -20, 0)
         and guarded_player.x == -20,
-        "a final movement guard must roll back any position beneath an elevated support")
+        "a final movement guard must roll back movement into an elevated support's body")
 
     fake_world.map.pits = {}
     fake_world.surfaces = { platform }
