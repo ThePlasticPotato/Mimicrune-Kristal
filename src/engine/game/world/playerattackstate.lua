@@ -199,7 +199,7 @@ function PlayerAttackState:beginSwing()
         and player.air_attack_collider or player.attack_collider[self.direction]
     if self.aerial then
         self.collider.radius = math.max(
-            tonumber(party.overworld_air_attack_radius) or 36, 0)
+            tonumber(party.overworld_air_attack_radius) or 20, 0)
     end
 
     self:hitTargets()

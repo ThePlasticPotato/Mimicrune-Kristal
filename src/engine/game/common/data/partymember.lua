@@ -169,7 +169,7 @@ function PartyMember:init()
     self.overworld_attack_grace = 0.5
     self.overworld_attack_lunge_time = 0.15
     self.overworld_attack_momentum_time = 0.2
-    self.overworld_air_attack_radius = 36
+    self.overworld_air_attack_radius = 28
 
     self.sweet_spot_tolerance = 0.15
     self.attack_circle = "party/kris/attack_wheel"

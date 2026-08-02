@@ -190,7 +190,7 @@ function actor:init()
         ["attack1"] = {-6, 0};
         ["attack2"] = {-6, 0};
         ["attack3"] = {-6, 0};
-        ["attack_air"] = {-6, 0};
+        ["attack_air"] = {-22, 0};
     }
 end
 

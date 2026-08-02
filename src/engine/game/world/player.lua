@@ -364,16 +364,16 @@ function Player:setActor(actor)
     }
 
     self.attack_collider = {
-        ["left"] = Hitbox(self, hx - 26, hy, hw / 2 + 26, hh),
-        ["right"] = Hitbox(self, hx + hw / 2, hy, hw / 2 + 26, hh),
-        ["up"] = Hitbox(self, hx, hy - 38, hw, hh / 2 + 38),
-        ["down"] = Hitbox(self, hx, hy + hh / 2, hw, hh / 2 + 28)
+        ["left"] = Hitbox(self, hx - 18, hy, hw / 2 + 18, hh),
+        ["right"] = Hitbox(self, hx + hw / 2, hy, hw / 2 + 18, hh),
+        ["up"] = Hitbox(self, hx, hy - 18, hw, hh / 2 + 18),
+        ["down"] = Hitbox(self, hx, hy + hh / 2, hw, hh / 2 + 18)
     }
     for _, collider in pairs(self.attack_collider) do
         collider.depth = self.collider.depth
     end
     self.air_attack_collider = CircleCollider(
-        self, hx + hw / 2, hy + hh / 2, 36)
+        self, hx + hw / 2, hy, 36)
     self.air_attack_collider.depth = self.collider.depth
 
     local support_width = math.min(hw, math.max(2, hw * 0.25))
