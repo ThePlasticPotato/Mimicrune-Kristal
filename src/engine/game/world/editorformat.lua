@@ -99,6 +99,7 @@ EditorFormat.ORDERING = {
         "background_color",
         "parallax_origin_x",
         "parallax_origin_y",
+        "asset_buckets",
         "layers",
         "extensions",
         "properties"
@@ -176,6 +177,7 @@ EditorFormat.ORDERING = {
         "kristal_version",
         "id",
         "name",
+        "asset_buckets",
         "maps",
         "extensions",
         "properties"
@@ -1327,11 +1329,26 @@ local function validateFormatExtensions(data, label, diagnostics)
     end
 end
 
+local function validateAssetBuckets(value, label, diagnostics)
+    if value == nil or type(value) == "string" then return end
+    if type(value) ~= "table" then
+        table.insert(diagnostics, label .. " asset_buckets must be a string or an array of bucket ids")
+        return
+    end
+    for index, bucket_id in ipairs(value) do
+        if type(bucket_id) ~= "string" or bucket_id == "" then
+            table.insert(diagnostics, string.format(
+                "%s asset_buckets[%d] must be a non-empty string", label, index))
+        end
+    end
+end
+
 ---@return boolean? valid
 ---@return table|string? diagnostics
 function EditorFormat.validateMap(data, options)
     local diagnostics = {}
     validateFormatExtensions(data, "Map", diagnostics)
+    validateAssetBuckets(data.asset_buckets, "Map", diagnostics)
     if type(data.width) ~= "number" or data.width < 0 then table.insert(diagnostics, "Map width must be non-negative") end
     if type(data.height) ~= "number" or data.height < 0 then table.insert(diagnostics, "Map height must be non-negative") end
     if type(data.grid_width) ~= "number" or data.grid_width <= 0 then table.insert(diagnostics, "Map grid_width must be positive") end
@@ -1554,6 +1571,7 @@ end
 function EditorFormat.validateWorld(data, options)
     local diagnostics = {}
     validateFormatExtensions(data, "World", diagnostics)
+    validateAssetBuckets(data.asset_buckets, "World", diagnostics)
     if type(data.maps) ~= "table" then
         table.insert(diagnostics, "World maps must be an array")
     else

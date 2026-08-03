@@ -1307,15 +1307,29 @@ function Kristal.enterEditor(options)
     if RELEASE_MODE then return false end
     if Kristal.getState() == Kristal.States["Editor"]
         or Kristal.getState() == Kristal.States["EditorTransition"] then return true end
+    if Kristal.PendingEditorEntry then return true end
     if Kristal.getState() ~= Game or not Mod then return false end
     options = options or {}
     options.project_id = options.project_id or Mod.info.id
     options.map_id = options.map_id or (Game.world and Game.world.map and Game.world.map.id)
-    if options.transition == false then
-        Kristal.pushState("Editor", options)
-    else
-        Kristal.pushState("EditorTransition", "enter", options)
-    end
+    local source_state = Kristal.getState()
+    local source_mod = Mod
+    local previous_lock_movement = Game.lock_movement
+    Kristal.PendingEditorEntry = true
+    Game.lock_movement = true
+    Assets.acquireEditorAssets(function()
+        Kristal.PendingEditorEntry = false
+        if Kristal.getState() ~= source_state or Mod ~= source_mod then
+            Assets.releaseEditorAssets()
+            return
+        end
+        Game.lock_movement = previous_lock_movement
+        if options.transition == false then
+            Kristal.pushState("Editor", options)
+        else
+            Kristal.pushState("EditorTransition", "enter", options)
+        end
+    end)
     return true
 end
 
@@ -1452,6 +1466,7 @@ function Kristal.clearModState()
     Draw._clearStacks()
 
     MOD_LOADING = false
+    Kristal.PendingEditorEntry = false
 
     Kristal.LoadedModScripts = {}
 
@@ -1496,7 +1511,7 @@ function Kristal.clearModState()
 
     -- Restore assets and registry
     Assets.restoreData()
-    Assets.getBucket("project"):unload()
+    Assets.clearProjectBuckets()
     Registry.restoreData()
 
     -- force garbage collection
@@ -1788,13 +1803,7 @@ function Kristal.loadModAssets(id, asset_type, asset_paths, after)
     -- Begin project loading
     MOD_LOADING = true
 
-    local paths4real = {}
-    -- Queue all assets, with libraries first so the project can override them.
-    for _, lib_id in ipairs(mod.lib_order) do
-        table.insert(paths4real, mod.libs[lib_id].path .. "/assets")
-    end
-    table.insert(paths4real, mod.path .. "/assets")
-    Assets.getBucket("project"):startLoading(paths4real, function()
+    Assets.loadProjectBuckets(mod, function()
         MOD_LOADING = false
         after()
     end)

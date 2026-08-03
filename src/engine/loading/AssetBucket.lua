@@ -3,7 +3,12 @@ local FilePath = require("src.engine.loading.FilePath")
 ---@field private loaded_assets table<string, table<string, any>>
 ---@field private paths string[]
 ---@field public state AssetBucket.State
----@overload fun(id: string, paths: string[]) : AssetBucket
+---@field public active boolean
+---@field public owners table<any, boolean>
+---@field public persistent boolean
+---@field public priority number
+---@field public scope "engine"|"project"
+---@overload fun(id: string, paths: string[], options?: table) : AssetBucket
 local AssetBucket = Class(nil, "AssetBucket")
 
 ---@enum AssetBucket.State
@@ -14,9 +19,17 @@ AssetBucket.State = {
 }
 
 ---@param paths string[]
-function AssetBucket:init(id, paths)
+---@param options? table
+function AssetBucket:init(id, paths, options)
+    options = options or {}
     self.bucket_id = id
     self.paths = paths
+    self.active = options.active ~= false
+    self.owners = {}
+    self.persistent = options.persistent == true
+    self.priority = options.priority or 0
+    self.activation_order = 0
+    self.scope = options.scope or "engine"
     self.loaded_assets = {}
     self.texture_ids = {}
     self.exact_sprite_groups = {}
@@ -33,10 +46,17 @@ function AssetBucket:init(id, paths)
 end
 
 function AssetBucket:unload()
-    self.generation = self.generation + 1
+    self.generation = Assets.nextBucketGeneration()
     for asset_type, assets in pairs(self.loaded_assets) do
         local loader = AssetLoaders.get(asset_type)
-        for _, asset in pairs(assets) do
+        for asset_id, asset in pairs(assets) do
+            if asset_type == "sound" then
+                for _, instance in ipairs(Assets.sound_instances[asset_id] or {}) do
+                    instance:stop()
+                    loader:releaseObject(instance)
+                end
+                Assets.sound_instances[asset_id] = nil
+            end
             loader:release(asset)
         end
     end
@@ -54,12 +74,22 @@ function AssetBucket:unload()
     self.load_stats = nil
 end
 
+---@param active boolean
+function AssetBucket:setActive(active)
+    self.active = active == true
+end
+
+---@return boolean
+function AssetBucket:isActive()
+    return self.active and self.state ~= AssetBucket.State.UNLOADED
+end
+
 ---@param paths string[]?
 ---@param after function?
 function AssetBucket:startLoading(paths, after)
     assert(self.state == AssetBucket.State.UNLOADED, "Can't load a bucket that's already loaded")
     local started_at = love.timer.getTime()
-    self.generation = self.generation + 1
+    self.generation = Assets.nextBucketGeneration()
     self.state = AssetBucket.State.LOADING
     self.paths = paths or self.paths
     self.loaded_assets = {}
@@ -210,7 +240,7 @@ end
 ---@param exact_id string
 ---@return boolean found
 function AssetBucket:hasExactSprite(exact_id)
-    return self.state ~= AssetBucket.State.UNLOADED
+    return self:isActive()
         and self.exact_sprite_groups[exact_id] ~= nil
 end
 
@@ -269,7 +299,7 @@ end
 
 
 function AssetBucket:has(asset_type, asset_id)
-    if self.state == AssetBucket.State.UNLOADED then
+    if not self:isActive() then
         return false
     end
     self:ensureLoader(asset_type)

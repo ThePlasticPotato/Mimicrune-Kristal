@@ -15,6 +15,53 @@
 local Assets = {}
 local self = Assets
 
+local DEFAULT_CHARACTER_BUCKETS = {
+    "character:cassidy",
+    "character:elizabeth",
+    "character:evan",
+    "character:fredbear",
+    "character:kris",
+    "character:noelle",
+    "character:ralsei",
+    "character:susie",
+    "character:vessel",
+}
+
+local function normalizeBucketList(value)
+    local result, seen = {}, {}
+    local function add(id)
+        id = type(id) == "string" and StringUtils.trim(id) or nil
+        if id and id ~= "" and not seen[id] then
+            seen[id] = true
+            table.insert(result, id)
+        end
+    end
+    if type(value) == "string" then
+        for id in value:gmatch("[^,%s]+") do add(id) end
+    elseif type(value) == "table" then
+        for _, id in ipairs(value) do add(id) end
+    end
+    return result
+end
+
+local function sameBucketList(a, b)
+    a, b = normalizeBucketList(a), normalizeBucketList(b)
+    if #a ~= #b then return false end
+    local found = {}
+    for _, id in ipairs(a) do found[id] = true end
+    for _, id in ipairs(b) do if not found[id] then return false end end
+    return true
+end
+
+function Assets.parseAssetBucketList(value)
+    return normalizeBucketList(value)
+end
+
+function Assets.getDeclaredAssetBuckets(data)
+    if type(data) ~= "table" then return {} end
+    return normalizeBucketList(data.asset_buckets or data.asset_bucket)
+end
+
 ---@class Assets.data
 ---@field texture table<string, love.Image>
 ---@field texture_data table<string, love.ImageData>
@@ -67,6 +114,8 @@ end
 function Assets.init()
     Assets.clear()
     AssetLoaders.init()
+    self.bucket_generation = 0
+    self.bucket_activation = 0
     self.queued_tasks = {}
     self.asset_load_in_channel = love.thread.getChannel("asset_load_in")
     self.asset_load_out_channel = love.thread.getChannel("asset_load_out")
@@ -92,10 +141,39 @@ function Assets.init()
         self.asset_load_worker_count, processor_count, self.asset_load_in_flight_limit))
     ---@type AssetBucket[]
     self.buckets = {
-        AssetBucket("engine", { "assets" }),
-        AssetBucket("project", { "assets" }),
+        AssetBucket("engine", { "assets" }, {
+            active = true, persistent = true, priority = 0, scope = "engine"
+        }),
+        AssetBucket("engine-editor", { "assets/buckets/editor" }, {
+            active = false, priority = 20, scope = "engine"
+        }),
+        AssetBucket("project", { "assets" }, {
+            active = false, priority = 100, scope = "project"
+        }),
     }
+    self.bucket_by_id = {}
+    for _, bucket in ipairs(self.buckets) do
+        self.bucket_by_id[bucket.bucket_id] = bucket
+    end
+    for index, bucket_id in ipairs(DEFAULT_CHARACTER_BUCKETS) do
+        local character_id = bucket_id:match("^character:(.+)$")
+        self.defineBucket(bucket_id, { "assets/buckets/characters/" .. character_id }, {
+            active = false, priority = 10 + index, scope = "engine"
+        })
+    end
+    self.project_bucket_config = nil
+    self.project_bucket_ids = {}
+    self.project_engine_bucket_ids = {}
+    self.party_character_bucket_ids = {}
+    self.active_map_bucket = nil
+    self.active_map_buckets = {}
     self.getBucket("engine"):startLoading({ "assets" })
+end
+
+---@return integer generation
+function Assets.nextBucketGeneration()
+    self.bucket_generation = (self.bucket_generation or 0) + 1
+    return self.bucket_generation
 end
 
 function Assets.shutdown()
@@ -193,14 +271,16 @@ function Assets.iterate(asset_type, id_prefix)
     id_prefix = id_prefix or ""
     return coroutine.wrap(function()
         for _, bucket in ipairs(self.buckets) do
-            for id in pairs(Assets.getQueue(bucket.bucket_id, asset_type)) do
-                if StringUtils.startsWith(id, id_prefix) then
-                    coroutine.yield(id)
+            if bucket:isActive() then
+                for id in pairs(Assets.getQueue(bucket.bucket_id, asset_type)) do
+                    if StringUtils.startsWith(id, id_prefix) then
+                        coroutine.yield(id)
+                    end
                 end
-            end
-            for id in pairs(bucket.loaded_assets[asset_type] or {}) do
-                if StringUtils.startsWith(id, id_prefix) then
-                    coroutine.yield(id)
+                for id in pairs(bucket.loaded_assets[asset_type] or {}) do
+                    if StringUtils.startsWith(id, id_prefix) then
+                        coroutine.yield(id)
+                    end
                 end
             end
         end
@@ -250,14 +330,473 @@ function Assets.internalGetExactSprite(exact_id)
 end
 
 ---@param bucket_id string
+---@return AssetBucket? bucket
+function Assets.tryGetBucket(bucket_id)
+    return self.bucket_by_id and self.bucket_by_id[bucket_id]
+end
+
+---@param bucket_id string
 ---@return AssetBucket bucket
 function Assets.getBucket(bucket_id)
-    for i = 1, #self.buckets do
-        if self.buckets[i].bucket_id == bucket_id then
-            return self.buckets[i]
+    return self.tryGetBucket(bucket_id)
+        or error(string.format("Attempt to get non-existent bucket '%s'", bucket_id), 2)
+end
+
+---@param bucket AssetBucket
+function Assets.promoteBucket(bucket)
+    self.bucket_activation = (self.bucket_activation or 0) + 1
+    bucket.activation_order = self.bucket_activation
+    table.sort(self.buckets, function(a, b)
+        if a.priority ~= b.priority then return a.priority < b.priority end
+        return a.activation_order < b.activation_order
+    end)
+end
+
+---@param bucket_id string
+function Assets.activateBucket(bucket_id)
+    local bucket = self.getBucket(bucket_id)
+    bucket:setActive(true)
+    self.promoteBucket(bucket)
+end
+
+---@param bucket_id string
+function Assets.deactivateBucket(bucket_id)
+    self.getBucket(bucket_id):setActive(false)
+end
+
+---@param bucket_id string
+---@param paths string[]
+---@param options? table
+---@return AssetBucket bucket
+function Assets.defineBucket(bucket_id, paths, options)
+    if self.tryGetBucket(bucket_id) then
+        error(string.format("Attempt to redefine asset bucket '%s'", bucket_id), 2)
+    end
+    local bucket = AssetBucket(bucket_id, paths or {}, options)
+    table.insert(self.buckets, bucket)
+    self.bucket_by_id[bucket_id] = bucket
+    return bucket
+end
+
+---@param bucket_id string
+---@param force? boolean
+function Assets.removeBucket(bucket_id, force)
+    local bucket = self.getBucket(bucket_id)
+    if next(bucket.owners) and not force then
+        error(string.format("Attempt to remove owned asset bucket '%s'", bucket_id), 2)
+    end
+    if bucket.state ~= AssetBucket.State.UNLOADED then bucket:unload() end
+    TableUtils.removeValue(self.buckets, bucket)
+    self.bucket_by_id[bucket_id] = nil
+end
+
+---@param bucket_id string
+---@param owner any
+---@param options? {active?: boolean, eager?: boolean}
+---@param after? function
+function Assets.acquireBucket(bucket_id, owner, options, after)
+    options = options or {}
+    local bucket = self.getBucket(bucket_id)
+    if owner ~= nil then bucket.owners[owner] = true end
+    local activate = options.active ~= false
+    local eager = options.eager == true
+
+    if eager and activate then self.activateBucket(bucket_id) end
+
+    local function complete()
+        if activate then self.activateBucket(bucket_id) end
+        if after then after(bucket) end
+    end
+
+    if bucket.state == AssetBucket.State.LOADED then
+        complete()
+    elseif bucket.state == AssetBucket.State.LOADING then
+        bucket:onComplete(complete)
+    else
+        bucket:setActive(eager and activate)
+        bucket:startLoading(nil, complete)
+    end
+end
+
+---@param party PartyMember[]
+function Assets.syncPartyCharacterBuckets(party)
+    local desired = {}
+    for _, member in ipairs(party or {}) do
+        local bucket_id = member and member.id and ("character:" .. member.id)
+        if bucket_id and self.tryGetBucket(bucket_id) then desired[bucket_id] = true end
+    end
+    for bucket_id in pairs(self.party_character_bucket_ids or {}) do
+        if not desired[bucket_id] and self.tryGetBucket(bucket_id) then
+            self.releaseBucket(bucket_id, "game-party")
         end
     end
-    error(string.format("Attempt to get non-existent bucket '%s'", bucket_id))
+    for bucket_id in pairs(desired) do
+        if not self.party_character_bucket_ids or not self.party_character_bucket_ids[bucket_id] then
+            self.acquireBucket(bucket_id, "game-party", { active = true, eager = true })
+        end
+    end
+    self.party_character_bucket_ids = desired
+end
+
+function Assets.releasePartyCharacterBuckets()
+    for bucket_id in pairs(self.party_character_bucket_ids or {}) do
+        if self.tryGetBucket(bucket_id) then self.releaseBucket(bucket_id, "game-party") end
+    end
+    self.party_character_bucket_ids = {}
+end
+
+---@param bucket_id string
+---@param owner any
+---@param force? boolean
+function Assets.releaseBucket(bucket_id, owner, force)
+    local bucket = self.getBucket(bucket_id)
+    if owner ~= nil then bucket.owners[owner] = nil end
+    if force or (not bucket.persistent and next(bucket.owners) == nil) then
+        bucket:setActive(false)
+        if bucket.state ~= AssetBucket.State.UNLOADED then bucket:unload() end
+    end
+end
+
+---@param requests {id: string, owner: any, active?: boolean}[]
+---@param after function
+function Assets.acquireBuckets(requests, after)
+    local remaining = #requests
+    if remaining == 0 then
+        after()
+        return
+    end
+    local function complete()
+        remaining = remaining - 1
+        if remaining == 0 then after() end
+    end
+    for _, request in ipairs(requests) do
+        self.acquireBucket(request.id, request.owner,
+            { active = request.active ~= false }, complete)
+    end
+end
+
+local function getRelativeBucketPaths(mod, definition)
+    local paths = definition.paths or definition.path or {}
+    if type(paths) == "string" then paths = { paths } end
+    local result = {}
+    for _, path in ipairs(paths) do
+        table.insert(result, mod.path .. "/" .. path:gsub("^/+", ""))
+    end
+    return result
+end
+
+local function appendBuckets(result, seen, value)
+    for _, bucket_id in ipairs(normalizeBucketList(value)) do
+        if not seen[bucket_id] then
+            seen[bucket_id] = true
+            table.insert(result, bucket_id)
+        end
+    end
+end
+
+local function getConfiguredMapBuckets(config, map_id)
+    local zones = config and (config.mapBuckets or config.mapZones)
+    if type(zones) ~= "table" or type(map_id) ~= "string" then return nil end
+    if zones[map_id] then return zones[map_id] end
+
+    local best_prefix, best_buckets
+    for prefix, bucket_ids in pairs(zones) do
+        local normalized = prefix:gsub("%*$", "")
+        if normalized ~= prefix or StringUtils.endsWith(normalized, "/") then
+            if StringUtils.startsWith(map_id, normalized)
+                and (not best_prefix or #normalized > #best_prefix) then
+                best_prefix, best_buckets = normalized, bucket_ids
+            end
+        end
+    end
+    return best_buckets
+end
+
+---@param map_id string
+---@return string[] bucket_ids
+function Assets.getMapBuckets(map_id)
+    local config = self.project_bucket_config
+    local result, seen = {}, {}
+    if type(map_id) ~= "string" then return result end
+
+    local worlds = {}
+    for world_id, world in pairs(Registry.editor_worlds or {}) do
+        if world:hasMap(map_id) then table.insert(worlds, { id = world_id, world = world }) end
+    end
+    table.sort(worlds, function(a, b) return a.id < b.id end)
+    for _, entry in ipairs(worlds) do
+        local data = entry.world.data or {}
+        appendBuckets(result, seen, data.asset_buckets or data.asset_bucket)
+        appendBuckets(result, seen, data.properties and data.properties.asset_buckets)
+        appendBuckets(result, seen, config and config.worldZones
+            and config.worldZones[entry.id])
+    end
+
+    local map_data = Registry.getMapData and Registry.getMapData(map_id)
+    if map_data then
+        appendBuckets(result, seen, map_data.asset_buckets or map_data.asset_bucket)
+        appendBuckets(result, seen, map_data.properties and map_data.properties.asset_buckets)
+    end
+    appendBuckets(result, seen, getConfiguredMapBuckets(config, map_id))
+    return result
+end
+
+---@param map_id string
+---@return string? bucket_id
+function Assets.getMapBucket(map_id)
+    return self.getMapBuckets(map_id)[1]
+end
+
+---@param map_id string
+---@return boolean changing
+function Assets.mapBucketsChanged(map_id)
+    return not sameBucketList(self.getMapBuckets(map_id), self.active_map_buckets or {})
+end
+
+---@param asset_type string|string[]
+---@param asset_id string
+---@return AssetBucket? bucket
+function Assets.findAssetBucket(asset_type, asset_id)
+    local asset_types = type(asset_type) == "table" and asset_type or { asset_type }
+    local normalized_types = {}
+    for _, kind in ipairs(asset_types) do
+        if kind == "texture" or kind == "frames" then kind = "sprite" end
+        if kind == "sound_data" then kind = "sound" end
+        normalized_types[kind] = true
+    end
+    for index = #self.buckets, 1, -1 do
+        local bucket = self.buckets[index]
+        if bucket:isActive() then
+            for kind in pairs(normalized_types) do
+                if kind == "sprite" then
+                    for _, candidate in ipairs(self.getTextureReferenceCandidates(asset_id)) do
+                        if bucket:hasExactSprite(candidate) or bucket:has("sprite", candidate) then
+                            return bucket
+                        end
+                    end
+                elseif AssetLoaders.exists(kind) and bucket:has(kind, asset_id) then
+                    return bucket
+                end
+            end
+        end
+    end
+end
+
+---@param map_id string
+---@param asset_type string|string[]
+---@param asset_id string
+---@return string? bucket_id
+---@return boolean added
+function Assets.noteEditorAssetUsage(map_id, asset_type, asset_id)
+    if type(map_id) ~= "string" or type(asset_id) ~= "string" or asset_id == "" then return nil, false end
+    local bucket = self.findAssetBucket(asset_type, asset_id)
+    if not bucket or bucket.persistent or bucket.bucket_id == "engine-editor" then return nil, false end
+    local effective = self.getMapBuckets(map_id)
+    if TableUtils.contains(effective, bucket.bucket_id) then return bucket.bucket_id, false end
+    local map_data = Registry.getMapData(map_id)
+    if not map_data then return bucket.bucket_id, false end
+    local declared = normalizeBucketList(map_data.asset_buckets or map_data.asset_bucket)
+    table.insert(declared, bucket.bucket_id)
+    map_data.asset_bucket = nil
+    map_data.asset_buckets = declared
+    return bucket.bucket_id, true
+end
+
+---@param mod ProjectInfo
+---@param after function
+---@return boolean bucketed
+function Assets.loadProjectBuckets(mod, after)
+    local manifest_path = mod.path .. "/asset_buckets.json"
+    local has_manifest = love.filesystem.getInfo(manifest_path) ~= nil
+    local requests = {}
+
+    local engine_bucket_ids = TableUtils.copy(DEFAULT_CHARACTER_BUCKETS)
+    if has_manifest then
+        local success, config = pcall(JSON.decode, love.filesystem.read(manifest_path))
+        if not success then
+            error(string.format("Could not parse '%s': %s", manifest_path, tostring(config)))
+        end
+        self.project_bucket_config = config
+        engine_bucket_ids = config.engineBuckets
+        if engine_bucket_ids == nil then engine_bucket_ids = TableUtils.copy(DEFAULT_CHARACTER_BUCKETS) end
+
+        local definitions = config.buckets or {}
+        local definition_ids = {}
+        for bucket_id in pairs(definitions) do table.insert(definition_ids, bucket_id) end
+        table.sort(definition_ids, function(a, b)
+            local a_priority = definitions[a].priority or 0
+            local b_priority = definitions[b].priority or 0
+            return a_priority == b_priority and a < b or a_priority < b_priority
+        end)
+
+        local library_paths = {}
+        for _, lib_id in ipairs(mod.lib_order) do
+            table.insert(library_paths, mod.libs[lib_id].path .. "/assets")
+        end
+        if #library_paths > 0 and not definitions["project-common"] then
+            definitions["project-common"] = { persistent = true }
+            table.insert(definition_ids, 1, "project-common")
+        end
+
+        for _, bucket_id in ipairs(definition_ids) do
+            local definition = definitions[bucket_id]
+            local paths = getRelativeBucketPaths(mod, definition)
+            if bucket_id == "project-common" then
+                for index = #library_paths, 1, -1 do
+                    table.insert(paths, 1, library_paths[index])
+                end
+            end
+            self.defineBucket(bucket_id, paths, {
+                active = false,
+                persistent = definition.persistent == true,
+                priority = definition.priority
+                    or (bucket_id == "project-common" and 100 or 200),
+                scope = "project"
+            })
+            table.insert(self.project_bucket_ids, bucket_id)
+            if definition.persistent == true then
+                table.insert(requests, { id = bucket_id, owner = "project", active = true })
+            end
+        end
+
+        local initial_buckets
+        if Mod and type(Mod.getInitialAssetBuckets) == "function" then
+            initial_buckets = Mod:getInitialAssetBuckets()
+        elseif Mod and type(Mod.getInitialAssetBucket) == "function" then
+            initial_buckets = Mod:getInitialAssetBucket()
+        end
+        initial_buckets = normalizeBucketList(initial_buckets)
+        if #initial_buckets == 0 then initial_buckets = self.getMapBuckets(mod.map) end
+        self.active_map_buckets = initial_buckets
+        self.active_map_bucket = initial_buckets[1]
+        for _, initial_bucket in ipairs(initial_buckets) do
+            if not self.tryGetBucket(initial_bucket) then
+                error(string.format("Initial asset bucket '%s' is not defined", initial_bucket))
+            end
+            table.insert(requests, {
+                id = initial_bucket, owner = "world-map", active = true
+            })
+        end
+    else
+        local paths = {}
+        for _, lib_id in ipairs(mod.lib_order) do
+            table.insert(paths, mod.libs[lib_id].path .. "/assets")
+        end
+        table.insert(paths, mod.path .. "/assets")
+        local project = self.getBucket("project")
+        project.paths = paths
+        table.insert(requests, { id = "project", owner = "project", active = true })
+    end
+
+    for _, bucket_id in ipairs(engine_bucket_ids or {}) do
+        if not self.tryGetBucket(bucket_id) then
+            error(string.format("Project requested unknown engine asset bucket '%s'", bucket_id))
+        end
+        table.insert(self.project_engine_bucket_ids, bucket_id)
+        table.insert(requests, { id = bucket_id, owner = "project", active = true })
+    end
+
+    self.acquireBuckets(requests, after)
+    return has_manifest
+end
+
+function Assets.clearProjectBuckets()
+    self.releasePartyCharacterBuckets()
+    for _, bucket_id in ipairs(self.project_engine_bucket_ids or {}) do
+        if self.tryGetBucket(bucket_id) then self.releaseBucket(bucket_id, "project") end
+    end
+    for index = #(self.project_bucket_ids or {}), 1, -1 do
+        local bucket_id = self.project_bucket_ids[index]
+        if self.tryGetBucket(bucket_id) then self.removeBucket(bucket_id, true) end
+    end
+    local project = self.tryGetBucket("project")
+    if project then
+        project.owners = {}
+        project:setActive(false)
+        if project.state ~= AssetBucket.State.UNLOADED then project:unload() end
+    end
+    self.project_bucket_config = nil
+    self.project_bucket_ids = {}
+    self.project_engine_bucket_ids = {}
+    self.active_map_bucket = nil
+    self.active_map_buckets = {}
+end
+
+---@param map_id string
+---@param ready fun(commit: fun(callback: function))
+function Assets.prepareMapBucket(map_id, ready)
+    local target_ids = self.getMapBuckets(map_id)
+    local old_ids = self.active_map_buckets or normalizeBucketList(self.active_map_bucket)
+    if sameBucketList(target_ids, old_ids) then
+        ready(function(callback) callback() end)
+        return
+    end
+    local old_set, target_set = {}, {}
+    for _, id in ipairs(old_ids) do old_set[id] = true end
+    for _, id in ipairs(target_ids) do
+        target_set[id] = true
+        if not self.tryGetBucket(id) then
+            error(string.format("Map '%s' uses undefined asset bucket '%s'", map_id, id), 2)
+        end
+    end
+    local requests = {}
+    for _, id in ipairs(target_ids) do
+        if not old_set[id] then table.insert(requests, { id = id, owner = "world-map", active = false }) end
+    end
+    self.acquireBuckets(requests, function()
+        local committed = false
+        ready(function(callback)
+            assert(not committed, "Asset bucket transition was committed twice")
+            committed = true
+            for _, id in ipairs(target_ids) do self.activateBucket(id) end
+            self.active_map_buckets = target_ids
+            self.active_map_bucket = target_ids[1]
+            local success, message = xpcall(callback, debug.traceback)
+            for _, id in ipairs(old_ids) do
+                if not target_set[id] and self.tryGetBucket(id) then
+                    self.deactivateBucket(id)
+                    self.releaseBucket(id, "world-map")
+                end
+            end
+            if not success then error(message, 0) end
+        end)
+    end)
+end
+
+---@param map_id string
+---@param callback function
+function Assets.transitionToMapBucket(map_id, callback)
+    self.prepareMapBucket(map_id, function(commit) commit(callback) end)
+end
+
+---@param after function
+function Assets.acquireEditorAssets(after)
+    local requests = {
+        { id = "engine-editor", owner = "editor", active = true },
+    }
+    for _, bucket_id in ipairs(DEFAULT_CHARACTER_BUCKETS) do
+        table.insert(requests, { id = bucket_id, owner = "editor", active = true })
+    end
+    for _, bucket_id in ipairs(self.project_bucket_ids or {}) do
+        table.insert(requests, { id = bucket_id, owner = "editor", active = true })
+    end
+    self.acquireBuckets(requests, after)
+end
+
+function Assets.releaseEditorAssets()
+    for _, bucket_id in ipairs(self.project_bucket_ids or {}) do
+        local bucket = self.tryGetBucket(bucket_id)
+        if bucket then self.releaseBucket(bucket_id, "editor") end
+    end
+    for _, bucket_id in ipairs(DEFAULT_CHARACTER_BUCKETS) do
+        local bucket = self.tryGetBucket(bucket_id)
+        if bucket then self.releaseBucket(bucket_id, "editor") end
+    end
+    local editor_bucket = self.tryGetBucket("engine-editor")
+    if editor_bucket then self.releaseBucket("engine-editor", "editor") end
+    for _, bucket_id in ipairs(self.active_map_buckets or {}) do
+        if self.tryGetBucket(bucket_id) then self.activateBucket(bucket_id) end
+    end
 end
 
 function Assets.saveData()
@@ -392,8 +931,8 @@ function Assets.update()
     local apply_budget = blocking_load and (2 / 30) or (0.5 / 30)
     while self.asset_load_out_channel:getCount() > 0 do
         local message = self.asset_load_out_channel:pop()
-        local bucket = self.getBucket(message.bucket_id)
-        if bucket.state == AssetBucket.State.LOADING
+        local bucket = self.tryGetBucket(message.bucket_id)
+        if bucket and bucket.state == AssetBucket.State.LOADING
             and bucket.generation == message.generation then
             bucket:receiveTask(message.asset_type, message.asset_id,
                 message.success, message.result, message.decode_time,
@@ -560,7 +1099,7 @@ function Assets.reloadTextureReference(reference)
     for _, id in ipairs(self.getTextureReferenceCandidates(reference)) do
         for bucket_n = #self.buckets, 1, -1 do
             local bucket = self.buckets[bucket_n]
-            if bucket:hasExactSprite(id) then
+            if bucket:isActive() and bucket:hasExactSprite(id) then
                 local group_id = bucket.exact_sprite_groups[id]
                 local _, frame = bucket:getFramesForExactSprite(id)
                 local group = bucket:get("sprite", group_id)
@@ -606,7 +1145,8 @@ end
 function Assets.getTextureID(texture)
     if type(texture) == "string" then return texture end
     for bucket_n = #Assets.buckets, 1, -1 do
-        local id = Assets.buckets[bucket_n].texture_ids[texture]
+        local bucket = Assets.buckets[bucket_n]
+        local id = bucket:isActive() and bucket.texture_ids[texture]
         if id then return id end
     end
 end

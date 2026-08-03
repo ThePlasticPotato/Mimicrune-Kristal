@@ -2039,7 +2039,8 @@ function World:mapTransition(...)
     local args = { ... }
     self.pending_transition_movement_state = self:captureTransitionMovementState()
     local map = args[1]
-    if type(map) == "string" then
+    local changing_bucket = type(map) == "string" and Assets.mapBucketsChanged(map)
+    if type(map) == "string" and not changing_bucket then
         local map = Registry.createMap(map)
         if not map.keep_music then
             self:transitionMusic(Kristal.callEvent(KRISTAL_EVENT.onMapMusic, self.map, self.map.music) or map.music, true)
@@ -2051,9 +2052,18 @@ function World:mapTransition(...)
             Game:setBorder(Kristal.callEvent(KRISTAL_EVENT.onMapBorder, self.map, map_border) or map_border, 1)
         end
     end
-    self:fadeInto(function()
-        self:loadMap(TableUtils.unpack(args))
-    end)
+    if changing_bucket then
+        self:setState("FADING")
+        Assets.prepareMapBucket(map, function(commit)
+            self:fadeInto(function()
+                commit(function() self:loadMap(TableUtils.unpack(args)) end)
+            end)
+        end)
+    else
+        self:fadeInto(function()
+            self:loadMap(TableUtils.unpack(args))
+        end)
+    end
 end
 
 --- Fades the world out and into another piece of content

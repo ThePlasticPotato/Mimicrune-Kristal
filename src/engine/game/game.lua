@@ -400,6 +400,7 @@ function Game:load(data, index, fade)
             Kristal.Console:error("Could not load party member \""  .. id .. "\"")
         end
     end
+    Assets.syncPartyCharacterBuckets(self.party)
 
     self:initRecruits()
     if data.recruits_data then
@@ -929,6 +930,7 @@ function Game:addPartyMember(chara, index)
     else
         table.insert(self.party, chara)
     end
+    Assets.syncPartyCharacterBuckets(self.party)
     self.world:spawnSoul()
     return chara
 end
@@ -940,6 +942,7 @@ function Game:removePartyMember(chara)
         chara = self:getPartyMember(chara)
     end
     TableUtils.removeValue(self.party, chara)
+    Assets.syncPartyCharacterBuckets(self.party)
     self.world:spawnSoul()
     return chara
 end
@@ -956,6 +959,7 @@ function Game:setPartyMembers(...)
             self.party[i] = chara
         end
     end
+    Assets.syncPartyCharacterBuckets(self.party)
     self.world:spawnSoul()
     return self.party
 end

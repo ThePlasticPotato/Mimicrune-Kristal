@@ -1,0 +1,19 @@
+{
+    "engineBuckets": ["character:vessel"],
+    "buckets": {
+        "project-common": {
+            "paths": ["assets/common"],
+            "persistent": true
+        },
+        "area:device": {
+            "paths": ["assets/zones/device"]
+        },
+        "area:wastes": {
+            "paths": ["assets/zones/wastes"]
+        }
+    },
+    "mapZones": {
+        "void": "area:device",
+        "test": "area:wastes"
+    }
+}
