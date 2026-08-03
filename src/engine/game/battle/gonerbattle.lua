@@ -9,6 +9,8 @@ function GonerBattle:init()
 
     super.init(self)
 
+    self.using_fft = false
+
     self.goner_transition_time = 0
     self.goner_transition_length = 26
     self.goner_fade_length = 42
@@ -110,6 +112,14 @@ function GonerBattle:captureTransitionSnapshot()
     end
 end
 
+function GonerBattle:releaseTransitionSnapshot(field)
+    local snapshot = self[field]
+    self[field] = nil
+    if snapshot then
+        snapshot:release()
+    end
+end
+
 function GonerBattle:startGonerMusic()
     if self.goner_music == "none" or not self.goner_music or self.music:isPlaying() then
         return
@@ -181,7 +191,7 @@ end
 function GonerBattle:updateIntro()
     self.intro_timer = self.intro_timer + DTMULT
     if self.intro_timer >= self.goner_fade_length then
-        self.goner_snapshot = nil
+        self:releaseTransitionSnapshot("goner_snapshot")
         for _, battler in ipairs(self.party) do
             battler:resetSprite()
         end
@@ -194,8 +204,20 @@ function GonerBattle:onTransitionOutState()
 
     -- Let the DEVICE panels close, then freeze the unobstructed battle frame
     -- and bleed that image away instead of morphing the bust into its actor (cause that would look fugly)
-    self.goner_exit_snapshot = nil
+    self:releaseTransitionSnapshot("goner_exit_snapshot")
     self.goner_exit_time = nil
+end
+
+function GonerBattle:onRemove(parent)
+    self:releaseTransitionSnapshot("goner_snapshot")
+    self:releaseTransitionSnapshot("goner_exit_snapshot")
+    super.onRemove(self, parent)
+end
+
+function GonerBattle:onRemoveFromStage(stage)
+    self:releaseTransitionSnapshot("goner_snapshot")
+    self:releaseTransitionSnapshot("goner_exit_snapshot")
+    super.onRemoveFromStage(self, stage)
 end
 
 function GonerBattle:updateTransitionOut()

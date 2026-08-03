@@ -64,6 +64,9 @@ function Game:clear()
     if self.music then
         self.music:stop()
     end
+    if self.fft and self.fft.release then
+        self.fft:release()
+    end
     self.stage = nil
     self.world = nil
     self.battle = nil
@@ -352,11 +355,6 @@ function Game:load(data, index, fade)
     self.fader = Fader()
     self.fader.layer = 1000
     self.stage:addChild(self.fader)
-
-    self.fft = LoveFFT
-    self.fft:init(512)
-    --initialize battle by default
-    self.fft:setSoundData(Assets.getMusicPath("battle"))
 
     if fade then
         self.fader:fadeIn(nil, { alpha = 1, speed = 0.5 })
@@ -773,6 +771,17 @@ function Game:_startEncounter(battle_class, encounter, transition, enemy, contex
         self.battle:postInit(transition, encounter)
     else
         self.battle:postInit(transition and "TRANSITION" or "INTRO", encounter)
+    end
+
+    if self.battle.using_fft then
+        if not self.fft then
+            self.fft = LoveFFT
+            self.fft:init(512)
+            self.fft:setSoundData(Assets.getMusicPath("battle"))
+        end
+    elseif self.fft then
+        self.fft:release()
+        self.fft = nil
     end
 
     self.stage:addChild(self.battle)

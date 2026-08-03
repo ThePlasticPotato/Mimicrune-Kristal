@@ -5,6 +5,8 @@
 local loveFFT = {}
 
 function loveFFT:init(fftSize) -- The number of samples used to calculate FFT, must be a power of 2
+    self:release()
+
     if fftSize == nil then
         fftSize = 2048
     end
@@ -12,19 +14,23 @@ function loveFFT:init(fftSize) -- The number of samples used to calculate FFT, m
     for i = 1, fftSize/2 do fftArray[i] = 0 end
     self.fftSize = fftSize
     self.fftArray = fftArray
+    self.worker_generation = (self.worker_generation or 0) + 1
+    local channel_suffix = tostring(self.worker_generation)
+    self.channelFFT = love.thread.getChannel("fft_" .. channel_suffix)
+    self.channelToFFT = love.thread.getChannel("toFFT_" .. channel_suffix)
+    self.channelFFT:clear()
+    self.channelToFFT:clear()
     self.threadFFT = love.thread.newThread("src/engine/ffthread.lua")
-    self.threadFFT:start(fftSize)
-    self.channelFFT = love.thread.getChannel("fft")
-    self.channelToFFT = love.thread.getChannel("toFFT")
+    self.threadFFT:start(fftSize, "toFFT_" .. channel_suffix, "fft_" .. channel_suffix)
     self.loaded_song = nil
 end
 
 function loveFFT:setFFTSize(fftSize) -- Usually, avoid setting FFTSize in run time to save you from chores
-    self.threadFFT:release()
-    self.threadFFT = love.thread.newThread("src/engine/ffthread.lua")
-    self.threadFFT:start(fftSize)
-    self.channelFFT:clear()
-    self.channelToFFT:clear()
+    local sound_data = self.soundData
+    self:init(fftSize)
+    if sound_data then
+        self:setSoundData(sound_data)
+    end
 end
 
 function loveFFT:getFFTSize()
@@ -81,6 +87,7 @@ function loveFFT:push() -- Launch a new FFT computation in a separate thread usi
         end
     end
     -- Send to thread
+    self.channelToFFT:clear()
     self.channelToFFT:push(toFFT)
 end
 
@@ -94,10 +101,21 @@ function loveFFT:get() -- Gets the result of an FFT computation. This function p
     end
 end
 
-function loveFFT:release() -- Releases the thread and clears the channel. According to LOVE documentation, this is necessary on Android platforms. But based on my personal experience, it is always unnecessary to call this function
-    self.threadFFT:release()
-    self.channelFFT:clear()
-    self.channelToFFT:clear()
+function loveFFT:release()
+    if self.threadFFT then
+        if self.threadFFT:isRunning() then
+            self.channelToFFT:clear()
+            self.channelToFFT:push("stop")
+            self.threadFFT:wait()
+        end
+        self.threadFFT:release()
+    end
+    if self.channelFFT then self.channelFFT:clear() end
+    if self.channelToFFT then self.channelToFFT:clear() end
+    self.threadFFT = nil
+    self.channelFFT = nil
+    self.channelToFFT = nil
+    self.soundData = nil
 end
 
 -- Aliases

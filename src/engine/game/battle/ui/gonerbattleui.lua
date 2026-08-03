@@ -11,6 +11,12 @@ local ACTION_NAMES = {
     defend = "WAIT",
 }
 
+local function setTextIfChanged(text_object, text)
+    if text_object.text ~= text then
+        text_object:setText(text)
+    end
+end
+
 function GonerBattleUI:init()
     super.init(self)
     self:setPosition(0, 0)
@@ -32,6 +38,7 @@ function GonerBattleUI:init()
     self.eb_line_spacing = Assets.getFontData("eb").lineSpacing or self.eb_font:getHeight()
     self.action_row_height = self.eb_line_spacing + 3
     self.submenu_row_height = self.eb_line_spacing + 10
+    self.device_color = ColorUtils.hexToRGB("#c8c9be")
 
     self.status_panel = GonerBattlePanel(112, 59, 170, 64)
 
@@ -204,17 +211,17 @@ function GonerBattleUI:updateStatus()
     local battler = Game.battle.party[1]
     if not battler then return end
     local chara = battler.chara
-    local lines = {}
+    local status_text = ""
     if chara.is_psychic then
-        table.insert(lines, string.format("NP:%d H:%d", chara.neural_power, math.ceil((chara.heat / chara:getStat("heat")) * 100)))
+        status_text = string.format("NP:%d H:%d", chara.neural_power, math.ceil((chara.heat / chara:getStat("heat")) * 100))
     elseif chara.is_musical then
-        table.insert(lines, string.format("NOTES %d/3", chara.notes))
+        status_text = string.format("NOTES %d/3", chara.notes)
     end
     local health, max_health = chara:getHealth(), chara:getStat("health")
     if not self:isPanelFrozen(self.status_panel) then
-        self.status_name_text:setText(chara:getName():upper())
-        self.health_meter.y = #lines > 0 and 24 or 12
-        self.status_text:setText(table.concat(lines, "\n"))
+        setTextIfChanged(self.status_name_text, chara:getName():upper())
+        self.health_meter.y = status_text ~= "" and 24 or 12
+        setTextIfChanged(self.status_text, status_text)
         self.health_meter:setMeter("HP", health, max_health, string.format("%s / %s", health, max_health))
         local tension, max_tension = Game:getTension(), Game:getMaxTension()
         local tension_percent = math.floor((tension / math.max(max_tension, 1)) * 100)
@@ -242,19 +249,23 @@ function GonerBattleUI:beginAttack()
 end
 
 function GonerBattleUI:updateActions()
+    if Game.battle.state ~= "ACTIONSELECT" then return end
     local action_box = self.action_boxes[1]
     if not action_box or self:isPanelFrozen(self.action_device_panel) then return end
     local labels = {}
     for _, button in ipairs(action_box:getSelectableButtons()) do
         table.insert(labels, ACTION_NAMES[button.type] or tostring(button.type):upper())
     end
-    self.action_text:setText(table.concat(labels, "\n"))
+    setTextIfChanged(self.action_text, table.concat(labels, "\n"))
     local cursor_center_offset = (self.eb_font:getHeight() - self.action_cursor.height * self.action_cursor.scale_y) / 2
     self.action_cursor.y = 10 + ((action_box.selected_button - 1) * self.action_row_height) + cursor_center_offset
 end
 
 function GonerBattleUI:updateSubmenu()
     local battle = Game.battle
+    if battle.state ~= "MENUSELECT" and battle.state ~= "PARTYSELECT" then
+        return
+    end
     local left, right = {}, {}
     local cursor_x, cursor_y = 20, 12
 
@@ -279,8 +290,8 @@ function GonerBattleUI:updateSubmenu()
         cursor_y = 12 + ((battle.current_menu_y - 1) * self.submenu_row_height)
     end
 
-    self.submenu_left_text:setText(table.concat(left, "\n"))
-    self.submenu_right_text:setText(table.concat(right, "\n"))
+    setTextIfChanged(self.submenu_left_text, table.concat(left, "\n"))
+    setTextIfChanged(self.submenu_right_text, table.concat(right, "\n"))
     local cursor_center_offset = (self.eb_font:getHeight() - self.submenu_cursor.height * self.submenu_cursor.scale_y) / 2
     self.submenu_cursor:setPosition(cursor_x, cursor_y + cursor_center_offset)
 end
@@ -346,7 +357,7 @@ function GonerBattleUI:draw()
             y = y - ((enemy.height or 40) * enemy.scale_y / 2)
             local radius = MathUtils.clamp(math.max(enemy.width or 40, enemy.height or 40) * 0.7, 25, 54)
             local rotation = Kristal.getTime() * 2.8
-            local r, g, b = unpack(ColorUtils.hexToRGB("#c8c9be"))
+            local r, g, b = unpack(self.device_color)
 
             love.graphics.push()
             love.graphics.translate(x, y)
