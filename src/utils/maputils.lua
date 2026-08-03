@@ -368,6 +368,7 @@ function MapUtils.colliderFromShape(parent, data, x, y, properties)
         local explicit_plane = properties.surface_plane or properties.render_plane
             or properties.elevation_plane
         collider.surface_plane = explicit_plane ~= nil and tostring(explicit_plane) or nil
+        collider.terrain_edge_fog = properties.terrain_edge_fog
         if #bounds_points > 0 then
             local min_x, min_y, max_x, max_y =
                 math.huge, math.huge, -math.huge, -math.huge
@@ -418,6 +419,7 @@ function MapUtils.colliderFromShape(parent, data, x, y, properties)
                 child.map_object_name = collider.map_object_name
                 child.surface_id = collider.surface_id
                 child.surface_plane = collider.surface_plane
+                child.terrain_edge_fog = collider.terrain_edge_fog
                 child.map_bounds = collider.map_bounds
                 child.slope = collider.slope
                 child.slope_axis = collider.slope_axis

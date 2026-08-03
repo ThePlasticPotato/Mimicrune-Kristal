@@ -9,6 +9,14 @@ local TerrainEdgeFog, super = Class(Object)
 local INF = 1000000
 local DIAGONAL = math.sqrt(2)
 
+local function surfaceAllowsFog(surface)
+    if not surface or surface.terrain_edge_fog == false then return false end
+    for _, collider in ipairs(surface.support_colliders or {}) do
+        if collider.terrain_edge_fog == false then return false end
+    end
+    return true
+end
+
 local function decodedTileExists(map, packed)
     if not packed then return false end
     local gid = map:decodeTileData(packed)
@@ -126,7 +134,8 @@ function TerrainEdgeFog.createForMap(map)
     local grouped = {}
     for _, surface in pairs(map.surfaces or {}) do
         local top = surface.support_top
-        if top ~= nil and top > base.lowest_z + 0.001 then
+        if surfaceAllowsFog(surface)
+            and top ~= nil and top > base.lowest_z + 0.001 then
             local key = string.format("%.4f", top)
             grouped[key] = grouped[key] or {
                 z = top,
@@ -194,7 +203,9 @@ function TerrainEdgeFog:findLowestSurface()
         self.map.terrain_edge_fog_surface_id or "")
     local requested_surface = requested_surface_id ~= ""
         and self.map:getSurface(requested_surface_id) or nil
-    if requested_surface and requested_surface.support_top ~= nil
+    if requested_surface and not surfaceAllowsFog(requested_surface) then
+        return nil
+    elseif requested_surface and requested_surface.support_top ~= nil
         and #(requested_surface.support_colliders or {}) > 0 then
         support_candidates = { requested_surface }
     else
@@ -207,7 +218,7 @@ function TerrainEdgeFog:findLowestSurface()
         end
         local lowest_support_z
         for _, surface in pairs(self.map.surfaces or {}) do
-            if surface.support_top ~= nil
+            if surfaceAllowsFog(surface) and surface.support_top ~= nil
                 and #(surface.support_colliders or {}) > 0 then
                 lowest_support_z = lowest_support_z
                     and math.min(lowest_support_z, surface.support_top)
@@ -216,7 +227,7 @@ function TerrainEdgeFog:findLowestSurface()
         end
         if lowest_support_z ~= nil then
             for _, surface in pairs(self.map.surfaces or {}) do
-                if surface.support_top ~= nil
+                if surfaceAllowsFog(surface) and surface.support_top ~= nil
                     and math.abs(surface.support_top - lowest_support_z) < 0.001
                     and #(surface.support_colliders or {}) > 0 then
                     table.insert(support_candidates, surface)

@@ -13,6 +13,7 @@
     0,
     0
   ],
+  "asset_buckets": [],
   "layers": [
     {
       "id": "crags2",
@@ -783,6 +784,198 @@
               "value": "front"
             }
           ]
+        },
+        {
+          "id": 109,
+          "name": "rectangle",
+          "x": 0,
+          "y": 600,
+          "width": 2000,
+          "height": 600,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "source_layer",
+              "type": "string",
+              "value": "basefloor"
+            },
+            {
+              "name": "surface_id",
+              "type": "string",
+              "value": "0"
+            },
+            {
+              "name": "cutout_enabled",
+              "type": "boolean",
+              "value": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "basefloor_2",
+      "name": "BaseFloor",
+      "color": [
+        0,
+        0,
+        1,
+        1
+      ],
+      "x": 0,
+      "y": 0,
+      "type": "collision",
+      "kind": "object",
+      "depth": 0,
+      "alpha": 1,
+      "visible": true,
+      "parallax_x": 1,
+      "parallax_y": 1,
+      "properties": [],
+      "objects": [
+        {
+          "id": 103,
+          "name": "rectangle",
+          "x": -40,
+          "y": 680,
+          "width": 2080,
+          "height": 560,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "collision_role",
+              "type": "choice",
+              "value": "solid"
+            },
+            {
+              "name": "depth",
+              "type": "number",
+              "value": 40
+            },
+            {
+              "name": "surface_id",
+              "type": "string",
+              "value": "0"
+            },
+            {
+              "name": "z",
+              "type": "number",
+              "value": -40
+            }
+          ]
+        },
+        {
+          "id": 106,
+          "name": "rectangle",
+          "x": 920,
+          "y": 600,
+          "width": 440,
+          "height": 40,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "collision_role",
+              "type": "choice",
+              "value": "solid"
+            },
+            {
+              "name": "depth",
+              "type": "number",
+              "value": 40
+            },
+            {
+              "name": "surface_id",
+              "type": "string",
+              "value": "0"
+            },
+            {
+              "name": "z",
+              "type": "number",
+              "value": -40
+            }
+          ]
+        },
+        {
+          "id": 107,
+          "name": "rectangle",
+          "x": 880,
+          "y": 640,
+          "width": 520,
+          "height": 40,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "collision_role",
+              "type": "choice",
+              "value": "solid"
+            },
+            {
+              "name": "depth",
+              "type": "number",
+              "value": 40
+            },
+            {
+              "name": "surface_id",
+              "type": "string",
+              "value": "0"
+            },
+            {
+              "name": "z",
+              "type": "number",
+              "value": -40
+            }
+          ]
+        },
+        {
+          "id": 108,
+          "name": "rectangle",
+          "x": 0,
+          "y": 640,
+          "width": 240,
+          "height": 40,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "collision_role",
+              "type": "choice",
+              "value": "solid"
+            },
+            {
+              "name": "depth",
+              "type": "number",
+              "value": 40
+            },
+            {
+              "name": "surface_id",
+              "type": "string",
+              "value": "0"
+            },
+            {
+              "name": "z",
+              "type": "number",
+              "value": -40
+            }
+          ]
         }
       ]
     },
@@ -1306,6 +1499,61 @@
       "name": "platforming",
       "type": "boolean",
       "value": true
+    },
+    {
+      "name": "underwater_underlay_distortion",
+      "type": "number",
+      "value": 6
+    },
+    {
+      "name": "underwater_underlay_opacity",
+      "type": "number",
+      "value": 0.68
+    },
+    {
+      "name": "underwater_underlay_particle_strength",
+      "type": "number",
+      "value": 0.35
+    },
+    {
+      "name": "underwater_underlay_speed",
+      "type": "number",
+      "value": 1
+    },
+    {
+      "name": "underwater_underlay_void_strength",
+      "type": "number",
+      "value": 1
+    },
+    {
+      "name": "underwater_underlay",
+      "type": "boolean",
+      "value": true
+    },
+    {
+      "name": "empty_tile_pit",
+      "type": "boolean",
+      "value": true
+    },
+    {
+      "name": "terrain_edge_fog",
+      "type": "boolean",
+      "value": true
+    },
+    {
+      "name": "terrain_edge_fog_extent",
+      "type": "number",
+      "value": 60
+    },
+    {
+      "name": "terrain_edge_fog_layer",
+      "type": "string",
+      "value": "basefloor"
+    },
+    {
+      "name": "terrain_edge_fog_opacity",
+      "type": "number",
+      "value": 0.25
     }
   ]
 }

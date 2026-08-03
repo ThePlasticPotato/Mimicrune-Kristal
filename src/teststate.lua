@@ -148,6 +148,25 @@ function Testing:runPlatformingTests()
             and out_b > 0.45 and out_b < 0.55 and out_a > 0.95,
             "GPU height depth should reject a later far sprite and correctly blend a translucent near sprite")
 
+        local bleed_output = love.graphics.newCanvas(64, 64)
+        love.graphics.setCanvas(bleed_output)
+        love.graphics.clear(0, 0, 0, 0)
+        love.graphics.origin()
+        local bleed_shader = Assets.getShader("goner_bleed_cover")
+        bleed_shader:send("progress", 1)
+        bleed_shader:send("time", 0)
+        bleed_shader:send("screen_size", { 64, 64 })
+        love.graphics.setShader(bleed_shader)
+        love.graphics.setColor(1, 1, 1, 1)
+        love.graphics.rectangle("fill", 0, 0, 64, 64)
+        love.graphics.setShader()
+        love.graphics.setCanvas()
+        local bleed_data = bleed_output:newImageData()
+        local cover_r, cover_g, cover_b, cover_a = bleed_data:getPixel(32, 16)
+        expect(cover_r < 0.01 and cover_g < 0.01 and cover_b < 0.01
+            and cover_a > 0.99,
+            "pit recovery should cover the completed world without sampling its pixels")
+
         love.graphics.setCanvas({ output, depthstencil = depth })
         love.graphics.clear(0, 0, 0, 0, false, 0)
         renderer:compositeHeightDepthCanvas(red, billboard(10), true)
@@ -172,6 +191,7 @@ function Testing:runPlatformingTests()
         red:release()
         green:release()
         half_blue:release()
+        bleed_output:release()
     end
 
     do
@@ -375,6 +395,29 @@ function Testing:runPlatformingTests()
     }, 0, 0, { z = 4, depth = 12 })
     expect(authored.z == 4 and authored.depth == 12 and authored.supports,
         "authored positive-depth colliders should expose a supported top surface")
+    do
+        (function()
+            local fogless_authored = MapUtils.colliderFromShape(probe_parent, {
+                shape = "rectangle", width = 8, height = 8
+            }, 0, 0, {
+                z = 4, depth = 12, surface_id = "fogless",
+                terrain_edge_fog = false
+            })
+            expect(fogless_authored.terrain_edge_fog == false,
+                "authored colliders should preserve an explicit terrain-edge-fog opt-out")
+            local fog_surface_map = setmetatable({
+                surfaces = {}, surface_by_collider = {}
+            }, { __index = Map })
+            authored.surface_id = "fogless"
+            fog_surface_map:registerSurfaceCollider(authored)
+            fog_surface_map:registerSurfaceCollider(fogless_authored)
+            expect(fog_surface_map:getSurface("fogless").terrain_edge_fog == false,
+                "one opted-out supporting collider should disable fog for its whole surface")
+            fog_surface_map:unregisterSurfaceCollider(fogless_authored)
+            expect(fog_surface_map:getSurface("fogless").terrain_edge_fog,
+                "removing the opted-out collider should refresh the surface fog setting")
+        end)()
+    end
 
     local runtime_map = Map(nil, {
         __map_reader = EditorMapReader,
@@ -624,10 +667,13 @@ function Testing:runPlatformingTests()
             local covered_floor = Hitbox(plane_world, 70, 70, 16, 16)
             local mostly_covered_floor =
                 Hitbox(plane_world, 140, 110, 16, 16)
+            local excluded_floor = Hitbox(plane_world, 20, 20, 16, 16)
             base_floor.supports = true
             isolated_floor.supports = true
             covered_floor.supports = true
             mostly_covered_floor.supports = true
+            excluded_floor.supports = true
+            excluded_floor.terrain_edge_fog = false
             local fog_planes = TerrainEdgeFog.createForMap({
                 width = 5,
                 height = 5,
@@ -652,6 +698,10 @@ function Testing:runPlatformingTests()
                             covered_floor,
                             mostly_covered_floor
                         }
+                    },
+                    excluded = {
+                        support_top = 60,
+                        support_colliders = { excluded_floor }
                     }
                 }
             })
@@ -663,6 +713,31 @@ function Testing:runPlatformingTests()
                 plane.distance_field:release()
                 plane.distance_field = nil
             end
+
+            local disabled_base = Hitbox(plane_world, 0, 0, 160, 200)
+            disabled_base.supports = true
+            disabled_base.terrain_edge_fog = false
+            local disabled_surface = {
+                support_top = 0,
+                support_colliders = { disabled_base }
+            }
+            local disabled_map = {
+                id = "fog_opt_out_test",
+                width = 5,
+                height = 5,
+                tile_width = 40,
+                tile_height = 40,
+                tile_layers = {},
+                pits = {},
+                world = plane_world,
+                terrain_edge_fog_surface_id = "base",
+                surfaces = { base = disabled_surface },
+                getSurface = function(_, id)
+                    return id == "base" and disabled_surface or nil
+                end
+            }
+            expect(#TerrainEdgeFog.createForMap(disabled_map) == 0,
+                "an explicitly selected base surface should be able to disable terrain edge fog")
         end)()
     end
 
@@ -1280,9 +1355,8 @@ function Testing:runPlatformingTests()
         restoreGroundAnimation = function() end
     }
     Player.beginHeightPitRecovery(recovery_player)
-    local recovery_fx = recovery_world:getFX("pit_recovery")
-    expect(recovery_fx and recovery_fx.shader == Assets.getShader("goner_bleed"),
-        "pit recovery should use the Goner Battle bleed shader")
+    expect(not recovery_world:getFX("pit_recovery"),
+        "pit recovery must not rerender the height-sorted world through DrawFX")
     recovery_player.pit_recovery_timer = recovery_player.pit_recovery_out_time
         + recovery_player.pit_recovery_hold_time
     Player.updateHeightPitRecovery(recovery_player)
@@ -1295,8 +1369,8 @@ function Testing:runPlatformingTests()
     expect(recovered_state == "GROUNDED",
         "pit recovery should finish only after the timed reveal")
     Player.endHeightPitRecovery(recovery_player)
-    expect(not recovery_world:getFX("pit_recovery"),
-        "pit recovery should remove its transition effect when finished")
+    expect(recovery_player.pit_recovery_progress == 0,
+        "pit recovery should clear its transition progress when finished")
 
     local explicit_wall = MapUtils.colliderFromShape(probe_parent, {
         shape = "rectangle", width = 80, height = 12

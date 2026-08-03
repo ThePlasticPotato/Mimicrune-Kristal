@@ -336,9 +336,6 @@ end
 ---@param parent World
 function Player:onRemove(parent)
     Player.finishExternalLaunch(self, false)
-    if parent and parent.removeFX then
-        parent:removeFX("pit_recovery")
-    end
     if self.height_shadow then
         self.height_shadow:remove()
         self.height_shadow = nil
@@ -1595,11 +1592,6 @@ function Player:beginHeightPitRecovery()
     self.pit_recovery_teleported = false
     Player.setCameraZTarget(self, self.camera_z, true)
 
-    self.world:removeFX("pit_recovery")
-    self.world:addFX(ShaderFX("goner_bleed", {
-        progress = function() return self.pit_recovery_progress end,
-        time = function() return Kristal.getTime() end
-    }, false), "pit_recovery")
 end
 
 function Player:teleportFromPit()
@@ -1642,7 +1634,6 @@ function Player:updateHeightPitRecovery()
 end
 
 function Player:endHeightPitRecovery()
-    self.world:removeFX("pit_recovery")
     self.pit_recovery_progress = 0
     self:restoreGroundAnimation()
 end

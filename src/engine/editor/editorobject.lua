@@ -161,6 +161,9 @@ function EditorObject:init(data, options)
             name = "Surface Plane",
             placeholder = "Defaults from top Z"
         })
+        self:registerProperty("terrain_edge_fog", "boolean", {
+            name = "Terrain Edge Fog", default = true
+        })
     elseif self.layer_type and self.layer_type.id == "occlusion" then
         self:registerProperty("z", "number", { name = "Bottom Z Override" })
         self:registerProperty("depth", "number", {

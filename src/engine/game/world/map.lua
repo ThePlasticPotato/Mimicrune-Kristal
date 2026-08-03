@@ -440,6 +440,7 @@ function Map:registerSurfaceCollider(collider, fallback_id)
             bounds = nil,
             support_bounds = nil,
             support_top = nil,
+            terrain_edge_fog = true,
             colliders = {},
             support_colliders = {},
             slope_colliders = {}
@@ -477,6 +478,9 @@ function Map:registerSurfaceCollider(collider, fallback_id)
     table.insert(surface.colliders, collider)
     if collider.supports then
         table.insert(surface.support_colliders, collider)
+        if collider.terrain_edge_fog == false then
+            surface.terrain_edge_fog = false
+        end
         surface.slope_colliders = surface.slope_colliders or {}
         if collider.slope then table.insert(surface.slope_colliders, collider) end
         local bounds = collider.map_bounds
@@ -524,6 +528,7 @@ function Map:refreshSurface(surface)
     if not surface then return nil end
     surface.bottom, surface.top = math.huge, -math.huge
     surface.bounds, surface.support_bounds, surface.support_top = nil, nil, nil
+    surface.terrain_edge_fog = true
     surface.slope_colliders = {}
     for _, collider in ipairs(surface.colliders or {}) do
         local bottom, top = collider:getZBounds()
@@ -541,6 +546,9 @@ function Map:refreshSurface(surface)
             end
         end
         if collider.supports then
+            if collider.terrain_edge_fog == false then
+                surface.terrain_edge_fog = false
+            end
             if collider.slope then table.insert(surface.slope_colliders, collider) end
             if surface.support_top == nil or top > surface.support_top + 0.001 then
                 surface.support_top = top

@@ -3,7 +3,9 @@
   "kristal_version": "0.11.0-dev",
   "id": "wastes",
   "name": "The Wastes",
-  "asset_buckets": ["area:wastes"],
+  "asset_buckets": [
+    "area:wastes"
+  ],
   "maps": [
     {
       "map": "wastes_entrance",

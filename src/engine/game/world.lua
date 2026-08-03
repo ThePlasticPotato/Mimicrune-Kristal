@@ -2588,6 +2588,8 @@ function World:draw()
 
     self.map:draw()
 
+    self:drawPitRecoveryOverlay()
+
     if DEBUG_RENDER then
         for _, collision in ipairs(self.map.collision) do
             collision:draw(0, 0, 1, 0.5)
@@ -2599,6 +2601,40 @@ function World:draw()
             pit:draw(1, 0.25, 0.25, 0.65)
         end
     end
+end
+
+---i love that i have to do this
+function World:drawPitRecoveryOverlay()
+    local player = self.player
+    if not player or not player.isPitRecovering or not player:isPitRecovering() then
+        return
+    end
+
+    local old_r, old_g, old_b, old_a = love.graphics.getColor()
+    local old_blend, old_alpha_mode = love.graphics.getBlendMode()
+    local old_depth_comparison, old_depth_write = love.graphics.getDepthMode()
+
+    love.graphics.push()
+    love.graphics.origin()
+    love.graphics.setDepthMode()
+    love.graphics.setBlendMode("alpha", "alphamultiply")
+    Draw.setColor(1, 1, 1, 1)
+    Draw.pushShader("goner_bleed_cover", {
+        progress = MathUtils.clamp(player.pit_recovery_progress or 0, 0, 1),
+        time = Kristal.getTime(),
+        screen_size = { SCREEN_WIDTH, SCREEN_HEIGHT }
+    })
+    love.graphics.rectangle("fill", 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
+    Draw.popShader()
+    love.graphics.pop()
+
+    if old_depth_comparison then
+        love.graphics.setDepthMode(old_depth_comparison, old_depth_write)
+    else
+        love.graphics.setDepthMode()
+    end
+    love.graphics.setBlendMode(old_blend, old_alpha_mode)
+    love.graphics.setColor(old_r, old_g, old_b, old_a)
 end
 
 function World:canDeepCopy()
