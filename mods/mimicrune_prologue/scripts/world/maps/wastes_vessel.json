@@ -782,6 +782,11 @@
               "name": "face_direction",
               "type": "choice",
               "value": "front"
+            },
+            {
+              "name": "cutout_enabled",
+              "type": "boolean",
+              "value": false
             }
           ]
         },
