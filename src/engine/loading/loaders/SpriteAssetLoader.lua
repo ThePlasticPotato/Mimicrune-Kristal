@@ -28,6 +28,7 @@ local SpriteAssetLoader, super = Class(AssetLoader, "SpriteAssetLoader")
 ---@field data love.ImageData[]
 ---@field exact_textures table<string, love.Image>
 ---@field exact_data table<string, love.ImageData>
+---@field texture_paths table<string, string>
 ---@field frame_ids table<integer, string>
 ---@field gap_textures love.Image[]
 
@@ -177,6 +178,7 @@ function SpriteAssetLoader:apply(asset_id, output)
         data = texture_datas,
         exact_textures = exact_textures,
         exact_data = exact_data,
+        texture_paths = output.texture_paths,
         frame_ids = output.frame_ids,
         gap_textures = gap_textures,
     }
