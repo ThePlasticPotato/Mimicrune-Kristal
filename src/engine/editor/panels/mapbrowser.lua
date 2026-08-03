@@ -207,6 +207,16 @@ function EditorMapBrowser:selectNode(node)
     end
     if node.type == "map" and node.registry_id then
         table.insert(fields, {
+            label = "Asset Buckets",
+            placeholder = "Comma-separated; world buckets are inherited",
+            get = function() return table.concat(Assets.getDeclaredAssetBuckets(data), ", ") end,
+            set = function(value)
+                data.asset_bucket = nil
+                data.asset_buckets = Assets.parseAssetBucketList(value)
+                return true
+            end
+        })
+        table.insert(fields, {
             label = "Format",
             get = function() return reader_class and reader_class.LEGACY_FORMAT and "Legacy Tiled" or "Editor" end,
             set = function() return false end,
@@ -215,6 +225,9 @@ function EditorMapBrowser:selectNode(node)
     end
     self.editor:setPropertiesTarget({
         title = node.type == "folder" and "Folder" or "Map",
+        map_id = node.type == "map" and node.registry_id or nil,
+        history_owner = node.type == "map" and node.registry_id
+            and self.editor:findMapDocument(node.registry_id) or nil,
         fields = fields,
         properties = data and data.properties or node.editor_properties,
         property_types = data and data.__editor_property_types or node.editor_property_types,

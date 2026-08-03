@@ -91,6 +91,8 @@ function EditorMapDocument:captureHistoryState()
         })
         if data then
             map_format_extensions[entry.id] = {
+                asset_buckets = TableUtils.copy(data.asset_buckets or {}, true),
+                asset_bucket = data.asset_bucket,
                 extensions = TableUtils.copy(data.extensions or {}, true),
                 raw = TableUtils.copy(data.__editor_map_extension_raw or {}, true),
                 decoded = TableUtils.copy(data.__editor_map_extensions_decoded or {}, true)
@@ -145,6 +147,8 @@ function EditorMapDocument:restoreHistoryState(state)
     for id, extensions in pairs(state.map_format_extensions or {}) do
         local data = Registry.getMapData(id)
         if data then
+            data.asset_buckets = TableUtils.copy(extensions.asset_buckets or {}, true)
+            data.asset_bucket = extensions.asset_bucket
             data.extensions = TableUtils.copy(extensions.extensions or {}, true)
             data.__editor_map_extension_raw = TableUtils.copy(extensions.raw or {}, true)
             data.__editor_map_extensions_decoded = TableUtils.copy(extensions.decoded or {}, true)

@@ -83,6 +83,19 @@ function EditorPropertiesPanel:notifyChanged(kind)
     if self.target and self.target.on_changed then self.target.on_changed(kind) end
 end
 
+function EditorPropertiesPanel:noteAssetUsage(value, definition)
+    if not self.target or not definition or not definition.asset_registry then return end
+    local map_id = self.target.map_id
+    if not map_id and self.target.history_owner then
+        map_id = self.target.history_owner.primary_map_id
+    end
+    local bucket_id, added = Assets.noteEditorAssetUsage(map_id, definition.asset_registry, value)
+    if added and self.editor.message_bar then
+        self.editor.message_bar:setStatus(string.format(
+            "Added asset bucket '%s' to map '%s'", bucket_id, map_id))
+    end
+end
+
 function EditorPropertiesPanel:beginTargetHistory(label)
     local owner = self.target and self.target.history_owner
     self.target_history_started = owner and self.editor:beginHistoryTransaction(label, owner) or false
@@ -269,7 +282,10 @@ function EditorPropertiesPanel:rebuild()
         local function setField(value, submitted)
             self:beginTargetHistory("Edit " .. field.label)
             local changed = field.set(value, submitted) ~= false
-            if changed then self:notifyChanged("standard") end
+            if changed then
+                self:noteAssetUsage(value, field)
+                self:notifyChanged("standard")
+            end
             self:finishTargetHistory(changed)
             if changed and field.rebuild_target then
                 self:setTarget(field.rebuild_target())
@@ -558,6 +574,7 @@ function EditorPropertiesPanel:setPropertyValue(name, value, definition)
         property_types[name] = property_type
     end
     self.editor:clearDiagnostics("property_value")
+    self:noteAssetUsage(coerced, definition)
     self:notifyChanged(name)
     self:finishTargetHistory(true)
     return true

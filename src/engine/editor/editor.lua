@@ -559,6 +559,7 @@ function Editor:leave()
     self.active_editor_music_override = nil
     self.game_preview_movement_lock = nil
     self.game_preview_lock_before_pause = nil
+    Assets.releaseEditorAssets()
 end
 
 function Editor:setPropertiesTarget(target, owner) return self.ui_controller:setPropertiesTarget(target, owner) end

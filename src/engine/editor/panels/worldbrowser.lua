@@ -100,6 +100,7 @@ function EditorWorldBrowser:selectWorld(world)
     world.__editor_property_types = world.__editor_property_types or {}
     local property_set = EditorPropertySet(world.properties, world.__editor_property_types)
     local document = self.editor:findWorldDocument(world.id)
+    world.data = world.data or {}
     self.editor:setPropertiesTarget({
         title = "World: " .. (world.name or world.id),
         history_owner = document,
@@ -111,6 +112,16 @@ function EditorWorldBrowser:selectWorld(world)
                 set = function(value) world.name = value return true end },
             { label = "ID", get = function() return world.id end,
                 set = function(value) return self.editor:renameWorldId(world, value) end },
+            { label = "Asset Buckets",
+                placeholder = "Comma-separated defaults for every map",
+                get = function()
+                    return table.concat(Assets.getDeclaredAssetBuckets(world.data), ", ")
+                end,
+                set = function(value)
+                    world.data.asset_bucket = nil
+                    world.data.asset_buckets = Assets.parseAssetBucketList(value)
+                    return true
+                end },
             { label = "Maps", readonly = true, get = function() return #(world.maps or {}) end,
                 set = function() return false end }
         },

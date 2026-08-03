@@ -350,6 +350,7 @@ function EditorMapInteraction:getMapObjectPropertiesTarget(selection)
             or editor_object.editor_name
             or object_id and (StringUtils.titleCase(tostring(object_id):gsub("[/_]", " "))) or "Map Object",
         history_owner = selection.document,
+        map_id = selection.map_id,
         fields = fields,
         properties = data.properties,
         property_types = data.__editor_property_types,

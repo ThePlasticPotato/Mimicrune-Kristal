@@ -12,6 +12,13 @@ function Mod:getSoulColor()
     return ColorUtils.unpackColor(COLORS.gray)
 end
 
+function Mod:getInitialAssetBucket()
+    if Kristal.checkPersistentVariable(CONNECTION_LOG_PATH) then
+        return "area:wastes"
+    end
+    return "area:device"
+end
+
 function Mod:getWastesCage()
     local cages = Game.world.map.events_by_name.cage_back
     return cages and cages[1] or Game.world.map.events_by_id[63]
@@ -93,20 +100,22 @@ function Mod:spawnWastesSoul(play_arrival)
 end
 
 function Mod:enterWastes()
-    Game.world:loadMap("wastes_entrance")
-    Atmosphere:setWeather("wind", true, 3, false, -1)
-    local play_arrival = not Game:getFlag(WASTES_ARRIVAL_FLAG, false)
-    local soul = self:spawnWastesSoul(play_arrival)
-    if play_arrival then
-        self:prepareWastesCageBack()
-        Game.world:startCutscene("wastes", "arrival", soul, WASTES_ARRIVAL_FLAG)
-    else
-        self:releaseWastesCageBack()
-        self:releaseWastesCageFront()
-        Game.world:setCameraAttached(true)
-        local camera_x, camera_y = Game.world.camera:getTargetPosition()
-        Game.world.camera:setPosition(camera_x, camera_y)
-    end
+    Assets.transitionToMapBucket("wastes_entrance", function()
+        Game.world:loadMap("wastes_entrance")
+        Atmosphere:setWeather("wind", true, 3, false, -1)
+        local play_arrival = not Game:getFlag(WASTES_ARRIVAL_FLAG, false)
+        local soul = self:spawnWastesSoul(play_arrival)
+        if play_arrival then
+            self:prepareWastesCageBack()
+            Game.world:startCutscene("wastes", "arrival", soul, WASTES_ARRIVAL_FLAG)
+        else
+            self:releaseWastesCageBack()
+            self:releaseWastesCageFront()
+            Game.world:setCameraAttached(true)
+            local camera_x, camera_y = Game.world.camera:getTargetPosition()
+            Game.world.camera:setPosition(camera_x, camera_y)
+        end
+    end)
 end
 
 function Mod:getUISkin(skin)
