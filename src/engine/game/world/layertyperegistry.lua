@@ -131,9 +131,22 @@ local function levelProperties(properties)
     })
 end
 
+local function resizeTileLayer(layer, transform, context)
+    return context.document:resizeTileLayer(layer, transform)
+end
+
+local function resizeObjectLayer(layer, transform, context)
+    return context.document:resizeObjectLayer(layer, transform)
+end
+
+local function resizeImageLayer(layer, transform, context)
+    return context.document:resizeImageLayer(layer, transform)
+end
+
 local DEFAULT_KINDS = {
     {
         id = "group",
+        resize = function() return true end,
         format = {
             "id",
             "name",
@@ -147,6 +160,7 @@ local DEFAULT_KINDS = {
     {
         id = "tile",
         properties = tileProperties,
+        resize = resizeTileLayer,
         format = {
             "default",
             "tileset",
@@ -166,6 +180,7 @@ local DEFAULT_KINDS = {
     },
     {
         id = "object",
+        resize = resizeObjectLayer,
         format = {
             "default",
             "draw_order",
@@ -174,6 +189,7 @@ local DEFAULT_KINDS = {
     },
     {
         id = "image",
+        resize = resizeImageLayer,
         format = {
             "default",
             "image",
@@ -224,9 +240,19 @@ function LayerTypeRegistry:registerKind(id, definition)
     entry.name = entry.name or StringUtils.titleCase(id:gsub("_", " "))
     entry.format = entry.format or { "default" }
     entry.extra_format = entry.extra_format or {}
+    assert(entry.resize == nil or type(entry.resize) == "function",
+        "Layer kind resize must be a function")
     if not self.kinds[id] then table.insert(self.kind_order, id) end
     self.kinds[id] = entry
     return entry
+end
+
+function LayerTypeRegistry:resizeLayer(layer, transform, context)
+    local kind = self:getKind(self:getLayerKind(layer))
+    if kind and kind.resize then return kind.resize(layer, transform, context or {}, kind) end
+    layer.offsetx = (layer.offsetx or 0) + transform.content_offset_x
+    layer.offsety = (layer.offsety or 0) + transform.content_offset_y
+    return true
 end
 
 function LayerTypeRegistry:getKind(id)
