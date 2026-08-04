@@ -98,6 +98,39 @@ local function occlusionProperties(properties)
     })
 end
 
+local function levelProperties(properties)
+    properties:registerProperty("level_id", "string", {
+        name = "Level ID",
+        placeholder = "Unique floor identifier"
+    })
+    properties:registerProperty("level_z", "number", {
+        name = "Base Z", default = 0
+    })
+    properties:registerProperty("level_stack", "string", {
+        name = "Visibility Stack", default = "default",
+        placeholder = "Levels in the same building/stack"
+    })
+    properties:registerProperty("level_camera_z", "number", {
+        name = "Camera Z",
+        placeholder = "Defaults to Base Z"
+    })
+    properties:registerProperty("level_transition_time", "number", {
+        name = "Transition Time", default = 0.45
+    })
+    properties:registerProperty("level_transition_ease", "string", {
+        name = "Transition Ease", default = "in-out-cubic"
+    })
+    properties:registerProperty("level_show_below", "boolean", {
+        name = "Show Lower Levels", default = false
+    })
+    properties:registerProperty("level_show_above", "boolean", {
+        name = "Show Higher Levels", default = false
+    })
+    properties:registerProperty("level_default_visible", "boolean", {
+        name = "Visible Outside Stack", default = false
+    })
+end
+
 local DEFAULT_KINDS = {
     {
         id = "group",
@@ -156,6 +189,7 @@ local DEFAULT_KINDS = {
 local DEFAULT_TYPES = {
     { id = "default",        name = "Unknown",         kind = "object", icon = "editor/ui/layer/default",        color = { 0.8, 0.8, 0.82, 1 }, load = objectLoader() },
     { id = "folder",         name = "Folder",          kind = "group",  icon = "editor/ui/layer/default",        color = { 1, 1, 1, 1 } },
+    { id = "level",          name = "Level / Floor",   kind = "group",  icon = "editor/ui/layer/default",        color = { 0.35, 0.85, 1, 1 }, properties = levelProperties },
     { id = "tile",           name = "Tiles",           kind = "tile",   icon = "editor/ui/layer/tile",           color = { 0.8, 0.8, 0.82, 1 } },
     { id = "image",          name = "Image",           kind = "image",  icon = "editor/ui/layer/image",          color = { 0.8, 0.8, 0.82, 1 }, properties = imageProperties },
     { id = "objects",        name = "Objects",         kind = "object", icon = "editor/ui/layer/objects",        color = { 1, 0, 1, 1 },       load = objectsLayerLoader() },

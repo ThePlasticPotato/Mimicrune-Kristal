@@ -85,6 +85,14 @@ function TiledMapReader:initialize(data)
     map.terrain_edge_fog_raised_void_ratio = tonumber(data.properties
         and data.properties["terrain_edge_fog_raised_void_ratio"]) or 0.5
 
+    MapUtils.walkLayers(data.layers, function(layer)
+        if layer.type ~= "group" then return end
+        local properties = layer.properties or {}
+        if layer.class == "level" or properties.level_id ~= nil then
+            map:registerLevel(properties, layer.id or layer.name, layer.name)
+        end
+    end)
+
     if data.backgroundcolor then
         local bgc = data.backgroundcolor
         map.bg_color = { bgc[1] / 255, bgc[2] / 255, bgc[3] / 255, (bgc[4] or 255) / 255 }
@@ -109,6 +117,13 @@ function operations.loadMapData(self, data)
     local indexed_layers = {}
     local has_battle_border = false
     local layers = TiledUtils.flattenLayers(data.layers)
+
+    for _, layer in ipairs(layers) do
+        local properties = layer.properties or {}
+        if properties.level_id and not self:getLevel(properties.level_id) then
+            self:registerLevel(properties, properties.level_id, properties.level_id)
+        end
+    end
 
     for i, layer in ipairs(layers) do
         self.layers[layer.name] = self.next_layer

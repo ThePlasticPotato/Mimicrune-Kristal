@@ -271,6 +271,35 @@ function EditorMapDocument:getFlatEditableLayers(id, visible_only)
     return result
 end
 
+---@param target table
+---@param id? string
+---@return table properties
+function EditorMapDocument:getEffectiveLayerProperties(target, id)
+    local result = TableUtils.copy(target and target.properties or {})
+    local function visit(layers, level_properties)
+        for _, layer in ipairs(layers or {}) do
+            local inherited = level_properties
+            if layer._editor_kind_id == "group"
+                and (layer._editor_type_id == "level"
+                    or layer.properties and layer.properties.level_id ~= nil) then
+                inherited = TableUtils.copy(layer.properties or {})
+                inherited.level_id = inherited.level_id or layer.id or layer.name
+            end
+            if layer == target then
+                result = TableUtils.mergeMany(inherited or {}, target.properties or {})
+                if inherited and inherited.level_id then
+                    result.level_id = result.level_id or inherited.level_id
+                end
+                return true
+            end
+            if layer.layers and visit(layer.layers, inherited) then return true end
+        end
+        return false
+    end
+    visit(self:getEditableLayers(id), nil)
+    return result
+end
+
 function EditorMapDocument:isLayerLocked(layer, id)
     if not layer then return false end
     for _, entry in ipairs(self:getFlatEditableLayers(id, false)) do
@@ -394,6 +423,26 @@ function EditorMapDocument:createEditableLayer(type_id, id, parent_uid, options)
         _editor_property_types = {},
         color = TableUtils.copy(options.color or (layer_type and layer_type.color) or { 0.8, 0.8, 0.82, 1 }, true)
     }
+    if layer_type and layer_type.id == "level" then
+        local highest_z
+        for _, entry in ipairs(self:getFlatEditableLayers(id, false)) do
+            local candidate = entry.layer
+            if candidate._editor_type_id == "level" then
+                local candidate_z = tonumber(candidate.properties
+                    and candidate.properties.level_z) or 0
+                highest_z = highest_z and math.max(highest_z, candidate_z)
+                    or candidate_z
+            end
+        end
+        layer.properties.level_id = layer.properties.level_id or layer.id
+        layer.properties.level_z = tonumber(layer.properties.level_z)
+            or (highest_z and highest_z + 80 or 0)
+        layer.properties.level_stack = layer.properties.level_stack or "default"
+        layer.properties.level_transition_time =
+            tonumber(layer.properties.level_transition_time) or 0.45
+        layer.properties.level_transition_ease =
+            layer.properties.level_transition_ease or "in-out-cubic"
+    end
     self.next_layer_uid = self.next_layer_uid + 1
     if kind == "tile" then
         local reader_class = Registry.getMapReader(id)
@@ -415,6 +464,27 @@ function EditorMapDocument:createEditableLayer(type_id, id, parent_uid, options)
     end
     table.insert(layers, layer)
     setupLayerProperties(layer)
+    if layer_type and layer_type.id == "level" and options.create_template ~= false then
+        local prefix = layer.name
+        self:createEditableLayer("tile", id, layer._editor_uid, {
+            name = prefix .. " Tiles",
+            properties = { z = 0, ground = true }
+        })
+        self:createEditableLayer("collision", id, layer._editor_uid, {
+            name = prefix .. " Floor",
+            properties = {
+                z = 0, depth = 0, collision_role = "surface",
+                supports = true,
+                surface_id = layer.properties.level_id .. ":floor"
+            }
+        })
+        self:createEditableLayer("occlusion", id, layer._editor_uid, {
+            name = prefix .. " Occlusion"
+        })
+        self:createEditableLayer("objects", id, layer._editor_uid, {
+            name = prefix .. " Objects"
+        })
+    end
     self:invalidatePreview(id)
     return layer
 end
@@ -1380,16 +1450,17 @@ function EditorMapDocument:getObjectVisualZ(selection)
         and Registry.getLayerType(selection.layer._editor_type_id)
     if not layer_type then return 0 end
     local properties = TableUtils.mergeMany(
-        selection.layer.properties or {},
+        self:getEffectiveLayerProperties(selection.layer, selection.map_id),
         selection.data.properties or {}
     )
+    local level_z = properties.level_id and tonumber(properties.level_z) or 0
     if layer_type.collision_layer then
         local depth = math.max(tonumber(properties.depth) or 0, 0)
-        return MapUtils.getCollisionAuthoringZ(properties, depth)
+        return level_z + MapUtils.getCollisionAuthoringZ(properties, depth)
     end
     if layer_type.id ~= "objects" then return 0 end
     local z = tonumber(properties.z)
-    if z ~= nil then return z end
+    if z ~= nil then return level_z + z end
     local surface_id = properties.surface_id or properties.structure_id
     if surface_id then
         local preview = self:getPreview(selection.entry)
@@ -1397,7 +1468,7 @@ function EditorMapDocument:getObjectVisualZ(selection)
             and preview.map:getSurface(surface_id) or nil
         if surface then return surface.top end
     end
-    return 0
+    return level_z
 end
 
 function EditorMapDocument:getObjectLocalRect(selection)
@@ -1676,6 +1747,17 @@ function EditorMapDocument:createPreview(entry)
     local layer_parent = {}
     local layer_registry = Registry.layer_types
     local reader_class = Registry.getMapReader(entry.id)
+    local function runtimeLayer(layer)
+        local runtime = TableUtils.copy(layer)
+        runtime.properties = self:getEffectiveLayerProperties(layer, entry.id)
+        return runtime
+    end
+    for _, tree_entry in ipairs(self:getFlatEditableLayers(entry.id, false)) do
+        local layer = tree_entry.layer
+        if layer._editor_type_id == "level" then
+            map:registerLevel(layer.properties, layer.id, layer.name)
+        end
+    end
     -- Resolve collision surfaces before constructing editor objects
     for _, tree_entry in ipairs(self:getFlatEditableLayers(entry.id, false)) do
         local layer = tree_entry.layer
@@ -1684,12 +1766,13 @@ function EditorMapDocument:createPreview(entry)
                 or (reader_class and reader_class.LEGACY_FORMAT
                     and layer_registry:getLegacyTiledType(layer))
             if layer_type and layer_type.id == "collision" then
-                map:loadCollision(layer)
+                map:loadCollision(runtimeLayer(layer))
             end
         end
     end
     for _, tree_entry in ipairs(self:getFlatEditableLayers(entry.id, false)) do
         local layer = tree_entry.layer
+        local effective_layer = runtimeLayer(layer)
         layer_lookup[layer._editor_uid] = layer
         layer_visibility[layer._editor_uid] = tree_entry.visible
         layer_parent[layer._editor_uid] = tree_entry.parent and tree_entry.parent._editor_uid or false
@@ -1698,13 +1781,13 @@ function EditorMapDocument:createPreview(entry)
         if layer._editor_kind_id == "group" then
             -- no-op
         elseif layer.type == "tilelayer" then
-            map:loadTiles(layer, layer_depth)
+            map:loadTiles(effective_layer, layer_depth)
             local drawable = map.tile_layers[#map.tile_layers]
             drawable.visible = true
             drawable.tile_opacity = 1
             drawable_layers[drawable] = layer._editor_uid
         elseif layer.type == "imagelayer" and layer.image then
-            map:loadImage(layer, layer_depth)
+            map:loadImage(effective_layer, layer_depth)
             local drawable = map.image_layers[layer.name]
             drawable.visible = true
             drawable.alpha = 1
@@ -1719,7 +1802,7 @@ function EditorMapDocument:createPreview(entry)
                     table.insert(editor_objects, Registry.createEditorObject(object_id, object, {
                         depth = layer_depth,
                         layer_uid = layer._editor_uid,
-                        layer = layer,
+                        layer = effective_layer,
                         layer_type = layer_type,
                         layer_color = layer_color,
                         layer_tint = layer.tint or layer.tintcolor,
@@ -1731,8 +1814,11 @@ function EditorMapDocument:createPreview(entry)
                     }))
                 end
             elseif layer_type then
+                local visual_layer = TableUtils.copy(effective_layer)
+                visual_layer.properties = map:getLevelAdjustedProperties(
+                    effective_layer.properties, true)
                 table.insert(editor_overlays,
-                    EditorLayerOverlay(layer, layer_type, layer_depth, map))
+                    EditorLayerOverlay(visual_layer, layer_type, layer_depth, map))
             end
         end
     end

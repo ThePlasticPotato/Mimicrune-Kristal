@@ -118,6 +118,13 @@ function Map:init(world, data)
     self.battle_borders = {}
     self.paths = {}
 
+    self.levels = {}
+    self.level_order = {}
+    self.level_members = {}
+    self.current_level_id = nil
+    self.level_transition = nil
+    self.level_initialized = false
+
     self.events = {}
     self.events_by_name = {}
     self.events_by_id = {}
@@ -230,6 +237,189 @@ function Map:onGameOver() end
 
 function Map:update() end
 function Map:draw() end
+
+---@param properties table?
+---@param fallback_id? string
+---@param fallback_name? string
+---@return table? level
+function Map:registerLevel(properties, fallback_id, fallback_name)
+    properties = properties or {}
+    local id = properties.level_id or fallback_id
+    if id == nil or tostring(id) == "" then return nil end
+    id = tostring(id)
+    local level = self.levels[id]
+    if not level then
+        level = { id = id }
+        self.levels[id] = level
+        table.insert(self.level_order, level)
+    end
+    level.name = tostring(properties.level_name or fallback_name or level.name or id)
+    level.base_z = tonumber(properties.level_z) or level.base_z or 0
+    level.stack = tostring(properties.level_stack or level.stack or "default")
+    level.camera_z = tonumber(properties.level_camera_z)
+        or level.camera_z or level.base_z
+    level.transition_time = math.max(
+        tonumber(properties.level_transition_time) or level.transition_time or 0.45, 0)
+    level.transition_ease = tostring(
+        properties.level_transition_ease or level.transition_ease or "in-out-cubic")
+    level.show_below = properties.level_show_below == true
+    level.show_above = properties.level_show_above == true
+    level.default_visible = properties.level_default_visible == true
+    return level
+end
+
+---@param id string?
+---@return table? level
+function Map:getLevel(id)
+    if id == nil or id == "" then return nil end
+    return self.levels[tostring(id)]
+end
+
+---@param z? number
+---@return table? level
+function Map:getNearestLevel(z)
+    z = tonumber(z) or 0
+    local nearest, nearest_distance
+    for _, level in ipairs(self.level_order) do
+        local distance = math.abs(level.base_z - z)
+        if nearest_distance == nil or distance < nearest_distance then
+            nearest, nearest_distance = level, distance
+        end
+    end
+    return nearest
+end
+
+---@param properties table?
+---@param prefer_surface? boolean
+---@return table properties
+function Map:getLevelAdjustedProperties(properties, prefer_surface)
+    local result = TableUtils.copy(properties or {})
+    local level = self:getLevel(result.level_id)
+    if not level then return result end
+    result.level_id = level.id
+    local local_z = tonumber(result.z)
+    if local_z ~= nil or not prefer_surface
+        or result.surface_id == nil and result.structure_id == nil then
+        result.z = level.base_z + (local_z or 0)
+    end
+    if result.collision_z ~= nil then
+        result.collision_z = level.base_z + (tonumber(result.collision_z) or 0)
+    end
+    return result
+end
+
+---@param object Object
+---@param level_id string?
+function Map:registerLevelMember(object, level_id)
+    local level = self:getLevel(level_id)
+    if not object or not level then return end
+    object.level_id = level.id
+    object._level_base_visible = object.visible ~= false
+    object._level_base_active = object.active ~= false
+    table.insert(self.level_members, object)
+end
+
+---@param level_id string?
+---@return boolean visible
+function Map:isLevelVisible(level_id)
+    local level = self:getLevel(level_id)
+    if not level then return true end
+    local transition = self.level_transition
+    if transition then
+        if level.id == transition.to then return true end
+        if level.id == transition.from and transition.progress < 0.5 then return true end
+    end
+    local current = self:getLevel(self.current_level_id)
+    if not current then return level.default_visible end
+    if level.id == current.id then return true end
+    if level.stack ~= current.stack then return level.default_visible end
+    if current.show_below and level.base_z < current.base_z then return true end
+    if current.show_above and level.base_z > current.base_z then return true end
+    return false
+end
+
+function Map:refreshLevelVisibility()
+    for _, object in ipairs(self.level_members) do
+        if object.parent then
+            local visible = self:isLevelVisible(object.level_id)
+            if object.visible and not visible then object.current_colliding = nil end
+            object.visible = object._level_base_visible and visible
+            object.active = object._level_base_active and visible
+        end
+    end
+end
+
+---@param level_id string?
+---@param immediate? boolean
+function Map:setCurrentLevel(level_id, immediate)
+    self.level_initialized = true
+    level_id = self:getLevel(level_id) and tostring(level_id) or nil
+    if level_id == self.current_level_id and not self.level_transition then return end
+    local previous = self.current_level_id
+    local destination = self:getLevel(level_id)
+    self.current_level_id = level_id
+    if immediate or previous == nil or level_id == nil then
+        self.level_transition = nil
+    else
+        self.level_transition = {
+            from = previous,
+            to = level_id,
+            timer = 0,
+            duration = destination and destination.transition_time or 0.45,
+            progress = 0
+        }
+    end
+    self:refreshLevelVisibility()
+
+    local subject = self.world and (self.world.player or self.world.world_soul)
+    if subject and destination and subject.setCameraZTarget then
+        subject:setCameraZTarget(destination.camera_z, immediate,
+            destination.transition_time, destination.transition_ease)
+    end
+end
+
+---@param subject Object?
+---@param immediate? boolean
+function Map:syncLevelFromSubject(subject, immediate)
+    if not subject or not next(self.levels) then return end
+    local grounded = not subject.isGrounded or subject:isGrounded()
+    if not grounded then return end
+    local surface = subject.ground_surface
+    local surface_level_id = surface and surface.level_id
+    local override_level_id = self:getLevel(subject.level_override_id)
+        and tostring(subject.level_override_id) or nil
+    local level_id = override_level_id or surface_level_id or subject.spawn_level_id
+    if level_id == nil and not self.level_initialized then
+        local nearest = self:getNearestLevel(subject.z)
+        level_id = nearest and nearest.id or nil
+    end
+    if level_id ~= self.current_level_id then
+        self:setCurrentLevel(level_id, immediate)
+    end
+    if override_level_id and surface_level_id == override_level_id then
+        subject.level_override_id = nil
+    end
+    subject.spawn_level_id = nil
+end
+
+---@param dt number
+function Map:updateLevelState(dt)
+    if not next(self.levels) then return end
+    local subject = self.world and (self.world.player or self.world.world_soul)
+    self:syncLevelFromSubject(subject, false)
+    local transition = self.level_transition
+    if transition then
+        transition.timer = MathUtils.approach(
+            transition.timer, transition.duration, dt or DT)
+        transition.progress = transition.duration <= 0 and 1
+            or transition.timer / transition.duration
+        self:refreshLevelVisibility()
+        if transition.progress >= 1 then
+            self.level_transition = nil
+            self:refreshLevelVisibility()
+        end
+    end
+end
 
 function Map:getBorder(dark_transition)
     if self.border then
@@ -433,6 +623,7 @@ function Map:registerSurfaceCollider(collider, fallback_id)
     if not surface then
         surface = {
             id = surface_id,
+            level_id = collider.level_id,
             plane = collider.surface_plane,
             explicit_plane = collider.surface_plane ~= nil,
             bottom = math.huge,
@@ -446,6 +637,14 @@ function Map:registerSurfaceCollider(collider, fallback_id)
             slope_colliders = {}
         }
         self.surfaces[surface_id] = surface
+    elseif collider.level_id and surface.level_id
+        and collider.level_id ~= surface.level_id then
+        Kristal.Console:warn(string.format(
+            "Surface '%s' mixes levels '%s' and '%s'; keeping '%s'",
+            surface_id, surface.level_id, collider.level_id, surface.level_id
+        ))
+    elseif collider.level_id then
+        surface.level_id = collider.level_id
     elseif collider.surface_plane then
         if surface.explicit_plane and collider.surface_plane ~= surface.plane then
             Kristal.Console:warn(string.format(

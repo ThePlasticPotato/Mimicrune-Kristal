@@ -1405,6 +1405,7 @@ function Registry.initEditorObjects()
         interactable = EditorInteractable, script = EditorScriptObject,
         transition = EditorTransition, npc = EditorNPC, enemy = EditorChaserEnemy,
         outline = EditorOutline, silhouette = EditorSilhouette, slidearea = EditorSlideArea,
+        leveltransition = EditorLevelTransition,
         mirror = EditorMirrorArea, chest = EditorTreasureChest, cameratarget = EditorCameraTarget,
         hideparty = EditorHideParty, setflag = EditorSetFlagObject, cybertrash = EditorCyberTrashCan,
         forcefield = EditorForcefield, pushblock = EditorPushBlock,

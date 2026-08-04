@@ -53,6 +53,12 @@ function WorldSoul:init(x, y, color, z)
 
     self.spawn_z_explicit = z ~= nil
     self.z = tonumber(z) or 0
+    self.camera_z = self.z
+    self.camera_z_target = self.z
+    self.camera_z_tween_start = self.z
+    self.camera_z_tween_timer = 0
+    self.camera_z_tween_duration = 0
+    self.camera_z_tween_ease = "in-out-cubic"
     self.spawn_x, self.spawn_y, self.spawn_z = self.x, self.y, self.z
 
     self.height_state = "GROUNDED"
@@ -186,6 +192,7 @@ end
 ---@param z? number
 function WorldSoul:enterMap(x, y, z)
     self:removeFX("world_soul_pit_recovery")
+    self.level_override_id = nil
     self:setExactPosition(x, y)
     self.z = tonumber(z) or 0
     self.spawn_z_explicit = z ~= nil
@@ -277,7 +284,45 @@ end
 ---@return number y
 function WorldSoul:getCameraTargetOffset(camera)
     if not self.platforming_enabled then return 0, 0 end
-    return 0, -self.z
+    return 0, -(self.camera_z or self.z)
+end
+
+function WorldSoul:setCameraZTarget(z, snap, duration, ease)
+    z = tonumber(z) or 0
+    if snap then
+        self.camera_z = z
+        self.camera_z_target = z
+        self.camera_z_tween_start = z
+        self.camera_z_tween_timer = 0
+        self.camera_z_tween_duration = 0
+        return
+    end
+    if math.abs(z - (self.camera_z_target or 0)) <= HEIGHT_EPSILON then return end
+    self.camera_z_target = z
+    self.camera_z_tween_start = self.camera_z or self.z
+    self.camera_z_tween_timer = 0
+    self.camera_z_tween_duration = math.max(tonumber(duration) or 0.45, 0)
+    self.camera_z_tween_ease = ease or "in-out-cubic"
+end
+
+function WorldSoul:updateCameraZ()
+    local level = self.world and self.world.map
+        and self.world.map:getLevel(self.world.map.current_level_id)
+    if not level then
+        self.camera_z = self.z
+        self.camera_z_target = self.z
+        self.camera_z_tween_duration = 0
+        return
+    end
+    local target = level.camera_z
+    self:setCameraZTarget(target, false)
+    local duration = self.camera_z_tween_duration or 0
+    if duration <= 0 then self.camera_z = self.camera_z_target return end
+    self.camera_z_tween_timer = MathUtils.approach(
+        self.camera_z_tween_timer or 0, duration, DT)
+    local progress = MathUtils.clamp(self.camera_z_tween_timer / duration, 0, 1)
+    self.camera_z = Utils.ease(self.camera_z_tween_start,
+        self.camera_z_target, progress, self.camera_z_tween_ease)
 end
 
 function WorldSoul:drawHeightOcclusionMask()
@@ -877,6 +922,7 @@ function WorldSoul:update()
     end
     self:updatePlatformMomentum()
     self:updateHeight()
+    self:updateCameraZ()
     self:updateHover()
     self:updateBulletCollision()
 
@@ -924,7 +970,8 @@ function WorldSoul:interact()
         else
             collided = obj:collidesWith(self.interact_collider)
         end
-        if obj.onSoulInteract and collided then
+        if obj.onSoulInteract and obj.active ~= false
+            and Game.world:isObjectLevelActive(obj) and collided then
             local rx, ry = obj:getRelativePos(obj.width / 2, obj.height / 2, self.parent)
             table.insert(interactables, {
                 obj = obj,

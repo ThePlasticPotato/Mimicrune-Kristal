@@ -234,15 +234,20 @@ function EditorObject:init(data, options)
     local surface_id = data.properties.surface_id or data.properties.structure_id
     local surface = options.map and surface_id
         and options.map:getSurface(surface_id) or nil
+    local layer_properties = options.layer and options.layer.properties or {}
+    local level_z = layer_properties.level_id
+        and tonumber(layer_properties.level_z) or 0
     if self.layer_type and self.layer_type.collision_layer then
         local height_properties = TableUtils.mergeMany(
-            options.layer and options.layer.properties or {}, data.properties)
+            layer_properties, data.properties)
         local depth = math.max(tonumber(height_properties.depth) or 0, 0)
-        self.visual_z = MapUtils.getCollisionAuthoringZ(height_properties, depth)
+        self.visual_z = level_z
+            + MapUtils.getCollisionAuthoringZ(height_properties, depth)
     else
-        self.visual_z = tonumber(data.properties.z)
+        self.visual_z = (tonumber(data.properties.z)
+                and level_z + tonumber(data.properties.z))
             or surface and surface.top
-            or 0
+            or level_z
     end
     self.x = (data.x or 0) + (options.offset_x or 0)
     local _, projected_y = HeightTransform.projectPoint(

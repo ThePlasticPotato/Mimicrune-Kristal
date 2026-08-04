@@ -1315,6 +1315,7 @@ function World:spawnPlayer(...)
     local args = { ... }
 
     local x, y, z = 0, 0, 0
+    local spawn_level_id
     local state = "WALK"
     local chara = self.player and self.player.actor
     local party
@@ -1333,6 +1334,7 @@ function World:spawnPlayer(...)
             if data ~= nil then
                 state = data.player_state or "WALK"
                 z = self.map:getMarkerZ(args[1]) or 0
+                spawn_level_id = data.level_id
             end
         end
     end
@@ -1356,6 +1358,8 @@ function World:spawnPlayer(...)
     self.player:setState(state)
     self:addChild(self.player)
     self.player:setPlatformingEnabled(self.map.platforming)
+    self.player.spawn_level_id = spawn_level_id
+    self.map:syncLevelFromSubject(self.player, true)
 
     if party then
         self.player.party = party
@@ -2226,6 +2230,13 @@ function World:shouldCharacterCollide(char)
     return true
 end
 
+---@param object Object?
+---@return boolean active
+function World:isObjectLevelActive(object)
+    return object == nil or object.level_id == nil
+        or not self.map or self.map:isLevelVisible(object.level_id)
+end
+
 function World:update()
     -- Moving height surfaces publish their new transform before characters run.
     -- This makes rider carrying and relative vertical sweeps deterministic and
@@ -2244,7 +2255,8 @@ function World:update()
         local exited = {}
         Object.startCache()
         for _, obj in ipairs(self.children) do
-            if not obj.solid and (obj.onCollide or obj.onEnter or obj.onExit) then
+            if self:isObjectLevelActive(obj)
+                and not obj.solid and (obj.onCollide or obj.onEnter or obj.onExit) then
                 for _, char in ipairs(self.stage:getObjects(Character)) do
                     local height_collision = obj.height_sensitive and char.use_3d_collision
                     local is_colliding
@@ -2321,6 +2333,8 @@ function World:update()
     -- Always sort
     self.update_child_list = true
     super.update(self)
+
+    self.map:updateLevelState(DT)
 
     -- Update cutscene after updating objects
     if self.cutscene then

@@ -108,6 +108,72 @@ function Testing:runPlatformingTests()
     end)()
 
     do
+        local level_map = Map()
+        level_map.world = {}
+        local ground_level = level_map:registerLevel({
+            level_id = "ground", level_z = 0, level_stack = "house"
+        }, nil, "Ground Floor")
+        local upper_level = level_map:registerLevel({
+            level_id = "upper", level_z = 80, level_stack = "house",
+            level_camera_z = 88, level_transition_time = 0.4
+        }, nil, "Upper Floor")
+        expect(ground_level.base_z == 0 and upper_level.base_z == 80
+            and upper_level.camera_z == 88,
+            "level groups should register stable authoring and camera elevations")
+
+        local adjusted = level_map:getLevelAdjustedProperties({
+            level_id = "upper", z = 5, collision_z = 2
+        })
+        expect(adjusted.z == 85 and adjusted.collision_z == 82,
+            "level-local Z should resolve against the group's base Z")
+        expect(level_map:getNearestLevel(79) == upper_level,
+            "legacy or global spawns should select the nearest authored floor")
+
+        local lower_member = { visible = true, active = true, parent = {} }
+        local upper_member = { visible = true, active = true, parent = {} }
+        level_map:registerLevelMember(lower_member, "ground")
+        level_map:registerLevelMember(upper_member, "upper")
+        level_map:setCurrentLevel("ground", true)
+        expect(lower_member.visible and lower_member.active
+            and not upper_member.visible and not upper_member.active,
+            "only the current floor should draw and update")
+        level_map:setCurrentLevel("upper", false)
+        expect(lower_member.visible and upper_member.visible,
+            "source and destination floors should coexist at transition start")
+        level_map:updateLevelState(1)
+        expect(not lower_member.visible and not lower_member.active
+            and upper_member.visible and upper_member.active,
+            "a completed level transition should atomically retire its source floor")
+
+        local surface_collider = Hitbox(Object(), 0, 0, 20, 20)
+        surface_collider.z = 80
+        surface_collider.depth = 0
+        surface_collider.supports = true
+        surface_collider.surface_id = "upper:floor"
+        surface_collider.level_id = "upper"
+        local surface = level_map:registerSurfaceCollider(surface_collider, 1)
+        expect(surface and surface.level_id == "upper",
+            "support surfaces should retain their semantic level")
+
+        local transition_subject = {
+            level_override_id = "upper",
+            ground_surface = { level_id = "ground" },
+            isGrounded = function() return true end
+        }
+        level_map:setCurrentLevel("ground", true)
+        level_map:syncLevelFromSubject(transition_subject, false)
+        expect(level_map.current_level_id == "upper"
+            and transition_subject.level_override_id == "upper",
+            "explicit stairs and lifts should retain their destination while overlapping the old floor")
+        transition_subject.ground_surface = { level_id = "upper" }
+        level_map:syncLevelFromSubject(transition_subject, false)
+        expect(transition_subject.level_override_id == nil,
+            "semantic level overrides should retire on the destination support surface")
+        expect(Registry.getLayerType("level") ~= nil,
+            "the editor should expose Level / Floor groups")
+    end
+
+    do
         local function solidCanvas(r, g, b, a, x, width)
             local canvas = love.graphics.newCanvas(16, 16)
             love.graphics.setCanvas(canvas)

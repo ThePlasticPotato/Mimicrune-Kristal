@@ -402,7 +402,8 @@ function Player:interact()
     local interactables = {}
     for _, obj in ipairs(self.world.children) do
         local collided = self:collidesWithHeightSensitiveObject(obj, col)
-        if obj.onInteract and collided then
+        if obj.onInteract and obj.active ~= false
+            and self.world:isObjectLevelActive(obj) and collided then
             local rx, ry = obj:getRelativePos(obj.width / 2, obj.height / 2, self.parent)
             table.insert(interactables, { obj = obj, dist = MathUtils.dist(self.x, self.y, rx, ry) })
         end
@@ -917,7 +918,9 @@ end
 
 ---@param z number
 ---@param snap? boolean
-function Player:setCameraZTarget(z, snap)
+---@param duration? number
+---@param ease? string
+function Player:setCameraZTarget(z, snap, duration, ease)
     z = tonumber(z) or 0
     if snap then
         self.camera_z = z
@@ -933,11 +936,13 @@ function Player:setCameraZTarget(z, snap)
     self.camera_z_tween_start = self.camera_z or 0
     self.camera_z_tween_timer = 0
     local pixels_per_second = math.max((self.camera_z_follow_speed or 6) * 30, 0.001)
-    self.camera_z_tween_duration = MathUtils.clamp(
-        math.abs(z - self.camera_z_tween_start) / pixels_per_second,
-        self.camera_z_min_time or 0.25,
-        self.camera_z_max_time or 0.75
-    )
+    self.camera_z_tween_duration = duration ~= nil and math.max(duration, 0)
+        or MathUtils.clamp(
+            math.abs(z - self.camera_z_tween_start) / pixels_per_second,
+            self.camera_z_min_time or 0.25,
+            self.camera_z_max_time or 0.75
+        )
+    self.camera_z_tween_ease = ease or self.camera_z_ease or "out-cubic"
 end
 
 ---@param camera Camera
@@ -957,7 +962,11 @@ function Player:updateCameraZ()
 
     local state = self:getHeightState()
     local target_z = self.camera_z_target or self.camera_z or 0
-    if state == "GROUNDED" or state == "LAND" then
+    local level = self.world and self.world.map
+        and self.world.map:getLevel(self.world.map.current_level_id)
+    if level then
+        target_z = level.camera_z
+    elseif state == "GROUNDED" or state == "LAND" then
         target_z = self.ground_z or self.z
     elseif state == "FALL" and self.shadow_z ~= nil then
         local takeoff_z = self.ground_z or self.camera_z_target or 0
@@ -981,7 +990,7 @@ function Player:updateCameraZ()
         self.camera_z_tween_start,
         self.camera_z_target,
         progress,
-        self.camera_z_ease or "out-cubic"
+        self.camera_z_tween_ease or self.camera_z_ease or "out-cubic"
     )
     if progress >= 1 then self.camera_z = self.camera_z_target end
 end

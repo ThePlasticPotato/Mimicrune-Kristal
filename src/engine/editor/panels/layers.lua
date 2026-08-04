@@ -147,6 +147,10 @@ function EditorLayersPanel:getLayerIcon(layer)
 end
 
 function EditorLayersPanel:getLayerDepthText(layer)
+    if layer and layer._editor_type_id == "level" then
+        return "Z " .. string.format("%g",
+            tonumber(layer.properties and layer.properties.level_z) or 0)
+    end
     return "L " .. string.format("%g", tonumber(layer and layer._editor_depth_offset) or 0)
 end
 
@@ -279,6 +283,9 @@ function EditorLayersPanel:getPropertiesTarget(layer)
         EditorPropertyFields.number(layer, "Parallax X", "parallaxx", { default = 1 }),
         EditorPropertyFields.number(layer, "Parallax Y", "parallaxy", { default = 1 })
     }
+    if layer_type and layer_type.id == "level" then
+        table.remove(fields, 2)
+    end
     if layer._editor_kind_id ~= "group" then
         table.insert(fields, EditorPropertyFields.choice(layer, "Blend Mode", "blend_mode", {
             { value = "normal", label = "Normal" },

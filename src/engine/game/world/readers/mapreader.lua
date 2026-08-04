@@ -14,16 +14,18 @@ function MapReader.copyOperations()
 end
 
 function operations.loadTiles(self, layer, depth)
+    local properties = self:getLevelAdjustedProperties(layer.properties)
     local tilelayer = self:createTileLayer(layer)
     tilelayer.map_layer = true
     tilelayer.map_layer_sort_id = tostring(layer.id or layer.name or "")
     tilelayer:setPosition(layer.offsetx or 0, layer.offsety or 0)
-    tilelayer.z = tonumber(layer.properties and layer.properties.z) or 0
-    tilelayer.depth = math.max(tonumber(layer.properties and layer.properties.depth) or 0, 0)
-    tilelayer.provides_ground = not layer.properties or layer.properties.ground ~= false
+    tilelayer.z = tonumber(properties.z) or 0
+    tilelayer.depth = math.max(tonumber(properties.depth) or 0, 0)
+    tilelayer.provides_ground = properties.ground ~= false
     MapUtils.addLayerOffset(tilelayer, depth)
     tilelayer.blend_mode = layer.blend_mode or layer.blendmode
     self.world:addChild(tilelayer)
+    self:registerLevelMember(tilelayer, properties.level_id)
     table.insert(self.tile_layers, tilelayer)
     if self:isLayerType(layer, "battleborder") then
         table.insert(self.battle_borders, tilelayer)
@@ -89,6 +91,7 @@ function operations.createTileObject(self, data, x, y, width, height)
 end
 
 function operations.loadImage(self, layer, depth)
+    local properties = self:getLevelAdjustedProperties(layer.properties)
     local success, texture_result = self:loadTextureFromImagePath(layer.image)
     if not success then
         error("Map \"" .. self.data.id .. "\" failed to load image layer \"" .. layer.name .. "\"\n" .. texture_result)
@@ -104,21 +107,22 @@ function operations.loadImage(self, layer, depth)
     if layer.tintcolor then
         sprite:setColor(layer.tintcolor[1] / 255, layer.tintcolor[2] / 255, layer.tintcolor[3] / 255)
     end
-    sprite:setSpeed(layer.properties["speedx"] or 0, layer.properties["speedy"] or 0)
-    if layer.repeatx or layer.properties["wrapx"] then
+    sprite:setSpeed(properties["speedx"] or 0, properties["speedy"] or 0)
+    if layer.repeatx or properties["wrapx"] then
         sprite.wrap_texture_x = true
     end
-    if layer.repeaty or layer.properties["wrapy"] then
+    if layer.repeaty or properties["wrapy"] then
         sprite.wrap_texture_y = true
     end
-    if layer.properties["fitscreen"] then
+    if properties["fitscreen"] then
         sprite.width = SCREEN_WIDTH
         sprite.height = SCREEN_HEIGHT
     end
-    sprite:setScale(layer.properties["scalex"] or 1, layer.properties["scaley"] or 1)
-    sprite.z = tonumber(layer.properties.z) or 0
-    sprite.depth = math.max(tonumber(layer.properties.depth) or 0, 0)
+    sprite:setScale(properties["scalex"] or 1, properties["scaley"] or 1)
+    sprite.z = tonumber(properties.z) or 0
+    sprite.depth = math.max(tonumber(properties.depth) or 0, 0)
     self.world:addChild(sprite)
+    self:registerLevelMember(sprite, properties.level_id)
     self.image_layers[layer.name] = sprite
     if self:isLayerType(layer, "battleborder") then
         sprite.alpha = 0
@@ -152,9 +156,11 @@ function operations.loadHitboxes(self, layer)
     local hitboxes = {}
     local ox, oy = layer.offsetx or 0, layer.offsety or 0
     for _, v in ipairs(layer.objects) do
-        local properties = TableUtils.mergeMany(layer.properties or {}, v.properties or {})
+        local properties = self:getLevelAdjustedProperties(
+            TableUtils.mergeMany(layer.properties or {}, v.properties or {}))
         local hitbox = MapUtils.colliderFromShape(self.world, v, v.x + ox, v.y + oy, properties)
         if hitbox then
+            hitbox.level_id = properties.level_id
             table.insert(hitboxes, hitbox)
             self:registerSurfaceCollider(hitbox, v.id)
 
@@ -180,11 +186,13 @@ end
 
 function operations.loadHeightOcclusion(self, layer, depth)
     for _, source in ipairs(layer.objects or {}) do
-        local properties = TableUtils.mergeMany(layer.properties or {}, source.properties or {})
+        local properties = self:getLevelAdjustedProperties(
+            TableUtils.mergeMany(layer.properties or {}, source.properties or {}), true)
         local occluder = HeightOccluder(self, source, layer, properties)
         if #occluder.mask_points >= 3 then
             MapUtils.addLayerOffset(occluder, depth)
             self.world:addChild(occluder)
+            self:registerLevelMember(occluder, properties.level_id)
             table.insert(self.height_occluders, occluder)
         else
             Kristal.Console:warn(string.format(
@@ -199,10 +207,15 @@ end
 ---@param source table
 ---@param layer table
 ---@return table
-local function createMarkerData(source, layer)
+local function createMarkerData(map, source, layer)
     local v = TableUtils.copy(source, true)
-    v.properties = TableUtils.mergeMany(layer.properties or {}, v.properties or {})
-    v.z = tonumber(v.z ~= nil and v.z or v.properties.z)
+    local marker_properties = TableUtils.mergeMany(
+        layer.properties or {}, v.properties or {})
+    if v.z ~= nil then marker_properties.z = v.z end
+    v.properties = map:getLevelAdjustedProperties(
+        marker_properties)
+    v.z = tonumber(v.properties.z)
+    v.level_id = v.properties.level_id
     v.width = v.width or 0
     v.height = v.height or 0
     local rotation = math.rad(tonumber(v.rotation) or 0)
@@ -219,14 +232,14 @@ local function createMarkerData(source, layer)
 end
 
 function operations.loadMarker(self, source, layer)
-    local v = createMarkerData(source, layer)
+    local v = createMarkerData(self, source, layer)
     if v.name ~= nil then self.markers[v.name] = v end
     self.markers_by_id[v.id] = v
     return v
 end
 
 function operations.loadPlayerSpawn(self, source, layer)
-    local v = createMarkerData(source, layer)
+    local v = createMarkerData(self, source, layer)
     self.player_spawn = v
     self.markers_by_id[v.id] = v
     return v
@@ -398,7 +411,10 @@ function operations.loadRuntimeObject(self, source, layer, depth, layer_type, ru
             end
             obj.layer_name = layer.name
             obj.data = v
-            local height_properties = TableUtils.mergeMany(layer.properties or {}, v.properties or {})
+            local raw_height_properties = TableUtils.mergeMany(
+                layer.properties or {}, v.properties or {})
+            local height_properties = self:getLevelAdjustedProperties(
+                raw_height_properties, true)
             obj.surface_id = height_properties.surface_id or height_properties.structure_id
             local linked_surface = obj.surface_id and self:getSurface(obj.surface_id) or nil
             obj.z = tonumber(height_properties.z)
@@ -468,7 +484,9 @@ function operations.loadRuntimeObject(self, source, layer, depth, layer_type, ru
                 or height_properties.face or "front"
             obj.height_face_x = tonumber(height_properties.face_x)
             obj.height_face_y = tonumber(height_properties.face_y)
+            self:registerLevelMember(obj, height_properties.level_id)
             if obj.collider then
+                obj.collider.level_id = height_properties.level_id
                 obj.collider.z = tonumber(height_properties.collision_z) or obj.collider.z
                 local collision_depth = tonumber(height_properties.collision_depth)
                 if collision_depth == nil and height_properties.depth ~= nil then

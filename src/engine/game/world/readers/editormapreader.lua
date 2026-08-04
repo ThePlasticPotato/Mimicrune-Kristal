@@ -98,37 +98,71 @@ function EditorMapReader:read(data)
     local map = self.map
     local object_depths, tile_depths = {}, {}
     local spawn_depth, battle_border_depth, maximum_depth
-    MapUtils.walkLayers(data.layers, function(layer)
-        if Registry.layer_types:getLayerKind(layer) == "group" then
-            return layer.visible ~= false
-        elseif layer.visible ~= false then
-            local layer_depth = tonumber(layer._editor_depth_offset) or 0
-            maximum_depth = maximum_depth and math.max(maximum_depth, layer_depth) or layer_depth
-            local type_id = layer._editor_type_id or layer.type
-            local kind = Registry.layer_types:getLayerKind(layer)
-            map.layers[layer.name] = layer_depth
-            if kind == "object" then
-                if type_id == "objects" then
-                    table.insert(object_depths, layer_depth)
-                    for _, object in ipairs(layer.objects or {}) do
-                        local object_type = map:getObjectType(object)
-                        if Registry.getEditorObjectRuntimeType(object_type) == "player" then
-                            spawn_depth = layer_depth
-                        end
+    local function visit(layers, inherited_level, ancestors_visible)
+        for _, source_layer in ipairs(layers or {}) do
+            local visible = ancestors_visible and source_layer.visible ~= false
+            local kind = Registry.layer_types:getLayerKind(source_layer)
+            if kind == "group" then
+                local level_context = inherited_level
+                local properties = source_layer.properties or {}
+                local type_id = source_layer._editor_type_id or source_layer.type
+                if type_id == "level" or properties.level_id ~= nil then
+                    local level = map:registerLevel(
+                        properties, source_layer.id, source_layer.name)
+                    if level then
+                        level_context = {
+                            level_id = level.id,
+                            level_z = level.base_z,
+                            level_stack = level.stack,
+                            level_camera_z = level.camera_z,
+                            level_transition_time = level.transition_time,
+                            level_transition_ease = level.transition_ease,
+                            level_show_below = level.show_below,
+                            level_show_above = level.show_above,
+                            level_default_visible = level.default_visible
+                        }
                     end
                 end
-            elseif kind == "tile" then
-                if type_id == "battleborder" then
-                    battle_border_depth = battle_border_depth or layer_depth
-                else
-                    table.insert(tile_depths, layer_depth)
+                if visible then visit(source_layer.layers, level_context, visible) end
+            elseif visible then
+                local layer = TableUtils.copy(source_layer)
+                layer.properties = TableUtils.mergeMany(
+                    inherited_level or {}, source_layer.properties or {})
+                if layer.properties.level_id and not map:getLevel(layer.properties.level_id) then
+                    map:registerLevel(layer.properties, layer.properties.level_id,
+                        layer.properties.level_id)
+                end
+                local layer_depth = tonumber(layer._editor_depth_offset) or 0
+                maximum_depth = maximum_depth
+                    and math.max(maximum_depth, layer_depth) or layer_depth
+                local type_id = layer._editor_type_id or layer.type
+                local kind = Registry.layer_types:getLayerKind(layer)
+                map.layers[layer.name] = layer_depth
+                if kind == "object" then
+                    if type_id == "objects" then
+                        table.insert(object_depths, layer_depth)
+                        for _, object in ipairs(layer.objects or {}) do
+                            local object_type = map:getObjectType(object)
+                            if Registry.getEditorObjectRuntimeType(object_type) == "player" then
+                                spawn_depth = layer_depth
+                            end
+                        end
+                    end
+                elseif kind == "tile" then
+                    if type_id == "battleborder" then
+                        battle_border_depth = battle_border_depth or layer_depth
+                    else
+                        table.insert(tile_depths, layer_depth)
+                    end
+                end
+                if not Kristal.callEvent(KRISTAL_EVENT.loadLayer,
+                    map, layer, layer_depth) then
+                    map:loadLayer(layer, layer_depth)
                 end
             end
-            if not Kristal.callEvent(KRISTAL_EVENT.loadLayer, map, layer, layer_depth) then
-                map:loadLayer(layer, layer_depth)
-            end
         end
-    end)
+    end
+    visit(data.layers, nil, true)
 
     map.object_layer = spawn_depth
     map.object_layer = map.object_layer or object_depths[#object_depths] or 1

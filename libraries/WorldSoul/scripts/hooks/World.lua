@@ -46,10 +46,13 @@ function World:setupMap(...)
     if destination.marker then
         local marker = destination.marker
         if not self.map:hasMarker(marker) then marker = "spawn" end
-        x, y = self.map:getMarker(marker)
+        local marker_data
+        x, y, marker_data = self.map:getMarker(marker)
         z = self.map:getMarkerZ(marker)
+        soul.spawn_level_id = marker_data and marker_data.level_id
     end
     soul:enterMap(x, y, z)
+    self.map:syncLevelFromSubject(soul, true)
 end
 
 function World:spawnParty(...)
@@ -141,7 +144,8 @@ function World:update()
         local exited = {}
         Object.startCache()
         for _,obj in ipairs(self.children) do
-            if not obj.solid and (obj.onSoulCollide or obj.onSoulEnter or obj.onSoulExit) then
+            if self:isObjectLevelActive(obj) and not obj.solid
+                and (obj.onSoulCollide or obj.onSoulEnter or obj.onSoulExit) then
                 local colliding
                 if self.map.platforming and obj.height_sensitive then
                     colliding = obj:collidesWith3D(self.world_soul.collider)
