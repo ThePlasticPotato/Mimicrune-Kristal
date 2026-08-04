@@ -15,6 +15,7 @@ function Lanturn:init()
     self.disable_mercy = true
     self.waves = {
         "lanturn/warninglabel",
+        "lanturn/crush"
     }
     self.dialogue = {
         "[shake:1][color:maroon]your fault. your fault.[color:reset]",
