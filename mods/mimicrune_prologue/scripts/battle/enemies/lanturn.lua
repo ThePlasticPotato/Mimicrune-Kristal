@@ -14,12 +14,8 @@ function Lanturn:init()
     self.dialogue_bubble = "agony"
     self.disable_mercy = true
     self.waves = {
-        "twistedspiral",
-        "agonybrood",
-        "agonyquarantine",
-        "agonyimpact",
-        "agonyecho",
-        "agonyundertow",
+        "lanturn/warninglabel",
+        "lanturn/crush"
     }
     self.dialogue = {
         "[shake:1][color:maroon]your fault. your fault.[color:reset]",
