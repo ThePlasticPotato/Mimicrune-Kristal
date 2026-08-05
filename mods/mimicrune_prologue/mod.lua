@@ -99,7 +99,43 @@ function Mod:spawnWastesSoul(play_arrival)
     return soul
 end
 
+---@param save DeltaruneSave
+---@return boolean imported
+function Mod:applyGonermakerChoices(save)
+    if not save then
+        return false
+    end
+
+    Game:setFlag("vessel_name", save.vessel_name)
+    for choice, flag_id in pairs(DeltaruneConsts.VESSEL_PARTS) do
+        local value = save:getFlag(flag_id, "number")
+        if value ~= nil then
+            Game:setFlag("vessel_" .. choice, value)
+        end
+    end
+    return true
+end
+
+---@return boolean imported
+function Mod:importGonermakerChoices()
+    local save
+    local success, err = pcall(function()
+        DeltaruneLoader.load({chapter = 1, slot = 1})
+        save = DeltaruneLoader.getSave(1, 1)
+            or DeltaruneLoader.getCompletion(1, 1)
+    end)
+
+    if not success then
+        return false
+    end
+    if not save then
+        return false
+    end
+    return self:applyGonermakerChoices(save)
+end
+
 function Mod:enterWastes()
+    self:importGonermakerChoices()
     Assets.transitionToMapBucket("wastes_entrance", function()
         Game.world:loadMap("wastes_entrance")
         Atmosphere:setWeather("wind", true, 3, false, -1)
