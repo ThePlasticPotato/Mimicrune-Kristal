@@ -7,6 +7,11 @@
 ---@field state ShiftState The current state. Use [`Shift:setState()`](lua://Shift.setState) instead of assigning this directly.
 ---@field state_reason string?
 ---@field changing_state boolean
+---@field initialized boolean
+---@field started boolean
+---@field resume_world_music boolean
+---@field resume_additional_world_music boolean
+---@field returned boolean
 ---
 ---@field timer Timer
 ---@field cutscene ShiftCutscene?
@@ -35,7 +40,17 @@
 ---@field hour integer Number of completed in-game hours.
 ---@field complete boolean
 ---@field failed boolean
----@overload fun(night: Night|string) : Shift
+---@field transition_started boolean
+---@field transition_handled boolean
+---@field intro_started boolean
+---@field intro_handled boolean
+---@field power_out_started boolean
+---@field jumpscare_started boolean
+---@field victory_started boolean
+---@field victory_handled boolean
+---@field end_started boolean
+---@field end_handled boolean
+---@overload fun(night?: Night|string) : Shift
 local Shift, super = Class(Object)
 
 ---@alias ShiftState # The state of the shift.
@@ -56,20 +71,18 @@ local Shift, super = Class(Object)
 ---@field active boolean?
 ---@field isPowerDraining? fun(self: PowerDrainer): boolean
 
----@param night Night|string
+---@param night? Night|string
 function Shift:init(night)
     super.init(self, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
-
-    if type(night) == "string" then
-        night = Registry.createNight(night)
-    end
-    if night == nil then
-        error("Attempt to create a shift without a night")
-    end
 
     self.state = "NONE"
     self.state_reason = nil
     self.changing_state = false
+    self.initialized = false
+    self.started = false
+    self.resume_world_music = false
+    self.resume_additional_world_music = false
+    self.returned = false
     self.state_manager = StateManager("NONE", self, true)
     self.state_manager:addState("NONE")
     self.state_manager:addState("TRANSITION", {
@@ -105,14 +118,8 @@ function Shift:init(night)
     self.timer = self:addChild(Timer())
     self.cutscene = nil
 
-    self.night = night
-    self.office = night:createOffice()
-    if self.office == nil then
-        error("Night \"" .. tostring(night.id) .. "\" did not create an office")
-    end
-    self.office.shift = self
-    self:addChild(self.office)
-
+    self.night = nil
+    self.office = nil
     self.animatronics = {}
     self.animatronic_by_id = {}
     self.cameras = {}
@@ -121,6 +128,58 @@ function Shift:init(night)
     self.last_camera = nil
     self.panel = nil
 
+    self.tracks = {}
+    self.ambience = Music()
+
+    self.max_power = 0
+    self.power = self.max_power
+    self.base_power_usage = 0
+    self.power_drain_rate = 1
+    self.power_drainers = {}
+
+    self.elapsed = 0
+    self.duration = nil
+    self.hour = 0
+    self.complete = false
+    self.failed = false
+
+    self.transition_started = false
+    self.transition_handled = false
+    self.intro_started = false
+    self.intro_handled = false
+    self.power_out_started = false
+    self.jumpscare_started = false
+    self.victory_started = false
+    self.victory_handled = false
+    self.end_started = false
+    self.end_handled = false
+
+    if night ~= nil then
+        self:postInit(night)
+    end
+end
+
+--- Finishes constructing the shift after [`Game.shift`](lua://Game.shift) has been assigned.
+---@param night Night|string
+function Shift:postInit(night)
+    if self.initialized then
+        error("Attempt to initialize a shift more than once")
+    end
+    if type(night) == "string" then
+        night = Registry.createNight(night)
+    end
+    if night == nil then
+        error("Attempt to initialize a shift without a night")
+    end
+
+    self.night = night
+    self.office = night:createOffice()
+    if self.office == nil then
+        error("Night \"" .. tostring(night.id) .. "\" did not create an office")
+    end
+    self.office.shift = self
+    self:addChild(self.office)
+
     for _, camera in ipairs(self.office:createCameras()) do
         self:addCamera(camera)
     end
@@ -128,23 +187,16 @@ function Shift:init(night)
         self:addAnimatronic(animatronic)
     end
 
-    self.tracks = {}
-    self.ambience = Music()
-
     self.max_power = night.max_power
     self.power = self.max_power
     self.base_power_usage = night.base_power_usage
     self.power_drain_rate = night.power_drain_rate
-    self.power_drainers = {}
     for index, door in ipairs(self.office.doors) do
         self:addPowerDrainer(door.id or ("door_" .. index), door)
     end
 
-    self.elapsed = 0
     self.duration = night.duration
-    self.hour = 0
-    self.complete = false
-    self.failed = false
+    self.initialized = true
 
     local handled = self.night:onShiftInit(self)
     if not handled and self.state == "NONE" then
@@ -193,27 +245,40 @@ end
 
 ---@private
 function Shift:beginTransition()
-    self.night:onTransition(self)
+    if not self.transition_started then
+        self.transition_started = true
+        self.transition_handled = self.night:onTransition(self) == true
+    end
 end
 
 ---@private
 function Shift:updateTransition()
-    self:setState("INTRO")
+    if not self.transition_handled then
+        self:setState("INTRO")
+    end
 end
 
 ---@private
 function Shift:beginIntro()
-    self.night:onIntro(self)
+    if not self.intro_started then
+        self.intro_started = true
+        self.intro_handled = self.night:onIntro(self) == true
+    end
 end
 
 ---@private
 function Shift:updateIntro()
-    self:setState("GAMEPLAY")
+    if not self.intro_handled then
+        self:setState("GAMEPLAY")
+    end
 end
 
 ---@private
 function Shift:beginGameplay()
-    self.night:onShiftStart(self)
+    if not self.started then
+        self.started = true
+        self.night:onShiftStart(self)
+    end
 end
 
 ---@private
@@ -238,7 +303,10 @@ end
 ---@private
 function Shift:beginPowerOut()
     self.power = 0
-    self.night:onPowerOut(self)
+    if not self.power_out_started then
+        self.power_out_started = true
+        self.night:onPowerOut(self)
+    end
 end
 
 ---@private
@@ -250,7 +318,10 @@ function Shift:updatePowerOut() end
 ---@param animatronic? ShiftAnimatronic
 function Shift:beginJumpscare(old, reason, animatronic)
     self.failed = true
-    self.night:onJumpscare(animatronic, reason)
+    if not self.jumpscare_started then
+        self.jumpscare_started = true
+        self.night:onJumpscare(animatronic, reason)
+    end
 end
 
 ---@private
@@ -260,19 +331,33 @@ function Shift:updateJumpscare() end
 function Shift:beginVictory()
     self.complete = true
     self.night.complete = true
-    self.night:onVictory(self)
+    if not self.victory_started then
+        self.victory_started = true
+        self.victory_handled = self.night:onVictory(self) == true
+    end
 end
 
 ---@private
-function Shift:updateVictory() end
+function Shift:updateVictory()
+    if not self.victory_handled then
+        self:setState("TRANSITIONOUT", "VICTORY")
+    end
+end
 
 ---@private
 function Shift:beginTransitionOut()
-    self.night:onShiftEnd(self, self.complete)
+    if not self.end_started then
+        self.end_started = true
+        self.end_handled = self.night:onShiftEnd(self, self.complete) == true
+    end
 end
 
 ---@private
-function Shift:updateTransitionOut() end
+function Shift:updateTransitionOut()
+    if not self.end_handled then
+        self:returnToWorld()
+    end
+end
 
 ---@param camera ShiftCamera|string
 ---@return ShiftCamera?
@@ -426,6 +511,86 @@ end
 function Shift:getDisplayHour()
     local hour = (self.night.start_hour + self.hour) % 12
     return hour == 0 and 12 or hour
+end
+
+--- Sets the completed in-game hour count and keeps elapsed time in sync.
+---@param hour integer
+function Shift:setHour(hour)
+    hour = MathUtils.clamp(math.floor(hour), 0, self.night.hours)
+    if hour == self.hour then return end
+
+    local old = self.hour
+    self.hour = hour
+    if self.duration and self.night.hours > 0 then
+        self.elapsed = self.duration * (self.hour / self.night.hours)
+    end
+    self.night:onHourChange(self.hour, old)
+end
+
+--- Advances the shift by a number of in-game hours.
+---@param amount? integer
+function Shift:advanceHour(amount)
+    self:setHour(self.hour + (amount or 1))
+    if self.hour >= self.night.hours and self.state ~= "VICTORY" and self.state ~= "TRANSITIONOUT" then
+        self:setState("VICTORY", "TIME")
+    end
+end
+
+--- Begins the normal shift exit flow.
+---@param completed? boolean
+function Shift:endShift(completed)
+    if completed then
+        self:setState("VICTORY", "END")
+    else
+        self:setState("TRANSITIONOUT", "END")
+    end
+end
+
+--- Immediately removes this shift and restores the overworld.
+function Shift:returnToWorld()
+    if self.returned then return end
+    self.returned = true
+
+    if not self.end_started then
+        self.end_started = true
+        self.night:onShiftEnd(self, self.complete)
+    end
+
+    self.ambience:stop()
+    if Game.world then
+        if self.resume_world_music and Game.world.music then
+            Game.world.music:resume()
+        end
+        if self.resume_additional_world_music and Game.world.additional_music then
+            Game.world.additional_music:resume()
+        end
+        Game.world.active = true
+        Game.world.visible = true
+    end
+
+    if self.parent then
+        self:remove()
+    elseif not self.ambience.removed then
+        self.ambience:remove()
+    end
+    if Game.shift == self then Game.shift = nil end
+    if Game.state == "SHIFT" then Game.state = "OVERWORLD" end
+end
+
+--- Ends the shift in a game over without resuming overworld audio.
+---@param x? number
+---@param y? number
+function Shift:gameOver(x, y)
+    self.failed = true
+    if not self.end_started then
+        self.end_started = true
+        self.night:onShiftEnd(self, false)
+    end
+    self.ambience:stop()
+    Game:gameOver(x, y)
+    if not self.parent and not self.ambience.removed then
+        self.ambience:remove()
+    end
 end
 
 function Shift:update()

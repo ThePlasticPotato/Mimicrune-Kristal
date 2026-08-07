@@ -1587,7 +1587,7 @@ function Kristal.quickReload(mode)
     local dev_invincibility = INVINCIBILITY
 
     -- Temporarily save game variables
-    local save, save_id, encounter, encounter_type, shop
+    local save, save_id, encounter, encounter_type, shop, shift
     if mode == "temp" then
         save = Game:save()
         save_id = Game.save_id
@@ -1596,6 +1596,7 @@ function Kristal.quickReload(mode)
             encounter_type = "goner"
         end
         shop = Game.shop and Game.shop.id
+        shift = Game.shift and Game.shift.night and Game.shift.night.id
     elseif mode == "save" then
         save_id = Game.save_id
     end
@@ -1635,6 +1636,8 @@ function Kristal.quickReload(mode)
                             end
                         elseif shop then -- If we were in a shop, re-enter it
                             Game:enterShop(shop)
+                        elseif shift then -- If we were in a shift, restart it
+                            Game:startShift(shift)
                         end
                     else
                         -- Switch to Game

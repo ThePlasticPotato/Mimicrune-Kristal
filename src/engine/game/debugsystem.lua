@@ -380,9 +380,10 @@ end
 function DebugSystem:refresh()
     self.menus = {}
     self.exclusive_menus = {}
-    self.exclusive_menus["OVERWORLD"] = { "encounter_select", "goner_encounter_select", "select_shop", "select_map", "cutscene_select", "legend_select" }
+    self.exclusive_menus["OVERWORLD"] = { "encounter_select", "goner_encounter_select", "select_shop", "select_map", "cutscene_select", "legend_select", "shift_select" }
     self.exclusive_menus["LEGEND"] = { "legend_select" }
     self.exclusive_menus["BATTLE"] = { "wave_select", "wave_select_multiple" }
+    self.exclusive_menus["SHIFT"] = { "shift_debug", "shift_jumpscare_select" }
     self:registerMenu("main", "~ DEBUG ~")
     self.current_menu = "main"
     self.menu_history = {}
@@ -696,6 +697,143 @@ function DebugSystem:registerSubMenus()
             function()
                 Game:encounter(id)
                 self:closeMenu()
+            end
+        )
+    end
+
+    self:registerMenu("shift_select", "Shift Select", "search")
+    for id, _ in pairs(Registry.nights) do
+        self:registerOption(
+            "shift_select",
+            id,
+            "Start this shift.",
+            function()
+                Game:startShift(id)
+                self:closeMenu()
+            end
+        )
+    end
+
+    self:registerMenu("shift_debug", "Shift Tools")
+    self:registerOption(
+        "shift_debug",
+        "Resume Gameplay",
+        function()
+            local shift = Game.shift
+            return "Return to the gameplay state. (Current: " .. (shift and shift.state or "NONE") .. ")"
+        end,
+        function()
+            Game.shift:setState("GAMEPLAY", "DEBUG")
+            self:closeMenu()
+        end,
+        function()
+            return Game.shift and Game.shift.state ~= "GAMEPLAY"
+        end
+    )
+    self:registerOption(
+        "shift_debug",
+        "Refill Power",
+        function()
+            local shift = Game.shift
+            if not shift then return "No shift is active." end
+            return "Restore power to its maximum. (" .. math.floor(shift.power) .. "/" .. math.floor(shift.max_power) .. ")"
+        end,
+        function()
+            Game.shift:addPower(Game.shift.max_power)
+        end
+    )
+    self:registerOption(
+        "shift_debug",
+        "Advance Hour",
+        function()
+            local shift = Game.shift
+            if not shift then return "No shift is active." end
+            return "Advance one in-game hour. (Currently " .. shift:getDisplayHour() .. " AM)"
+        end,
+        function()
+            Game.shift:advanceHour()
+            self:closeMenu()
+        end
+    )
+    self:registerOption(
+        "shift_debug",
+        "Trigger Power Out",
+        "Set power to zero and enter the power-out state.",
+        function()
+            Game.shift:setState("POWEROUT", "DEBUG")
+            self:closeMenu()
+        end
+    )
+    self:registerOption(
+        "shift_debug",
+        "Trigger Jumpscare",
+        "Choose an active animatronic and enter the jumpscare state.",
+        function()
+            self:enterMenu("shift_jumpscare_select", 0)
+        end
+    )
+    self:registerOption(
+        "shift_debug",
+        "Complete Shift",
+        "Enter victory and follow the normal shift exit flow.",
+        function()
+            Game.shift:endShift(true)
+            self:closeMenu()
+        end
+    )
+    self:registerOption(
+        "shift_debug",
+        "End Shift",
+        "End the shift without marking it complete.",
+        function()
+            Game.shift:endShift(false)
+            self:closeMenu()
+        end
+    )
+    self:registerOption(
+        "shift_debug",
+        "Trigger Game Over",
+        "Immediately enter the configured game-over screen.",
+        function()
+            local shift = Game.shift
+            self:closeMenu()
+            shift:gameOver()
+        end
+    )
+    self:registerOption(
+        "shift_debug",
+        "Force Return",
+        "Immediately remove the shift and restore the overworld.",
+        function()
+            local shift = Game.shift
+            self:closeMenu()
+            shift:returnToWorld()
+        end
+    )
+    self:registerOption("shift_debug", "Back", "Return to the main debug menu.", function() self:returnMenu() end)
+
+    self:registerMenu("shift_jumpscare_select", "Jumpscare", "search")
+    self:registerOption(
+        "shift_jumpscare_select",
+        "[No Animatronic]",
+        "Enter the jumpscare state without an animatronic source.",
+        function()
+            Game.shift:setState("JUMPSCARE", "DEBUG")
+            self:closeMenu()
+        end
+    )
+    for id, _ in pairs(Registry.animatronics) do
+        self:registerOption(
+            "shift_jumpscare_select",
+            id,
+            "Trigger a jumpscare from this active animatronic.",
+            function()
+                local animatronic = Game.shift:getAnimatronic(id)
+                Game.shift:setState("JUMPSCARE", "DEBUG", animatronic)
+                self:closeMenu()
+            end,
+            function()
+                return Game.shift and Game.shift:getAnimatronic(id) ~= nil
             end
         )
     end
@@ -1146,6 +1284,7 @@ function DebugSystem:registerDefaults()
     local in_battle = function() return in_game() and Game.state == "BATTLE" end
     local in_overworld = function() return in_game() and Game.state == "OVERWORLD" end
     local in_legend = function() return in_game() and Game.state == "LEGEND" end
+    local in_shift = function() return in_game() and Game.state == "SHIFT" and Game.shift ~= nil end
 
     -- Global
 
@@ -1429,6 +1568,27 @@ function DebugSystem:registerDefaults()
         function()
             return in_overworld() or in_legend()
         end
+    )
+
+    self:registerOption(
+        "main",
+        "Start Shift",
+        "Start a registered shift.",
+        function()
+            self:enterMenu("shift_select", 0)
+        end,
+        in_overworld
+    )
+
+    -- Shift specific
+    self:registerOption(
+        "main",
+        "Shift Tools",
+        "Open state, time, power, and outcome controls for the active shift.",
+        function()
+            self:enterMenu("shift_debug", 1)
+        end,
+        in_shift
     )
 
     -- Battle specific

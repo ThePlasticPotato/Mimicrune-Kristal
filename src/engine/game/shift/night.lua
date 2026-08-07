@@ -48,16 +48,22 @@ function Night:onShiftInit(shift) end
 function Night:onShiftStart(shift) end
 
 --- *(Override)* Called when the shift begins transitioning back to the previous game state.
+--- Returning `true` prevents the default return to the overworld.
 ---@param shift Shift
 ---@param completed boolean
+---@return boolean?
 function Night:onShiftEnd(shift, completed) end
 
 --- *(Override)* Called when the shift enters its initial transition.
+--- Returning `true` prevents the default transition to `"INTRO"`.
 ---@param shift Shift
+---@return boolean?
 function Night:onTransition(shift) end
 
 --- *(Override)* Called when the shift enters its intro state.
+--- Returning `true` prevents the default transition to `"GAMEPLAY"`.
 ---@param shift Shift
+---@return boolean?
 function Night:onIntro(shift) end
 
 --- *(Override)* Called each time the displayed in-game hour changes.
@@ -84,8 +90,10 @@ function Night:onPowerOut(shift) end
 ---@param reason string?
 function Night:onJumpscare(animatronic, reason) end
 
---- *(Override)* Called when the shift is won.
+--- *(Override)* Called when the shift is won. Returning `true` keeps the shift in
+--- `"VICTORY"`; otherwise it proceeds to `"TRANSITIONOUT"` on the next update.
 ---@param shift Shift
+---@return boolean?
 function Night:onVictory(shift) end
 
 --- *(Override)* Called before a shift state change. Returning `true` cancels the change.
