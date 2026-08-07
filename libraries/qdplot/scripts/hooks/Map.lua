@@ -20,17 +20,18 @@ function Map:shouldLoadObject(data, layer)
     local plotmin, plotmax = -math.huge, math.huge
     local inclmin, inclmax = false, false
     local curplot = Game:getFlag("plot", 0)
+    local plot_points = Plot:getPoints()
     if data.properties.plotmin then
         local plotminstr
         inclmin, plotminstr = Utils.startsWith(data.properties.plotmin, "*")
         inclmin = not inclmin
-        plotmin = PLOT[plotminstr] or tonumber(plotminstr) or plotmin
+        plotmin = plot_points[plotminstr] or tonumber(plotminstr) or plotmin
     end
     if data.properties.plotmax then
         local plotmaxstr
         inclmax, plotmaxstr = Utils.startsWith(data.properties.plotmax, "*")
         inclmax = not inclmax
-        plotmax = PLOT[plotmaxstr] or tonumber(plotmaxstr) or plotmax
+        plotmax = plot_points[plotmaxstr] or tonumber(plotmaxstr) or plotmax
     end
     if not compare(curplot, plotmin, "gt", inclmin) then
         return false

@@ -679,6 +679,10 @@ function PartyBattler:getNotePosition()
 end
 
 function PartyBattler:sing()
+    if not Game.battle.notes or #Game.battle.notes == 0 then
+        return
+    end
+
     local function midiToPitchMultiplier(midiNote, baseMidiNote)
         baseMidiNote = baseMidiNote or 72 -- C4
         return 2 ^ ((midiNote - baseMidiNote) / 12)

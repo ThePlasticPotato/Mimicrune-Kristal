@@ -260,7 +260,7 @@ function Battle:init()
 
     self.purified = 0
     
-    self.notes = nil
+    self.notes = {}
     self.bpm = 0
 
     self.defending_end_timer = 0
@@ -657,16 +657,24 @@ function Battle:startBattleMusic()
         return
     end
 
+    local midi_id
     if not self.encounter.music or (self.encounter.music == "battle" and self.tense) then
-        self.notes, self.bpm = MidiTimeline:loadMidiTimeline(Assets.getMidiPath("battle_tense_bg"), 2)
+        midi_id = "battle_tense_bg"
     else
         self.battle_intro:play()
-        self.notes, self.bpm = MidiTimeline:loadMidiTimeline(Assets.getMidiPath(self.encounter.music .. "_lead"), 2)
+        midi_id = self.encounter.music .. "_lead"
 
         self.timer:afterCond(function() return not self.battle_intro:isPlaying() end, function()
             Game.fft:setPlayPosition(0)
             self.music:play(self.encounter.music)
         end)
+    end
+
+    local midi_path = Assets.tryGet("midi", midi_id)
+    if midi_path then
+        self.notes, self.bpm = MidiTimeline:loadMidiTimeline(midi_path, 2)
+    else
+        self.notes, self.bpm = {}, 0
     end
 end
 

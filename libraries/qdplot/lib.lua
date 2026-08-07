@@ -2,15 +2,21 @@ local lib = {}
 Registry.registerGlobal("Plot", lib)
 Plot = lib
 
+---@return table<string, number>
+function Plot:getPoints()
+    local plot_points = rawget(_G, "PLOT")
+    return type(plot_points) == "table" and plot_points or {}
+end
+
 ---@param plot PLOT.key|PLOT
 function Plot:isAfter(plot)
-    local comp_plot = PLOT[plot] or plot
+    local comp_plot = self:getPoints()[plot] or plot
     return comp_plot < Game:getFlag("plot", 0)
 end
 
 ---@param plot PLOT.key|PLOT
 function Plot:isBefore(plot)
-    local comp_plot = PLOT[plot] or plot
+    local comp_plot = self:getPoints()[plot] or plot
     return comp_plot > Game:getFlag("plot", 0)
 end
 
@@ -19,7 +25,7 @@ end
 function Plot:get()
     if not Game.flags then return 0 end
     local plot = Game:getFlag("plot", 0)
-    return plot, TableUtils.getKey(PLOT, plot)
+    return plot, TableUtils.getKey(self:getPoints(), plot)
 end
 
 function Plot:postDraw()
@@ -47,7 +53,7 @@ end
 
 ---@param plot integer|PLOT.key|PLOT
 function Plot:set(plot)
-    local comp_plot = PLOT[plot] or plot
+    local comp_plot = self:getPoints()[plot] or plot
     Game:setFlag("plot", comp_plot)
 end
 
@@ -56,7 +62,7 @@ function Plot:registerDebugOptions(debug)
     print("pluey")
     debug:registerMenu("plot", "Plot points")
     local plot_by_number = {}
-    for key, value in pairs(PLOT) do
+    for key, value in pairs(self:getPoints()) do
         plot_by_number[value] = key
     end
     for number, name in Utils.orderedPairs(plot_by_number) do
@@ -86,9 +92,9 @@ end
 ---@param include_max boolean? Whether or not to return true if the plot is exactly at the maximum. Defaults to false.
 function Plot:between(min, max, include_min, include_max)
     ---@cast a number|PLOT
-    min = PLOT[min] or min
+    min = self:getPoints()[min] or min
     ---@cast b number|PLOT
-    max = PLOT[max] or max
+    max = self:getPoints()[max] or max
 
     include_min = include_min ~= false
 
