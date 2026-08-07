@@ -12,6 +12,9 @@
 ---@field resume_world_music boolean
 ---@field resume_additional_world_music boolean
 ---@field returned boolean
+---@field cursor_locked boolean
+---@field cursor_was_grabbed boolean?
+---@field cursor_was_visible boolean?
 ---
 ---@field timer Timer
 ---@field cutscene ShiftCutscene?
@@ -24,6 +27,7 @@
 ---@field camera_by_id table<string, ShiftCamera>
 ---@field current_camera ShiftCamera?
 ---@field last_camera ShiftCamera?
+---@field move_targets table<string, ShiftMoveTarget>
 ---@field panel ShiftPanel? The currently open panel, if any.
 ---
 ---@field tracks string[] Indexed ambient/danger music tracks.
@@ -40,16 +44,29 @@
 ---@field hour integer Number of completed in-game hours.
 ---@field complete boolean
 ---@field failed boolean
+---@field transition_timer number
+---@field transition_snapshot love.Image?
 ---@field transition_started boolean
 ---@field transition_handled boolean
 ---@field intro_started boolean
 ---@field intro_handled boolean
 ---@field power_out_started boolean
+---@field power_out_handled boolean
+---@field power_out_timer number
 ---@field jumpscare_started boolean
+---@field jumpscare_handled boolean
+---@field jumpscare_animatronic ShiftAnimatronic?
+---@field jumpscare_object Jumpscare?
+---@field jumpscare_phase "ANIMATION"|"STATIC"?
+---@field jumpscare_static_timer number
+---@field game_over_started boolean
 ---@field victory_started boolean
 ---@field victory_handled boolean
+---@field victory_timer number
 ---@field end_started boolean
 ---@field end_handled boolean
+---@field transition_out_timer number
+---@field transition_out_snapshot love.Image?
 ---@overload fun(night?: Night|string) : Shift
 local Shift, super = Class(Object)
 
@@ -83,11 +100,15 @@ function Shift:init(night)
     self.resume_world_music = false
     self.resume_additional_world_music = false
     self.returned = false
+    self.cursor_locked = false
+    self.cursor_was_grabbed = nil
+    self.cursor_was_visible = nil
     self.state_manager = StateManager("NONE", self, true)
     self.state_manager:addState("NONE")
     self.state_manager:addState("TRANSITION", {
         enter = self.beginTransition,
         update = self.updateTransition,
+        draw = self.drawGonerTransition,
     })
     self.state_manager:addState("INTRO", {
         enter = self.beginIntro,
@@ -104,14 +125,17 @@ function Shift:init(night)
     self.state_manager:addState("JUMPSCARE", {
         enter = self.beginJumpscare,
         update = self.updateJumpscare,
+        draw = self.drawJumpscare,
     })
     self.state_manager:addState("VICTORY", {
         enter = self.beginVictory,
         update = self.updateVictory,
+        draw = self.drawVictory,
     })
     self.state_manager:addState("TRANSITIONOUT", {
         enter = self.beginTransitionOut,
         update = self.updateTransitionOut,
+        draw = self.drawGonerTransition,
     })
     self.state_manager:addState("CUTSCENE")
 
@@ -126,6 +150,7 @@ function Shift:init(night)
     self.camera_by_id = {}
     self.current_camera = nil
     self.last_camera = nil
+    self.move_targets = {}
     self.panel = nil
 
     self.tracks = {}
@@ -145,14 +170,27 @@ function Shift:init(night)
 
     self.transition_started = false
     self.transition_handled = false
+    self.transition_timer = 0
+    self.transition_snapshot = nil
     self.intro_started = false
     self.intro_handled = false
     self.power_out_started = false
+    self.power_out_handled = false
+    self.power_out_timer = 0
     self.jumpscare_started = false
+    self.jumpscare_handled = false
+    self.jumpscare_animatronic = nil
+    self.jumpscare_object = nil
+    self.jumpscare_phase = nil
+    self.jumpscare_static_timer = 0
+    self.game_over_started = false
     self.victory_started = false
     self.victory_handled = false
+    self.victory_timer = 0
     self.end_started = false
     self.end_handled = false
+    self.transition_out_timer = 0
+    self.transition_out_snapshot = nil
 
     if night ~= nil then
         self:postInit(night)
@@ -179,6 +217,10 @@ function Shift:postInit(night)
     end
     self.office.shift = self
     self:addChild(self.office)
+    self:addMoveTarget(self.office)
+    for _, door in ipairs(self.office.doors) do
+        self:addMoveTarget(door)
+    end
 
     for _, camera in ipairs(self.office:createCameras()) do
         self:addCamera(camera)
@@ -248,30 +290,43 @@ function Shift:beginTransition()
     if not self.transition_started then
         self.transition_started = true
         self.transition_handled = self.night:onTransition(self) == true
+        if not self.transition_handled then
+            self.transition_timer = 0
+            self.transition_snapshot = self:captureTransitionSnapshot()
+        end
     end
 end
 
 ---@private
 function Shift:updateTransition()
-    if not self.transition_handled then
+    if self.transition_handled then return end
+
+    self.transition_timer = self.transition_timer + DT
+    if self.transition_timer >= self.night.transition_time then
+        self:releaseTransitionSnapshot("transition_snapshot")
         self:setState("INTRO")
     end
 end
 
 ---@private
 function Shift:beginIntro()
-    if not self.intro_started then
-        self.intro_started = true
-        self.intro_handled = self.night:onIntro(self) == true
+    if self.intro_started then return end
+    self.intro_started = true
+    self.intro_handled = self.night:onIntro(self) == true
+    if self.intro_handled then return end
+
+    self.intro_handled = self.office:startIntro(function()
+        if Game.shift == self and self.state == "INTRO" then
+            self:setState("GAMEPLAY", "INTRO")
+        end
+    end)
+    if not self.intro_handled then
+        return "GAMEPLAY", { "INTRO" }
     end
 end
 
 ---@private
-function Shift:updateIntro()
-    if not self.intro_handled then
-        self:setState("GAMEPLAY")
-    end
-end
+function Shift:updateIntro() end
 
 ---@private
 function Shift:beginGameplay()
@@ -287,7 +342,7 @@ function Shift:updateGameplay()
     self:updatePower()
     if self.state ~= "GAMEPLAY" then return end
 
-    if self.duration then
+    if self.duration and self.duration > 0 then
         local new_hour = math.min(math.floor((self.elapsed / self.duration) * self.night.hours), self.night.hours)
         if new_hour ~= self.hour then
             local old_hour = self.hour
@@ -305,12 +360,26 @@ function Shift:beginPowerOut()
     self.power = 0
     if not self.power_out_started then
         self.power_out_started = true
-        self.night:onPowerOut(self)
+        self.power_out_handled = self.night:onPowerOut(self) == true
+        if not self.power_out_handled then
+            self.power_out_timer = 0
+            self:setCamera(nil)
+            if self.panel then self.panel:close() end
+            self.office:setPowerOut()
+        end
     end
 end
 
 ---@private
-function Shift:updatePowerOut() end
+function Shift:updatePowerOut()
+    if self.power_out_handled then return end
+
+    self.power_out_timer = self.power_out_timer + DT
+    if self.power_out_timer >= self.night.power_out_delay then
+        local animatronic = self.night:getPowerOutAnimatronic(self)
+        self:setState("JUMPSCARE", "POWEROUT", animatronic)
+    end
+end
 
 ---@private
 ---@param old ShiftState
@@ -320,12 +389,34 @@ function Shift:beginJumpscare(old, reason, animatronic)
     self.failed = true
     if not self.jumpscare_started then
         self.jumpscare_started = true
-        self.night:onJumpscare(animatronic, reason)
+        self.jumpscare_animatronic = animatronic
+        self.jumpscare_handled = self.night:onJumpscare(animatronic, reason) == true
+        if not self.jumpscare_handled then
+            self.ambience:stop()
+            local jumpscare_id = self.night:getJumpscareID(animatronic)
+            if jumpscare_id then
+                self.jumpscare_phase = "ANIMATION"
+                self.jumpscare_object = self:addChild(Jumpscare(jumpscare_id, function()
+                    if Game.shift == self and self.state == "JUMPSCARE" then
+                        self:beginJumpscareStatic()
+                    end
+                end))
+            else
+                self:beginJumpscareStatic()
+            end
+        end
     end
 end
 
 ---@private
-function Shift:updateJumpscare() end
+function Shift:updateJumpscare()
+    if self.jumpscare_handled or self.jumpscare_phase ~= "STATIC" then return end
+
+    self.jumpscare_static_timer = self.jumpscare_static_timer + DT
+    if self.jumpscare_static_timer >= self.night.jumpscare_static_duration then
+        self:gameOver()
+    end
+end
 
 ---@private
 function Shift:beginVictory()
@@ -334,12 +425,21 @@ function Shift:beginVictory()
     if not self.victory_started then
         self.victory_started = true
         self.victory_handled = self.night:onVictory(self) == true
+        if not self.victory_handled then
+            self.victory_timer = 0
+            if self.night.victory_sound then
+                Assets.playSound(self.night.victory_sound)
+            end
+        end
     end
 end
 
 ---@private
 function Shift:updateVictory()
-    if not self.victory_handled then
+    if self.victory_handled then return end
+
+    self.victory_timer = self.victory_timer + DT
+    if self.victory_timer >= self.night.victory_duration then
         self:setState("TRANSITIONOUT", "VICTORY")
     end
 end
@@ -349,14 +449,119 @@ function Shift:beginTransitionOut()
     if not self.end_started then
         self.end_started = true
         self.end_handled = self.night:onShiftEnd(self, self.complete) == true
+        if not self.end_handled then
+            self.transition_out_timer = 0
+            self.transition_out_snapshot = self:captureTransitionSnapshot()
+        end
     end
 end
 
 ---@private
 function Shift:updateTransitionOut()
-    if not self.end_handled then
+    if self.end_handled then return end
+
+    self.transition_out_timer = self.transition_out_timer + DT
+    if self.transition_out_timer >= self.night.transition_out_time then
+        self:releaseTransitionSnapshot("transition_out_snapshot")
         self:returnToWorld()
     end
+end
+
+---@return love.Image?
+function Shift:captureTransitionSnapshot()
+    if not SCREEN_CANVAS then return nil end
+    local success, image = pcall(function()
+        return love.graphics.newImage(SCREEN_CANVAS:newImageData())
+    end)
+    if success then return image end
+end
+
+---@param field "transition_snapshot"|"transition_out_snapshot"
+function Shift:releaseTransitionSnapshot(field)
+    local snapshot = self[field]
+    self[field] = nil
+    if snapshot then snapshot:release() end
+end
+
+---@param snapshot love.Image?
+---@param progress number
+function Shift:drawBleedSnapshot(snapshot, progress)
+    if not snapshot then return end
+
+    local shader = Assets.getShader("goner_bleed")
+    shader:send("progress", MathUtils.clamp(progress, 0, 1))
+    shader:send("time", Kristal.getTime())
+    love.graphics.setShader(shader)
+    Draw.setColor(1, 1, 1, 1)
+    Draw.draw(snapshot)
+    love.graphics.setShader()
+end
+
+function Shift:drawGonerTransition()
+    local snapshot, timer, duration
+    if self.state == "TRANSITION" and not self.transition_handled then
+        snapshot = self.transition_snapshot
+        timer = self.transition_timer
+        duration = self.night.transition_time
+    elseif self.state == "TRANSITIONOUT" and not self.end_handled then
+        snapshot = self.transition_out_snapshot
+        timer = self.transition_out_timer
+        duration = self.night.transition_out_time
+    else
+        return
+    end
+
+    love.graphics.push("all")
+    love.graphics.origin()
+    Draw.setColor(0, 0, 0, 1)
+    love.graphics.rectangle("fill", 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
+    self:drawBleedSnapshot(snapshot, duration > 0 and (timer / duration) or 1)
+    love.graphics.pop()
+end
+
+function Shift:beginJumpscareStatic()
+    if self.jumpscare_object then
+        self.jumpscare_object:remove()
+        self.jumpscare_object = nil
+    end
+    self.jumpscare_phase = "STATIC"
+    self.jumpscare_static_timer = 0
+end
+
+function Shift:drawJumpscare()
+    if self.jumpscare_handled or self.jumpscare_phase ~= "STATIC" then return end
+
+    local duration = self.night.jumpscare_static_duration
+    local progress = duration > 0 and MathUtils.clamp(self.jumpscare_static_timer / duration, 0, 1) or 1
+    local alpha = 1 - progress
+
+    love.graphics.push("all")
+    love.graphics.origin()
+    Draw.setColor(0, 0, 0, 1)
+    love.graphics.rectangle("fill", 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
+    if alpha > 0 then
+        local shader = Assets.getShader("tv_static")
+        shader:send("time", Kristal.getTime())
+        love.graphics.setShader(shader)
+        Draw.setColor(1, 1, 1, alpha)
+        love.graphics.rectangle("fill", 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
+        love.graphics.setShader()
+    end
+    love.graphics.pop()
+end
+
+function Shift:drawVictory()
+    if self.victory_handled or self.night:drawVictory(self) then return end
+
+    love.graphics.push("all")
+    love.graphics.origin()
+    Draw.setColor(0, 0, 0, 1)
+    love.graphics.rectangle("fill", 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
+    Draw.setColor(1, 1, 1, 1)
+    love.graphics.setFont(Assets.getFont("main", 64))
+    local text = self.night.victory_text or (tostring(self:getDisplayHour()) .. " AM")
+    love.graphics.printf(text, 0, (SCREEN_HEIGHT - 64) / 2, SCREEN_WIDTH, "center")
+    love.graphics.pop()
 end
 
 ---@param camera ShiftCamera|string
@@ -366,6 +571,29 @@ function Shift:getCamera(camera)
         return self.camera_by_id[camera]
     end
     return camera
+end
+
+---@param target ShiftMoveTarget|string
+---@return ShiftMoveTarget?
+function Shift:getMoveTarget(target)
+    if type(target) == "string" then
+        return self.move_targets[target]
+    end
+    return target
+end
+
+---@param target ShiftMoveTarget
+---@return ShiftMoveTarget target
+function Shift:addMoveTarget(target)
+    if type(target.id) ~= "string" or target.id == "" then
+        error("Shift movement targets require a non-empty id")
+    end
+    local existing = self.move_targets[target.id]
+    if existing and existing ~= target then
+        error("Duplicate shift movement target id \"" .. target.id .. "\"")
+    end
+    self.move_targets[target.id] = target
+    return target
 end
 
 ---@param camera ShiftCamera
@@ -379,6 +607,7 @@ function Shift:addCamera(camera)
     camera.office = self.office
     camera.active = false
     camera.visible = false
+    self:addMoveTarget(camera)
     self:addChild(camera)
     return camera
 end
@@ -415,10 +644,24 @@ function Shift:addAnimatronic(animatronic)
     animatronic.shift = self
     self:addChild(animatronic)
 
-    if animatronic.starting_camera then
-        animatronic:setCamera(self:getCamera(animatronic.starting_camera))
+    local starting_target = animatronic.starting_target or animatronic.starting_camera
+    if starting_target then
+        animatronic:setTarget(self:getMoveTarget(starting_target))
     end
     return animatronic
+end
+
+---@param panel? CameraPanel
+---@return ShiftAnimatronic?
+function Shift:checkOfficeAttack(panel)
+    panel = panel or self.panel
+    if not panel or not panel:includes(CameraPanel) or panel.state ~= "OPEN" then return nil end
+
+    for _, animatronic in ipairs(self.office.animatronics) do
+        if animatronic:tryOfficeAttack(panel) then
+            return animatronic
+        end
+    end
 end
 
 ---@param id string
@@ -550,6 +793,7 @@ end
 function Shift:returnToWorld()
     if self.returned then return end
     self.returned = true
+    self:unlockCursor()
 
     if not self.end_started then
         self.end_started = true
@@ -581,6 +825,9 @@ end
 ---@param x? number
 ---@param y? number
 function Shift:gameOver(x, y)
+    if self.game_over_started then return end
+    self.game_over_started = true
+    self:unlockCursor()
     self.failed = true
     if not self.end_started then
         self.end_started = true
@@ -594,9 +841,41 @@ function Shift:gameOver(x, y)
 end
 
 function Shift:update()
+    if not MOUSE_VISIBLE then Kristal.showCursor() end
+    if self.cursor_locked and love.window.hasFocus() and not love.mouse.isGrabbed() then
+        love.mouse.setGrabbed(true)
+    end
     self.state_manager:update()
     self.night:update()
     super.update(self)
+end
+
+function Shift:lockCursor()
+    if self.cursor_locked then return end
+    self.cursor_was_grabbed = love.mouse.isGrabbed()
+    self.cursor_was_visible = MOUSE_VISIBLE
+    Kristal.showCursor()
+    love.mouse.setGrabbed(true)
+    self.cursor_locked = true
+end
+
+function Shift:unlockCursor()
+    if not self.cursor_locked then return end
+    love.mouse.setGrabbed(self.cursor_was_grabbed == true)
+    if self.cursor_was_visible then
+        Kristal.showCursor()
+    else
+        Kristal.hideCursor()
+    end
+    self.cursor_locked = false
+    self.cursor_was_grabbed = nil
+    self.cursor_was_visible = nil
+end
+
+---@param stage Object
+function Shift:onAddToStage(stage)
+    super.onAddToStage(self, stage)
+    self:lockCursor()
 end
 
 function Shift:draw()
@@ -614,6 +893,9 @@ end
 
 ---@param parent Object
 function Shift:onRemove(parent)
+    self:unlockCursor()
+    self:releaseTransitionSnapshot("transition_snapshot")
+    self:releaseTransitionSnapshot("transition_out_snapshot")
     super.onRemove(self, parent)
     self.ambience:remove()
 end

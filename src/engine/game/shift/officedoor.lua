@@ -1,16 +1,18 @@
 --- A powered barrier such as an office door or vent seal. It drains power only while closed.
----@class OfficeDoor : Object, PowerDrainer
----@field id string?
+---@class OfficeDoor : ShiftMoveTarget, PowerDrainer
+---@field id string
 ---@field office Office?
 ---@field state DoorState
 ---@field source Object
 ---@field power_usage number
 ---@field severity number
 ---@field locked boolean
+---@field jammed boolean
+---@field jammer ShiftAnimatronic?
 ---@field transition_time number
 ---@field transition_timer number
 ---@overload fun(x?: number, y?: number, width?: number, height?: number) : OfficeDoor
-local OfficeDoor, super = Class(Object)
+local OfficeDoor, super = Class(ShiftMoveTarget)
 
 ---@alias DoorState
 ---| "OPENING"
@@ -32,9 +34,35 @@ function OfficeDoor:init(x, y, width, height)
     self.severity = 1
 
     self.locked = false
+    self.jammed = false
+    self.jammer = nil
     self.transition_time = 0.25
     self.transition_timer = 0
 end
+
+---@param animatronic? ShiftAnimatronic
+function OfficeDoor:jam(animatronic)
+    if self.jammed then return end
+    self.jammed = true
+    self.jammer = animatronic
+    self.locked = true
+    self:onJammed(animatronic)
+end
+
+---@param animatronic? ShiftAnimatronic
+function OfficeDoor:onJammed(animatronic) end
+
+function OfficeDoor:unjam()
+    if not self.jammed then return end
+    local jammer = self.jammer
+    self.jammed = false
+    self.jammer = nil
+    self.locked = false
+    self:onUnjammed(jammer)
+end
+
+---@param animatronic? ShiftAnimatronic
+function OfficeDoor:onUnjammed(animatronic) end
 
 ---@param state DoorState
 function OfficeDoor:setState(state)

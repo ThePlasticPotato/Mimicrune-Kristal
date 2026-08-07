@@ -202,6 +202,7 @@ Character = require("src.engine.game.world.character")
 Follower = require("src.engine.game.world.follower")
 
 Shift = require("src.engine.game.shift")
+ShiftMoveTarget = require("src.engine.game.shift.shiftmovetarget")
 Office = require("src.engine.game.shift.office")
 Night = require("src.engine.game.shift.night")
 ShiftAnimatronic = require("src.engine.game.shift.shiftanimatronic")

@@ -10,9 +10,17 @@
 ---@field duration number? Gameplay duration in seconds. `nil` disables timed victory (for conditional things like Sister Location).
 ---@field hours integer Number of hour changes during the shift. Divides up the base duration into said hours.
 ---@field start_hour integer First displayed hour.
+---@field transition_time number
+---@field transition_out_time number
 ---@field max_power number
 ---@field base_power_usage number
 ---@field power_drain_rate number Power drained per second for each point of usage.
+---@field power_out_delay number Seconds before an unhandled power outage starts its jumpscare.
+---@field power_out_animatronic string|ShiftAnimatronic? Animatronic used by the default power out jumpscare.
+---@field jumpscare_static_duration number Seconds of fading static after a jumpscare animation.
+---@field victory_duration number Seconds the default victory screen remains visible.
+---@field victory_sound string|false Victory sound; `false` disables it.
+---@field victory_text string? Text drawn by the default victory screen.
 ---@field complete boolean
 ---@overload fun() : Night
 local Night = Class()
@@ -28,9 +36,20 @@ function Night:init()
     self.hours = 6
     self.start_hour = 12
 
+    self.transition_time = 26 / 30
+    self.transition_out_time = 26 / 30
+
     self.max_power = 100
     self.base_power_usage = 0
     self.power_drain_rate = 1
+    self.power_out_delay = 5
+    self.power_out_animatronic = nil
+
+    self.jumpscare_static_duration = 3
+
+    self.victory_duration = 5
+    self.victory_sound = "bell"
+    self.victory_text = nil
 
     self.complete = false
 end
@@ -81,13 +100,17 @@ function Night:onCameraChanged(camera, old) end
 ---@param old ShiftPanel?
 function Night:onPanelChanged(panel, old) end
 
---- *(Override)* Called when power reaches zero.
+--- *(Override)* Called when power reaches zero. Returning `true` replaces the default
+--- office power-out presentation and delayed jumpscare.
 ---@param shift Shift
+---@return boolean?
 function Night:onPowerOut(shift) end
 
---- *(Override)* Called when a jumpscare begins.
+--- *(Override)* Called when a jumpscare begins. Returning `true` replaces the default
+--- [`Jumpscare`](lua://Jumpscare) animation, static fade, and game-over sequence.
 ---@param animatronic ShiftAnimatronic?
 ---@param reason string?
+---@return boolean?
 function Night:onJumpscare(animatronic, reason) end
 
 --- *(Override)* Called when the shift is won. Returning `true` keeps the shift in
@@ -118,12 +141,38 @@ function Night:drawBackground() end
 --- *(Override)* Called after the shift and its children are drawn.
 function Night:draw() end
 
+--- *(Override)* Draws the victory screen. Return `true` to replace the fallback screen.
+---@param shift Shift
+---@return boolean?
+function Night:drawVictory(shift) end
+
+--- *(Override)* Draws the camera-map artwork behind a CameraPanel's map buttons.
+---@param panel CameraPanel
+function Night:drawCameraMap(panel) end
+
 --- *(Override)* Called when the shift receives a key press. Return `true` to consume it.
 ---@param key string
 ---@return boolean?
 function Night:onKeyPressed(key) end
 
 -- Functions
+
+---@param shift Shift
+---@return ShiftAnimatronic?
+function Night:getPowerOutAnimatronic(shift)
+    if self.power_out_animatronic then
+        return shift:getAnimatronic(self.power_out_animatronic)
+    end
+    for _, animatronic in ipairs(shift.animatronics) do
+        if animatronic.active then return animatronic end
+    end
+end
+
+---@param animatronic ShiftAnimatronic?
+---@return string?
+function Night:getJumpscareID(animatronic)
+    return animatronic and animatronic:getJumpscareID() or nil
+end
 
 ---@param animatronic string|ShiftAnimatronic
 ---@param ai_level? number

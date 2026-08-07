@@ -1,7 +1,7 @@
 --- An interactable positioned within a [`ShiftCamera`](lua://ShiftCamera)'s panoramic
 --- coordinates rather than screen coordinates.
 ---@class CameraInteractable : ShiftInteractable
----@field camera ShiftCamera?
+---@field shift_camera ShiftCamera?
 ---@overload fun(x?: number, y?: number, width?: number, height?: number) : CameraInteractable
 local CameraInteractable, super = Class(ShiftInteractable)
 
@@ -11,7 +11,7 @@ local CameraInteractable, super = Class(ShiftInteractable)
 ---@param height? number
 function CameraInteractable:init(x, y, width, height)
     super.init(self, x, y, width, height)
-    self.camera = nil
+    self.shift_camera = nil
 end
 
 return CameraInteractable

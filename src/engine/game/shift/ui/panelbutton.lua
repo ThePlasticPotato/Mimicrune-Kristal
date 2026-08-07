@@ -18,4 +18,9 @@ function PanelButton:init(x, y, width, height)
     self.selected = false
 end
 
+---@return boolean
+function PanelButton:canInteract()
+    return super.canInteract(self) and (not self.panel or self.panel.state == "OPEN")
+end
+
 return PanelButton
