@@ -765,7 +765,9 @@ function Editor:onHistoryChanged(owners, restored, command, direction)
             end
         end
         if owner.panel then
-            owner.panel.title = (is_editor_world and owner.world.name or owner.primary_map_id)
+            local title = owner.getEditorTitle and owner:getEditorTitle()
+                or (is_editor_world and owner.world.name or owner.primary_map_id)
+            owner.panel.title = title
                 .. (owner:isDirty() and " *" or "")
         end
         if restored and self.active_document == owner and self.layers_browser then

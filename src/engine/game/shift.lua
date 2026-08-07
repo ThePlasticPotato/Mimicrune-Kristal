@@ -854,6 +854,8 @@ function Shift:lockCursor()
     if self.cursor_locked then return end
     self.cursor_was_grabbed = love.mouse.isGrabbed()
     self.cursor_was_visible = MOUSE_VISIBLE
+    self.cursor_was_type = MOUSE_CURSOR_TYPE
+    Kristal.setCursorType("default")
     Kristal.showCursor()
     love.mouse.setGrabbed(true)
     self.cursor_locked = true
@@ -862,6 +864,7 @@ end
 function Shift:unlockCursor()
     if not self.cursor_locked then return end
     love.mouse.setGrabbed(self.cursor_was_grabbed == true)
+    Kristal.setCursorType(self.cursor_was_type or "default")
     if self.cursor_was_visible then
         Kristal.showCursor()
     else
@@ -870,6 +873,7 @@ function Shift:unlockCursor()
     self.cursor_locked = false
     self.cursor_was_grabbed = nil
     self.cursor_was_visible = nil
+    self.cursor_was_type = nil
 end
 
 ---@param stage Object
@@ -883,6 +887,102 @@ function Shift:draw()
     super.draw(self)
     self.state_manager:draw()
     self.night:draw()
+    if DEBUG_RENDER then self:drawDebug() end
+end
+
+---@param target ShiftMoveTarget?
+---@return string
+function Shift:getDebugTargetName(target)
+    if not target then return "NONE" end
+    return tostring(target.id or target.layout_id or target.name or "UNNAMED")
+end
+
+---@param animatronics ShiftAnimatronic[]?
+---@return string
+function Shift:getDebugAnimatronicList(animatronics)
+    local names = {}
+    for _, animatronic in ipairs(animatronics or {}) do
+        table.insert(names, tostring(animatronic.id or animatronic.name or "?"))
+    end
+    return #names > 0 and table.concat(names, ", ") or "none"
+end
+
+function Shift:drawDebug()
+    local lines = {}
+    local function add(text, color)
+        table.insert(lines, { text = text, color = color })
+    end
+
+    local usage = self:getPowerUsage()
+    local camera = self.current_camera and self:getDebugTargetName(self.current_camera) or "NONE"
+    local panel = self.panel and tostring(self.panel.state or "OPEN") or "NONE"
+    add("SHIFT DEBUG", { 0.35, 0.9, 1, 1 })
+    add(string.format("State: %s  Reason: %s", self.state, self.state_reason or "-"))
+    add(string.format("Hour: %d AM  Time: %.1fs", self:getDisplayHour(), self.elapsed))
+    add(string.format("Power: %.1f/%.1f  Usage: %.1f", self.power, self.max_power, usage))
+    add(string.format("Camera: %s  Panel: %s", camera, panel))
+
+    add(string.format("ANIMATRONICS (%d)", #self.animatronics), { 1, 0.85, 0.3, 1 })
+    for _, animatronic in ipairs(self.animatronics) do
+        local flags = {}
+        if animatronic.active then table.insert(flags, "ACTIVE") else table.insert(flags, "INACTIVE") end
+        if animatronic.office_attack_pending then table.insert(flags, "OFFICE READY") end
+        if animatronic.attacking then table.insert(flags, "ATTACKING") end
+        add(string.format("%s [%s] @ %s",
+            animatronic.name or "Animatronic",
+            animatronic.id or "?",
+            self:getDebugTargetName(animatronic.current_target)))
+        add(string.format("  AI %.1f/%.1f  Move %.1f/%.1fs  %s",
+            animatronic.ai_level,
+            animatronic.base_movement_chance,
+            animatronic.movement_timer,
+            animatronic.movement_interval,
+            table.concat(flags, ", ")), { 0.8, 0.8, 0.8, 1 })
+    end
+
+    local doors = self.office and self.office.doors or {}
+    add(string.format("DOORS (%d)", #doors), { 1, 0.55, 0.35, 1 })
+    for _, door in ipairs(doors) do
+        local status = door.state
+        if door.jammed then
+            status = status .. "  JAMMED BY "
+                .. tostring(door.jammer and (door.jammer.id or door.jammer.name) or "?")
+        elseif door.locked then
+            status = status .. "  LOCKED"
+        end
+        add(string.format("%s: %s", door.id or "?", status))
+        add("  Occupants: " .. self:getDebugAnimatronicList(door.animatronics),
+            { 0.8, 0.8, 0.8, 1 })
+    end
+    if self.office then
+        add("OFFICE: " .. self:getDebugAnimatronicList(self.office.animatronics),
+            { 0.75, 1, 0.75, 1 })
+    end
+
+    local font = Assets.getFont("main", 12)
+    local line_height = 13
+    local padding = 6
+    local width = math.min(370, SCREEN_WIDTH - 12)
+    local max_lines = math.max(1, math.floor((SCREEN_HEIGHT - 12 - padding * 2) / line_height))
+    if #lines > max_lines then
+        lines[max_lines] = { text = "... " .. (#lines - max_lines + 1) .. " more", color = { 1, 0.5, 0.5, 1 } }
+        for index = #lines, max_lines + 1, -1 do lines[index] = nil end
+    end
+    local height = padding * 2 + #lines * line_height
+    local x, y = SCREEN_WIDTH - width - 6, 6
+
+    love.graphics.push("all")
+    love.graphics.origin()
+    love.graphics.setFont(font)
+    Draw.setColor(0, 0, 0, 0.82)
+    love.graphics.rectangle("fill", x, y, width, height)
+    Draw.setColor(0.35, 0.9, 1, 0.8)
+    love.graphics.rectangle("line", x, y, width, height)
+    for index, line in ipairs(lines) do
+        Draw.setColor(line.color or { 1, 1, 1, 1 })
+        love.graphics.print(line.text, x + padding, y + padding + (index - 1) * line_height)
+    end
+    love.graphics.pop()
 end
 
 ---@param key string

@@ -727,6 +727,8 @@ end
 
 function EditorMapInteraction:isObjectReferenceTargetAllowed(selection, definition)
     if not selection or not selection.data then return false end
+    if definition and definition.same_map and self.selected_map_object
+        and selection.map_id ~= self.selected_map_object.map_id then return false end
     return MapUtils.isObjectTypeAllowed(
         selection.document:getEditorObjectType(selection.data, selection.map_id),
         definition and definition.allowed_types)

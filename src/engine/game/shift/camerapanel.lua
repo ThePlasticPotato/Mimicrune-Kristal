@@ -35,8 +35,6 @@ function CameraPanel:init(x, y, width, height)
     self:setBackground("ui/shift/panels/camera/menu")
     self:setScreenBounds(21, 21, 618, 475)
     self:setSounds("camera_open", "camera_close", "ui_static")
-    -- The frame, map, and controls must remain undistorted so their visuals line
-    -- up with their hitboxes. Only the actual feed container receives VHS.
     self.screen_crt = false
 
     self.camera_container = self:addScreenChild(Object(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -54,9 +52,6 @@ function CameraPanel:addCamera(camera)
     if not TableUtils.contains(self.cameras, camera) then
         table.insert(self.cameras, camera)
 
-        -- Shift creates cameras as its own children before the panel is initialized.
-        -- Fully detach them first so they cannot remain in Shift.children and draw a
-        -- second, unclipped copy behind the panel.
         if camera.parent then
             local old_parent = camera.parent
             old_parent:removeChild(camera)

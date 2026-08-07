@@ -4,6 +4,8 @@
 ---@class Night : Class
 ---@field id string
 ---@field name string
+---@field layout_id string?
+---@field layout table?
 ---@field office string|Office Office id or instance.
 ---@field animatronics (string|ShiftAnimatronic)[] ShiftAnimatronic ids or instances.
 ---@field ai_levels table<string, number> AI level overrides, indexed by animatronic id.
@@ -28,6 +30,8 @@ local Night = Class()
 function Night:init()
     self.name = "Shift"
     self.office = ""
+    self.layout_id = nil
+    self.layout = nil
 
     self.animatronics = {}
     self.ai_levels = {}
@@ -60,7 +64,13 @@ end
 --- Returning `true` prevents the shift from automatically entering `"TRANSITION"`.
 ---@param shift Shift
 ---@return boolean?
-function Night:onShiftInit(shift) end
+function Night:onShiftInit(shift)
+    local panel = self:createCameraPanel(shift)
+    if panel then
+        shift:addChild(panel)
+        self.camera_panel = panel
+    end
+end
 
 --- *(Override)* Called when gameplay begins.
 ---@param shift Shift
@@ -148,7 +158,39 @@ function Night:drawVictory(shift) end
 
 --- *(Override)* Draws the camera-map artwork behind a CameraPanel's map buttons.
 ---@param panel CameraPanel
-function Night:drawCameraMap(panel) end
+function Night:drawCameraMap(panel)
+    if not self.layout then return end
+    for object in ShiftLayout.iterObjects(self.layout) do
+        object = ShiftLayout.resolveObjectDefinition(object)
+        local object_type = object.type or object.shape
+        if object_type == "rectangle" then
+            Draw.setColor(object.color or { 1, 1, 1, 1 })
+            love.graphics.setLineWidth(object.line_width or 1)
+            love.graphics.rectangle(object.draw or "line", object.x or 0, object.y or 0,
+                object.width or 1, object.height or 1)
+        elseif object_type == "line" and (type(object.points) == "table"
+            or type(object.polyline) == "table") then
+            Draw.setColor(object.color or { 1, 1, 1, 1 })
+            love.graphics.setLineWidth(object.line_width or 1)
+            if object.points then
+                love.graphics.line(object.points)
+            else
+                love.graphics.push()
+                love.graphics.translate(object.x or 0, object.y or 0)
+                love.graphics.line(MapUtils.collectPointCoordinates(object.polyline))
+                love.graphics.pop()
+            end
+        elseif object_type == "sprite" and type(object.texture) == "string" then
+            local texture = Assets.getTexture(object.texture)
+            if texture then
+                Draw.setColor(object.color or { 1, 1, 1, 1 })
+                Draw.draw(texture, object.x or 0, object.y or 0, object.rotation or 0,
+                    object.scale_x or 1, object.scale_y or 1)
+            end
+        end
+    end
+    love.graphics.setLineWidth(1)
+end
 
 --- *(Override)* Called when the shift receives a key press. Return `true` to consume it.
 ---@param key string
@@ -156,6 +198,36 @@ function Night:drawCameraMap(panel) end
 function Night:onKeyPressed(key) end
 
 -- Functions
+
+---@param layout table
+function Night:applyLayout(layout)
+    self.layout = layout
+    self.layout_id = layout.id or self.layout_id
+    for key, value in pairs(layout.settings or {}) do self[key] = value end
+end
+
+---@param shift Shift
+---@return CameraPanel?
+function Night:createCameraPanel(shift)
+    if not self.layout then return nil end
+    local has_button = false
+    local panel = CameraPanel()
+    panel.shift = shift
+    for _, camera in ipairs(shift.cameras) do panel:addCamera(camera) end
+
+    for object in ShiftLayout.iterObjects(self.layout) do
+        object = ShiftLayout.resolveObjectDefinition(object)
+        if object.type == "camera_button" then
+            local camera = shift:getCamera(object.camera or object.target)
+            if camera then
+                panel:addButton(CameraMapButton(camera, object.label,
+                    object.x, object.y, object.width, object.height))
+                has_button = true
+            end
+        end
+    end
+    return has_button and panel or nil
+end
 
 ---@param shift Shift
 ---@return ShiftAnimatronic?

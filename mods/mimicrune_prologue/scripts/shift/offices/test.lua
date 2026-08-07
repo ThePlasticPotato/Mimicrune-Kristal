@@ -31,57 +31,41 @@ function CameraToggle:draw()
     toggle_super.draw(self)
 end
 
-local DoorToggle, door_toggle_super = Class(OfficeInteractable)
+local DoorLever, door_lever_super = Class(OfficeDoorLever)
 
 ---@param office Office
 ---@param door OfficeDoor
----@param label string
----@param x number
-function DoorToggle:init(office, door, label, x)
-    door_toggle_super.init(self, x, 190, 74, 48)
-    self.office = office
-    self.door = door
-    self.label = label
+function DoorLever:init(office, door)
+    door_lever_super.init(self, office, door, 0, 0, 48, 30)
 end
 
-function DoorToggle:onClick(button, x, y, presses)
-    if self.door:toggle() then
-        Assets.playSound("ui_select", 0.45)
+function DoorLever:onLeverActivated(endpoint, door, changed)
+    if changed then
+        Assets.playSound(endpoint == "start" and "doorlever_release" or "doorlever_shut", 0.55)
     end
 end
 
-function DoorToggle:draw()
-    Draw.setColor(0, 0, 0, self.hovered and 0.9 or 0.65)
-    love.graphics.rectangle("fill", 0, 0, self.width, self.height)
-    Draw.setColor(1, 1, 1, 1)
-    love.graphics.rectangle("line", 0, 0, self.width, self.height)
-    love.graphics.setFont(Assets.getFont("main", 10))
-    love.graphics.printf(self.label, 0, 7, self.width, "center")
-    local state = self.door.jammed and "JAMMED" or self.door.state
-    love.graphics.printf(state, 0, 25, self.width, "center")
-    door_toggle_super.draw(self)
+function DoorLever:draw()
+    self.sprite:setColor(1, 1, 1, self.hovered and 1 or 0.85)
+    door_lever_super.draw(self)
 end
 
 local TestOffice, super = Class(Office)
 
 function TestOffice:init()
     super.init(self)
-
-    self.background = Sprite("shifts/factory_office")
-    self.pan_range = { 0, math.max(0, self.background.width - SCREEN_WIDTH) }
     self.pan_speed = 1200
-    self:setPan(self.pan_range[2] / 2, true)
 
     local stage = Registry.createShiftCamera("test", "test_stage", "CAM 01 - STAGE", { 0.65, 0.45, 0.45 })
     local hall = Registry.createShiftCamera("test", "test_hall", "CAM 02 - HALL", { 0.45, 0.65, 0.5 })
     local storage = Registry.createShiftCamera("test", "test_storage", "CAM 03 - STORAGE", { 0.45, 0.5, 0.7 })
 
     local left_door = OfficeDoor()
-    left_door.id = "test_left_door"
+    left_door.id = "left_office_door"
     self:addDoor(left_door)
 
     local right_door = OfficeDoor()
-    right_door.id = "test_right_door"
+    right_door.id = "right_office_door"
     self:addDoor(right_door)
 
     stage:addMoveTarget("test_hall")
@@ -94,13 +78,9 @@ function TestOffice:init()
     self:addCamera(stage)
     self:addCamera(hall)
     self:addCamera(storage)
-    self:addStaticInteractable(DoorToggle(self, left_door, "LEFT", 12))
-    self:addStaticInteractable(DoorToggle(self, right_door, "RIGHT", SCREEN_WIDTH - 86))
-    self:addStaticInteractable(CameraToggle(self))
-end
-
-function TestOffice:onPan(pan, old)
-    self.background.x = -pan
+    self:addInteractable(DoorLever(self, left_door), "left_door_lever")
+    self:addInteractable(DoorLever(self, right_door), "right_door_lever")
+    self:addStaticInteractable(CameraToggle(self), "camera_toggle")
 end
 
 function TestOffice:update()

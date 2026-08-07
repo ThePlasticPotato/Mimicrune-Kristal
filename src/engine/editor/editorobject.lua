@@ -90,7 +90,8 @@ function EditorObject:init(data, options)
     self:registerProperty("flagvalue", "value", { name = "Load Flag Value" })
     self:registerProperty("z", "number", { name = "Z", default = 0 })
     self:registerProperty("depth", "number", { name = "Depth", default = 0 })
-    if not self.layer_type or self.layer_type.id == "objects" then
+    if not self.layer_type or self.layer_type.id == "objects"
+        or self.layer_type.editor_objects == true then
         self:registerProperty("height_occluder", "boolean", {
             name = "Height Occluder", default = false
         })

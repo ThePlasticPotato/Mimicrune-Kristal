@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "kristal_version": "0.11.0-dev",
+  "kind": "camera",
+  "id": "test_stage",
+  "name": "CAM 01 - Stage",
+  "width": 960,
+  "height": 720,
+  "pan_x": 160,
+  "pan_y": 120,
+  "pan_speed_x": 300,
+  "pan_speed_y": 260,
+  "pan_edge_margin": 52,
+  "layers": [
+    {
+      "id": "contents",
+      "name": "Contents",
+      "type": "object",
+      "kind": "object",
+      "mode": "camera_feed",
+      "depth": -100,
+      "visible": true,
+      "objects": [
+        { "id": 1, "type": "sprite", "x": 0, "y": 0, "color": [0.65, 0.45, 0.45, 1], "properties": { "layout_id": "background", "texture": "placeholder", "scalex": 30, "scaley": 22.5 } }
+      ]
+    }
+  ]
+}

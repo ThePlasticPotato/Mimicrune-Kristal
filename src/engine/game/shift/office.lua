@@ -2,6 +2,11 @@
 ---@class Office : ShiftMoveTarget
 ---@field id string
 ---@field shift Shift?
+---@field layout_id string?
+---@field layout table?
+---@field layout_objects table<string, Object>
+---@field layout_objects_by_source_id table<string, Object>
+---@field panorama Object Container translated with the office's panoramic view.
 ---@field background_texture love.Image?
 ---@field background Sprite?
 ---@field power_out boolean
@@ -31,6 +36,11 @@ function Office:init()
     self.intro_animation = nil
     self.intro_speed = 1 / 30
     self.shift = nil
+    self.layout_id = nil
+    self.layout = nil
+    self.layout_objects = {}
+    self.layout_objects_by_source_id = {}
+    self.panorama = self:addChild(Object(0, 0, self.width, self.height))
 
     self.cameras = {}
     self.doors = {}
@@ -78,6 +88,7 @@ function Office:addDoor(door)
     self.door_by_id[door.id] = door
     door.office = self
     door:addMoveTarget(self)
+    self:registerLayoutObject(door, door.id)
     self:addChild(door)
     if self.shift then
         self.shift:addMoveTarget(door)
@@ -85,13 +96,41 @@ function Office:addDoor(door)
     return door
 end
 
----@param door OfficeDoor|string
+---@param object Object
+---@param id? string
+---@param source_id? string|number
+---@return Object object
+function Office:registerLayoutObject(object, id, source_id)
+    id = id or object.layout_id or object.id
+    if type(id) == "string" and id ~= "" then
+        object.layout_id = id
+        self.layout_objects[id] = object
+    end
+    if source_id ~= nil then
+        self.layout_objects_by_source_id[tostring(source_id)] = object
+    end
+    return object
+end
+
+---@param reference string|number|table
+---@return Object?
+function Office:getLayoutObject(reference)
+    if type(reference) == "table" then
+        if reference.includes and reference:includes(Object) then return reference end
+        reference = reference.object_id or reference.object or reference.id
+    end
+    if reference == nil then return nil end
+    return self.layout_objects[tostring(reference)]
+        or self.layout_objects_by_source_id[tostring(reference)]
+end
+
+---@param door OfficeDoor|string|table
 ---@return OfficeDoor?
 function Office:getDoor(door)
-    if type(door) == "string" then
-        return self.door_by_id[door]
-    end
-    return door
+    if type(door) == "table" and door.includes and door:includes(OfficeDoor) then return door end
+    local result = type(door) == "string" and self.door_by_id[door] or nil
+    result = result or self:getLayoutObject(door)
+    return result and result:includes(OfficeDoor) and result or nil
 end
 
 ---@return boolean
@@ -139,23 +178,86 @@ end
 function Office:onPowerOut() end
 
 ---@param interactable ShiftInteractable
+---@param id? string
 ---@return ShiftInteractable interactable
-function Office:addStaticInteractable(interactable)
+function Office:addStaticInteractable(interactable, id)
     table.insert(self.static_interactables, interactable)
     if interactable:includes(OfficeInteractable) then
         interactable.office = self
     end
+    self:registerLayoutObject(interactable, id)
     self:addChild(interactable)
+    if interactable.onAddedToOffice then interactable:onAddedToOffice(self) end
     return interactable
 end
 
 ---@param interactable OfficeInteractable
+---@param id? string
 ---@return OfficeInteractable interactable
-function Office:addInteractable(interactable)
+function Office:addInteractable(interactable, id)
     table.insert(self.interactables, interactable)
     interactable.office = self
-    self:addChild(interactable)
+    self:registerLayoutObject(interactable, id)
+    self.panorama:addChild(interactable)
+    if interactable.onAddedToOffice then interactable:onAddedToOffice(self) end
     return interactable
+end
+
+---@param layout table
+function Office:applyLayout(layout)
+    self.layout = layout
+    self.layout_id = layout.id or self.layout_id
+    self.width = tonumber(layout.width) or self.width
+    self.height = tonumber(layout.height) or self.height
+    self.panorama.width, self.panorama.height = self.width, self.height
+
+    if type(layout.background) == "string" and layout.background ~= "" then
+        self.background = Sprite(layout.background)
+    end
+
+    for _, door in ipairs(self.doors) do self:registerLayoutObject(door) end
+    for _, object in ipairs(self.static_interactables) do self:registerLayoutObject(object) end
+    for _, object in ipairs(self.interactables) do self:registerLayoutObject(object) end
+
+    for definition, layer in ShiftLayout.iterObjects(layout) do
+        local resolved = ShiftLayout.resolveObjectDefinition(definition)
+        local object_id = resolved.layout_id
+        local object = object_id and self.layout_objects[object_id] or nil
+        local created = false
+        if not object then
+            object = Registry.createShiftLayoutObject(definition, self)
+            created = object ~= nil
+        end
+        if object then
+            ShiftLayout.applyObject(object, definition)
+            if resolved.layer == nil and layer.depth ~= nil then object.layer = layer.depth end
+            self:registerLayoutObject(object, object_id, definition.id)
+
+            local mode = resolved.mode or layer.mode or "panorama"
+            if created and object:includes(OfficeDoor) then
+                self:addDoor(object)
+                object:setParent(mode == "static" and self or self.panorama)
+            elseif created and object:includes(OfficeInteractable) then
+                if mode == "static" then
+                    self:addStaticInteractable(object, object_id)
+                else
+                    self:addInteractable(object, object_id)
+                end
+            else
+                object:setParent(mode == "static" and self or self.panorama)
+            end
+        end
+    end
+
+    for _, object in ipairs(self.interactables) do
+        if object.resolveDoor then object:resolveDoor() end
+    end
+
+    local content_width = tonumber(layout.width)
+        or (self.background and self.background.width)
+        or SCREEN_WIDTH
+    self.pan_range = { 0, math.max(0, content_width - SCREEN_WIDTH) }
+    self:setPan(tonumber(layout.pan) or self.pan, true)
 end
 
 ---@param pan number
@@ -165,13 +267,21 @@ function Office:setPan(pan, instant)
     if instant then
         local old = self.pan
         self.pan = self.target_pan
-        if old ~= self.pan then self:onPan(self.pan, old) end
+        if old ~= self.pan then
+            self:syncPan()
+            self:onPan(self.pan, old)
+        end
     end
 end
 
 ---@param pan number
 ---@param old number
 function Office:onPan(pan, old) end
+
+function Office:syncPan()
+    if self.background and not self.background.parent then self.background.x = -self.pan end
+    self.panorama.x = -self.pan
+end
 
 function Office:drawBackground()
     if not self.background or self.background.parent then return end
@@ -199,7 +309,10 @@ function Office:update()
     end
     local old = self.pan
     self.pan = MathUtils.approach(self.pan, self.target_pan, self.pan_speed * DT)
-    if old ~= self.pan then self:onPan(self.pan, old) end
+    if old ~= self.pan then
+        self:syncPan()
+        self:onPan(self.pan, old)
+    end
     super.update(self)
 end
 

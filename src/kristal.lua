@@ -230,8 +230,9 @@ function love.load(args)
     Kristal.verifySoundSystem()
 
     -- make mouse sprite
-    MOUSE_SPRITE = love.graphics.newImage((love.math.random(1000) <= 1) and "assets/sprites/kristal/starwalker.png" or
+    MOUSE_DEFAULT_SPRITE = love.graphics.newImage((love.math.random(1000) <= 1) and "assets/sprites/kristal/starwalker.png" or
         "assets/sprites/kristal/mouse.png")
+    MOUSE_SPRITE = MOUSE_DEFAULT_SPRITE
 
     -- setup structure
     love.filesystem.createDirectory("mods")
@@ -412,8 +413,9 @@ function love.draw()
             Draw.setColor(1, 1, 1, 1)
             love.graphics.circle("line", Input.gamepad_cursor_x, Input.gamepad_cursor_y, Input.gamepad_cursor_size)
         elseif MOUSE_SPRITE and love.window.hasMouseFocus() then
-            Draw.draw(MOUSE_SPRITE, love.mouse.getX() / Kristal.getGameScale(),
-                      love.mouse.getY() / Kristal.getGameScale())
+            Draw.draw(MOUSE_SPRITE,
+                      love.mouse.getX() / Kristal.getGameScale() - MOUSE_CURSOR_HOTSPOT_X,
+                      love.mouse.getY() / Kristal.getGameScale() - MOUSE_CURSOR_HOTSPOT_Y)
         end
     end
 
@@ -599,6 +601,7 @@ function love.mousemoved(x, y, dx, dy, istouch)
     -- Adjust to be inside of the screen
     x, y = Input.getMousePosition(x, y)
     dx, dy = Input.getMousePosition(dx, dy, true)
+    Input.onMouseMoved(x, y, dx, dy, istouch)
     Kristal.callEvent(KRISTAL_EVENT.onMouseMoved, x, y, dx, dy, istouch)
 end
 
@@ -1408,6 +1411,34 @@ function Kristal.setVolume(volume)
     love.audio.setVolume(volume)
 end
 
+local RUNTIME_CURSORS = {
+    default = { path = "kristal/mouse", hotspot_x = 0, hotspot_y = 0, system = "arrow" },
+    select = { path = "kristal/mouse/select", hotspot_x = 0, hotspot_y = 0, system = "hand" },
+    grab = { path = "kristal/mouse/grab", hotspot_x = 6, hotspot_y = 7, system = "hand" }
+}
+
+---@param cursor_type? "default"|"select"|"grab"
+function Kristal.setCursorType(cursor_type)
+    cursor_type = RUNTIME_CURSORS[cursor_type] and cursor_type or "default"
+    local cursor = RUNTIME_CURSORS[cursor_type]
+    MOUSE_CURSOR_TYPE = cursor_type
+
+    if Kristal.Config["systemCursor"] then
+        local success, system_cursor = pcall(love.mouse.getSystemCursor, cursor.system)
+        if success and system_cursor then
+            love.mouse.setCursor(system_cursor)
+        else
+            love.mouse.setCursor()
+        end
+    else
+        love.mouse.setCursor()
+        MOUSE_SPRITE = cursor_type == "default" and MOUSE_DEFAULT_SPRITE
+            or Assets.getTexture(cursor.path) or MOUSE_DEFAULT_SPRITE
+        MOUSE_CURSOR_HOTSPOT_X = cursor.hotspot_x
+        MOUSE_CURSOR_HOTSPOT_Y = cursor.hotspot_y
+    end
+end
+
 --- Called internally to make sure the correct cursor is displayed.
 function Kristal.updateCursor()
     if MOUSE_VISIBLE then
@@ -1421,6 +1452,7 @@ function Kristal.updateCursor()
     else
         if Kristal.Config["alwaysShowCursor"] then love.mouse.setVisible(true) end
     end
+    Kristal.setCursorType(MOUSE_CURSOR_TYPE)
 end
 
 --- Hides the mouse cursor.

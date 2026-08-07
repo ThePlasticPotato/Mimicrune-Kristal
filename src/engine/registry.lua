@@ -24,6 +24,8 @@
 ---@field animatronics table<string, ShiftAnimatronic>
 ---@field offices table<string, Office>
 ---@field shift_cameras table<string, ShiftCamera>
+---@field shift_layouts table<string, table<string, table>>
+---@field shift_layout_objects table<string, function>
 ---@field world_bullets table<string, WorldBullet>
 ---@field world_cutscenes table<string, function|table<string, function>>
 ---@field battle_cutscenes table<string, function|table<string, function>>
@@ -115,6 +117,7 @@ function Registry.initialize(preload)
         Registry.initEnemies()
         Registry.initWaves()
         Registry.initBullets()
+        Registry.initShiftLayouts()
         Registry.initNights()
         Registry.initAnimatronics()
         Registry.initOffices()
@@ -158,6 +161,8 @@ function Registry.saveData()
     self.saved_data.editor_draw_fx = self.editor_draw_fx
     self.saved_data.editor_templates = self.editor_templates
     self.saved_data.editor_template_order = self.editor_template_order
+    self.saved_data.shift_layouts = self.shift_layouts
+    self.saved_data.shift_layout_objects = self.shift_layout_objects
 end
 
 ---@return boolean
@@ -176,6 +181,8 @@ function Registry.restoreData()
         self.editor_draw_fx = self.saved_data.editor_draw_fx or {}
         self.editor_templates = self.saved_data.editor_templates or {}
         self.editor_template_order = self.saved_data.editor_template_order or {}
+        self.shift_layouts = self.saved_data.shift_layouts or { office = {}, camera = {}, night = {} }
+        self.shift_layout_objects = self.saved_data.shift_layout_objects or {}
         return true
     else
         return false
@@ -407,7 +414,10 @@ end
 ---@return Night
 function Registry.createNight(id, ...)
     if self.nights[id] then
-        return self.nights[id](...)
+        local night = self.nights[id](...)
+        local layout = self.getShiftLayout("night", night.layout_id or night.id or id)
+        if layout and night.applyLayout then night:applyLayout(layout) end
+        return night
     else
         error("Attempt to create non existent night \"" .. tostring(id) .. "\"")
     end
@@ -441,7 +451,10 @@ end
 ---@return Office
 function Registry.createOffice(id, ...)
     if self.offices[id] then
-        return self.offices[id](...)
+        local office = self.offices[id](...)
+        local layout = self.getShiftLayout("office", office.layout_id or office.id or id)
+        if layout and office.applyLayout then office:applyLayout(layout) end
+        return office
     else
         error("Attempt to create non existent office \"" .. tostring(id) .. "\"")
     end
@@ -458,10 +471,46 @@ end
 ---@return ShiftCamera
 function Registry.createShiftCamera(id, ...)
     if self.shift_cameras[id] then
-        return self.shift_cameras[id](...)
+        local camera = self.shift_cameras[id](...)
+        local layout = self.getShiftLayout("camera", camera.layout_id or camera.id or id)
+        if layout and camera.applyLayout then camera:applyLayout(layout) end
+        return camera
     else
         error("Attempt to create non existent shift camera \"" .. tostring(id) .. "\"")
     end
+end
+
+---@param kind "office"|"camera"|"night"
+---@param id string
+---@return table?
+function Registry.getShiftLayout(kind, id)
+    return self.shift_layouts and self.shift_layouts[kind] and self.shift_layouts[kind][id]
+end
+
+---@param kind "office"|"camera"|"night"
+---@param id string
+---@param layout table
+function Registry.registerShiftLayout(kind, id, layout)
+    assert(ShiftLayout.KINDS[kind], "Unknown shift layout kind: " .. tostring(kind))
+    assert(type(id) == "string" and id ~= "", "Shift layouts require a non-empty id")
+    self.shift_layouts[kind][id] = layout
+end
+
+---@param id string
+---@param factory fun(definition: table, owner: Object): Object
+function Registry.registerShiftLayoutObject(id, factory)
+    assert(type(id) == "string" and id ~= "", "Shift layout object factories require an id")
+    assert(type(factory) == "function", "Shift layout object factories require a function")
+    self.shift_layout_objects[id] = factory
+end
+
+---@param definition table
+---@param owner Object
+---@return Object?
+function Registry.createShiftLayoutObject(definition, owner)
+    local resolved = ShiftLayout.resolveObjectDefinition(definition)
+    local factory = self.shift_layout_objects[resolved.type]
+    return factory and factory(resolved, owner) or nil
 end
 
 ---@param id string
@@ -1282,6 +1331,39 @@ function Registry.initBullets()
     end
 
     Kristal.callEvent(KRISTAL_EVENT.onRegisterBullets)
+end
+
+function Registry.initShiftLayouts()
+    self.shift_layouts = { office = {}, camera = {}, night = {} }
+    self.shift_layout_objects = {}
+
+    self.registerShiftLayoutObject("sprite", function(definition)
+        if type(definition.texture) ~= "string" or definition.texture == "" then return nil end
+        return Sprite(definition.texture)
+    end)
+    self.registerShiftLayoutObject("office_interactable", function(definition)
+        return OfficeInteractable(0, 0, definition.width or 32, definition.height or 32)
+    end)
+    self.registerShiftLayoutObject("draggable_office_interactable", function(definition)
+        return DraggableOfficeInteractable(0, 0, definition.width or 32, definition.height or 32)
+    end)
+    self.registerShiftLayoutObject("office_door_lever", function(definition, owner)
+        return OfficeDoorLever(owner, definition.door or definition.target, 0, 0,
+            definition.width or 32, definition.height or 32)
+    end)
+    self.registerShiftLayoutObject("camera_interactable", function(definition)
+        return CameraInteractable(0, 0, definition.width or 32, definition.height or 32)
+    end)
+    self.registerShiftLayoutObject("office_door", function(definition)
+        local door = OfficeDoor(0, 0, definition.width or 32, definition.height or 64)
+        door.id = definition.target_id or definition.layout_id or definition.id
+        return door
+    end)
+    self.registerShiftLayoutObject("panel_button", function(definition)
+        return PanelButton(0, 0, definition.width or 58, definition.height or 24)
+    end)
+
+    ShiftLayout.discover(self)
 end
 
 function Registry.initNights()

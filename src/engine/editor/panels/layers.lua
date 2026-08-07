@@ -79,7 +79,12 @@ end
 function EditorLayersPanel:getNewLayerItems(parent_uid)
     local items = {}
     for _, layer_type in ipairs(Registry.getLayerTypes()) do
-        if layer_type.id ~= "default" then
+        local available = not layer_type.is_available
+            or layer_type.is_available(self.document, self.map_id, layer_type) ~= false
+        if available and self.document and self.document.isLayerTypeAvailable then
+            available = self.document:isLayerTypeAvailable(layer_type) ~= false
+        end
+        if layer_type.id ~= "default" and available then
             local type_id = layer_type.id
             table.insert(items, {
                 label = layer_type.name,

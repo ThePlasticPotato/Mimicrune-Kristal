@@ -13,15 +13,17 @@ function TestCamera:init(id, name, color)
 end
 
 function TestCamera:draw()
-    Draw.setColor(self.feed_color[1], self.feed_color[2], self.feed_color[3], 1)
-    Draw.draw(
-        self.placeholder,
-        0,
-        0,
-        0,
-        SCREEN_WIDTH / self.placeholder:getWidth(),
-        SCREEN_HEIGHT / self.placeholder:getHeight()
-    )
+    if not self.layout then
+        Draw.setColor(self.feed_color[1], self.feed_color[2], self.feed_color[3], 1)
+        Draw.draw(
+            self.placeholder,
+            0,
+            0,
+            0,
+            SCREEN_WIDTH / self.placeholder:getWidth(),
+            SCREEN_HEIGHT / self.placeholder:getHeight()
+        )
+    end
 
     Draw.setColor(0, 0, 0, 0.7)
     love.graphics.rectangle("fill", 14, 14, 300, 48)
@@ -29,6 +31,8 @@ function TestCamera:draw()
     love.graphics.setFont(Assets.getFont("main", 24))
     love.graphics.print(self.name, 26, 24)
 
+    love.graphics.push()
+    love.graphics.translate(-self.pan, -self.pan_y)
     for index, animatronic in ipairs(self.animatronics) do
         local x = 250 + ((index - 1) * 76)
         local y = 190
@@ -37,6 +41,7 @@ function TestCamera:draw()
         Draw.setColor(1, 1, 1, 1)
         love.graphics.print(animatronic.name, x - 30, y + 72)
     end
+    love.graphics.pop()
 
     super.draw(self)
 end
