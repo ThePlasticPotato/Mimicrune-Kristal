@@ -118,6 +118,7 @@ function Registry.initialize(preload)
         Registry.initNights()
         Registry.initAnimatronics()
         Registry.initOffices()
+        Registry.initShiftCameras()
         Registry.initCutscenes()
         Registry.initEventScripts()
         Registry.initEditorProperties()
@@ -459,7 +460,7 @@ function Registry.createShiftCamera(id, ...)
     if self.shift_cameras[id] then
         return self.shift_cameras[id](...)
     else
-        error("Attempt to create non existent office \"" .. tostring(id) .. "\"")
+        error("Attempt to create non existent shift camera \"" .. tostring(id) .. "\"")
     end
 end
 
@@ -1287,7 +1288,7 @@ function Registry.initNights()
     self.nights = {}
 
     for _, path, night in self.iterScripts(Registry.paths["nights"]) do
-        assert(night ~= nil, '"nights/' .. path .. '.lua" does not return value')
+        assert(night ~= nil, '"shift/nights/' .. path .. '.lua" does not return value')
         night.id = night.id or path
         self.registerNight(night.id, night)
     end
@@ -1299,7 +1300,7 @@ function Registry.initAnimatronics()
     self.animatronics = {}
 
     for _, path, animatronic in self.iterScripts(Registry.paths["animatronics"]) do
-        assert(animatronic ~= nil, '"animatronics/' .. path .. '.lua" does not return value')
+        assert(animatronic ~= nil, '"shift/animatronics/' .. path .. '.lua" does not return value')
         animatronic.id = animatronic.id or path
         self.registerAnimatronic(animatronic.id, animatronic)
     end
@@ -1311,7 +1312,7 @@ function Registry.initOffices()
     self.offices = {}
 
     for _, path, office in self.iterScripts(Registry.paths["offices"]) do
-        assert(office ~= nil, '"offices/' .. path .. '.lua" does not return value')
+        assert(office ~= nil, '"shift/offices/' .. path .. '.lua" does not return value')
         office.id = office.id or path
         self.registerOffice(office.id, office)
     end
@@ -1321,8 +1322,9 @@ end
 
 function Registry.initShiftCameras()
     self.shift_cameras = {}
-        for _, path, shift_camera in self.iterScripts(Registry.paths["shift_cameras"]) do
-        assert(shift_camera ~= nil, '"cameras/' .. path .. '.lua" does not return value')
+
+    for _, path, shift_camera in self.iterScripts(Registry.paths["shift_cameras"]) do
+        assert(shift_camera ~= nil, '"shift/cameras/' .. path .. '.lua" does not return value')
         shift_camera.id = shift_camera.id or path
         self.registerShiftCamera(shift_camera.id, shift_camera)
     end
