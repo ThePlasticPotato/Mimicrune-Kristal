@@ -6,6 +6,7 @@
 ---@field battle            Battle
 ---@field shop              Shop
 ---@field gameover          GameOver
+---@field shift             Shift
 ---@field legend            Legend
 ---@field inventory         DarkInventory|LightInventory
 ---@field dark_inventory    DarkInventory
