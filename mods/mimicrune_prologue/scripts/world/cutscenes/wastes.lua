@@ -1,8 +1,7 @@
 return {
     ---@param cutscene WorldCutscene
     ---@param soul WorldSoul
-    ---@param completion_flag string
-    arrival = function(cutscene, soul, completion_flag)
+    arrival = function(cutscene, soul)
         soul = soul or Game.world.world_soul
         assert(soul, "The Wastes arrival cutscene requires a WorldSoul")
 
@@ -37,8 +36,9 @@ return {
 
         Mod:releaseWastesCageBack()
         Mod:releaseWastesCageFront()
+        Mod:releaseWastesSoul(soul)
         soul.can_move = true
         soul.is_active = true
-        Game:setFlag(completion_flag, true)
+        Game:setFlag("plot", Game:getFlag("plot", PLOT.intro_boot) + 1)
     end
 }

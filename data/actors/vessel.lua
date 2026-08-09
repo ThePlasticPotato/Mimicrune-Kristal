@@ -69,6 +69,20 @@ function actor:init()
         ["attack3"]             = {"attack3", 1/10, false},
         ["attack_air"]          = {"attack_air", 1/10, false},
 
+
+        ["intro/spotted_soul"]                 = {"intro/spotted_soul", 2, false},
+        ["intro/reach_out"]                    = {"intro/reach_out", 2, false},
+        ["intro/snatch"]                       = {"intro/snatch", 5/30, false},
+        ["intro/absorb"]                       = {"intro/absorb", 5/30, false},
+        ["intro/kindness/gentle_grab"]         = {"intro/kindness/gentle_grab", 10/30, false},
+        ["intro/kindness/gentle_absorb"]       = {"intro/kindness/gentle_absorb", 10/30, false},
+        ["intro/ambition/tense"]               = {"intro/ambition/tense", 2, true},
+        ["intro/ambition/tackle"]              = {"intro/ambition/tackle", 5/30, true},
+        ["intro/ambition/absorb_splat"]        = {"intro/ambition/absorb_splat", 5/30, false},
+        ["intro/bravery/wave"]                 = {"intro/bravery/wave", 1, true},
+        ["intro/bravery/snatch_and_absorb"]    = {"intro/bravery/snatch_and_absorb", 5/30, false},
+        ["intro/voice/sing"]                   = {"intro/voice/sing", 2, true},
+
         -- Battle animations
         ["battle/idle"]         = {"battle/idle", 1/6, true},
         ["gonerbattle/idle"]    = {"gonerbattle/idle", 1/6, true},
@@ -191,6 +205,11 @@ function actor:init()
         ["attack2"] = {-6, 0};
         ["attack3"] = {-6, 0};
         ["attack_air"] = {-22, 0};
+
+        ["intro/ambition/tackle"] = {-9, 0};
+        ["intro/ambition/land"] = {-8, 11};
+        ["intro/ambition/absorb_splat"] = {-8, 11};
+        ["intro/ambition/absorbed_splat"] = {-8, 11};
     }
 end
 

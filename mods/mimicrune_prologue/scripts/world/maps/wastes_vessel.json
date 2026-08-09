@@ -1721,7 +1721,7 @@
           "type": "marker",
           "x": 620,
           "y": 820,
-          "width": 360,
+          "width": 280,
           "height": 240,
           "shape": {
             "type": "rectangle",
@@ -1736,8 +1736,8 @@
           "type": "marker",
           "x": 700,
           "y": 860,
-          "width": 80,
-          "height": 80,
+          "width": 40,
+          "height": 60,
           "shape": {
             "type": "rectangle",
             "shape_data": {}
@@ -1750,7 +1750,7 @@
           "name": "grab_range",
           "type": "marker",
           "x": 700,
-          "y": 900,
+          "y": 880,
           "width": 40,
           "height": 40,
           "shape": {
@@ -1903,6 +1903,32 @@
               "name": "surface_id",
               "type": "string",
               "value": "0"
+            }
+          ]
+        },
+        {
+          "id": 132,
+          "name": "sprite",
+          "type": "sprite",
+          "x": 1040,
+          "y": 1040,
+          "width": 228,
+          "height": 82,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "surface_id",
+              "type": "string",
+              "value": "0"
+            },
+            {
+              "name": "texture",
+              "type": "asset_path",
+              "value": "world/IMAGE_WASTEPILE_INTACT"
             }
           ]
         }
