@@ -9,6 +9,8 @@
 ---@field base_movement_chance number Divisor of the ai decision chance. Default 20.
 ---@field movement_interval number Seconds between movement opportunities. Default 20.
 ---@field movement_timer number
+---@field door_grace_period number Seconds spent waiting after reaching an office door.
+---@field door_grace_timer number Remaining door grace time.
 ---@field active boolean
 ---@field starting_target string?
 ---@field starting_camera string?
@@ -40,6 +42,8 @@ function ShiftAnimatronic:init(actor)
     self.base_movement_chance = 20
     self.movement_interval = 5
     self.movement_timer = 0
+    self.door_grace_period = 1.5
+    self.door_grace_timer = 0
     self.active = true
 
     self.starting_target = nil
@@ -89,7 +93,15 @@ end
 
 ---@return boolean
 function ShiftAnimatronic:canMove()
-    return self.active and self.current_target ~= nil
+    return self.active and self.current_target ~= nil and self.door_grace_timer <= 0
+end
+
+--- *(Override)* Returns this animatronic's relative preference for a directional route.
+---@param route MoveTarget
+---@param target ShiftMoveTarget
+---@return number weight
+function ShiftAnimatronic:getMoveTargetWeight(route, target)
+    return math.max(0, tonumber(route.weight) or 1)
 end
 
 ---@return ShiftMoveTarget?
@@ -98,14 +110,23 @@ function ShiftAnimatronic:selectMoveTarget()
     if not self.current_target or not shift then return nil end
 
     local targets = {}
+    local total_weight = 0
     for _, route in ipairs(self.current_target.move_targets) do
         local target = route.target or shift:getMoveTarget(route.target_id)
         if target and target.enabled and self.current_target:canMoveTo(route, self) then
-            table.insert(targets, target)
+            local weight = self:getMoveTargetWeight(route, target)
+            if weight > 0 then
+                total_weight = total_weight + weight
+                table.insert(targets, { target = target, limit = total_weight })
+            end
         end
     end
-    if #targets > 0 then
-        return TableUtils.pick(targets)
+    if total_weight > 0 then
+        local choice = love.math.random() * total_weight
+        for _, entry in ipairs(targets) do
+            if choice < entry.limit then return entry.target end
+        end
+        return targets[#targets].target
     end
 end
 
@@ -124,12 +145,25 @@ function ShiftAnimatronic:setTarget(target)
     self.previous_camera = old and old:includes(ShiftCamera) and old or nil
     self.current_camera = target and target:includes(ShiftCamera) and target or nil
     if target then target:addAnimatronic(self) end
+    if target and target:includes(OfficeDoor) then
+        self.door_grace_timer = math.max(0, self:getDoorGracePeriod(target))
+        self.movement_timer = 0
+    else
+        self.door_grace_timer = 0
+    end
     self:onMove(target, old)
 
     if target and target:includes(Office) then
         local door = old and old:includes(OfficeDoor) and old or nil
         self:onOfficeEntered(target, door)
     end
+end
+
+--- *(Override)* Returns the reaction window after this animatronic reaches a door.
+---@param door OfficeDoor
+---@return number seconds
+function ShiftAnimatronic:getDoorGracePeriod(door)
+    return self.door_grace_period
 end
 
 ---@param camera ShiftCamera|string|nil
@@ -244,7 +278,13 @@ end
 function ShiftAnimatronic:update()
     local shift = self.shift or Game.shift
     if self.active and shift and shift.state == "GAMEPLAY" then
-        self.movement_timer = self.movement_timer + DT
+        local movement_dt = DT
+        if self.door_grace_timer > 0 then
+            local grace_dt = math.min(self.door_grace_timer, movement_dt)
+            self.door_grace_timer = self.door_grace_timer - grace_dt
+            movement_dt = movement_dt - grace_dt
+        end
+        self.movement_timer = self.movement_timer + movement_dt
         if self.movement_interval <= 0 then
             self.movement_timer = 0
         elseif self.movement_timer >= self.movement_interval then

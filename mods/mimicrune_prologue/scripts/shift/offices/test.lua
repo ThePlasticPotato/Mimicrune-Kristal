@@ -68,12 +68,12 @@ function TestOffice:init()
     right_door.id = "right_office_door"
     self:addDoor(right_door)
 
-    stage:addMoveTarget("test_hall")
-    hall:addMoveTarget("test_stage")
-    hall:addMoveTarget("test_storage")
-    hall:addMoveTarget(left_door)
-    storage:addMoveTarget("test_hall")
-    storage:addMoveTarget(right_door)
+    stage:addMoveTarget("test_hall", 1)
+    hall:addMoveTarget("test_stage", 0.2)
+    hall:addMoveTarget("test_storage", 1)
+    hall:addMoveTarget(left_door, 1)
+    storage:addMoveTarget("test_hall", 0.25)
+    storage:addMoveTarget(right_door, 1)
 
     self:addCamera(stage)
     self:addCamera(hall)

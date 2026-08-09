@@ -938,6 +938,9 @@ function Shift:drawDebug()
         if animatronic.active then table.insert(flags, "ACTIVE") else table.insert(flags, "INACTIVE") end
         if animatronic.office_attack_pending then table.insert(flags, "OFFICE READY") end
         if animatronic.attacking then table.insert(flags, "ATTACKING") end
+        if animatronic.door_grace_timer and animatronic.door_grace_timer > 0 then
+            table.insert(flags, string.format("DOOR GRACE %.1fs", animatronic.door_grace_timer))
+        end
         add(string.format("%s [%s] @ %s",
             animatronic.name or "Animatronic",
             animatronic.id or "?",

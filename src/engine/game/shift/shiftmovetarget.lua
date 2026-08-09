@@ -13,6 +13,7 @@ local ShiftMoveTarget, super = Class(Object)
 ---@field target ShiftMoveTarget?
 ---@field allowed_animatronics string[] An empty list allows every animatronic.
 ---@field blocked boolean
+---@field weight number Relative chance of taking this directional route. Default 1.
 
 ---@param x? number
 ---@param y? number
@@ -28,13 +29,19 @@ end
 
 ---@param target string|ShiftMoveTarget|MoveTarget
 ---@param allowed_animatronics? string[]
+---@param weight? number
 ---@return MoveTarget target
-function ShiftMoveTarget:addMoveTarget(target, allowed_animatronics)
+function ShiftMoveTarget:addMoveTarget(target, allowed_animatronics, weight)
+    if type(allowed_animatronics) == "number" and weight == nil then
+        weight = allowed_animatronics
+        allowed_animatronics = nil
+    end
     if type(target) == "string" then
         target = {
             target_id = target,
             allowed_animatronics = allowed_animatronics or {},
             blocked = false,
+            weight = math.max(0, tonumber(weight) or 1),
         }
     elseif isClass(target) and target:includes(ShiftMoveTarget) then
         target = {
@@ -42,10 +49,12 @@ function ShiftMoveTarget:addMoveTarget(target, allowed_animatronics)
             target = target,
             allowed_animatronics = allowed_animatronics or {},
             blocked = false,
+            weight = math.max(0, tonumber(weight) or 1),
         }
     else
         target.allowed_animatronics = target.allowed_animatronics or allowed_animatronics or {}
         target.blocked = target.blocked or false
+        target.weight = math.max(0, tonumber(target.weight) or tonumber(weight) or 1)
     end
     table.insert(self.move_targets, target)
     return target
