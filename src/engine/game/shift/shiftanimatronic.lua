@@ -21,6 +21,8 @@
 ---@field attacking boolean
 ---@field door_light_sprite string? Fallback sprite used when seen at a lit office door.
 ---@field door_light_sprites table<string, string> Door-specific lit sprites indexed by door id.
+---@field door_leave_sound string? Sound played when a closed door sends this animatronic away.
+---@field door_leave_volume number
 ---@overload fun(actor?: Actor|string) : ShiftAnimatronic
 local ShiftAnimatronic, super = Class(Object)
 
@@ -51,6 +53,8 @@ function ShiftAnimatronic:init(actor)
     self.attacking = false
     self.door_light_sprite = nil
     self.door_light_sprites = {}
+    self.door_leave_sound = "door_animatronic_leave"
+    self.door_leave_volume = 0.8
 end
 
 ---@param actor Actor|string
@@ -146,8 +150,39 @@ function ShiftAnimatronic:onMovementOpportunity(target)
         and self.current_target:includes(OfficeDoor)
         and target:includes(Office)
     then
-        return self:canEnterOffice(self.current_target, target)
+        local door = self.current_target
+        if not door:isOpen() then
+            self:onClosedDoorMovementOpportunity(door, target)
+            return false
+        end
+        return self:canEnterOffice(door, target)
     end
+end
+
+---@return ShiftMoveTarget?
+function ShiftAnimatronic:getStartingTarget()
+    local shift = self.shift or Game.shift
+    local starting_target = self.starting_target or self.starting_camera
+    return shift and starting_target and shift:getMoveTarget(starting_target) or nil
+end
+
+---@return boolean moved
+function ShiftAnimatronic:resetToStartingTarget()
+    local target = self:getStartingTarget()
+    if not target then return false end
+    self:setTarget(target)
+    return true
+end
+
+--- *(Override)* When an animatronic succeeds at moving at a door, but the door is closed.\
+--- By default resets the animatronic to its starting state.
+---@param door OfficeDoor
+---@param office Office
+function ShiftAnimatronic:onClosedDoorMovementOpportunity(door, office)
+    if self.door_leave_sound and self.door_leave_sound ~= "" then
+        Assets.playSound(self.door_leave_sound, self.door_leave_volume)
+    end
+    self:resetToStartingTarget()
 end
 
 --- *(Override)* Standard door-entry check. Specialized animatronics may bypass or replace it.
