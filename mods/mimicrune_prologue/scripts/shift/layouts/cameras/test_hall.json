@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "kristal_version": "0.11.0-dev",
+  "kind": "camera",
+  "id": "test_hall",
+  "name": "CAM 02 - Hall",
+  "width": 800,
+  "height": 600,
+  "pan_x": 80,
+  "pan_y": 60,
+  "pan_speed_x": 260,
+  "pan_speed_y": 220,
+  "pan_edge_margin": 48,
+  "layers": [
+    {
+      "id": "contents",
+      "name": "Contents",
+      "type": "object",
+      "kind": "object",
+      "mode": "camera_feed",
+      "depth": -100,
+      "visible": true,
+      "objects": [
+        { "id": 1, "type": "sprite", "x": 0, "y": 0, "color": [0.45, 0.65, 0.5, 1], "properties": { "layout_id": "background", "texture": "placeholder", "scalex": 25, "scaley": 18.75 } }
+      ]
+    }
+  ]
+}

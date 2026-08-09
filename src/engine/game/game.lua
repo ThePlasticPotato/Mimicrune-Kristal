@@ -6,6 +6,7 @@
 ---@field battle            Battle
 ---@field shop              Shop
 ---@field gameover          GameOver
+---@field shift             Shift
 ---@field legend            Legend
 ---@field inventory         DarkInventory|LightInventory
 ---@field dark_inventory    DarkInventory
@@ -56,6 +57,9 @@ function Game:clear()
     if self.battle and self.battle.music then
         self.battle.music:stop()
     end
+    if self.shift and self.shift.ambience then
+        self.shift.ambience:stop()
+    end
     if self.stage then
         for _, child in ipairs(self.stage.children) do
             self.stage:removeFromStage(child)
@@ -70,6 +74,7 @@ function Game:clear()
     self.stage = nil
     self.world = nil
     self.battle = nil
+    self.shift = nil
     self.shop = nil
     self.gameover = nil
     self.legend = nil
@@ -228,6 +233,8 @@ function Game:getActiveMusic()
         return self.world.music
     elseif self.state == "BATTLE" then
         return self.battle.music
+    elseif self.state == "SHIFT" then
+        return self.shift.ambience
     elseif self.state == "SHOP" then
         return self.shop.music
     elseif self.state == "GAMEOVER" then
@@ -237,6 +244,47 @@ function Game:getActiveMusic()
     else
         return self.music
     end
+end
+
+--- Creates a shift instance. Override this to use a custom Shift subclass.
+---@return Shift
+function Game:createShift()
+    return Shift()
+end
+
+--- Starts a shift using the specified night file.
+---@param night Night|string The night id or instance to start.
+---@return Shift shift
+function Game:startShift(night)
+    if self.shift then
+        error("Attempt to start a shift while already in a shift")
+    end
+    if self.state ~= "OVERWORLD" then
+        error("Attempt to start a shift outside of the overworld")
+    end
+
+    local shift = self:createShift()
+    self.shift = shift
+    self.state = "SHIFT"
+
+    if self.world then
+        if self.world.music and self.world.music:isPlaying() then
+            shift.resume_world_music = true
+            self.world.music:pause()
+        end
+        if self.world.additional_music and self.world.additional_music:isPlaying() then
+            shift.resume_additional_world_music = true
+            self.world.additional_music:pause()
+        end
+        self.world.active = false
+        self.world.visible = false
+    end
+
+    shift:postInit(night)
+    if self.shift == shift and self.state == "SHIFT" then
+        self.stage:addChild(shift)
+    end
+    return shift
 end
 
 ---@return {name: string, level: integer, playtime: number, room_name: string}
@@ -344,7 +392,7 @@ function Game:load(data, index, fade)
     BORDER_ALPHA = 0
     Kristal.showBorder(1)
 
-    -- states: OVERWORLD, BATTLE, SHOP, GAMEOVER, LEGEND
+    -- states: OVERWORLD, BATTLE, SHIFT, SHOP, GAMEOVER, LEGEND
     self.state = "OVERWORLD"
 
     self.stage = Stage()
@@ -656,6 +704,7 @@ function Game:gameOver(x, y)
     for _, child in ipairs(self.stage.children) do
         child:remove()
     end
+    self.shift = nil
 
     local gameover_class = self:getConfig("gameOver") == "goner" and GonerGameOver or GameOver
     self.gameover = gameover_class(x, y)
@@ -1164,6 +1213,10 @@ function Game:isWorldHidden()
         return true
     end
 
+    if self.state == "SHIFT" and self.shift then
+        return true
+    end
+
     return false
 end
 
@@ -1337,6 +1390,10 @@ function Game:onKeyPressed(key, is_repeat)
     if self.state == "BATTLE" then
         if self.battle then
             self.battle:onKeyPressed(key)
+        end
+    elseif self.state == "SHIFT" then
+        if self.shift then
+            self.shift:onKeyPressed(key)
         end
     elseif self.state == "OVERWORLD" then
         if self.world then

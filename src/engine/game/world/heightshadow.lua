@@ -7,6 +7,7 @@ function HeightShadow:init(owner)
     super.init(self, 0, 0, owner.width, owner.height)
 
     self.owner = owner
+    self.height_depth_owner = owner
     self.height_sort_subject = true
     self.use_3d_collision = true
     self.height_depth_transparent = true
@@ -25,6 +26,7 @@ function HeightShadow:syncOwner()
     self.z = owner.shadow_z or 0
     self.width, self.height = owner.width, owner.height
     self.layer = owner.layer
+    self.height_depth_layer = owner.height_depth_layer or owner.layer
     self.origin_x, self.origin_y = owner.origin_x, owner.origin_y
     self.origin_exact = owner.origin_exact
     self.scale_x, self.scale_y = owner.scale_x, owner.scale_y

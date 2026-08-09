@@ -486,6 +486,11 @@ function operations.loadRuntimeObject(self, source, layer, depth, layer_type, ru
             obj.height_face_y = tonumber(height_properties.face_y)
             self:registerLevelMember(obj, height_properties.level_id)
             if obj.collider then
+                local owned_surface_id = height_properties.collision_surface_id
+                    or height_properties.collider_surface_id
+                    or obj.collider.surface_id
+                local owned_surface_plane = height_properties.collision_surface_plane
+                    or obj.collider.surface_plane
                 obj.collider.level_id = height_properties.level_id
                 obj.collider.z = tonumber(height_properties.collision_z) or obj.collider.z
                 local collision_depth = tonumber(height_properties.collision_depth)
@@ -497,16 +502,17 @@ function operations.loadRuntimeObject(self, source, layer, depth, layer_type, ru
                 end
                 if height_properties.supports ~= nil then
                     obj.collider.supports = height_properties.supports
-                elseif obj.collider.depth > 0 then
-                    obj.collider.supports = true
                 end
                 obj.collider.one_way = height_properties.one_way or height_properties.oneway or false
-                obj.collider.surface_id = obj.surface_id and tostring(obj.surface_id) or nil
-                obj.collider.surface_plane = obj.surface_plane
-                    and tostring(obj.surface_plane) or nil
+                obj.collider.surface_id = owned_surface_id ~= nil
+                    and tostring(owned_surface_id) or nil
+                obj.collider.surface_plane = owned_surface_plane ~= nil
+                    and tostring(owned_surface_plane) or nil
                 obj.collider.map_object_id = v.id
                 obj.collider.map_object_name = v.name
-                self:registerSurfaceCollider(obj.collider, v.id)
+                if obj.collider.supports or obj.collider.surface_id then
+                    self:registerSurfaceCollider(obj.collider, v.id)
+                end
             end
             if (v.gid or v.tileset and v.tile_id ~= nil) and obj.applyTileObject then
                 obj:applyTileObject(v, self)

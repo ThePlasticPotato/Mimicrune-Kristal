@@ -1,0 +1,94 @@
+{
+  "version": 1,
+  "kristal_version": "0.11.0-dev",
+  "id": "test",
+  "name": "Shift Framework Test",
+  "width": 597,
+  "height": 454,
+  "layers": [
+    {
+      "id": "map",
+      "name": "Camera Map",
+      "type": "object",
+      "kind": "object",
+      "depth": 10,
+      "visible": true,
+      "blend_mode": "normal",
+      "properties": [],
+      "objects": [
+        {
+          "id": 1,
+          "x": 370,
+          "y": 262,
+          "width": 208,
+          "height": 174,
+          "shape": "rectangle",
+          "properties": [],
+          "color": [
+            0,
+            0,
+            0,
+            0.5
+          ],
+          "draw": "fill"
+        },
+        {
+          "id": 2,
+          "x": 398,
+          "y": 278,
+          "width": 150,
+          "height": 153,
+          "shape": "rectangle",
+          "properties": [],
+          "color": [
+            1,
+            1,
+            1,
+            0.75
+          ],
+          "line_width": 2
+        },
+        {
+          "id": 7,
+          "type": "camera_button",
+          "x": 424,
+          "y": 296,
+          "width": 58,
+          "height": 24,
+          "properties": {
+            "camera": "test_stage",
+            "label": "CAM 01"
+          }
+        },
+        {
+          "id": 8,
+          "type": "camera_button",
+          "x": 486,
+          "y": 344,
+          "width": 58,
+          "height": 24,
+          "properties": {
+            "camera": "test_hall",
+            "label": "CAM 02"
+          }
+        },
+        {
+          "id": 9,
+          "type": "camera_button",
+          "x": 400,
+          "y": 392,
+          "width": 58,
+          "height": 24,
+          "properties": {
+            "camera": "test_storage",
+            "label": "CAM 03"
+          }
+        }
+      ],
+      "height": 454,
+      "mode": "camera_map",
+      "width": 597
+    }
+  ],
+  "kind": "night"
+}

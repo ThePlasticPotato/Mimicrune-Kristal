@@ -3,6 +3,7 @@
 ---@field map Map
 ---@field mask_points number[][]
 ---@field source_layer_name string
+---@field source_object_name string
 ---@field occlusion_z number
 ---@field occlusion_depth number
 ---@field surface_id string?
@@ -102,6 +103,8 @@ function HeightOccluder:init(map, data, layer, properties)
     self.data = data
     self.mask_points = points
     self.source_layer_name = tostring(properties.source_layer or properties.visual_layer or "")
+    self.source_object_name = tostring(properties.source_object
+        or properties.visual_object or "")
     local surface_id = properties.surface_id or properties.structure_id
     self.surface_id = surface_id ~= nil and tostring(surface_id) or nil
     local face_direction = tostring(properties.face_direction or properties.face or "front"):lower()
@@ -294,19 +297,34 @@ end
 
 function HeightOccluder:resolveSourceLayer()
     if self.source_layer then return self.source_layer end
-    local source = self.map:getDrawableLayer(self.source_layer_name)
+    local source
+    if self.source_object_name ~= "" then
+        source = self.map:getEvent(tonumber(self.source_object_name)
+            or self.source_object_name)
+    else
+        source = self.map:getDrawableLayer(self.source_layer_name)
+        if not source then
+            local layer_objects = self.map.events_by_layer
+                and self.map.events_by_layer[self.source_layer_name]
+            if layer_objects and #layer_objects == 1 then
+                source = layer_objects[1]
+            end
+        end
+    end
     if source then
         self.source_layer = source
         self.source_draw_layer = source.layer or 0
         source:addHeightOcclusionMask(self)
         return source
     end
-    if not self.source_warning_shown and self.source_layer_name ~= "" then
+    if not self.source_warning_shown
+        and (self.source_layer_name ~= "" or self.source_object_name ~= "") then
         self.source_warning_shown = true
         Kristal.Console:warn(string.format(
-            "Height occluder '%s' could not find tile/image layer '%s' on map '%s'",
+            "Height occluder '%s' could not resolve visual source '%s' on map '%s'; object layers with multiple objects need source_object",
             tostring(self.data.name or self.data.id or "?"),
-            self.source_layer_name,
+            self.source_object_name ~= "" and self.source_object_name
+                or self.source_layer_name,
             tostring(self.map.id or self.map.name or "?")
         ))
     end
@@ -508,12 +526,18 @@ end
 ---@return HeightOccluder[] connected
 function HeightOccluder:getConnectedHeightOccluders()
     local connected, seen = { self }, { [self] = true }
+    local source_key = self.source_object_name ~= ""
+        and "object:" .. self.source_object_name
+        or "layer:" .. self.source_layer_name
     local changed = true
     while changed do
         changed = false
         for _, candidate in ipairs(self.map.height_occluders or {}) do
+            local candidate_source_key = candidate.source_object_name ~= ""
+                and "object:" .. candidate.source_object_name
+                or "layer:" .. candidate.source_layer_name
             if not seen[candidate]
-                and candidate.source_layer_name == self.source_layer_name
+                and candidate_source_key == source_key
                 and candidate.surface_id == self.surface_id
                 and candidate.face_direction == self.face_direction then
                 for _, owner in ipairs(connected) do

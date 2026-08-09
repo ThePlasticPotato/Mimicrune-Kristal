@@ -287,6 +287,53 @@ function Assets.iterate(asset_type, id_prefix)
     end)
 end
 
+local ASSET_REGISTRY_TYPES = {
+    sound_data = "sound",
+    sound_settings = "sound",
+    music = "music",
+    shaders = "shader",
+    shader_paths = "shader",
+    videos = "video",
+    fonts = "font",
+    font_data = "font",
+    font_bmfont_data = "font",
+    font_image_data = "font",
+    font_settings = "font",
+    bubbles = "bubble",
+    bubble_settings = "bubble",
+    midi = "midi",
+}
+
+---@param registry string
+---@param id_prefix string?
+---@return fun(): string
+function Assets.iterateRegistry(registry, id_prefix)
+    id_prefix = id_prefix or ""
+    if registry == "texture" then
+        return coroutine.wrap(function()
+            for _, bucket in ipairs(self.buckets) do
+                if bucket:isActive() then
+                    for id in pairs(bucket.exact_sprite_groups or {}) do
+                        if StringUtils.startsWith(id, id_prefix) then coroutine.yield(id) end
+                    end
+                end
+            end
+        end)
+    elseif registry == "frames" then
+        return self.iterate("sprite", id_prefix)
+    end
+
+    local asset_type = ASSET_REGISTRY_TYPES[registry]
+    if asset_type then return self.iterate(asset_type, id_prefix) end
+
+    return coroutine.wrap(function()
+        for id in pairs(self.data and self.data[registry] or {}) do
+            id = tostring(id)
+            if StringUtils.startsWith(id, id_prefix) then coroutine.yield(id) end
+        end
+    end)
+end
+
 ---@private
 ---@param asset_type string
 ---@param asset_id string

@@ -135,6 +135,7 @@
 ---@field map_object_clipboard table[]?
 ---@field tile_clipboard table?
 ---@field asset_drag table?
+---@field asset_drop_target EditorControl?
 ---@field project_file_drag table?
 ---@field drag_preview table?
 ---@field object_reference_drag table?
@@ -296,6 +297,7 @@ function Editor:enter(previous, options)
     self.path_picker = nil
     self.object_reference_picker = nil
     self.asset_drag = nil
+    self.asset_drop_target = nil
     self.project_file_drag = nil
     self.drag_preview = nil
     self.game_preview_snapshot = nil
@@ -524,6 +526,7 @@ function Editor:leave()
     self.file_type_registry = nil
     self.document_providers = nil
     self.asset_drag = nil
+    self.asset_drop_target = nil
     self.project_file_drag = nil
     self.drag_preview = nil
     self.object_reference_drag = nil
@@ -765,7 +768,9 @@ function Editor:onHistoryChanged(owners, restored, command, direction)
             end
         end
         if owner.panel then
-            owner.panel.title = (is_editor_world and owner.world.name or owner.primary_map_id)
+            local title = owner.getEditorTitle and owner:getEditorTitle()
+                or (is_editor_world and owner.world.name or owner.primary_map_id)
+            owner.panel.title = title
                 .. (owner:isDirty() and " *" or "")
         end
         if restored and self.active_document == owner and self.layers_browser then
@@ -852,6 +857,10 @@ function Editor:beginDragPreview(kind, label, icon, data) return self.map_intera
 function Editor:updateDragPreview(x, y) return self.map_interaction:updateDragPreview(x, y) end
 
 function Editor:finishDragPreview() return self.map_interaction:finishDragPreview() end
+
+function Editor:setAssetDropTarget(target) return self.map_interaction:setAssetDropTarget(target) end
+
+function Editor:getAssetDropTarget(x, y, drag) return self.map_interaction:getAssetDropTarget(x, y, drag) end
 
 function Editor:updateAssetDrag(x, y) return self.map_interaction:updateAssetDrag(x, y) end
 
@@ -1233,7 +1242,8 @@ function Editor:onKeyPressed(key, is_repeat)
         or self.object_reference_drag or self.object_link or self.drag_preview) then
         local cancelled_link = self:cancelObjectLink()
         self.asset_drag, self.project_file_drag = nil, nil
-        self.object_reference_drag, self.drag_preview = nil, nil
+        self.object_reference_drag = nil
+        self:finishDragPreview()
         if not cancelled_link and self.message_bar then self.message_bar:setStatus("Drag cancelled") end
         return true
     end

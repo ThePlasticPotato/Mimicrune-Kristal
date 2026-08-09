@@ -83,6 +83,7 @@ function AfterImage:onAdd(parent)
     end
 
     if sibling then
+        self.height_depth_layer = sibling.height_depth_layer or sibling.layer
         self.layer = sibling.layer - 0.001
     end
 end

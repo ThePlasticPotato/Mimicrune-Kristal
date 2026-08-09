@@ -20,10 +20,17 @@
 ---@field enemies table<string, EnemyBattler>
 ---@field waves table<string, Wave>
 ---@field bullets table<string, Bullet>
+---@field nights table<string, Night>
+---@field animatronics table<string, ShiftAnimatronic>
+---@field offices table<string, Office>
+---@field shift_cameras table<string, ShiftCamera>
+---@field shift_layouts table<string, table<string, table>>
+---@field shift_layout_objects table<string, function>
 ---@field world_bullets table<string, WorldBullet>
 ---@field world_cutscenes table<string, function|table<string, function>>
 ---@field battle_cutscenes table<string, function|table<string, function>>
 ---@field legend_cutscenes table<string, function|table<string, function>>
+---@field shift_cutscenes table<string, function|table<string, function>>
 ---@field event_scripts table<string, function|table<string, function>>
 ---@field layer_types LayerTypeRegistry
 ---@field editor_objects table<string, EditorObject>
@@ -64,10 +71,15 @@ Registry.paths = {
     ["enemies"]          = "battle/enemies",
     ["waves"]            = "battle/waves",
     ["bullets"]          = "battle/bullets",
+    ["nights"]           = "shift/nights",
+    ["offices"]          = "shift/offices",
+    ["animatronics"]     = "shift/animatronics",
+    ["shift_cameras"]    = "shift/cameras",
     ["world_bullets"]    = "world/bullets",
     ["world_cutscenes"]  = "world/cutscenes",
     ["battle_cutscenes"] = "battle/cutscenes",
     ["legend_cutscenes"] = "legends/",
+    ["shift_cutscenes"]  = "shift/cutscenes",
     ["event_scripts"]    = "world/scripts",
     ["tilesets"]         = "world/tilesets",
     ["maps"]             = "world/maps",
@@ -105,6 +117,11 @@ function Registry.initialize(preload)
         Registry.initEnemies()
         Registry.initWaves()
         Registry.initBullets()
+        Registry.initShiftLayouts()
+        Registry.initNights()
+        Registry.initAnimatronics()
+        Registry.initOffices()
+        Registry.initShiftCameras()
         Registry.initCutscenes()
         Registry.initEventScripts()
         Registry.initEditorProperties()
@@ -144,6 +161,8 @@ function Registry.saveData()
     self.saved_data.editor_draw_fx = self.editor_draw_fx
     self.saved_data.editor_templates = self.editor_templates
     self.saved_data.editor_template_order = self.editor_template_order
+    self.saved_data.shift_layouts = self.shift_layouts
+    self.saved_data.shift_layout_objects = self.shift_layout_objects
 end
 
 ---@return boolean
@@ -162,6 +181,8 @@ function Registry.restoreData()
         self.editor_draw_fx = self.saved_data.editor_draw_fx or {}
         self.editor_templates = self.saved_data.editor_templates or {}
         self.editor_template_order = self.saved_data.editor_template_order or {}
+        self.shift_layouts = self.saved_data.shift_layouts or { office = {}, camera = {}, night = {} }
+        self.shift_layout_objects = self.saved_data.shift_layout_objects or {}
         return true
     else
         return false
@@ -383,6 +404,116 @@ function Registry.createBullet(id, ...)
 end
 
 ---@param id string
+---@return Night?
+function Registry.getNight(id)
+    return self.nights[id]
+end
+
+---@param id string
+---@param ... any
+---@return Night
+function Registry.createNight(id, ...)
+    if self.nights[id] then
+        local night = self.nights[id](...)
+        local layout = self.getShiftLayout("night", night.layout_id or night.id or id)
+        if layout and night.applyLayout then night:applyLayout(layout) end
+        return night
+    else
+        error("Attempt to create non existent night \"" .. tostring(id) .. "\"")
+    end
+end
+
+---@param id string
+---@return ShiftAnimatronic?
+function Registry.getAnimatronic(id)
+    return self.animatronics[id]
+end
+
+---@param id string
+---@param ... any
+---@return ShiftAnimatronic
+function Registry.createAnimatronic(id, ...)
+    if self.animatronics[id] then
+        return self.animatronics[id](...)
+    else
+        error("Attempt to create non existent animatronic \"" .. tostring(id) .. "\"")
+    end
+end
+
+---@param id string
+---@return Office?
+function Registry.getOffice(id)
+    return self.offices[id]
+end
+
+---@param id string
+---@param ... any
+---@return Office
+function Registry.createOffice(id, ...)
+    if self.offices[id] then
+        local office = self.offices[id](...)
+        local layout = self.getShiftLayout("office", office.layout_id or office.id or id)
+        if layout and office.applyLayout then office:applyLayout(layout) end
+        return office
+    else
+        error("Attempt to create non existent office \"" .. tostring(id) .. "\"")
+    end
+end
+
+---@param id string
+---@return ShiftCamera?
+function Registry.getShiftCamera(id)
+    return self.shift_cameras[id]
+end
+
+---@param id string
+---@param ... any
+---@return ShiftCamera
+function Registry.createShiftCamera(id, ...)
+    if self.shift_cameras[id] then
+        local camera = self.shift_cameras[id](...)
+        local layout = self.getShiftLayout("camera", camera.layout_id or camera.id or id)
+        if layout and camera.applyLayout then camera:applyLayout(layout) end
+        return camera
+    else
+        error("Attempt to create non existent shift camera \"" .. tostring(id) .. "\"")
+    end
+end
+
+---@param kind "office"|"camera"|"night"
+---@param id string
+---@return table?
+function Registry.getShiftLayout(kind, id)
+    return self.shift_layouts and self.shift_layouts[kind] and self.shift_layouts[kind][id]
+end
+
+---@param kind "office"|"camera"|"night"
+---@param id string
+---@param layout table
+function Registry.registerShiftLayout(kind, id, layout)
+    assert(ShiftLayout.KINDS[kind], "Unknown shift layout kind: " .. tostring(kind))
+    assert(type(id) == "string" and id ~= "", "Shift layouts require a non-empty id")
+    self.shift_layouts[kind][id] = layout
+end
+
+---@param id string
+---@param factory fun(definition: table, owner: Object): Object
+function Registry.registerShiftLayoutObject(id, factory)
+    assert(type(id) == "string" and id ~= "", "Shift layout object factories require an id")
+    assert(type(factory) == "function", "Shift layout object factories require a function")
+    self.shift_layout_objects[id] = factory
+end
+
+---@param definition table
+---@param owner Object
+---@return Object?
+function Registry.createShiftLayoutObject(definition, owner)
+    local resolved = ShiftLayout.resolveObjectDefinition(definition)
+    local factory = self.shift_layout_objects[resolved.type]
+    return factory and factory(resolved, owner) or nil
+end
+
+---@param id string
 ---@return WorldBullet?
 function Registry.getWorldBullet(id)
     return self.world_bullets[id]
@@ -431,6 +562,19 @@ end
 ---@return boolean? grouped
 function Registry.getLegendCutscene(group, id)
     local cutscene = self.legend_cutscenes[group]
+    if type(cutscene) == "table" then
+        return cutscene[id], true
+    elseif type(cutscene) == "function" then
+        return cutscene, false
+    end
+end
+
+---@param group string
+---@param id? string
+---@return function? cutscene
+---@return boolean? grouped
+function Registry.getShiftCutscene(group, id)
+    local cutscene = self.shift_cutscenes[group]
     if type(cutscene) == "table" then
         return cutscene[id], true
     elseif type(cutscene) == "function" then
@@ -698,6 +842,28 @@ function Registry.getEditorObject(id)
     return self.editor_objects and self.editor_objects[id]
 end
 
+---@class RegistryEditorObjectEntry
+---@field id string
+---@field name string
+---@field class EditorObject
+
+---@param include_hidden boolean?
+---@return RegistryEditorObjectEntry[]
+function Registry.getEditorObjectAll(include_hidden)
+    local result = {}
+    for id, object in pairs(self.editor_objects or {}) do
+        if include_hidden or not object.editor_hidden then
+            table.insert(result, {
+                id = id,
+                name = object.editor_name or object.name or StringUtils.titleCase(id:gsub("[/_]", " ")),
+                class = object
+            })
+        end
+    end
+    table.sort(result, function(a, b) return a.name:lower() < b.name:lower() end)
+    return result
+end
+
 ---@param id string?
 ---@return "event"|"controller"|"marker"|"path"|"player"
 function Registry.getEditorObjectRuntimeType(id)
@@ -867,6 +1033,30 @@ function Registry.registerBullet(id, class)
 end
 
 ---@param id string
+---@param class Night
+function Registry.registerNight(id, class)
+    self.nights[id] = class
+end
+
+---@param id string
+---@param class ShiftAnimatronic
+function Registry.registerAnimatronic(id, class)
+    self.animatronics[id] = class
+end
+
+---@param id string
+---@param class Office
+function Registry.registerOffice(id, class)
+    self.offices[id] = class
+end
+
+---@param id string
+---@param class ShiftCamera
+function Registry.registerShiftCamera(id, class)
+    self.shift_cameras[id] = class
+end
+
+---@param id string
 ---@param class WorldBullet
 function Registry.registerWorldBullet(id, class)
     self.world_bullets[id] = class
@@ -888,6 +1078,12 @@ end
 ---@param cutscene function|table<string, function>
 function Registry.registerLegendCutscene(id, cutscene)
     self.legend_cutscenes[id] = cutscene
+end
+
+---@param id string
+---@param cutscene function|table<string, function>
+function Registry.registerShiftCutscene(id, cutscene)
+    self.shift_cutscenes[id] = cutscene
 end
 
 ---@param id string
@@ -1159,10 +1355,96 @@ function Registry.initBullets()
     Kristal.callEvent(KRISTAL_EVENT.onRegisterBullets)
 end
 
+function Registry.initShiftLayouts()
+    self.shift_layouts = { office = {}, camera = {}, night = {} }
+    self.shift_layout_objects = {}
+
+    self.registerShiftLayoutObject("sprite", function(definition)
+        if type(definition.texture) ~= "string" or definition.texture == "" then return nil end
+        return Sprite(definition.texture)
+    end)
+    self.registerShiftLayoutObject("office_interactable", function(definition)
+        return OfficeInteractable(0, 0, definition.width or 32, definition.height or 32)
+    end)
+    self.registerShiftLayoutObject("draggable_office_interactable", function(definition)
+        return DraggableOfficeInteractable(0, 0, definition.width or 32, definition.height or 32)
+    end)
+    self.registerShiftLayoutObject("office_door_lever", function(definition, owner)
+        return OfficeDoorLever(owner, definition.door or definition.target, 0, 0,
+            definition.width or 32, definition.height or 32)
+    end)
+    self.registerShiftLayoutObject("office_door_light_button", function(definition, owner)
+        return OfficeDoorLightButton(owner, definition.door or definition.target,
+            definition.side, 0, 0, definition.width or 22, definition.height or 33)
+    end)
+    self.registerShiftLayoutObject("camera_interactable", function(definition)
+        return CameraInteractable(0, 0, definition.width or 32, definition.height or 32)
+    end)
+    self.registerShiftLayoutObject("office_door", function(definition)
+        local door = OfficeDoor(0, 0, definition.width or 32, definition.height or 64)
+        door.id = definition.target_id or definition.layout_id or definition.id
+        return door
+    end)
+    self.registerShiftLayoutObject("panel_button", function(definition)
+        return PanelButton(0, 0, definition.width or 58, definition.height or 24)
+    end)
+
+    ShiftLayout.discover(self)
+end
+
+function Registry.initNights()
+    self.nights = {}
+
+    for _, path, night in self.iterScripts(Registry.paths["nights"]) do
+        assert(night ~= nil, '"shift/nights/' .. path .. '.lua" does not return value')
+        night.id = night.id or path
+        self.registerNight(night.id, night)
+    end
+
+    Kristal.callEvent(KRISTAL_EVENT.onRegisterNights)
+end
+
+function Registry.initAnimatronics()
+    self.animatronics = {}
+
+    for _, path, animatronic in self.iterScripts(Registry.paths["animatronics"]) do
+        assert(animatronic ~= nil, '"shift/animatronics/' .. path .. '.lua" does not return value')
+        animatronic.id = animatronic.id or path
+        self.registerAnimatronic(animatronic.id, animatronic)
+    end
+
+    Kristal.callEvent(KRISTAL_EVENT.onRegisterAnimatronics)
+end
+
+function Registry.initOffices()
+    self.offices = {}
+
+    for _, path, office in self.iterScripts(Registry.paths["offices"]) do
+        assert(office ~= nil, '"shift/offices/' .. path .. '.lua" does not return value')
+        office.id = office.id or path
+        self.registerOffice(office.id, office)
+    end
+
+    Kristal.callEvent(KRISTAL_EVENT.onRegisterOffices)
+end
+
+function Registry.initShiftCameras()
+    self.shift_cameras = {}
+
+    for _, path, shift_camera in self.iterScripts(Registry.paths["shift_cameras"]) do
+        assert(shift_camera ~= nil, '"shift/cameras/' .. path .. '.lua" does not return value')
+        shift_camera.id = shift_camera.id or path
+        self.registerShiftCamera(shift_camera.id, shift_camera)
+    end
+
+    Kristal.callEvent(KRISTAL_EVENT.onRegisterShiftCameras)
+end
+
 function Registry.initCutscenes()
     self.world_cutscenes = {}
     self.battle_cutscenes = {}
     self.legend_cutscenes = {}
+    self.shift_cutscenes = {}
 
     for _, path, cutscene in self.iterScripts(Registry.paths["world_cutscenes"]) do
         assert(cutscene ~= nil, '"world/cutscenes/' .. path .. '.lua" does not return value')
@@ -1175,6 +1457,10 @@ function Registry.initCutscenes()
     for _, path, cutscene in self.iterScripts(Registry.paths["legend_cutscenes"]) do
         assert(cutscene ~= nil, '"legends/' .. path .. '.lua" does not return value')
         self.registerLegendCutscene(path, cutscene)
+    end
+    for _, path, cutscene in self.iterScripts(Registry.paths["shift_cutscenes"]) do
+        assert(cutscene ~= nil, '"shift/cutscenes/' .. path .. '.lua" does not return value')
+        self.registerShiftCutscene(path, cutscene)
     end
 
     Kristal.callEvent(KRISTAL_EVENT.onRegisterCutscenes)

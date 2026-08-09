@@ -8,6 +8,9 @@ EditorMovingPlatform.sprite_alignment = "top_left"
 
 function EditorMovingPlatform:init(data, options)
     super.init(self, data, options)
+    self:registerProperty("supports", "boolean", {
+        name = "Walkable Collider Top", default = true
+    })
     self:registerProperty("sprite", "asset_path", {
         asset_registry = { "texture", "frames" }, path_root = "assets/sprites",
         strip_extension = true, extensions = { "png", "jpg", "jpeg" }

@@ -1,0 +1,323 @@
+{
+  "version": 1,
+  "kristal_version": "0.11.0-dev",
+  "id": "test",
+  "name": "Test Office",
+  "width": 1060,
+  "height": 480,
+  "layers": [
+    {
+      "id": "panorama",
+      "name": "Panorama",
+      "type": "object",
+      "kind": "object",
+      "depth": 0,
+      "visible": true,
+      "blend_mode": "normal",
+      "properties": [],
+      "objects": [
+        {
+          "id": 1,
+          "name": "left_office_door",
+          "type": "office_door",
+          "x": 35,
+          "y": 112,
+          "width": 115,
+          "height": 358,
+          "properties": [
+            {
+              "name": "light_animatronic_sprite",
+              "type": "asset_path",
+              "value": "placeholder"
+            },
+            {
+              "name": "light_hallway_sprite",
+              "type": "asset_path",
+              "value": "placeholder"
+            },
+            {
+              "name": "visual_path",
+              "type": "string",
+              "value": "shifts/doors/factory_office/left"
+            }
+          ],
+          "layer": -50
+        },
+        {
+          "id": 2,
+          "name": "right_office_door",
+          "type": "office_door",
+          "x": 910,
+          "y": 112,
+          "width": 115,
+          "height": 358,
+          "properties": [
+            {
+              "name": "light_animatronic_sprite",
+              "type": "asset_path",
+              "value": "placeholder"
+            },
+            {
+              "name": "light_hallway_sprite",
+              "type": "asset_path",
+              "value": "placeholder"
+            },
+            {
+              "name": "visual_path",
+              "type": "string",
+              "value": "shifts/doors/factory_office/right"
+            }
+          ],
+          "layer": -50
+        },
+        {
+          "id": 3,
+          "name": "left_door_lever",
+          "type": "office_door_lever",
+          "x": 0,
+          "y": 228,
+          "width": 48,
+          "height": 30,
+          "properties": [
+            {
+              "name": "auto_return",
+              "type": "boolean",
+              "value": true
+            },
+            {
+              "name": "close_resistance",
+              "type": "number",
+              "value": 1.35
+            },
+            {
+              "name": "door",
+              "type": "object_reference",
+              "value": {
+                "map": "shift-layout:mods/mimicrune_prologue/scripts/shift/layouts/offices/test.json",
+                "object": 1
+              }
+            },
+            {
+              "name": "drag_inertia",
+              "type": "number",
+              "value": 0.65
+            },
+            {
+              "name": "initial_progress",
+              "type": "number",
+              "value": 0
+            },
+            {
+              "name": "open_resistance",
+              "type": "number",
+              "value": 1
+            },
+            {
+              "name": "path_axis",
+              "type": "choice",
+              "value": "vertical"
+            },
+            {
+              "name": "path_x",
+              "type": "number",
+              "value": 0
+            },
+            {
+              "name": "path_y",
+              "type": "number",
+              "value": 60
+            },
+            {
+              "name": "return_delay",
+              "type": "number",
+              "value": 0.2
+            },
+            {
+              "name": "return_speed",
+              "type": "number",
+              "value": 0.45
+            },
+            {
+              "name": "texture",
+              "type": "asset_path",
+              "value": "ui/shift/objects/door_lever_left"
+            }
+          ]
+        },
+        {
+          "id": 6,
+          "name": "right_door_lever",
+          "type": "office_door_lever",
+          "x": 1013,
+          "y": 228,
+          "width": 48,
+          "height": 30,
+          "properties": [
+            {
+              "name": "auto_return",
+              "type": "boolean",
+              "value": true
+            },
+            {
+              "name": "close_resistance",
+              "type": "number",
+              "value": 1.35
+            },
+            {
+              "name": "door",
+              "type": "object_reference",
+              "value": {
+                "map": "shift-layout:mods/mimicrune_prologue/scripts/shift/layouts/offices/test.json",
+                "object": 2
+              }
+            },
+            {
+              "name": "drag_inertia",
+              "type": "number",
+              "value": 0.65
+            },
+            {
+              "name": "initial_progress",
+              "type": "number",
+              "value": 0
+            },
+            {
+              "name": "open_resistance",
+              "type": "number",
+              "value": 1
+            },
+            {
+              "name": "path_axis",
+              "type": "choice",
+              "value": "vertical"
+            },
+            {
+              "name": "path_x",
+              "type": "number",
+              "value": 0
+            },
+            {
+              "name": "path_y",
+              "type": "number",
+              "value": 60
+            },
+            {
+              "name": "return_delay",
+              "type": "number",
+              "value": 0.2
+            },
+            {
+              "name": "return_speed",
+              "type": "number",
+              "value": 0.45
+            },
+            {
+              "name": "texture",
+              "type": "asset_path",
+              "value": "ui/shift/objects/door_lever_right"
+            }
+          ]
+        },
+        {
+          "id": 7,
+          "name": "left_door_light",
+          "type": "office_door_light_button",
+          "x": 4,
+          "y": 316,
+          "width": 22,
+          "height": 33,
+          "properties": [
+            {
+              "name": "door",
+              "type": "object_reference",
+              "value": {
+                "map": "shift-layout:mods/mimicrune_prologue/scripts/shift/layouts/offices/test.json",
+                "object": 1
+              }
+            },
+            {
+              "name": "off_texture",
+              "type": "asset_path",
+              "value": "ui/shift/objects/door_button_off_left"
+            },
+            {
+              "name": "on_texture",
+              "type": "asset_path",
+              "value": "ui/shift/objects/door_button_on_left"
+            },
+            {
+              "name": "side",
+              "type": "choice",
+              "value": "left"
+            }
+          ]
+        },
+        {
+          "id": 8,
+          "name": "right_door_light",
+          "type": "office_door_light_button",
+          "x": 1034,
+          "y": 316,
+          "width": 22,
+          "height": 33,
+          "properties": [
+            {
+              "name": "door",
+              "type": "object_reference",
+              "value": {
+                "map": "shift-layout:mods/mimicrune_prologue/scripts/shift/layouts/offices/test.json",
+                "object": 2
+              }
+            },
+            {
+              "name": "off_texture",
+              "type": "asset_path",
+              "value": "ui/shift/objects/door_button_off_right"
+            },
+            {
+              "name": "on_texture",
+              "type": "asset_path",
+              "value": "ui/shift/objects/door_button_on_right"
+            },
+            {
+              "name": "side",
+              "type": "choice",
+              "value": "right"
+            }
+          ]
+        }
+      ],
+      "height": 480,
+      "mode": "panorama",
+      "width": 1060
+    },
+    {
+      "id": "static",
+      "name": "Static Controls",
+      "type": "object",
+      "kind": "object",
+      "depth": 100,
+      "visible": true,
+      "blend_mode": "normal",
+      "properties": [],
+      "objects": [
+        {
+          "id": 5,
+          "name": "camera_toggle",
+          "type": "office_interactable",
+          "x": 220,
+          "y": 446,
+          "width": 200,
+          "height": 28,
+          "properties": []
+        }
+      ],
+      "height": 480,
+      "mode": "static",
+      "width": 1060
+    }
+  ],
+  "background": "shifts/factory_office",
+  "kind": "office",
+  "pan": 210
+}

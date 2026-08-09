@@ -36,6 +36,11 @@ DEBUG_OVERRIDE = false
 MOUSE_VISIBLE = false
 ---@type love.Image?
 MOUSE_SPRITE = nil
+---@type love.Image?
+MOUSE_DEFAULT_SPRITE = nil
+MOUSE_CURSOR_TYPE = "default"
+MOUSE_CURSOR_HOTSPOT_X = 0
+MOUSE_CURSOR_HOTSPOT_Y = 0
 
 OVERLAY_OPEN = false
 NOCLIP = false

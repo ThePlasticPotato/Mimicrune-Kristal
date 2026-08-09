@@ -27,6 +27,8 @@ function EditorObjectReferencePicker:getObjectType(object, map_id, document, lay
 end
 
 function EditorObjectReferencePicker:isObjectAllowed(object, map_id, document, layer)
+    if self.options.same_map and self.options.map_id ~= nil
+        and map_id ~= self.options.map_id then return false end
     return MapUtils.isObjectTypeAllowed(
         self:getObjectType(object, map_id, document, layer), self.options.allowed_types)
 end

@@ -1,6 +1,13 @@
 local CONNECTION_LOG_PATH = "plot/connection_log.txt"
-local WASTES_ARRIVAL_FLAG = "wastes_arrival_complete"
 local WASTES_SOUL_SPAWN_Y_OFFSET = -4
+local VESSEL_GIFT_IDS = { 1, 0, -1, -2, -3 }
+local VESSEL_GIFT_NAMES = {
+    [1] = "kindness",
+    [0] = "mind",
+    [-1] = "ambition",
+    [-2] = "bravery",
+    [-3] = "voice"
+}
 
 function Mod:init()
     self.playtest = false
@@ -43,9 +50,69 @@ end
 function Mod:prepareWastesCageBack(cage_back)
     cage_back = cage_back or assert(self:getWastesCage(),
         "Wastes entrance is missing its cage_back object")
-    cage_back.height_depth_transparent = true
-    cage_back.height_depth_sort_offset = -16
+    cage_back.height_sort_subject = false
+    cage_back.height_depth_subject = false
+    cage_back.height_depth_transparent = false
+    cage_back.height_depth_sort_offset = nil
     return cage_back
+end
+
+---@param cage_front? Object
+---@return Object
+function Mod:prepareWastesCageFront(cage_front)
+    cage_front = cage_front or assert(self:getWastesCageFront(),
+        "Wastes entrance is missing its cage_front object")
+    cage_front.height_sort_subject = false
+    cage_front.height_depth_subject = false
+    return cage_front
+end
+
+---@param soul WorldSoul
+---@param cage_back? Object
+---@param cage_front? Object
+function Mod:prepareWastesSoulArrival(soul, cage_back, cage_front)
+    cage_back = cage_back or assert(self:getWastesCage(),
+        "Wastes entrance is missing its cage_back object")
+    cage_front = cage_front or assert(self:getWastesCageFront(),
+        "Wastes entrance is missing its cage_front object")
+
+    local back_layer = tonumber(cage_back.layer) or Game.world.map.object_layer
+    local front_layer = tonumber(cage_front.layer) or back_layer + 1
+    local layer_span = math.max(front_layer - back_layer, 0.004)
+    local staged_back_layer = back_layer + layer_span * 0.25
+    local soul_layer = back_layer + layer_span * 0.5
+    cage_back:setLayer(staged_back_layer)
+
+    soul.height_sort_subject = false
+    soul.height_depth_subject = false
+    soul.height_depth_layer = nil
+    soul.height_depth_plane_id = nil
+    soul:setLayer(soul_layer)
+
+    if soul.height_shadow then
+        soul.height_shadow.height_sort_subject = false
+        soul.height_shadow.height_depth_subject = false
+        soul.height_shadow.height_depth_layer = nil
+        soul.height_shadow:setLayer(soul_layer - 0.001)
+    end
+end
+
+---@param soul WorldSoul
+---@param object_layer? number
+function Mod:releaseWastesSoul(soul, object_layer)
+    object_layer = object_layer or Game.world.map.object_layer
+    soul.height_sort_subject = true
+    soul.height_depth_subject = nil
+    soul.height_depth_layer = nil
+    soul.height_depth_plane_id = nil
+    soul:setLayer(object_layer)
+
+    if soul.height_shadow then
+        soul.height_shadow.height_sort_subject = true
+        soul.height_shadow.height_depth_subject = nil
+        soul.height_shadow.height_depth_layer = nil
+        soul.height_shadow:setLayer(object_layer - 0.001)
+    end
 end
 
 ---@param cage_back? Object
@@ -134,16 +201,39 @@ function Mod:importGonermakerChoices()
     return self:applyGonermakerChoices(save)
 end
 
+---@param gift? number
+---@return string? name
+function Mod:getVesselGiftName(gift)
+    return VESSEL_GIFT_NAMES[tonumber(gift)]
+end
+
+---@return number gift
+---@return string name
+function Mod:resolveVesselGift()
+    local gift = tonumber(Game:getFlag("vessel_gift"))
+    local name = self:getVesselGiftName(gift)
+    if not name then
+        gift = TableUtils.pick(VESSEL_GIFT_IDS)
+        name = assert(self:getVesselGiftName(gift))
+        Game:setFlag("vessel_gift", gift)
+    end
+    return gift, name
+end
+
 function Mod:enterWastes()
     self:importGonermakerChoices()
+    self:resolveVesselGift()
     Assets.transitionToMapBucket("wastes_entrance", function()
         Game.world:loadMap("wastes_entrance")
         Atmosphere:setWeather("wind", true, 3, false, -1)
-        local play_arrival = not Game:getFlag(WASTES_ARRIVAL_FLAG, false)
+        local play_arrival = Game:getFlag("plot", PLOT.intro_boot)
+            < PLOT.intro_wastes
         local soul = self:spawnWastesSoul(play_arrival)
         if play_arrival then
-            self:prepareWastesCageBack()
-            Game.world:startCutscene("wastes", "arrival", soul, WASTES_ARRIVAL_FLAG)
+            local cage_back = self:prepareWastesCageBack()
+            local cage_front = self:prepareWastesCageFront()
+            self:prepareWastesSoulArrival(soul, cage_back, cage_front)
+            Game.world:startCutscene("wastes", "arrival", soul)
         else
             self:releaseWastesCageBack()
             self:releaseWastesCageFront()

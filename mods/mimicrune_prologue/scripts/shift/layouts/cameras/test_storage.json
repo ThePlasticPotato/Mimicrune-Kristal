@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "kristal_version": "0.11.0-dev",
+  "kind": "camera",
+  "id": "test_storage",
+  "name": "CAM 03 - Storage",
+  "width": 640,
+  "height": 720,
+  "pan_y": 120,
+  "pan_speed_x": 240,
+  "pan_speed_y": 280,
+  "pan_edge_margin": 48,
+  "layers": [
+    {
+      "id": "contents",
+      "name": "Contents",
+      "type": "object",
+      "kind": "object",
+      "mode": "camera_feed",
+      "depth": -100,
+      "visible": true,
+      "objects": [
+        { "id": 1, "type": "sprite", "x": 0, "y": 0, "color": [0.45, 0.5, 0.7, 1], "properties": { "layout_id": "background", "texture": "placeholder", "scalex": 20, "scaley": 22.5 } }
+      ]
+    }
+  ]
+}

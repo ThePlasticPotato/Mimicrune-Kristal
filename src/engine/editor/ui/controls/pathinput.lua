@@ -123,6 +123,17 @@ local function appendRegistryItems(items, seen, source)
     end
 end
 
+local function appendAssetRegistryItems(items, seen, registry, transform)
+    for id in Assets.iterateRegistry(registry) do
+        local value = transform and transform(id) or id
+        value = tostring(value)
+        if not seen[value] then
+            seen[value] = true
+            table.insert(items, { id = value, label = value, data = value })
+        end
+    end
+end
+
 local function appendScriptRegistryItems(items, seen, source)
     for id, value in pairs(source or {}) do
         if type(value) == "table" then
@@ -164,7 +175,7 @@ function EditorPathInput:getPickerItems()
     local asset_registries = self.options.asset_registry
     if type(asset_registries) == "string" then asset_registries = { asset_registries } end
     for _, registry in ipairs(asset_registries or {}) do
-        appendRegistryItems(items, seen, Assets.data and Assets.data[registry])
+        appendAssetRegistryItems(items, seen, registry)
     end
 
     if self.path_kind == "asset" and not asset_registries then
@@ -189,14 +200,11 @@ function EditorPathInput:getPickerItems()
             if contains(self.options.asset_categories, category.id)
                 and intersects(self.options.extensions, category.extensions) then
                 for _, registry in ipairs(category.registries) do
-                    for id in pairs(Assets.data and Assets.data[registry] or {}) do
+                    appendAssetRegistryItems(items, seen, registry, function(id)
                         local value = path_root == category.root and tostring(id)
                             or category.root .. "/" .. tostring(id)
-                        if not seen[value] then
-                            seen[value] = true
-                            table.insert(items, { id = value, label = value, data = value })
-                        end
-                    end
+                        return value
+                    end)
                 end
             end
         end

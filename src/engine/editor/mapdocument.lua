@@ -776,9 +776,11 @@ function EditorMapDocument:getSelectedObjectLayer(id)
     local fallback
     for _, layer in ipairs(self:getAllEditableLayers(id)) do
         local layer_type = Registry.getLayerType(layer._editor_type_id)
-        if layer._editor_uid == selected and layer_type and layer_type.id == "objects"
+        local accepts_objects = layer_type
+            and (layer_type.id == "objects" or layer_type.editor_objects == true)
+        if layer._editor_uid == selected and accepts_objects
             and not self:isLayerLocked(layer, id) then return layer end
-        if layer_type and layer_type.id == "objects" and not self:isLayerLocked(layer, id) then
+        if accepts_objects and not self:isLayerLocked(layer, id) then
             fallback = layer
         end
     end
@@ -1900,7 +1902,7 @@ function EditorMapDocument:createPreview(entry)
         elseif layer.type == "objectgroup" then
             local layer_type = layer_registry:get(layer._editor_type_id)
                 or (reader_class and reader_class.LEGACY_FORMAT and layer_registry:getLegacyTiledType(layer))
-            if layer_type and layer_type.id == "objects" then
+            if layer_type and (layer_type.id == "objects" or layer_type.editor_objects == true) then
                 local layer_color = layer_registry:getLayerColor(layer, layer_type)
                 for _, object in ipairs(layer.objects or {}) do
                     local object_id = self:getEditorObjectType(object, entry.id)

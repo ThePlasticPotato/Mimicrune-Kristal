@@ -2459,7 +2459,8 @@ end
 ---@param canvas love.Canvas
 ---@param parameters table
 ---@param write_depth boolean
-function World:compositeHeightDepthCanvas(canvas, parameters, write_depth)
+---@param owner_mask? love.Canvas
+function World:compositeHeightDepthCanvas(canvas, parameters, write_depth, owner_mask)
     local old_comparison, old_write = love.graphics.getDepthMode()
     local old_blend, old_alpha_mode = love.graphics.getBlendMode()
     local old_r, old_g, old_b, old_a = love.graphics.getColor()
@@ -2468,7 +2469,110 @@ function World:compositeHeightDepthCanvas(canvas, parameters, write_depth)
     love.graphics.push()
     love.graphics.origin()
     Draw.setColor(1, 1, 1)
-    Draw.pushShader("HeightDepth", {
+    local shader = owner_mask and "HeightDepthOwnerClip" or "HeightDepth"
+    local uniforms = {
+        depth_mode = parameters.depth_mode,
+        anchor_y = parameters.anchor_y,
+        face_ground_y = parameters.face_ground_y,
+        face_top_y = parameters.face_top_y,
+        height_pixels = parameters.height_pixels,
+        depth_scale = parameters.depth_scale,
+        depth_bias = parameters.depth_bias,
+        alpha_threshold = parameters.alpha_threshold
+    }
+    if owner_mask then
+        uniforms.owner_mask = owner_mask
+    end
+    Draw.pushShader(shader, uniforms)
+    Draw.drawCanvas(canvas)
+    Draw.popShader()
+    love.graphics.pop()
+    love.graphics.setColor(old_r, old_g, old_b, old_a)
+    love.graphics.setBlendMode(old_blend, old_alpha_mode)
+    if old_comparison then
+        love.graphics.setDepthMode(old_comparison, old_write)
+    else
+        love.graphics.setDepthMode()
+    end
+end
+
+---@param child Object
+---@return string plane
+function World:getHeightDepthPlane(child)
+    if child.height_depth_plane_id ~= nil then
+        return tostring(child.height_depth_plane_id)
+    end
+
+    local surface
+    if child.height_occlusion_proxy and child.resolveSurface then
+        surface = child:resolveSurface()
+    end
+    if not surface and child.getHeightSurface then
+        surface = child:getHeightSurface()
+    end
+    surface = surface or child.ground_surface or child.airborne_surface
+    if not surface and child.surface_id and self.map and self.map.getSurface then
+        surface = self.map:getSurface(child.surface_id)
+    end
+    if surface and surface.plane ~= nil then
+        return "plane:" .. tostring(surface.plane)
+    end
+    if child.surface_plane ~= nil then
+        return "plane:" .. tostring(child.surface_plane)
+    end
+
+    local z = tonumber(child.height_occlusion_z)
+    if z == nil then z = child:getFullHeightTransform():getZ() end
+    if math.abs(z) < 0.001 then z = 0 end
+    z = MathUtils.round(z * 1000) / 1000
+    return "plane:z:" .. tostring(z)
+end
+
+---@param child Object
+---@return number layer
+function World:getHeightDepthLayer(child)
+    local explicit = tonumber(child.height_depth_layer)
+    if explicit ~= nil then return explicit end
+    if child.height_occlusion_proxy then
+        if child.resolveSourceLayer then child:resolveSourceLayer() end
+        local source_layer = tonumber(child.source_draw_layer)
+        if source_layer ~= nil then return source_layer end
+    end
+    return tonumber(child.layer) or 0
+end
+
+---@return love.Canvas color
+---@return love.Canvas depth_map
+---@return love.Canvas depth
+function World:getHeightPlaneCanvases()
+    if not self._height_plane_color then
+        self._height_plane_color = love.graphics.newCanvas(
+            SCREEN_WIDTH, SCREEN_HEIGHT)
+        self._height_plane_depth_map = love.graphics.newCanvas(
+            SCREEN_WIDTH, SCREEN_HEIGHT, { format = "rgba16f" })
+        self._height_plane_depth = love.graphics.newCanvas(
+            SCREEN_WIDTH, SCREEN_HEIGHT, {
+                format = "depth24stencil8", readable = false
+            })
+        self._height_plane_color:setFilter("nearest", "nearest")
+        self._height_plane_depth_map:setFilter("nearest", "nearest")
+    end
+    return self._height_plane_color,
+        self._height_plane_depth_map, self._height_plane_depth
+end
+
+---@param canvas love.Canvas
+---@param parameters table
+function World:encodeHeightDepthCanvas(canvas, parameters)
+    local old_comparison, old_write = love.graphics.getDepthMode()
+    local old_blend, old_alpha_mode = love.graphics.getBlendMode()
+    local old_r, old_g, old_b, old_a = love.graphics.getColor()
+    love.graphics.setDepthMode("gequal", true)
+    love.graphics.setBlendMode("replace")
+    love.graphics.push()
+    love.graphics.origin()
+    Draw.setColor(1, 1, 1)
+    Draw.pushShader("HeightDepthEncode", {
         depth_mode = parameters.depth_mode,
         anchor_y = parameters.anchor_y,
         face_ground_y = parameters.face_ground_y,
@@ -2490,6 +2594,61 @@ function World:compositeHeightDepthCanvas(canvas, parameters, write_depth)
     end
 end
 
+---@param color love.Canvas
+---@param depth_map love.Canvas
+function World:compositeHeightPlane(color, depth_map)
+    local old_comparison, old_write = love.graphics.getDepthMode()
+    local old_blend, old_alpha_mode = love.graphics.getBlendMode()
+    local old_r, old_g, old_b, old_a = love.graphics.getColor()
+    love.graphics.setDepthMode("gequal", true)
+    love.graphics.setBlendMode("alpha", "alphamultiply")
+    love.graphics.push()
+    love.graphics.origin()
+    Draw.setColor(1, 1, 1)
+    Draw.pushShader("HeightDepthResolve", {
+        depth_map = depth_map,
+        alpha_threshold = 0.0001
+    })
+    Draw.drawCanvas(color)
+    Draw.popShader()
+    love.graphics.pop()
+    love.graphics.setColor(old_r, old_g, old_b, old_a)
+    love.graphics.setBlendMode(old_blend, old_alpha_mode)
+    if old_comparison then
+        love.graphics.setDepthMode(old_comparison, old_write)
+    else
+        love.graphics.setDepthMode()
+    end
+end
+
+---@param plane table
+---@param target love.Canvas?
+function World:renderHeightDepthPlane(plane, target)
+    local color, depth_map, depth = self:getHeightPlaneCanvases()
+    love.graphics.setDepthMode()
+    Draw.setCanvas(depth_map, { depth = depth })
+    love.graphics.clear(0, 0, 0, 0, false, 0)
+    Draw.setCanvas(color, { depth = depth })
+    love.graphics.clear(0, 0, 0, 0, false, 0)
+
+    table.sort(plane.layer_order)
+    for _, layer in ipairs(plane.layer_order) do
+        love.graphics.setDepthMode()
+        love.graphics.clear(false, false, 0)
+        for _, item in ipairs(plane.layers[layer]) do
+            local canvas = self:captureHeightDepthChild(item.child, "opaque")
+            Draw.setCanvas(color, { depth = depth })
+            self:compositeHeightDepthCanvas(canvas, item.parameters, true)
+            Draw.setCanvas(depth_map, { depth = depth })
+            self:encodeHeightDepthCanvas(canvas, item.parameters)
+            Draw.unlockCanvas(canvas)
+        end
+    end
+
+    Draw.setCanvas(target)
+    self:compositeHeightPlane(color, depth_map)
+end
+
 ---@param child Object
 function World:drawOrdinaryChild(child)
     local old_blend, old_alpha_mode
@@ -2503,12 +2662,15 @@ function World:drawOrdinaryChild(child)
     end
 end
 
---- Draws height-managed sprites and terrain through the depth buffer
+--- Draws height-managed sprites through a hybrid plane/layer/XYZ renderer.
+--- Authored layers order objects on the same physical plane. Different planes,
+--- and objects on the same authored layer, retain per-pixel XYZ depth sorting.
 function World:drawHeightDepthChildren(min_layer, max_layer)
     love.graphics.setDepthMode()
     love.graphics.clear(false, false, 0)
     self._height_depth_renderer_active = true
-    local transparent = {}
+    local target = love.graphics.getCanvas()
+    local planes = {}
     local last_depth_index
     for index, child in ipairs(self.children) do
         if child.visible
@@ -2516,18 +2678,48 @@ function World:drawHeightDepthChildren(min_layer, max_layer)
             and (not max_layer or child.layer < max_layer)
             and self:isHeightDepthChild(child) then
             last_depth_index = index
+            if not self:isHeightDepthTransparent(child) then
+                local plane_id = self:getHeightDepthPlane(child)
+                local plane = planes[plane_id]
+                if not plane then
+                    plane = { layers = {}, layer_order = {}, last_index = index }
+                    planes[plane_id] = plane
+                end
+                plane.last_index = index
+                local layer = self:getHeightDepthLayer(child)
+                if not plane.layers[layer] then
+                    plane.layers[layer] = {}
+                    table.insert(plane.layer_order, layer)
+                end
+                table.insert(plane.layers[layer], {
+                    child = child,
+                    parameters = self:getHeightDepthParameters(child)
+                })
+            end
         end
     end
 
-    local function drawTransparent()
+    local planes_by_last_index = {}
+    for _, plane in pairs(planes) do
+        planes_by_last_index[plane.last_index] =
+            planes_by_last_index[plane.last_index] or {}
+        table.insert(planes_by_last_index[plane.last_index], plane)
+    end
+
+    local transparent = {}
+    local function drawTransparent(transparent)
         table.stable_sort(transparent, function(a, b)
             return a.parameters.sort_depth < b.parameters.sort_depth
         end)
         for _, item in ipairs(transparent) do
-            self:compositeHeightDepthCanvas(item.canvas, item.parameters, false)
+            local owner_mask
+            if item.owner and item.owner.getHeightOcclusionMaskCanvas then
+                owner_mask = item.owner:getHeightOcclusionMaskCanvas()
+            end
+            self:compositeHeightDepthCanvas(
+                item.canvas, item.parameters, false, owner_mask)
             Draw.unlockCanvas(item.canvas)
         end
-        transparent = {}
     end
 
     for index, child in ipairs(self.children) do
@@ -2535,16 +2727,12 @@ function World:drawHeightDepthChildren(min_layer, max_layer)
             and (not min_layer or child.layer >= min_layer)
             and (not max_layer or child.layer < max_layer) then
             if self:isHeightDepthChild(child) then
-                local parameters = self:getHeightDepthParameters(child)
-                local canvas = self:captureHeightDepthChild(child, "opaque")
                 if self:isHeightDepthTransparent(child) then
                     table.insert(transparent, {
-                        canvas = canvas,
-                        parameters = parameters
+                        canvas = self:captureHeightDepthChild(child, "opaque"),
+                        parameters = self:getHeightDepthParameters(child),
+                        owner = child.height_depth_owner
                     })
-                else
-                    self:compositeHeightDepthCanvas(canvas, parameters, true)
-                    Draw.unlockCanvas(canvas)
                 end
 
                 if child.height_occlusion_proxy
@@ -2553,17 +2741,27 @@ function World:drawHeightDepthChildren(min_layer, max_layer)
                     local cutout = self:captureHeightDepthChild(child, "cutout")
                     table.insert(transparent, {
                         canvas = cutout,
-                        parameters = parameters
+                        parameters = self:getHeightDepthParameters(child)
                     })
                 end
             else
                 self:drawOrdinaryChild(child)
             end
         end
-        if index == last_depth_index then drawTransparent() end
+
+        for _, plane in ipairs(planes_by_last_index[index] or {}) do
+            self:renderHeightDepthPlane(plane, target)
+        end
+        if index == last_depth_index and #transparent > 0 then
+            drawTransparent(transparent)
+            transparent = {}
+        end
     end
 
-    if #transparent > 0 then drawTransparent() end
+    if #transparent > 0 then
+        drawTransparent(transparent)
+    end
+    Draw.setCanvas(target)
     love.graphics.setDepthMode()
     self._height_depth_renderer_active = false
 end
