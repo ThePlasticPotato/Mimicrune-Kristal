@@ -233,7 +233,9 @@ end
 
 local function drawOcclusionGuide(object, layer, color, alpha, line_width, map)
     local properties = TableUtils.mergeMany(layer.properties or {}, object.properties or {})
-    local source = tostring(properties.source_layer or properties.visual_layer or "<set source layer>")
+    local source = tostring(properties.source_object or properties.visual_object
+        or properties.source_layer or properties.visual_layer
+        or "<set visual source>")
     local surface_id = properties.surface_id or properties.structure_id
     local face_direction = tostring(properties.face_direction or properties.face or "front")
     local surface = map and map.getSurface and map:getSurface(surface_id) or nil

@@ -49,7 +49,6 @@ function WorldSoul:init(x, y, color, z)
     self.platforming_enabled = false
     self.use_3d_collision = false
     self.height_sort_subject = true
-    self.height_depth_transparent = true
 
     self.spawn_z_explicit = z ~= nil
     self.z = tonumber(z) or 0

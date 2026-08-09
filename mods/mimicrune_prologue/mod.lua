@@ -84,6 +84,7 @@ function Mod:spawnWastesSoul(play_arrival)
     local x, y = self:getWastesSoulSpawnPosition(cage)
     local soul = WorldSoul(x, y, { Game:getSoulColor() }, cage.z)
     Game.world:addChild(soul)
+    soul.layer = 0
 
     soul.arrival_hover_height = soul.hover_height
     soul.arrival_hover_bob = soul.hover_bob

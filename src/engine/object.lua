@@ -103,6 +103,9 @@
 ---@field height_sort_subject boolean? Whether height-aware occluders should compare against this object.
 ---@field height_depth_subject boolean? Whether this non-colliding drawable participates in the GPU height-depth renderer.
 ---@field height_depth_transparent boolean? Whether the GPU height renderer must defer this object to its translucent pass.
+---@field height_depth_owner Object? An owning drawable whose visible pixels must cover this translucent attachment.
+---@field height_depth_plane_id string? An explicit physical plane identity used for plane-local authored layer ordering.
+---@field height_depth_layer number? The authored layer used inside the object's physical height plane. Attached effects use this to inherit their owner's layer despite a small ordinary layer offset.
 ---@field height_depth_offset number? A small view-depth offset, in pixels, used to order attached visual effects relative to their owner.
 ---
 ---@field collider Collider? A Collider class used to check collision with other objects.
@@ -1185,10 +1188,21 @@ end
 --- By default, returns an empty table.
 ---@return table info A list of strings to display if the object is selected by the Object Selection debug feature.
 function Object:getDebugInfo()
-    return {
+    local info = {
         "Position: " .. tostring(self.x) .. ", " .. tostring(self.y) .. ", " .. tostring(self.z),
-        "Depth: " .. tostring(self.depth)
+        "Depth: " .. tostring(self.depth),
+        "Layer: " .. tostring(self.layer)
     }
+    local surface = self.ground_surface or self.airborne_surface
+    local surface_id = self.surface_id or surface and surface.id
+    local plane = self.surface_plane or surface and surface.plane
+    if surface_id ~= nil then
+        table.insert(info, "Surface: " .. tostring(surface_id))
+    end
+    if plane ~= nil then
+        table.insert(info, "Render plane: " .. tostring(plane))
+    end
+    return info
 end
 
 --- *(Override)* Defines options that can be used when selecting the object with the Object Selection debug feature. \

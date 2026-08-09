@@ -102,10 +102,17 @@ function EditorObject:init(data, options)
             name = "Occlusion Sort Y Offset", default = 0
         })
         self:registerProperty("surface_id", "string", {
-            name = "Surface ID"
+            name = "Placement Surface ID"
         })
         self:registerProperty("surface_plane", "string", {
-            name = "Surface Plane"
+            name = "Placement Surface Plane"
+        })
+        self:registerProperty("collision_surface_id", "string", {
+            name = "Collider Surface ID",
+            placeholder = "Only for objects that define a structural surface"
+        })
+        self:registerProperty("supports", "boolean", {
+            name = "Walkable Collider Top", default = false
         })
         self:registerProperty("height_sensitive", "boolean", {
             name = "Height-Sensitive Interaction", default = true
@@ -171,7 +178,12 @@ function EditorObject:init(data, options)
             name = "Height Override"
         })
         self:registerProperty("source_layer", "string", {
-            name = "Visual Source Layer"
+            name = "Visual Source Layer",
+            placeholder = "Tile/image or single-object layer"
+        })
+        self:registerProperty("source_object", "string", {
+            name = "Visual Source Object",
+            placeholder = "Object name or numeric ID"
         })
         self:registerProperty("surface_id", "string", {
             name = "Linked Surface ID",

@@ -225,6 +225,135 @@
       ]
     },
     {
+      "id": "dump3",
+      "name": "Dump3",
+      "color": [
+        1,
+        0,
+        1,
+        1
+      ],
+      "x": 0,
+      "y": 0,
+      "type": "objects",
+      "kind": "object",
+      "depth": -0.7,
+      "alpha": 1,
+      "visible": true,
+      "parallax_x": 0.8,
+      "parallax_y": 0.9,
+      "properties": [],
+      "objects": [
+        {
+          "id": 112,
+          "name": "sprite",
+          "type": "sprite",
+          "x": 0,
+          "y": 400,
+          "width": 2000,
+          "height": 306,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "texture",
+              "type": "asset_path",
+              "value": "world/IMAGE_WASTEPILES_DISTANT"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dump2",
+      "name": "Dump2",
+      "color": [
+        1,
+        0,
+        1,
+        1
+      ],
+      "x": 0,
+      "y": 0,
+      "type": "objects",
+      "kind": "object",
+      "depth": -0.6,
+      "alpha": 1,
+      "visible": true,
+      "parallax_x": 0.85,
+      "parallax_y": 0.95,
+      "properties": [],
+      "objects": [
+        {
+          "id": 111,
+          "name": "sprite",
+          "type": "sprite",
+          "x": 560,
+          "y": 520,
+          "width": 982,
+          "height": 216,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "texture",
+              "type": "asset_path",
+              "value": "world/IMAGE_WASTEPILE_FAR"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dump1",
+      "name": "Dump1",
+      "color": [
+        1,
+        0,
+        1,
+        1
+      ],
+      "x": 0,
+      "y": 0,
+      "type": "objects",
+      "kind": "object",
+      "depth": -0.5,
+      "alpha": 1,
+      "visible": true,
+      "parallax_x": 0.9,
+      "parallax_y": 1,
+      "properties": [],
+      "objects": [
+        {
+          "id": 110,
+          "name": "sprite",
+          "type": "sprite",
+          "x": 0,
+          "y": 520,
+          "width": 1354,
+          "height": 212,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "texture",
+              "type": "asset_path",
+              "value": "world/IMAGE_WASTEPILE_NEAR"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "id": "basefloor",
       "name": "basefloor",
       "color": [
@@ -673,7 +802,13 @@
       "visible": true,
       "parallax_x": 1,
       "parallax_y": 1,
-      "properties": [],
+      "properties": [
+        {
+          "name": "surface_id",
+          "type": "string",
+          "value": ""
+        }
+      ],
       "objects": [
         {
           "id": 89,
@@ -1379,6 +1514,118 @@
       ]
     },
     {
+      "id": "object_collision",
+      "name": "Object Collision",
+      "color": [
+        0,
+        0,
+        1,
+        1
+      ],
+      "x": 0,
+      "y": 0,
+      "type": "collision",
+      "kind": "object",
+      "depth": 0,
+      "alpha": 1,
+      "visible": true,
+      "parallax_x": 1,
+      "parallax_y": 1,
+      "properties": [],
+      "objects": [
+        {
+          "id": 118,
+          "name": "polygon",
+          "x": 422,
+          "y": 779.33333333333,
+          "width": 330.66666666667,
+          "height": 194,
+          "shape": {
+            "type": "polygon",
+            "shape_data": {
+              "points": [
+                {
+                  "x": 29.142857142857,
+                  "y": 186.95238095238
+                },
+                {
+                  "x": 110,
+                  "y": 194
+                },
+                {
+                  "x": 218.66666666667,
+                  "y": 163.33333333333
+                },
+                {
+                  "x": 274,
+                  "y": 127.33333333333
+                },
+                {
+                  "x": 314,
+                  "y": 114.66666666667
+                },
+                {
+                  "x": 330.66666666667,
+                  "y": 61.333333333333
+                },
+                {
+                  "x": 280,
+                  "y": 14
+                },
+                {
+                  "x": 152,
+                  "y": 0
+                },
+                {
+                  "x": 50.666666666667,
+                  "y": 22
+                },
+                {
+                  "x": 6,
+                  "y": 50.666666666667
+                },
+                {
+                  "x": 0,
+                  "y": 98
+                },
+                {
+                  "x": 8.5714285714286,
+                  "y": 133.2380952381
+                },
+                {
+                  "x": 19.428571428571,
+                  "y": 171.80952380952
+                }
+              ]
+            }
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "collision_role",
+              "type": "choice",
+              "value": "solid"
+            },
+            {
+              "name": "depth",
+              "type": "number",
+              "value": 80
+            },
+            {
+              "name": "terrain_edge_fog",
+              "type": "boolean",
+              "value": false
+            },
+            {
+              "name": "surface_id",
+              "type": "string",
+              "value": "6"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "id": "markers",
       "name": "Markers",
       "color": [
@@ -1452,6 +1699,212 @@
               "value": 160
             }
           ]
+        },
+        {
+          "id": 125,
+          "name": "spot_range",
+          "type": "marker",
+          "x": 300,
+          "y": 700,
+          "width": 800,
+          "height": 440,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": []
+        },
+        {
+          "id": 126,
+          "name": "lunge_range",
+          "type": "marker",
+          "x": 620,
+          "y": 820,
+          "width": 360,
+          "height": 240,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": []
+        },
+        {
+          "id": 127,
+          "name": "snatch_range",
+          "type": "marker",
+          "x": 700,
+          "y": 860,
+          "width": 80,
+          "height": 80,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": []
+        },
+        {
+          "id": 128,
+          "name": "grab_range",
+          "type": "marker",
+          "x": 700,
+          "y": 900,
+          "width": 40,
+          "height": 40,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": []
+        }
+      ]
+    },
+    {
+      "id": "lower_objects",
+      "name": "Lower Objects",
+      "color": [
+        1,
+        0,
+        1,
+        1
+      ],
+      "x": 0,
+      "y": 0,
+      "type": "objects",
+      "kind": "object",
+      "depth": -0.05,
+      "alpha": 1,
+      "visible": true,
+      "parallax_x": 1,
+      "parallax_y": 1,
+      "properties": [],
+      "objects": [
+        {
+          "id": 121,
+          "name": "sprite",
+          "type": "sprite",
+          "x": 240,
+          "y": 1000,
+          "width": 86,
+          "height": 54,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "texture",
+              "type": "asset_path",
+              "value": "world/IMAGE_DISCARDED_D"
+            },
+            {
+              "name": "height_sensitive",
+              "type": "boolean",
+              "value": true
+            },
+            {
+              "name": "surface_id",
+              "type": "string",
+              "value": "0"
+            }
+          ]
+        },
+        {
+          "id": 120,
+          "name": "sprite",
+          "type": "sprite",
+          "x": 800,
+          "y": 1120,
+          "width": 88,
+          "height": 36,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "texture",
+              "type": "asset_path",
+              "value": "world/IMAGE_DISCARDED_A"
+            },
+            {
+              "name": "height_sensitive",
+              "type": "boolean",
+              "value": true
+            },
+            {
+              "name": "surface_id",
+              "type": "string",
+              "value": "0"
+            }
+          ]
+        },
+        {
+          "id": 119,
+          "name": "sprite",
+          "type": "sprite",
+          "x": 795.71428571429,
+          "y": 668,
+          "width": 56,
+          "height": 36,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "texture",
+              "type": "asset_path",
+              "value": "world/IMAGE_DISCARDED_C"
+            },
+            {
+              "name": "height_sensitive",
+              "type": "boolean",
+              "value": true
+            },
+            {
+              "name": "surface_id",
+              "type": "string",
+              "value": "0"
+            }
+          ]
+        },
+        {
+          "id": 122,
+          "name": "sprite",
+          "type": "sprite",
+          "x": 1000,
+          "y": 800,
+          "width": 86,
+          "height": 48,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "texture",
+              "type": "asset_path",
+              "value": "world/IMAGE_DISCARDED_B"
+            },
+            {
+              "name": "height_sensitive",
+              "type": "boolean",
+              "value": true
+            },
+            {
+              "name": "surface_id",
+              "type": "string",
+              "value": "0"
+            }
+          ]
         }
       ]
     },
@@ -1493,6 +1946,289 @@
               "name": "z",
               "type": "number",
               "value": 160
+            }
+          ]
+        },
+        {
+          "id": 123,
+          "name": "npc",
+          "type": "npc",
+          "x": 680,
+          "y": 880,
+          "width": 42,
+          "height": 76,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "actor",
+              "type": "chooser",
+              "value": "vessel"
+            },
+            {
+              "name": "sprite",
+              "type": "string",
+              "value": "crumpled"
+            },
+            {
+              "name": "height_sensitive",
+              "type": "boolean",
+              "value": true
+            },
+            {
+              "name": "surface_id",
+              "type": "string",
+              "value": "0"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "interactions",
+      "name": "Interactions",
+      "color": [
+        1,
+        0,
+        1,
+        1
+      ],
+      "x": 0,
+      "y": 0,
+      "type": "objects",
+      "kind": "object",
+      "depth": 0,
+      "alpha": 1,
+      "visible": true,
+      "parallax_x": 1,
+      "parallax_y": 1,
+      "properties": [],
+      "objects": [
+        {
+          "id": 117,
+          "name": "interactable",
+          "type": "interactable",
+          "x": 440,
+          "y": 760,
+          "width": 280,
+          "height": 160,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": []
+        }
+      ]
+    },
+    {
+      "id": "foregroundish",
+      "name": "Foregroundish",
+      "color": [
+        1,
+        0,
+        1,
+        1
+      ],
+      "x": 0,
+      "y": 0,
+      "type": "objects",
+      "kind": "object",
+      "depth": 10,
+      "alpha": 1,
+      "visible": true,
+      "parallax_x": 0.5,
+      "parallax_y": 0.9,
+      "properties": [],
+      "objects": [
+        {
+          "id": 114,
+          "name": "sprite",
+          "type": "sprite",
+          "x": 0,
+          "y": 1064,
+          "width": 186,
+          "height": 84,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "scale_x": 1,
+          "scale_y": 1,
+          "visible": true,
+          "properties": [
+            {
+              "name": "texture",
+              "type": "asset_path",
+              "value": "world/IMAGE_WASTEPILE_CLOSE_LEFT"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "foregroundish_2",
+      "name": "Foregroundish 2",
+      "color": [
+        1,
+        0,
+        1,
+        1
+      ],
+      "x": 0,
+      "y": 0,
+      "type": "objects",
+      "kind": "object",
+      "depth": 10,
+      "alpha": 1,
+      "visible": true,
+      "parallax_x": 0.5,
+      "parallax_y": 0.9,
+      "properties": [],
+      "objects": [
+        {
+          "id": 116,
+          "name": "sprite",
+          "type": "sprite",
+          "x": 1135,
+          "y": 1064,
+          "width": 186,
+          "height": 84,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "scale_x": 1,
+          "scale_y": 1,
+          "visible": true,
+          "properties": [
+            {
+              "name": "texture",
+              "type": "asset_path",
+              "value": "world/IMAGE_WASTEPILE_CLOSE_RIGHT"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "pile",
+      "name": "Pile",
+      "color": [
+        1,
+        0,
+        1,
+        1
+      ],
+      "x": 0,
+      "y": 0,
+      "type": "objects",
+      "kind": "object",
+      "depth": -0.1,
+      "alpha": 1,
+      "visible": true,
+      "parallax_x": 1,
+      "parallax_y": 1,
+      "properties": [],
+      "objects": [
+        {
+          "id": 115,
+          "name": "melted_pile",
+          "type": "sprite",
+          "x": 400,
+          "y": 720,
+          "width": 392,
+          "height": 256,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "texture",
+              "type": "asset_path",
+              "value": "world/IMAGE_WASTEPILE_MELTED"
+            },
+            {
+              "name": "height_sensitive",
+              "type": "boolean",
+              "value": true
+            },
+            {
+              "name": "surface_id",
+              "type": "string",
+              "value": "0"
+            },
+            {
+              "name": "depth",
+              "type": "number",
+              "value": 80
+            },
+            {
+              "name": "collision_surface_id",
+              "type": "string",
+              "value": "6"
+            },
+            {
+              "name": "height_occluder",
+              "type": "boolean",
+              "value": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "new_height_occlusion_2",
+      "name": "New Height Occlusion 2",
+      "color": [
+        0.75,
+        0.3,
+        1,
+        1
+      ],
+      "x": 0,
+      "y": 0,
+      "type": "occlusion",
+      "kind": "object",
+      "depth": 0,
+      "alpha": 1,
+      "visible": true,
+      "parallax_x": 1,
+      "parallax_y": 1,
+      "properties": [],
+      "objects": [
+        {
+          "id": 131,
+          "name": "rectangle",
+          "x": 400,
+          "y": 680,
+          "width": 360,
+          "height": 120,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "source_layer",
+              "type": "string",
+              "value": "Pile"
+            },
+            {
+              "name": "source_object",
+              "type": "string",
+              "value": "melted_pile"
+            },
+            {
+              "name": "surface_id",
+              "type": "string",
+              "value": "6"
             }
           ]
         }

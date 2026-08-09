@@ -183,6 +183,90 @@ Shaders["HeightDepth"] = love.graphics.newShader[[
     }
 ]]
 
+Shaders["HeightDepthOwnerClip"] = love.graphics.newShader[[
+#pragma language glsl3
+    extern Image owner_mask;
+    extern number depth_mode;
+    extern number anchor_y;
+    extern number face_ground_y;
+    extern number face_top_y;
+    extern number height_pixels;
+    extern number depth_scale;
+    extern number depth_bias;
+    extern number alpha_threshold;
+
+    vec4 effect(vec4 color, Image tex, vec2 texture_coords, vec2 screen_coords) {
+        vec4 pixel = Texel(tex, texture_coords) * color;
+        if (pixel.a <= alpha_threshold
+            || Texel(owner_mask, texture_coords).a > alpha_threshold) {
+            discard;
+        }
+
+        float view_depth;
+        if (depth_mode < 0.5) {
+            view_depth = 2.0 * anchor_y - screen_coords.y;
+        } else if (depth_mode > 1.5) {
+            view_depth = screen_coords.y + 2.0 * height_pixels;
+        } else if (screen_coords.y <= face_top_y) {
+            view_depth = screen_coords.y + 2.0 * height_pixels;
+        } else {
+            view_depth = 2.0 * face_ground_y - screen_coords.y;
+        }
+
+        gl_FragDepth = clamp(depth_bias + view_depth * depth_scale, 0.0, 1.0);
+        return pixel;
+    }
+]]
+
+Shaders["HeightDepthEncode"] = love.graphics.newShader[[
+#pragma language glsl3
+    extern number depth_mode;
+    extern number anchor_y;
+    extern number face_ground_y;
+    extern number face_top_y;
+    extern number height_pixels;
+    extern number depth_scale;
+    extern number depth_bias;
+    extern number alpha_threshold;
+
+    vec4 effect(vec4 color, Image tex, vec2 texture_coords, vec2 screen_coords) {
+        vec4 pixel = Texel(tex, texture_coords) * color;
+        if (pixel.a <= alpha_threshold) {
+            discard;
+        }
+
+        float view_depth;
+        if (depth_mode < 0.5) {
+            view_depth = 2.0 * anchor_y - screen_coords.y;
+        } else if (depth_mode > 1.5) {
+            view_depth = screen_coords.y + 2.0 * height_pixels;
+        } else if (screen_coords.y <= face_top_y) {
+            view_depth = screen_coords.y + 2.0 * height_pixels;
+        } else {
+            view_depth = 2.0 * face_ground_y - screen_coords.y;
+        }
+
+        float final_depth = clamp(depth_bias + view_depth * depth_scale, 0.0, 1.0);
+        gl_FragDepth = final_depth;
+        return vec4(final_depth, 0.0, 0.0, 1.0);
+    }
+]]
+
+Shaders["HeightDepthResolve"] = love.graphics.newShader[[
+#pragma language glsl3
+    extern Image depth_map;
+    extern number alpha_threshold;
+
+    vec4 effect(vec4 color, Image tex, vec2 texture_coords, vec2 screen_coords) {
+        vec4 pixel = Texel(tex, texture_coords) * color;
+        if (pixel.a <= alpha_threshold) {
+            discard;
+        }
+        gl_FragDepth = Texel(depth_map, texture_coords).r;
+        return pixel;
+    }
+]]
+
 Shaders["UnderwaterDepth"] = love.graphics.newShader[[
     extern Image background_texture;
     extern vec2 screen_size;

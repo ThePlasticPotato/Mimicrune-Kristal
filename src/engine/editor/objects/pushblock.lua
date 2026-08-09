@@ -8,6 +8,9 @@ function EditorPushBlock:getEditorSprite(data)
 end
 function EditorPushBlock:init(data, options)
     super.init(self, data, options)
+    self:registerProperty("supports", "boolean", {
+        name = "Walkable Collider Top", default = true
+    })
     self:registerProperty("sprite", "asset_path", {
         asset_registry = { "texture", "frames" },
         path_root = "assets/sprites", strip_extension = true,

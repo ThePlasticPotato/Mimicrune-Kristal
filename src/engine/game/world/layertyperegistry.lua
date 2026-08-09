@@ -41,7 +41,11 @@ end
 local function occlusionProperties(properties)
     properties:registerProperty("source_layer", "string", {
         name = "Visual Source Layer",
-        placeholder = "Tile or image layer name"
+        placeholder = "Tile/image or single-object layer"
+    })
+    properties:registerProperty("source_object", "string", {
+        name = "Visual Source Object",
+        placeholder = "Object name or numeric ID"
     })
     properties:registerProperty("z", "number", {
         name = "Bottom Z Override"

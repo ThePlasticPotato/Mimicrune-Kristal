@@ -40,6 +40,7 @@ function PushBlock:init(x, y, shape, properties, sprite, solved_sprite)
 
     self:setSprite(self.default_sprite)
     self.solid = true
+    self.collider.supports = true
 
     -- Options
     self.push_dist = properties["pushdist"] or 40

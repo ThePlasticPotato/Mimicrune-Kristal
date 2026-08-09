@@ -174,6 +174,61 @@ function Testing:runPlatformingTests()
     end
 
     do
+        (function()
+            local root = Object()
+            local map = Map(root, {
+                id = "placed_object_surface_test",
+                __map_reader = EditorMapReader,
+                properties = { platforming = true },
+                layers = {
+                    {
+                        name = "Floor", type = "objectgroup",
+                        _editor_type_id = "collision", _editor_kind_id = "object",
+                        _editor_depth_offset = 0, visible = true, properties = {},
+                        offsetx = 0, offsety = 0, opacity = 1,
+                        parallaxx = 1, parallaxy = 1,
+                        objects = {{
+                            id = 1, name = "rectangle", shape = "rectangle",
+                            x = 0, y = 0, width = 40, height = 40,
+                            properties = {
+                                z = -40, depth = 40, surface_id = "floor",
+                                collision_role = "solid"
+                            }
+                        }}
+                    },
+                    {
+                        name = "Objects", type = "objectgroup",
+                        _editor_type_id = "objects", _editor_kind_id = "object",
+                        _editor_depth_offset = 0, visible = true, properties = {},
+                        offsetx = 0, offsety = 0, opacity = 1,
+                        parallaxx = 1, parallaxy = 1,
+                        objects = {{
+                            id = 2, name = "interactable", type = "interactable",
+                            shape = "rectangle", x = 0, y = 0,
+                            width = 10, height = 10,
+                            properties = {
+                                surface_id = "floor", collision_depth = 40
+                            }
+                        }}
+                    }
+                }
+            })
+            map.id = "placed_object_surface_test"
+            local previous_flags = Game.flags
+            Game.flags = Game.flags or {}
+            map:load()
+            Game.flags = previous_flags
+            local floor = map:getSurface("floor")
+            local placed = map.events_by_id[2]
+            expect(floor and floor.top == 0 and placed and placed.z == 0
+                and placed.collider.depth == 40
+                and placed.collider.surface_id == nil
+                and map:getSurfaceForCollider(placed.collider) == nil,
+                "placing a deep runtime object on a floor must not raise that floor's structural top")
+        end)()
+    end
+
+    do
         local function solidCanvas(r, g, b, a, x, width)
             local canvas = love.graphics.newCanvas(16, 16)
             love.graphics.setCanvas(canvas)
@@ -214,6 +269,106 @@ function Testing:runPlatformingTests()
             and out_b > 0.45 and out_b < 0.55 and out_a > 0.95,
             "GPU height depth should reject a later far sprite and correctly blend a translucent near sprite")
 
+        do
+            (function()
+                local function subject(layer, plane, anchor_y, color)
+                    return {
+                        visible = true,
+                        layer = layer,
+                        height_depth_plane_id = plane,
+                        height_sort_subject = true,
+                        height_depth_subject = true,
+                        getDrawColor = function() return 1, 1, 1, 1 end,
+                        getSortPosition = function() return 0, anchor_y end,
+                        getFullHeightTransform = function() return HeightTransform() end,
+                        fullDraw = function()
+                            love.graphics.setColor(
+                                color[1], color[2], color[3], color[4])
+                            love.graphics.rectangle("fill", 0, 0, 16, 16)
+                            love.graphics.setColor(1, 1, 1, 1)
+                        end
+                    }
+                end
+                local base_plane = { plane = "z:0" }
+                local floor_proxy = {
+                    height_occlusion_proxy = true,
+                    source_draw_layer = -0.2,
+                    resolveSurface = function() return base_plane end,
+                    resolveSourceLayer = function() return true end
+                }
+                local lower_decoration = {
+                    layer = -0.05,
+                    ground_surface = base_plane
+                }
+                local airborne_subject = {
+                    layer = 0,
+                    getHeightSurface = function() return base_plane end,
+                    getFullHeightTransform = function()
+                        return HeightTransform(nil, nil, 50)
+                    end
+                }
+                expect(renderer:getHeightDepthPlane(floor_proxy)
+                        == renderer:getHeightDepthPlane(lower_decoration)
+                    and renderer:getHeightDepthPlane(airborne_subject)
+                        == renderer:getHeightDepthPlane(lower_decoration)
+                    and renderer:getHeightDepthLayer(floor_proxy) == -0.2
+                    and renderer:getHeightDepthLayer(lower_decoration) == -0.05,
+                    "surface proxies, placed objects, and airborne subjects should retain their physical plane and authored layers")
+                renderer.children = {
+                    subject(0, "base", 20, { 0, 0, 1, 1 }),
+                    subject(1, "base", 10, { 1, 0, 0, 1 })
+                }
+                Draw.setCanvas(output, { depth = depth })
+                love.graphics.clear(0, 0, 0, 0, false, 0)
+                renderer:drawHeightDepthChildren()
+                Draw.setCanvas()
+                local layer_data = output:newImageData()
+                local layer_r, layer_g, layer_b = layer_data:getPixel(8, 8)
+                expect(layer_r > 0.95 and layer_g < 0.05 and layer_b < 0.05,
+                    "authored layers should override XYZ depth inside one physical plane")
+
+                renderer.children = {
+                    subject(0, "base", 20, { 0, 0, 1, 1 }),
+                    subject(1, "upper", 10, { 1, 0, 0, 1 })
+                }
+                Draw.setCanvas(output, { depth = depth })
+                love.graphics.clear(0, 0, 0, 0, false, 0)
+                renderer:drawHeightDepthChildren()
+                Draw.setCanvas()
+                layer_data = output:newImageData()
+                layer_r, layer_g, layer_b = layer_data:getPixel(8, 8)
+                expect(layer_r < 0.05 and layer_g < 0.05 and layer_b > 0.95,
+                    string.format(
+                        "XYZ depth should override authored layers between physical planes (%.3f, %.3f, %.3f)",
+                        layer_r, layer_g, layer_b))
+                renderer.children = nil
+            end)()
+        end
+
+        do
+            (function()
+                local prop_source = Object(0, 0, 40, 40)
+                prop_source.layer = -0.05
+                local prop_map = {
+                    id = "object_occlusion_test",
+                    getEvent = function(_, name)
+                        return name == "melted_pile" and prop_source or nil
+                    end,
+                    getDrawableLayer = function() return nil end
+                }
+                local prop_occluder = HeightOccluder(prop_map, {
+                    id = 2, name = "pile volume", shape = "rectangle",
+                    x = 0, y = 0, width = 20, height = 20
+                }, { offsetx = 0, offsety = 0 }, {
+                    source_object = "melted_pile", z = 0, depth = 80
+                })
+                expect(prop_occluder:resolveSourceLayer() == prop_source
+                        and prop_occluder.source_draw_layer == -0.05
+                        and prop_source.height_occlusion_masks[1] == prop_occluder,
+                    "height occluders should accept an individual map object as their visual source")
+            end)()
+        end
+
         local bleed_output = love.graphics.newCanvas(64, 64)
         love.graphics.setCanvas(bleed_output)
         love.graphics.clear(0, 0, 0, 0)
@@ -249,6 +404,25 @@ function Testing:runPlatformingTests()
             and player_r < 0.05 and player_g < 0.05 and player_b > 0.95,
             string.format(
                 "attached translucent effects should remain visible on the floor but stay behind equal-depth owner pixels (floor %.3f,%.3f,%.3f; player %.3f,%.3f,%.3f)",
+                floor_r, floor_g, floor_b, player_r, player_g, player_b
+            ))
+
+        love.graphics.setCanvas({ output, depthstencil = depth })
+        love.graphics.clear(0, 0, 0, 0, false, 0)
+        renderer:compositeHeightDepthCanvas(red, billboard(10), true)
+        renderer:compositeHeightDepthCanvas(half_blue, billboard(20), true)
+        renderer:compositeHeightDepthCanvas(
+            green, billboard(30), false, half_blue
+        )
+        love.graphics.setCanvas()
+        data = output:newImageData()
+        floor_r, floor_g, floor_b = data:getPixel(4, 8)
+        player_r, player_g, player_b = data:getPixel(12, 8)
+        expect(floor_r > 0.45 and floor_r < 0.55
+            and floor_g > 0.45 and floor_g < 0.55 and floor_b < 0.05
+            and player_r < 0.05 and player_g < 0.05 and player_b > 0.95,
+            string.format(
+                "owner masks should keep translucent attachments behind their owner's visible pixels (floor %.3f,%.3f,%.3f; player %.3f,%.3f,%.3f)",
                 floor_r, floor_g, floor_b, player_r, player_g, player_b
             ))
         output:release()
@@ -1684,6 +1858,7 @@ function Testing:runPlatformingTests()
         properties = {}, __editor_property_types = {}
     }, { layer_type = occlusion_layer_type })
     expect(editor_occluder.property_set:getProperty("source_layer").type == "string"
+        and editor_occluder.property_set:getProperty("source_object").type == "string"
         and editor_occluder.property_set:getProperty("z").name == "Bottom Z Override"
         and editor_occluder.property_set:getProperty("depth").name == "Height Override"
         and editor_occluder.property_set:getProperty("surface_id").type == "string"
