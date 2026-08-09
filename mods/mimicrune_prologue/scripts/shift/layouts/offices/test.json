@@ -20,21 +20,55 @@
           "id": 1,
           "name": "left_office_door",
           "type": "office_door",
-          "x": 32,
-          "y": 110,
-          "width": 120,
-          "height": 362,
-          "properties": []
+          "x": 35,
+          "y": 112,
+          "width": 115,
+          "height": 358,
+          "properties": [
+            {
+              "name": "light_animatronic_sprite",
+              "type": "asset_path",
+              "value": "placeholder"
+            },
+            {
+              "name": "light_hallway_sprite",
+              "type": "asset_path",
+              "value": "placeholder"
+            },
+            {
+              "name": "visual_path",
+              "type": "string",
+              "value": "shifts/doors/factory_office/left"
+            }
+          ],
+          "layer": -50
         },
         {
           "id": 2,
           "name": "right_office_door",
           "type": "office_door",
-          "x": 909,
-          "y": 110,
-          "width": 120,
-          "height": 362,
-          "properties": []
+          "x": 910,
+          "y": 112,
+          "width": 115,
+          "height": 358,
+          "properties": [
+            {
+              "name": "light_animatronic_sprite",
+              "type": "asset_path",
+              "value": "placeholder"
+            },
+            {
+              "name": "light_hallway_sprite",
+              "type": "asset_path",
+              "value": "placeholder"
+            },
+            {
+              "name": "visual_path",
+              "type": "string",
+              "value": "shifts/doors/factory_office/right"
+            }
+          ],
+          "layer": -50
         },
         {
           "id": 3,
@@ -181,6 +215,74 @@
               "name": "texture",
               "type": "asset_path",
               "value": "ui/shift/objects/door_lever_right"
+            }
+          ]
+        },
+        {
+          "id": 7,
+          "name": "left_door_light",
+          "type": "office_door_light_button",
+          "x": 4,
+          "y": 316,
+          "width": 22,
+          "height": 33,
+          "properties": [
+            {
+              "name": "door",
+              "type": "object_reference",
+              "value": {
+                "map": "shift-layout:mods/mimicrune_prologue/scripts/shift/layouts/offices/test.json",
+                "object": 1
+              }
+            },
+            {
+              "name": "off_texture",
+              "type": "asset_path",
+              "value": "ui/shift/objects/door_button_off_left"
+            },
+            {
+              "name": "on_texture",
+              "type": "asset_path",
+              "value": "ui/shift/objects/door_button_on_left"
+            },
+            {
+              "name": "side",
+              "type": "choice",
+              "value": "left"
+            }
+          ]
+        },
+        {
+          "id": 8,
+          "name": "right_door_light",
+          "type": "office_door_light_button",
+          "x": 1034,
+          "y": 316,
+          "width": 22,
+          "height": 33,
+          "properties": [
+            {
+              "name": "door",
+              "type": "object_reference",
+              "value": {
+                "map": "shift-layout:mods/mimicrune_prologue/scripts/shift/layouts/offices/test.json",
+                "object": 2
+              }
+            },
+            {
+              "name": "off_texture",
+              "type": "asset_path",
+              "value": "ui/shift/objects/door_button_off_right"
+            },
+            {
+              "name": "on_texture",
+              "type": "asset_path",
+              "value": "ui/shift/objects/door_button_on_right"
+            },
+            {
+              "name": "side",
+              "type": "choice",
+              "value": "right"
             }
           ]
         }

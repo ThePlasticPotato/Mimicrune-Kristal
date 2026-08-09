@@ -95,8 +95,8 @@ end
 ---@param screen_y number
 ---@return number progress
 function DraggableOfficeInteractable:getPathProgressAt(screen_x, screen_y)
-    local x, y = screen_x, screen_y
-    if self.parent then x, y = self.parent:screenToLocalPos(screen_x, screen_y) end
+    local x, y = self:perspectiveCursorPosition(screen_x, screen_y)
+    if self.parent then x, y = self.parent:screenToLocalPos(x, y) end
     local path_x = self.path_end_x - self.path_start_x
     local path_y = self.path_end_y - self.path_start_y
     local length_squared = path_x * path_x + path_y * path_y

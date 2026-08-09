@@ -1,5 +1,4 @@
---- A raiseable menu panel used during shifts. The panel frame is drawn normally,
---- while its screen contents are clipped to an inner canvas and optionally CRT-filtered.
+--- A raiseable menu panel used during shifts.
 ---@class ShiftPanel : Object
 ---@field shift Shift?
 ---@field state PanelState
@@ -82,7 +81,6 @@ function ShiftPanel:setBackground(sprite_path)
     if close_frames then self.close_time = #close_frames / 20 end
 end
 
---- Defines the panel screen using local left, top, right, and bottom coordinates.
 ---@param left number
 ---@param top number
 ---@param right number
@@ -296,8 +294,6 @@ end
 function ShiftPanel:draw()
     if self.state == "OPEN" then
         if self.sprite then Draw.draw(self.sprite) end
-        -- The supplied panel art has an opaque screen interior, so the clipped
-        -- feed must be composited after it. Its bounds remain inside the frame.
         self:drawScreen(1)
     elseif self.state == "OPENING" and self.open_sprite then
         self.open_sprite:fullDraw()

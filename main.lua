@@ -217,6 +217,7 @@ CameraMapButton = require("src.engine.game.shift.ui.cameramapbutton")
 OfficeInteractable = require("src.engine.game.shift.ui.officeinteractable")
 DraggableOfficeInteractable = require("src.engine.game.shift.ui.draggableofficeinteractable")
 OfficeDoorLever = require("src.engine.game.shift.ui.officedoorlever")
+OfficeDoorLightButton = require("src.engine.game.shift.ui.officedoorlightbutton")
 CameraInteractable = require("src.engine.game.shift.ui.camerainteractable")
 
 Player = require("src.engine.game.world.player")

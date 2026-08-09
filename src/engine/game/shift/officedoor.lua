@@ -13,6 +13,15 @@
 ---@field transition_timer number
 ---@field close_shake_x number Horizontal screenshake when a closing transition finishes.
 ---@field close_shake_friction number Screenshake decay per 30 FPS frame.
+---@field light_button OfficeDoorLightButton?
+---@field light_hallway_sprite string? Sprite shown inside the lit doorway.
+---@field light_animatronic_sprite string? Fallback sprite for animatronics waiting at this door.
+---@field visual_path string? Base path containing open, opening, closing, and closed sprites.
+---@field visual_sprite Sprite?
+---@field visual_open_sprite string?
+---@field visual_opening_sprite string?
+---@field visual_closing_sprite string?
+---@field visual_closed_sprite string?
 ---@overload fun(x?: number, y?: number, width?: number, height?: number) : OfficeDoor
 local OfficeDoor, super = Class(ShiftMoveTarget)
 
@@ -42,6 +51,15 @@ function OfficeDoor:init(x, y, width, height)
     self.transition_timer = 0
     self.close_shake_x = 4
     self.close_shake_friction = 1
+    self.light_button = nil
+    self.light_hallway_sprite = nil
+    self.light_animatronic_sprite = nil
+    self.visual_path = nil
+    self.visual_sprite = nil
+    self.visual_open_sprite = nil
+    self.visual_opening_sprite = nil
+    self.visual_closing_sprite = nil
+    self.visual_closed_sprite = nil
 end
 
 ---@param animatronic? ShiftAnimatronic
@@ -74,6 +92,7 @@ function OfficeDoor:setState(state)
     local old = self.state
     self.state = state
     self.transition_timer = 0
+    self:updateVisualState()
     self:onStateChange(old, state)
     if old == "CLOSING" and self.state == "CLOSED" then
         self:onClosed()
@@ -94,10 +113,59 @@ end
 
 ---@param definition table
 function OfficeDoor:applyLayoutDefinition(definition)
+    self.transition_time = math.max(0,
+        tonumber(definition.transition_time) or self.transition_time)
     self.close_shake_x = math.max(0,
         tonumber(definition.close_shake_x) or self.close_shake_x)
     self.close_shake_friction = math.max(0.01,
         tonumber(definition.close_shake_friction) or self.close_shake_friction)
+    self.light_hallway_sprite = definition.light_hallway_sprite
+        or self.light_hallway_sprite
+    self.light_animatronic_sprite = definition.light_animatronic_sprite
+        or self.light_animatronic_sprite
+    self.visual_path = definition.visual_path or self.visual_path
+    self.visual_open_sprite = definition.visual_open_sprite
+        or (self.visual_path and self.visual_path .. "/open")
+        or self.visual_open_sprite
+    self.visual_opening_sprite = definition.visual_opening_sprite
+        or (self.visual_path and self.visual_path .. "/opening")
+        or self.visual_opening_sprite
+    self.visual_closing_sprite = definition.visual_closing_sprite
+        or (self.visual_path and self.visual_path .. "/closing")
+        or self.visual_closing_sprite
+    self.visual_closed_sprite = definition.visual_closed_sprite
+        or (self.visual_path and self.visual_path .. "/closed")
+        or self.visual_closed_sprite
+    self:updateVisualState()
+end
+
+---@return string?
+function OfficeDoor:getVisualSpriteForState()
+    if self.state == "OPEN" then return self.visual_open_sprite end
+    if self.state == "OPENING" then return self.visual_opening_sprite end
+    if self.state == "CLOSING" then return self.visual_closing_sprite end
+    if self.state == "CLOSED" then return self.visual_closed_sprite end
+end
+
+function OfficeDoor:updateVisualState()
+    local asset = self:getVisualSpriteForState()
+    if not asset or asset == "" then
+        if self.visual_sprite then self.visual_sprite.visible = false end
+        return
+    end
+    if not self.visual_sprite then
+        self.visual_sprite = self:addChild(Sprite(nil, 0, 0))
+        self.visual_sprite.debug_select = false
+    end
+    self.visual_sprite.visible = true
+
+    local frames = Assets.getFrames(asset)
+    if self:isMoving() and frames and #frames > 0 then
+        local delay = math.max(self.transition_time / #frames, 1 / 240)
+        self.visual_sprite:setAnimation({ asset, delay, false })
+    else
+        self.visual_sprite:setSprite(asset)
+    end
 end
 
 ---@param instant? boolean
@@ -155,6 +223,65 @@ function OfficeDoor:update()
         end
     end
     super.update(self)
+end
+
+---@return boolean
+function OfficeDoor:isLightOn()
+    return self.state == "OPEN"
+        and self.light_button ~= nil
+        and self.light_button.light_on
+end
+
+---@param texture string
+function OfficeDoor:drawHallwayTexture(texture)
+    if not texture or texture == "" or not Assets.hasSprite(texture) then return end
+    local image = Assets.getTexture(texture)
+    local image_width = math.max(image:getWidth(), 1)
+    local image_height = math.max(image:getHeight(), 1)
+    local scale = math.min(self.width / image_width, self.height / image_height)
+    local x = (self.width - image_width * scale) / 2
+    local y = (self.height - image_height * scale) / 2
+    Draw.setColor(1, 1, 0.82, 0.75)
+    Draw.draw(image, x, y, 0, scale, scale)
+end
+
+---@param texture string
+---@param index integer
+---@param count integer
+function OfficeDoor:drawLitAnimatronic(texture, index, count)
+    if not texture or texture == "" or not Assets.hasSprite(texture) then return end
+    local image = Assets.getTexture(texture)
+    local image_width = math.max(image:getWidth(), 1)
+    local image_height = math.max(image:getHeight(), 1)
+    local scale = math.min(self.width / image_width, self.height / image_height)
+    local spread = math.min(self.width * 0.18, 20)
+    local x = (self.width - image_width * scale) / 2
+        + (index - (count + 1) / 2) * spread
+    local y = self.height - image_height * scale
+    Draw.setColor(1, 1, 0.86, 1)
+    Draw.draw(image, x, y, 0, scale, scale)
+end
+
+function OfficeDoor:drawLightView()
+    if not self:isLightOn() then return end
+
+    love.graphics.push("all")
+    Draw.setColor(0.9, 0.78, 0.42, 0.9)
+    love.graphics.rectangle("fill", 0, 0, self.width, self.height)
+    self:drawHallwayTexture(self.light_hallway_sprite)
+
+    local count = #self.animatronics
+    for index, animatronic in ipairs(self.animatronics) do
+        local texture = animatronic.getDoorLightSprite
+            and animatronic:getDoorLightSprite(self)
+            or self.light_animatronic_sprite
+        self:drawLitAnimatronic(texture or self.light_animatronic_sprite, index, count)
+    end
+    love.graphics.pop()
+end
+
+function OfficeDoor:draw()
+    super.draw(self)
 end
 
 return OfficeDoor

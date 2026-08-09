@@ -31,6 +31,31 @@ function ShiftEditorPlugin:registerShiftObjects(EditorShiftObject, EditorShiftDr
             object:registerProperty("close_shake_friction", "number", {
                 name = "Close Shake Friction", default = 1, min = 0.01
             })
+            object:registerProperty("transition_time", "number", {
+                name = "Transition Time", default = 0.25, min = 0
+            })
+            object:registerProperty("visual_path", "string", {
+                name = "Door Visual Base Path",
+                placeholder = "shifts/doors/office/left"
+            })
+            for _, state in ipairs({ "open", "opening", "closing", "closed" }) do
+                object:registerProperty("visual_" .. state .. "_sprite", "asset_path", {
+                    name = StringUtils.titleCase(state) .. " Sprite",
+                    asset_registry = { "texture", "frames" },
+                    path_root = "assets/sprites", strip_extension = true,
+                    extensions = { "png", "jpg", "jpeg" }
+                })
+            end
+            object:registerProperty("light_hallway_sprite", "asset_path", {
+                name = "Lit Hallway Sprite", asset_registry = { "texture", "frames" },
+                path_root = "assets/sprites", strip_extension = true,
+                extensions = { "png", "jpg", "jpeg" }
+            })
+            object:registerProperty("light_animatronic_sprite", "asset_path", {
+                name = "Lit Animatronic Fallback", asset_registry = { "texture", "frames" },
+                path_root = "assets/sprites", strip_extension = true,
+                extensions = { "png", "jpg", "jpeg" }
+            })
         end)
     local DoorLeverObject = namedObject(EditorShiftDraggable, "Office Door Lever",
         "A draggable door lever. The selected axis keeps its path perfectly straight.", function(object)
@@ -66,6 +91,62 @@ function ShiftEditorPlugin:registerShiftObjects(EditorShiftObject, EditorShiftDr
             })
         end)
     DoorLeverObject.editor_sprite = "ui/shift/objects/door_lever_left"
+    local DoorLightButtonObject = namedObject(EditorShiftObject, "Office Door Light Button",
+        "A powered light button linked to an office door.", function(object)
+            object:registerProperty("door", "object_reference", {
+                name = "Door Target", allowed_types = { "office_door" }, same_map = true
+            })
+            object:registerProperty("side", "choice", {
+                name = "Side", default = "left", choices = {
+                    { value = "left", label = "Left" },
+                    { value = "right", label = "Right" }
+                }
+            })
+            object:registerProperty("off_texture", "asset_path", {
+                name = "Off Sprite", asset_registry = { "texture", "frames" },
+                path_root = "assets/sprites", strip_extension = true,
+                extensions = { "png", "jpg", "jpeg" }
+            })
+            object:registerProperty("on_texture", "asset_path", {
+                name = "On Sprite", asset_registry = { "texture", "frames" },
+                path_root = "assets/sprites", strip_extension = true,
+                extensions = { "png", "jpg", "jpeg" }
+            })
+            object:registerProperty("power_usage", "number", {
+                name = "Power Usage", default = 1, min = 0
+            })
+            object:registerProperty("severity", "number", {
+                name = "Usage Severity", default = 1, min = 0
+            })
+            object:registerProperty("toggle_sound", "asset_path", {
+                name = "Toggle Sound", default = "doorlight_toggle",
+                asset_registry = "sound_data", path_root = "assets/sounds",
+                strip_extension = true, extensions = { "wav", "ogg" }
+            })
+            object:registerProperty("jammed_sound", "asset_path", {
+                name = "Unavailable Sound", default = "doorlight_jammed",
+                asset_registry = "sound_data", path_root = "assets/sounds",
+                strip_extension = true, extensions = { "wav", "ogg" }
+            })
+            object:registerProperty("drone_sound", "asset_path", {
+                name = "Light Loop", default = "doorlight_drone_loop",
+                asset_registry = "sound_data", path_root = "assets/sounds",
+                strip_extension = true, extensions = { "wav", "ogg" }
+            })
+            object:registerProperty("drone_volume", "number", {
+                name = "Light Loop Volume", default = 0.25, min = 0
+            })
+            object:registerProperty("presence_sound", "asset_path", {
+                name = "Animatronic Reveal Sound", default = "door_animatronicpresent_quick",
+                asset_registry = "sound_data", path_root = "assets/sounds",
+                strip_extension = true, extensions = { "wav", "ogg" }
+            })
+            object:registerProperty("presence_volume", "number", {
+                name = "Reveal Sound Volume", default = 0.8, min = 0
+            })
+        end)
+    DoorLightButtonObject.editor_sprite = "ui/shift/objects/door_button_off_left"
+    DoorLightButtonObject.sprite_property = "off_texture"
     local CameraInteractableObject = namedObject(EditorShiftObject, "Camera Interactable",
         "A clickable control positioned in a camera feed.")
     local CameraButtonObject = namedObject(EditorShiftObject, "Camera Map Button",
@@ -79,6 +160,7 @@ function ShiftEditorPlugin:registerShiftObjects(EditorShiftObject, EditorShiftDr
     self:registerEditorObject("office_interactable", OfficeInteractableObject)
     self:registerEditorObject("draggable_office_interactable", EditorShiftDraggable)
     self:registerEditorObject("office_door_lever", DoorLeverObject)
+    self:registerEditorObject("office_door_light_button", DoorLightButtonObject)
     self:registerEditorObject("office_door", OfficeDoorObject)
     self:registerEditorObject("camera_interactable", CameraInteractableObject)
     self:registerEditorObject("camera_button", CameraButtonObject)

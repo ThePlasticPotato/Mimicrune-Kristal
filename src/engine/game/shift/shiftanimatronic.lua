@@ -19,6 +19,8 @@
 ---@field office_door OfficeDoor?
 ---@field office_attack_pending boolean
 ---@field attacking boolean
+---@field door_light_sprite string? Fallback sprite used when seen at a lit office door.
+---@field door_light_sprites table<string, string> Door-specific lit sprites indexed by door id.
 ---@overload fun(actor?: Actor|string) : ShiftAnimatronic
 local ShiftAnimatronic, super = Class(Object)
 
@@ -47,6 +49,8 @@ function ShiftAnimatronic:init(actor)
     self.office_door = nil
     self.office_attack_pending = false
     self.attacking = false
+    self.door_light_sprite = nil
+    self.door_light_sprites = {}
 end
 
 ---@param actor Actor|string
@@ -66,6 +70,12 @@ end
 ---@return string?
 function ShiftAnimatronic:getJumpscareID()
     return self.jumpscare or self.id or (self.actor and self.actor.id)
+end
+
+---@param door OfficeDoor
+---@return string?
+function ShiftAnimatronic:getDoorLightSprite(door)
+    return self.door_light_sprites[door.id] or self.door_light_sprite
 end
 
 ---@return number chance A value between `0` and `1`.
@@ -118,7 +128,6 @@ function ShiftAnimatronic:setTarget(target)
     end
 end
 
---- Compatibility helper for camera-only callers.
 ---@param camera ShiftCamera|string|nil
 function ShiftAnimatronic:setCamera(camera)
     self:setTarget(camera)
@@ -142,11 +151,12 @@ function ShiftAnimatronic:onMovementOpportunity(target)
 end
 
 --- *(Override)* Standard door-entry check. Specialized animatronics may bypass or replace it.
+--- An animatronic revealed by the linked door light remains at the door.
 ---@param door OfficeDoor
 ---@param office Office
 ---@return boolean
 function ShiftAnimatronic:canEnterOffice(door, office)
-    return door:isOpen()
+    return door:isOpen() and not door:isLightOn()
 end
 
 --- *(Override)* Called after this animatronic moves from a door into the office.

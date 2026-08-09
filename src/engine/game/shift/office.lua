@@ -168,6 +168,11 @@ end
 function Office:setPowerOut()
     if self.power_out then return end
     self.power_out = true
+    for _, controls in ipairs({ self.interactables, self.static_interactables }) do
+        for _, control in ipairs(controls) do
+            if control.light_on and control.setLight then control:setLight(false, true) end
+        end
+    end
     if self.background and self.power_out_sprite then
         self.background:setSprite(self.power_out_sprite)
     end
@@ -283,24 +288,55 @@ function Office:syncPan()
     self.panorama.x = -self.pan
 end
 
-function Office:drawBackground()
-    if not self.background or self.background.parent then return end
-    if self.panorama_warp <= 0 then
-        self.background:fullDraw()
-        return
+function Office:drawDoorLights()
+    love.graphics.push()
+    self.panorama:preDraw()
+    for _, door in ipairs(self.doors) do
+        if door.parent == self.panorama and door.visible and door:isLightOn() then
+            love.graphics.push()
+            door:preDraw()
+            door:drawLightView()
+            door:postDraw()
+            love.graphics.pop()
+        end
     end
+    self.panorama:postDraw()
+    love.graphics.pop()
+end
 
+function Office:drawPanorama()
     local canvas = Draw.pushCanvas(SCREEN_WIDTH, SCREEN_HEIGHT)
-    self.background:fullDraw()
+    self:drawDoorLights()
+    if self.background and not self.background.parent then self.background:fullDraw() end
+    self.panorama:fullDraw()
     Draw.popCanvas()
 
-    local last_shader = love.graphics.getShader()
-    local shader = Assets.getShader("office_panorama")
-    shader:send("warp", self.panorama_warp)
-    love.graphics.setShader(shader)
+    local last_shader
+    if self.panorama_warp > 0 then
+        last_shader = love.graphics.getShader()
+        local shader = Assets.getShader("office_panorama")
+        shader:send("warp", self.panorama_warp)
+        love.graphics.setShader(shader)
+    end
     Draw.setColor(1, 1, 1, 1)
     Draw.draw(canvas)
-    love.graphics.setShader(last_shader)
+    if self.panorama_warp > 0 then love.graphics.setShader(last_shader) end
+end
+
+---@param screen_x number
+---@param screen_y number
+---@return number screen_x
+---@return number screen_y
+function Office:screenToPanoramaSource(screen_x, screen_y)
+    if self.panorama_warp <= 0 then return screen_x, screen_y end
+    local local_x, local_y = self:screenToLocalPos(screen_x, screen_y)
+    local horizontal = local_x / SCREEN_WIDTH - 0.5
+    local vertical_scale = math.max(0.02,
+        1 - self.panorama_warp * 4 * horizontal * horizontal)
+    vertical_scale = math.floor(vertical_scale * 230) / 230
+    local_y = local_y * vertical_scale
+        + (1 - vertical_scale) * SCREEN_HEIGHT / 2
+    return self:getFullTransform():transformPoint(local_x, local_y)
 end
 
 function Office:update()
@@ -317,8 +353,11 @@ function Office:update()
 end
 
 function Office:draw()
-    self:drawBackground()
+    self:drawPanorama()
+    local panorama_visible = self.panorama.visible
+    self.panorama.visible = false
     super.draw(self)
+    self.panorama.visible = panorama_visible
 end
 
 ---@return boolean

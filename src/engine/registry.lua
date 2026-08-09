@@ -1351,6 +1351,10 @@ function Registry.initShiftLayouts()
         return OfficeDoorLever(owner, definition.door or definition.target, 0, 0,
             definition.width or 32, definition.height or 32)
     end)
+    self.registerShiftLayoutObject("office_door_light_button", function(definition, owner)
+        return OfficeDoorLightButton(owner, definition.door or definition.target,
+            definition.side, 0, 0, definition.width or 22, definition.height or 33)
+    end)
     self.registerShiftLayoutObject("camera_interactable", function(definition)
         return CameraInteractable(0, 0, definition.width or 32, definition.height or 32)
     end)

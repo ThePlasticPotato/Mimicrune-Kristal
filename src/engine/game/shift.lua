@@ -236,6 +236,16 @@ function Shift:postInit(night)
     for index, door in ipairs(self.office.doors) do
         self:addPowerDrainer(door.id or ("door_" .. index), door)
     end
+    local control_index = 0
+    for _, controls in ipairs({ self.office.interactables, self.office.static_interactables }) do
+        for _, control in ipairs(controls) do
+            if control.isPowerDraining and control.power_usage ~= nil then
+                control_index = control_index + 1
+                local id = control.layout_id or control.id or tostring(control_index)
+                self:addPowerDrainer("office_control:" .. tostring(id), control)
+            end
+        end
+    end
 
     self.duration = night.duration
     self.initialized = true
@@ -943,7 +953,7 @@ function Shift:drawDebug()
     local doors = self.office and self.office.doors or {}
     add(string.format("DOORS (%d)", #doors), { 1, 0.55, 0.35, 1 })
     for _, door in ipairs(doors) do
-        local status = door.state
+        local status = door.state .. "  LIGHT " .. (door:isLightOn() and "ON" or "OFF")
         if door.jammed then
             status = status .. "  JAMMED BY "
                 .. tostring(door.jammer and (door.jammer.id or door.jammer.name) or "?")
