@@ -7,7 +7,7 @@
 ---@field jumpscare string? Jumpscare asset id. Defaults to this animatronic's id, then its actor id.
 ---@field ai_level number
 ---@field base_movement_chance number Divisor of the ai decision chance. Default 20.
----@field movement_interval number Seconds between movement opportunities. Default 5.
+---@field movement_interval number Seconds between movement opportunities. Default 20.
 ---@field movement_timer number
 ---@field active boolean
 ---@field starting_target string?
@@ -80,7 +80,7 @@ end
 
 ---@return number chance A value between `0` and `1`.
 function ShiftAnimatronic:getMovementChance()
-    return MathUtils.clamp((self.ai_level / self.base_movement_chance), 0, 1)
+    return self.ai_level
 end
 
 ---@return boolean
@@ -214,7 +214,7 @@ function ShiftAnimatronic:update()
             self.movement_timer = 0
         elseif self.movement_timer >= self.movement_interval then
             self.movement_timer = self.movement_timer % self.movement_interval
-            if self:canMove() and love.math.random() <= self:getMovementChance() then
+            if self:canMove() and MathUtils.randomInt(1, self.base_movement_chance + 1) <= self:getMovementChance() then
                 local target = self:selectMoveTarget()
                 if target and self:onMovementOpportunity(target) ~= false then
                     self:setTarget(target)
