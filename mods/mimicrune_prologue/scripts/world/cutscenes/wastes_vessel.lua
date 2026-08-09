@@ -126,7 +126,12 @@ end
 local function captureAmbition(cutscene, vessel, soul)
     setSoulControl(soul, false)
     vessel.solid = false
-    cutscene:playSound("jump")
+    local rando = MathUtils.randomInt(1, 101)
+    if (rando == 1) then
+        cutscene:playSound("foxyjumpscare", 0.75, 1.2)
+    else
+        cutscene:playSound("jump")
+    end
     vessel:setAnimation("intro/ambition/tackle")
 
     local start_x, start_y, start_z = vessel.x, vessel.y, vessel.z or 0
