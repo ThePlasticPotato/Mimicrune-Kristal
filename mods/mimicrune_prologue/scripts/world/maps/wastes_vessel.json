@@ -1705,7 +1705,7 @@
           "name": "spot_range",
           "type": "marker",
           "x": 300,
-          "y": 700,
+          "y": 724,
           "width": 800,
           "height": 440,
           "shape": {
@@ -1720,7 +1720,7 @@
           "name": "lunge_range",
           "type": "marker",
           "x": 620,
-          "y": 820,
+          "y": 844,
           "width": 280,
           "height": 240,
           "shape": {
@@ -1735,7 +1735,7 @@
           "name": "snatch_range",
           "type": "marker",
           "x": 700,
-          "y": 860,
+          "y": 884,
           "width": 40,
           "height": 60,
           "shape": {
@@ -1750,7 +1750,7 @@
           "name": "grab_range",
           "type": "marker",
           "x": 700,
-          "y": 880,
+          "y": 904,
           "width": 40,
           "height": 40,
           "shape": {
@@ -1980,7 +1980,7 @@
           "name": "npc",
           "type": "npc",
           "x": 680,
-          "y": 880,
+          "y": 904,
           "width": 42,
           "height": 76,
           "shape": {

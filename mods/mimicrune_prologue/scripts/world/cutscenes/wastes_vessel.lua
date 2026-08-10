@@ -1,8 +1,10 @@
 local HOLD_TIME = 2.25
 local ABSORBED_WAIT = 2.5
-local VESSEL_PILE_COLLIDER_ID = 118
-local MAX_CONTROL_SPAWN_NUDGE = 48
 local AMBITION_LUNGE_OVERSHOOT = 32
+local GRAB_CAMERA_PAN_TIME = 0.65
+local CONVERSION_CAMERA_PAN_TIME = 0.2
+local HEART_BURST_Y_OFFSET = -18
+local SPLAT_HEART_BURST_Y_OFFSET = -4
 
 local function setSoulControl(soul, enabled)
     soul.can_move = enabled
@@ -15,57 +17,64 @@ local function hideSoul(soul)
     if soul.height_shadow then soul.height_shadow.visible = false end
 end
 
-local function spawnHeartBurst(vessel)
+local function recenterCameraOnVessel(
+    cutscene, vessel, focus_x, focus_y, focus_z
+)
+    if vessel.camera_recentering then return end
+    vessel.camera_recentering = true
+
+    local world = cutscene.world
+    focus_x = focus_x or vessel.x
+    focus_y = focus_y or vessel.y
+    focus_z = focus_z or vessel.z or 0
+
+    -- NPCs normally have no platforming camera offset. Give this Vessel the
+    -- same elevation-aware target used by the Player it will become.
+    vessel.getCameraTargetOffset = function(subject)
+        return 0, -(subject.z or 0)
+    end
+
+    local origin_x, origin_y = vessel:getCameraOriginExact()
+    local target_x, target_y = vessel:getRelativePos(
+        origin_x, origin_y, world
+    )
+    target_x = target_x + focus_x - vessel.x
+    target_y = target_y + focus_y - vessel.y - focus_z
+
+    cutscene:detachCamera()
+    world:setCameraTarget(vessel)
+    world.camera:panTo(
+        target_x, target_y, GRAB_CAMERA_PAN_TIME, "in-out-sine",
+        function()
+            if vessel.parent then world:setCameraAttached(true) end
+        end
+    )
+end
+
+local function spawnHeartBurst(vessel, y_offset)
     Assets.playSound("hurt")
     Assets.playSound("grab")
     local burst = HeartBurst(
         vessel.x,
-        vessel.y - (vessel.z or 0) - vessel.height + 2,
+        vessel.y - (vessel.z or 0) + (y_offset or HEART_BURST_Y_OFFSET),
         { Game:getSoulColor() }
     )
     burst.layer = (vessel.layer or Game.world.map.object_layer) + 0.02
     Game.world:addChild(burst)
 end
 
-local function playAbsorb(cutscene, vessel, animation, burst_frame)
+local function playAbsorb(cutscene, vessel, animation, burst_frame, burst_y_offset)
     local finished = false
     local burst_spawned = false
     vessel:setAnimation(animation, function() finished = true end)
     cutscene:wait(function()
         if not burst_spawned and vessel.sprite.frame >= burst_frame then
             burst_spawned = true
-            spawnHeartBurst(vessel)
+            spawnHeartBurst(vessel, burst_y_offset)
             vessel:shake(2, 0)
         end
         return finished
     end)
-end
-
-local function movePlayerClearOfPile(scene_map, player)
-    local pile_collider
-    for _, collider in ipairs(scene_map.collision or {}) do
-        if collider.map_object_id == VESSEL_PILE_COLLIDER_ID then
-            pile_collider = collider
-            break
-        end
-    end
-    if not pile_collider or not player.collider then return end
-
-    local moved = 0
-    Object.uncache(player)
-    while moved < MAX_CONTROL_SPAWN_NUDGE
-        and player.collider:collidesWith3D(pile_collider) do
-        player.y = player.y + 1
-        moved = moved + 1
-        Object.uncache(player)
-    end
-
-    if moved > 0 then
-        player.spawn_x, player.spawn_y, player.spawn_z =
-            player.x, player.y, player.z
-        player.last_safe_x, player.last_safe_y, player.last_safe_z =
-            player.x, player.y, player.z
-    end
 end
 
 local function finishAwakening(cutscene, scene_map, vessel, soul, final_sprite)
@@ -82,7 +91,6 @@ local function finishAwakening(cutscene, scene_map, vessel, soul, final_sprite)
     local player = vessel:convertToPlayer()
     player:setFacing("down")
     player:resetSprite()
-    movePlayerClearOfPile(scene_map, player)
 
     if soul.parent then soul:remove() end
     Game:setFlag("plot", math.max(
@@ -90,11 +98,14 @@ local function finishAwakening(cutscene, scene_map, vessel, soul, final_sprite)
         PLOT.intro_vessel
     ))
     scene_map.vessel_intro_state = "complete"
-    Game.world:setCameraAttached(true)
+    Game.world:setCameraTarget(nil)
+    cutscene:detachCamera()
+    cutscene:wait(cutscene:attachCamera(CONVERSION_CAMERA_PAN_TIME))
 end
 
 local function captureKindness(cutscene, vessel, soul)
     hideSoul(soul)
+    recenterCameraOnVessel(cutscene, vessel)
     vessel.solid = false
     cutscene:playSound("bump")
     cutscene:wait(cutscene:setAnimation(vessel, "intro/kindness/gentle_grab"))
@@ -105,6 +116,7 @@ end
 
 local function captureMindOrVoice(cutscene, scene_map, vessel, soul, gift)
     hideSoul(soul)
+    recenterCameraOnVessel(cutscene, vessel)
     vessel.solid = false
     if gift == "voice" then scene_map:stopVesselVoice() end
     cutscene:playSound("hurt")
@@ -117,6 +129,7 @@ end
 
 local function captureBravery(cutscene, vessel, soul)
     hideSoul(soul)
+    recenterCameraOnVessel(cutscene, vessel)
     vessel.solid = false
     cutscene:playSound("hurt")
     cutscene:playSound("grab")
@@ -154,6 +167,9 @@ local function captureAmbition(cutscene, vessel, soul)
         if soul_hidden then return end
         soul_hidden = true
         hideSoul(soul)
+        recenterCameraOnVessel(
+            cutscene, vessel, target_x, target_y, target_z
+        )
         Assets.playSound("grab")
     end
     Game.world.timer:during(duration, function(remaining)
@@ -177,7 +193,10 @@ local function captureAmbition(cutscene, vessel, soul)
     vessel:setSprite("intro/ambition/land")
     vessel:shake(2, 1)
     cutscene:wait(0.75)
-    playAbsorb(cutscene, vessel, "intro/ambition/absorb_splat", 3)
+    playAbsorb(
+        cutscene, vessel, "intro/ambition/absorb_splat", 3,
+        SPLAT_HEART_BURST_Y_OFFSET
+    )
 end
 
 return {
