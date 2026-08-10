@@ -37,19 +37,19 @@ function TiledMapReader:initialize(data)
     map.underwater_underlay_layer = tonumber(data.properties
         and data.properties["underwater_underlay_layer"])
     map.underwater_underlay_opacity = tonumber(data.properties
-        and data.properties["underwater_underlay_opacity"]) or 0.45
+        and data.properties["underwater_underlay_opacity"]) or 0.68
     map.underwater_underlay_void_strength = tonumber(data.properties
-        and data.properties["underwater_underlay_void_strength"]) or 0.18
+        and data.properties["underwater_underlay_void_strength"]) or 1
     map.underwater_underlay_speed = tonumber(data.properties
-        and data.properties["underwater_underlay_speed"]) or 0.35
+        and data.properties["underwater_underlay_speed"]) or 1
     map.underwater_underlay_pixel_size = tonumber(data.properties
         and data.properties["underwater_underlay_pixel_size"]) or 2
     map.underwater_underlay_scale = tonumber(data.properties
         and data.properties["underwater_underlay_scale"]) or 1
     map.underwater_underlay_distortion = tonumber(data.properties
-        and data.properties["underwater_underlay_distortion"]) or 2
+        and data.properties["underwater_underlay_distortion"]) or 6
     map.underwater_underlay_particle_strength = tonumber(data.properties
-        and data.properties["underwater_underlay_particle_strength"]) or 0.45
+        and data.properties["underwater_underlay_particle_strength"]) or 0.35
     map.underwater_underlay_shallow_color = data.properties
         and data.properties["underwater_underlay_shallow_color"] or "#0B162D"
     map.underwater_underlay_deep_color = data.properties
@@ -63,9 +63,9 @@ function TiledMapReader:initialize(data)
     map.terrain_edge_fog_surface_id = tostring(data.properties
         and data.properties["terrain_edge_fog_surface_id"] or "")
     map.terrain_edge_fog_extent = tonumber(data.properties
-        and data.properties["terrain_edge_fog_extent"]) or 96
+        and data.properties["terrain_edge_fog_extent"]) or 60
     map.terrain_edge_fog_opacity = tonumber(data.properties
-        and data.properties["terrain_edge_fog_opacity"]) or 0.42
+        and data.properties["terrain_edge_fog_opacity"]) or 0.25
     map.terrain_edge_fog_scroll_x = tonumber(data.properties
         and data.properties["terrain_edge_fog_scroll_x"]) or 10
     map.terrain_edge_fog_scroll_y = tonumber(data.properties

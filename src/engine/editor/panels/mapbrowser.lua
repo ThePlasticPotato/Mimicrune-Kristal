@@ -98,15 +98,15 @@ function EditorMapBrowser:selectNode(node)
             placeholder = "Defaults just below the lowest terrain layer"
         })
         property_set:registerProperty("underwater_underlay_opacity", "number", {
-            name = "Underwater Underlay Opacity", default = 0.45
+            name = "Underwater Underlay Opacity", default = 0.68
         })
         property_set:registerProperty(
             "underwater_underlay_void_strength", "number", {
-                name = "Underwater Void Strength", default = 0.18
+                name = "Underwater Void Strength", default = 1
             }
         )
         property_set:registerProperty("underwater_underlay_speed", "number", {
-            name = "Underwater Motion Speed", default = 0.35
+            name = "Underwater Motion Speed", default = 1
         })
         property_set:registerProperty(
             "underwater_underlay_pixel_size", "number", {
@@ -118,12 +118,12 @@ function EditorMapBrowser:selectNode(node)
         })
         property_set:registerProperty(
             "underwater_underlay_distortion", "number", {
-                name = "Underwater Distortion", default = 2
+                name = "Underwater Distortion", default = 6
             }
         )
         property_set:registerProperty(
             "underwater_underlay_particle_strength", "number", {
-                name = "Underwater Particle Strength", default = 0.45
+                name = "Underwater Particle Strength", default = 0.35
             }
         )
         property_set:registerProperty(
@@ -153,10 +153,10 @@ function EditorMapBrowser:selectNode(node)
             placeholder = "Authored support surface; preferred over tiles"
         })
         property_set:registerProperty("terrain_edge_fog_extent", "number", {
-            name = "Edge Fog Extent", default = 96
+            name = "Edge Fog Extent", default = 60
         })
         property_set:registerProperty("terrain_edge_fog_opacity", "number", {
-            name = "Edge Fog Opacity", default = 0.42
+            name = "Edge Fog Opacity", default = 0.25
         })
         property_set:registerProperty("terrain_edge_fog_scroll_x", "number", {
             name = "Edge Fog Scroll X", default = 10

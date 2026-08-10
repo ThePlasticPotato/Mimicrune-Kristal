@@ -2320,6 +2320,14 @@
               "name": "facing",
               "type": "choice",
               "value": "left"
+            },
+            {
+              "name": "marker",
+              "type": "object_reference",
+              "value": {
+                "map": "wastes_fork",
+                "object": 137
+              }
             }
           ]
         },
@@ -2358,6 +2366,21 @@
           "type": "marker",
           "x": 40,
           "y": 680,
+          "width": 0,
+          "height": 0,
+          "shape": {
+            "type": "point",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": []
+        },
+        {
+          "id": 136,
+          "name": "entry_right",
+          "type": "marker",
+          "x": 1160,
+          "y": 640,
           "width": 0,
           "height": 0,
           "shape": {

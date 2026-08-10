@@ -73,9 +73,9 @@ end
 function TerrainEdgeFog:init(map, options)
     options = options or {}
     self.map = map
-    self.extent = math.max(tonumber(map.terrain_edge_fog_extent) or 96, 1)
+    self.extent = math.max(tonumber(map.terrain_edge_fog_extent) or 60, 1)
     self.opacity = MathUtils.clamp(
-        tonumber(map.terrain_edge_fog_opacity) or 0.42, 0, 1)
+        tonumber(map.terrain_edge_fog_opacity) or 0.25, 0, 1)
     self.scroll_x = tonumber(map.terrain_edge_fog_scroll_x) or 10
     self.scroll_y = tonumber(map.terrain_edge_fog_scroll_y) or 4
     self.wave_amplitude = math.max(

@@ -30,19 +30,19 @@ function EditorMapReader:initialize(data)
     map.underwater_underlay_layer =
         tonumber(properties.underwater_underlay_layer)
     map.underwater_underlay_opacity =
-        tonumber(properties.underwater_underlay_opacity) or 0.45
+        tonumber(properties.underwater_underlay_opacity) or 0.68
     map.underwater_underlay_void_strength =
-        tonumber(properties.underwater_underlay_void_strength) or 0.18
+        tonumber(properties.underwater_underlay_void_strength) or 1
     map.underwater_underlay_speed =
-        tonumber(properties.underwater_underlay_speed) or 0.35
+        tonumber(properties.underwater_underlay_speed) or 1
     map.underwater_underlay_pixel_size =
         tonumber(properties.underwater_underlay_pixel_size) or 2
     map.underwater_underlay_scale =
         tonumber(properties.underwater_underlay_scale) or 1
     map.underwater_underlay_distortion =
-        tonumber(properties.underwater_underlay_distortion) or 2
+        tonumber(properties.underwater_underlay_distortion) or 6
     map.underwater_underlay_particle_strength =
-        tonumber(properties.underwater_underlay_particle_strength) or 0.45
+        tonumber(properties.underwater_underlay_particle_strength) or 0.35
     map.underwater_underlay_shallow_color =
         properties.underwater_underlay_shallow_color or "#0B162D"
     map.underwater_underlay_deep_color =
@@ -55,9 +55,9 @@ function EditorMapReader:initialize(data)
     map.terrain_edge_fog_surface_id =
         tostring(properties.terrain_edge_fog_surface_id or "")
     map.terrain_edge_fog_extent =
-        tonumber(properties.terrain_edge_fog_extent) or 96
+        tonumber(properties.terrain_edge_fog_extent) or 60
     map.terrain_edge_fog_opacity =
-        tonumber(properties.terrain_edge_fog_opacity) or 0.42
+        tonumber(properties.terrain_edge_fog_opacity) or 0.25
     map.terrain_edge_fog_scroll_x =
         tonumber(properties.terrain_edge_fog_scroll_x) or 10
     map.terrain_edge_fog_scroll_y =

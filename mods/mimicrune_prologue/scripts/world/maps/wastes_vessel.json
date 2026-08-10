@@ -2010,6 +2010,27 @@
               "value": "0"
             }
           ]
+        },
+        {
+          "id": 133,
+          "name": "savepoint",
+          "type": "savepoint",
+          "x": 1120,
+          "y": 640,
+          "width": 40,
+          "height": 40,
+          "shape": {
+            "type": "rectangle",
+            "shape_data": {}
+          },
+          "visible": true,
+          "properties": [
+            {
+              "name": "surface_id",
+              "type": "string",
+              "value": "0"
+            }
+          ]
         }
       ]
     },

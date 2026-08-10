@@ -55,18 +55,18 @@ function UnderwaterUnderlay:init(map)
     self.map_width = math.max(map.width * map.tile_width, 1)
     self.map_height = math.max(map.height * map.tile_height, 1)
     self.opacity = MathUtils.clamp(
-        tonumber(map.underwater_underlay_opacity) or 0.45, 0, 1)
+        tonumber(map.underwater_underlay_opacity) or 0.68, 0, 1)
     self.void_strength = MathUtils.clamp(
-        tonumber(map.underwater_underlay_void_strength) or 0.18, 0, 1)
-    self.speed = tonumber(map.underwater_underlay_speed) or 0.35
+        tonumber(map.underwater_underlay_void_strength) or 1, 0, 1)
+    self.speed = tonumber(map.underwater_underlay_speed) or 1
     self.pixel_size = math.max(
         math.floor(tonumber(map.underwater_underlay_pixel_size) or 2), 1)
     self.pattern_scale = math.max(
         tonumber(map.underwater_underlay_scale) or 1, 0.01)
     self.distortion = math.max(
-        tonumber(map.underwater_underlay_distortion) or 2, 0)
+        tonumber(map.underwater_underlay_distortion) or 6, 0)
     self.particle_strength = math.max(
-        tonumber(map.underwater_underlay_particle_strength) or 0.45, 0)
+        tonumber(map.underwater_underlay_particle_strength) or 0.35, 0)
     self.shallow_color = readColor(
         map.underwater_underlay_shallow_color, DEFAULT_SHALLOW_COLOR)
     self.deep_color = readColor(

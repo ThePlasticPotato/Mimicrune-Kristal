@@ -659,6 +659,28 @@ function Testing:runPlatformingTests()
         end)()
     end
 
+    do
+        (function()
+            local default_atmosphere_map = Map(nil, {
+                __map_reader = EditorMapReader,
+                properties = {},
+                layers = {}
+            })
+            expect(not default_atmosphere_map.underwater_underlay
+                and default_atmosphere_map.underwater_underlay_opacity == 0.68
+                and default_atmosphere_map.underwater_underlay_void_strength == 1
+                and default_atmosphere_map.underwater_underlay_speed == 1
+                and default_atmosphere_map.underwater_underlay_pixel_size == 2
+                and default_atmosphere_map.underwater_underlay_scale == 1
+                and default_atmosphere_map.underwater_underlay_distortion == 6
+                and default_atmosphere_map.underwater_underlay_particle_strength == 0.35
+                and not default_atmosphere_map.terrain_edge_fog
+                and default_atmosphere_map.terrain_edge_fog_extent == 60
+                and default_atmosphere_map.terrain_edge_fog_opacity == 0.25,
+                "atmosphere defaults should match wastes_entrance without enabling effects")
+        end)()
+    end
+
     local runtime_map = Map(nil, {
         __map_reader = EditorMapReader,
         properties = {
@@ -867,7 +889,7 @@ function Testing:runPlatformingTests()
             expect(minimum_filter == "nearest"
                 and maximum_filter == "nearest"
                 and fog.texture_scale == 2
-                and fog.opacity == 0.42
+                and fog.opacity == 0.25
                 and fog.wave_amplitude == 5
                 and fog.overlap == 8
                 and fog.raised_void_ratio == 0.5,

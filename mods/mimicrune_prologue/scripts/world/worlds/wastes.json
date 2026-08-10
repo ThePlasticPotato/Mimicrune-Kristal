@@ -16,6 +16,11 @@
       "map": "wastes_vessel",
       "x": -2000,
       "y": 40
+    },
+    {
+      "map": "wastes_fork",
+      "x": 1200,
+      "y": 240
     }
   ],
   "properties": []
